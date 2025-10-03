@@ -4,6 +4,7 @@ import Login from "./pages/login/Login";
 import { ToastContainer } from "react-toastify";
 import ScrollToTop from "./utils/ScrollToTop";
 import NotFound from "./pages/notfound/NotFound";
+import Register from "./pages/register/Register";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home title="Welcome Home" />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

@@ -9,3 +9,13 @@ export const login = async (data) => {
     throw new Error(message);
   }
 };
+
+export const register = async (data) => {
+  try {
+    const response = await axiosInstance.post('/Authen/register', data);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};

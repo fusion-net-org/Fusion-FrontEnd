@@ -1,7 +1,7 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { jwtDecode } from "jwt-decode";
 import { login } from "../../services/authService.js";
@@ -71,8 +71,11 @@ const Login: React.FC = () => {
         </div>
 
         <div>
-        <button type="submit">Đăng nhập</button>
+          <button type="submit">Đăng nhập</button> 
         </div>
+        <Link to="/register">
+          Đăng ký
+        </Link>
     </form>
     </div>
   );
