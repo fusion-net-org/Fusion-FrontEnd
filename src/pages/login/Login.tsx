@@ -34,7 +34,7 @@ const Login: React.FC = () => {
 
         dispatch(loginUser({ user }));
         toast.success("Đăng nhập thành công!");
-        navigate("/");
+        navigate("/company");
       } else {
         toast.error("Đăng nhập thất bại!");
       }
