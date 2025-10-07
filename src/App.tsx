@@ -1,12 +1,13 @@
 import { Routes, Route } from "react-router-dom";
-import Home from "./pages/home/Home";
 import Login from "./pages/login/Login";
 import { ToastContainer } from "react-toastify";
 import ScrollToTop from "./utils/ScrollToTop";
 import NotFound from "./pages/notfound/NotFound";
 import Register from "./pages/register/Register";
-import Company from "./pages/company/Company";
+import Company from "./pages/home/Company";
 import MainLayout from "./layouts/MainLayout/MainLayout";
+import Landing from "./pages/landing/Landing";
+import HomeLayout from "./layouts/HomeLayout/HomeLayout";
 
 function App() {
   return (
@@ -15,9 +16,13 @@ function App() {
       <ScrollToTop />
 
       <Routes>
-        {/* Route có layout */}
+        {/* Route main layout */}
         <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
+          <Route index element={<Landing />} />
+        </Route>
+
+        {/* Route home layout */}
+        <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
         </Route>
         
