@@ -10,3 +10,18 @@ export const createCompany = async (data) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+export const getPagedCompanies = async (pageNumber = 1, pageSize = 10) => {
+  try {
+    const response = await axiosInstance.get(`/company/paged`, {
+      params: {
+        pageNumber,
+        pageSize,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};

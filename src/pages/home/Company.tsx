@@ -1,101 +1,45 @@
-import React from 'react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { useState, useEffect } from 'react';
 import { Search, Users, Folder, ChevronDown, Bell, SlidersHorizontal } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
-import FormCreateCompany from '../../components/Company/CreateCompany';
-
-const companies = [
-  {
-    id: 1,
-    name: 'Company Name',
-    role: 'Owner',
-    tags: ['Company Owner', 'System'],
-    members: 7,
-    projects: 3,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-  },
-  {
-    id: 2,
-    name: 'Company Name',
-    role: 'Leader',
-    tags: ['Project Manager', 'Leader'],
-    members: 4,
-    projects: 2,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29',
-    avatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-  },
-  {
-    id: 3,
-    name: 'Company Name',
-    role: 'Member',
-    tags: ['Dev', 'Member'],
-    members: 6,
-    projects: 1,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1467269204594-9661b134dd2b',
-    avatar: 'https://randomuser.me/api/portraits/men/41.jpg',
-  },
-  {
-    id: 4,
-    name: 'Company Name',
-    role: 'Leader',
-    tags: ['Project Manager', 'Leader'],
-    members: 3,
-    projects: 2,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1493238792000-8113da705763',
-    avatar: 'https://randomuser.me/api/portraits/men/55.jpg',
-  },
-  {
-    id: 5,
-    name: 'Company Name',
-    role: 'Leader',
-    tags: ['Project Manager', 'Leader'],
-    members: 3,
-    projects: 2,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1493238792000-8113da705763',
-    avatar: 'https://randomuser.me/api/portraits/men/55.jpg',
-  },
-  {
-    id: 6,
-    name: 'Company Name',
-    role: 'Leader',
-    tags: ['Project Manager', 'Leader'],
-    members: 3,
-    projects: 2,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1493238792000-8113da705763',
-    avatar: 'https://randomuser.me/api/portraits/men/55.jpg',
-  },
-  {
-    id: 7,
-    name: 'Company Name',
-    role: 'Leader',
-    tags: ['Project Manager', 'Leader'],
-    members: 3,
-    projects: 2,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1493238792000-8113da705763',
-    avatar: 'https://randomuser.me/api/portraits/men/55.jpg',
-  },
-  {
-    id: 8,
-    name: 'Company Name',
-    role: 'Leader',
-    tags: ['Project Manager', 'Leader'],
-    members: 3,
-    projects: 2,
-    owner: 'Tuong Nguyen',
-    cover: 'https://images.unsplash.com/photo-1493238792000-8113da705763',
-    avatar: 'https://randomuser.me/api/portraits/men/55.jpg',
-  },
-];
+import FormCreateCompany from '@/components/Company/CreateCompany';
+import { getPagedCompanies } from '@/services/companyService.js';
+import type { CompanyResponse, Company } from '@/interfaces/Company/company';
+import CardCompany from '@/components/Company/CardCompany';
 
 const Company: React.FC = () => {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [pagination, setPagination] = useState<
+    Pick<CompanyResponse, 'pageNumber' | 'pageSize' | 'totalCount'>
+  >({
+    pageNumber: 1,
+    pageSize: 10,
+    totalCount: 0,
+  });
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const res = await getPagedCompanies();
+        const data: CompanyResponse = res.data;
+
+        console.log('Response', data);
+
+        setCompanies(data.items);
+        setPagination({
+          pageNumber: data.pageNumber,
+          pageSize: data.pageSize,
+          totalCount: data.totalCount,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        console.error('Error', error.message);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
   return (
     <div className="p-1 space-y-6">
       {/* Header */}
@@ -144,9 +88,6 @@ const Company: React.FC = () => {
         </div>
         {/* Button Create Company */}
         <div>
-          {/* <button className="flex  items-center gap-2 bg-blue-600 h-[40px] text-white px-4 py-2 rounded-full hover:bg-blue-700 transition">
-            <Plus className="w-5 h-5" /> Create New Company
-          </button> */}
           <FormCreateCompany />
         </div>
       </div>
@@ -205,58 +146,8 @@ const Company: React.FC = () => {
 
       {/* Company Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {companies.map((company) => (
-          <div
-            key={company.id}
-            className="border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white"
-          >
-            <img src={company.cover} alt="cover" className="w-full h-32 object-cover" />
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={company.avatar}
-                  alt="avatar"
-                  className="w-10 h-10 rounded-full object-cover border"
-                />
-                <div>
-                  <h3 className="font-semibold">{company.name}</h3>
-                  <p className="text-sm text-gray-500">Subscription</p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {company.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-3 py-1.5 border border-blue-300 bg-blue-50 text-xs font-semibold text-blue-500 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex justify-between text-sm text-gray-500 mt-3">
-                <span className="flex items-center gap-1">
-                  <Users className="w-4 h-4 mb-0.5" /> {company.members} Members
-                </span>
-                <span className="flex items-center gap-1">
-                  <Folder className="w-4 h-4 mb-0.5" /> {company.projects} Projects
-                </span>
-              </div>
-
-              <div className="flex gap-2 text-sm text-gray-600">
-                <img
-                  src="https://randomuser.me/api/portraits/men/32.jpg"
-                  alt="avatar"
-                  className="w-9 h-9 rounded-full object-cover border border-gray-200"
-                />
-                <div className="flex flex-col">
-                  <span className="font-medium text-xs">Owner</span>
-                  <span className="font-medium font-semibold">{company.owner}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {companies.map((company: Company) => (
+          <CardCompany key={company.id} company={company} />
         ))}
       </div>
 
@@ -264,7 +155,7 @@ const Company: React.FC = () => {
       <div className="flex justify-end mt-6 pr-2">
         <Stack spacing={2}>
           <Pagination
-            count={10}
+            count={Math.ceil(pagination.totalCount / pagination.pageSize)}
             color="primary"
             variant="outlined"
             shape="rounded"
