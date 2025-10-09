@@ -1,5 +1,5 @@
-import { Outlet } from "react-router-dom";
-import NavLeft from "../../components/NavLeft/NavLeft";
+import { Outlet } from 'react-router-dom';
+import NavLeft from '../../components/NavLeft/NavLeft';
 
 const HomeLayout = () => {
   return (
@@ -13,5 +13,5 @@ const HomeLayout = () => {
       </main>
     </div>
   );
-}
+};
 export default HomeLayout;

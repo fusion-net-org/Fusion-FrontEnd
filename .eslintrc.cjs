@@ -37,6 +37,8 @@ module.exports = {
     // Code style
     'react/react-in-jsx-scope': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-unused-vars': 'off',
+
     'import/order': [
       'error',
       {
