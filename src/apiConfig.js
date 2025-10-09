@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { refreshToken } from './services/authService';
 
 const API_BASE_URL = import.meta.env.VITE_FUSION_API_BASE_URL;
 
@@ -51,56 +52,56 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Nếu lỗi 401 và chưa retry
-    // if (error.response?.status === 401 && !originalRequest._retry) {
-    //   if (isRefreshing) {
-    //     return new Promise(function (resolve, reject) {
-    //       failedQueue.push({ resolve, reject });
-    //     })
-    //       .then((token) => {
-    //         originalRequest.headers.Authorization = `Bearer ${token}`;
-    //         return axiosInstance(originalRequest);
-    //       })
-    //       .catch((err) => {
-    //         return Promise.reject(err);
-    //       });
-    //   }
+    //Nếu lỗi 401 và chưa retry
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return axiosInstance(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
 
-    //   originalRequest._retry = true;
-    //   isRefreshing = true;
+      originalRequest._retry = true;
+      isRefreshing = true;
 
-    //   const user = JSON.parse(localStorage.getItem('user'));
-    //   const refreshTokenValue = user?.refreshToken;
+      const user = JSON.parse(localStorage.getItem('user'));
+      const refreshTokenValue = user?.refreshToken;
 
-    //   if (!refreshTokenValue) {
-    //     isRefreshing = false;
-    //     return Promise.reject(error);
-    //   }
+      if (!refreshTokenValue) {
+        isRefreshing = false;
+        return Promise.reject(error);
+      }
 
-    //   try {
-    //     const data = await refreshToken(refreshTokenValue);
-    //     console.log('refreshToken data:', data);
+      try {
+        const data = await refreshToken(refreshTokenValue);
+        //console.log('refreshToken data:', data);
 
-    //     const newAccessToken = data.accessToken;
-    //     const newRefreshToken = data.refreshToken;
+        const newAccessToken = data.accessToken;
+        const newRefreshToken = data.refreshToken;
 
-    //     // Cập nhật lại localStorage và axios header
-    //     user.token = newAccessToken;
-    //     user.refreshToken = newRefreshToken;
-    //     localStorage.setItem('user', JSON.stringify(user));
+        // Cập nhật lại localStorage và axios header
+        user.token = newAccessToken;
+        user.refreshToken = newRefreshToken;
+        localStorage.setItem('user', JSON.stringify(user));
 
-    //     axiosInstance.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        axiosInstance.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
 
-    //     processQueue(null, newAccessToken);
+        processQueue(null, newAccessToken);
 
-    //     return axiosInstance(originalRequest);
-    //   } catch (err) {
-    //     processQueue(err, null);
-    //     return Promise.reject(err);
-    //   } finally {
-    //     isRefreshing = false;
-    //   }
-    // }
+        return axiosInstance(originalRequest);
+      } catch (err) {
+        processQueue(err, null);
+        return Promise.reject(err);
+      } finally {
+        isRefreshing = false;
+      }
+    }
 
     if (error.response?.status === 401) {
       // Clear localStorage

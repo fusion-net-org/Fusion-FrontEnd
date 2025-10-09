@@ -1,12 +1,13 @@
-import React from "react";
-import { useForm } from "react-hook-form";
-import { useNavigate, Link } from "react-router-dom";
-import { toast } from "react-toastify";
-import { register as registerService } from "@/services/authService.js";
-import registerIllustration from "@/assets/auth/register.png";
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { register as registerService } from '@/services/authService.js';
+import registerIllustration from '@/assets/auth/register.png';
 
 interface RegisterFormInputs {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -26,13 +27,13 @@ const Register: React.FC = () => {
     try {
       const response = await registerService(data);
       if (response?.data) {
-        toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
-        navigate("/login");
+        toast.success('Registration successful! Please log in.');
+        navigate('/login');
       } else {
-        toast.error("Đăng ký thất bại!");
+        toast.error('Registration failed!');
       }
-    } catch (error) {
-      toast.error("Có lỗi xảy ra khi đăng ký!");
+    } catch (error: any) {
+      toast.error(error.response?.message || 'An error occurred while registering!');
     }
   };
 
@@ -44,17 +45,31 @@ const Register: React.FC = () => {
           <h2 className="text-3xl font-semibold text-gray-800 mb-8">Sign Up</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Full Name */}
+            {/* First Name */}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Full Name</label>
               <input
                 type="text"
-                placeholder="Full Name"
+                placeholder="First Name"
                 className="w-full border border-gray-300 rounded-md px-4 py-2 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                {...register("fullName", { required: "Full name is required" })}
+                {...register('firstName', { required: 'First name is required' })}
               />
-              {errors.fullName && (
-                <p className="text-sm text-red-500 mt-1">{errors.fullName.message}</p>
+              {errors.firstName && (
+                <p className="text-sm text-red-500 mt-1">{errors.firstName.message}</p>
+              )}
+            </div>
+
+            {/* Last Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Full Name</label>
+              <input
+                type="text"
+                placeholder="Last Name"
+                className="w-full border border-gray-300 rounded-md px-4 py-2 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                {...register('lastName', { required: 'Last name is required' })}
+              />
+              {errors.lastName && (
+                <p className="text-sm text-red-500 mt-1">{errors.lastName.message}</p>
               )}
             </div>
 
@@ -65,17 +80,15 @@ const Register: React.FC = () => {
                 type="email"
                 placeholder="Email"
                 className="w-full border border-gray-300 rounded-md px-4 py-2 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                {...register("email", {
-                  required: "Email is required",
+                {...register('email', {
+                  required: 'Email is required',
                   pattern: {
                     value: /^\S+@\S+$/i,
-                    message: "Invalid email format",
+                    message: 'Invalid email format',
                   },
                 })}
               />
-              {errors.email && (
-                <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
             </div>
 
             {/* Password */}
@@ -85,11 +98,11 @@ const Register: React.FC = () => {
                 type="password"
                 placeholder="Password"
                 className="w-full border border-gray-300 rounded-md px-4 py-2 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                {...register("password", {
-                  required: "Password is required",
+                {...register('password', {
+                  required: 'Password is required',
                   minLength: {
                     value: 6,
-                    message: "Password must be at least 6 characters",
+                    message: 'Password must be at least 6 characters',
                   },
                 })}
               />
@@ -100,21 +113,20 @@ const Register: React.FC = () => {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Confirm Password</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Confirm Password
+              </label>
               <input
                 type="password"
                 placeholder="Confirm Password"
                 className="w-full border border-gray-300 rounded-md px-4 py-2 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                {...register("confirmPassword", {
-                  required: "Please confirm your password",
-                  validate: (value) =>
-                    value === watch("password") || "Passwords do not match",
+                {...register('confirmPassword', {
+                  required: 'Please confirm your password',
+                  validate: (value) => value === watch('password') || 'Passwords do not match',
                 })}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.confirmPassword.message}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.confirmPassword.message}</p>
               )}
             </div>
 
@@ -122,14 +134,15 @@ const Register: React.FC = () => {
             <div className="flex items-start text-sm text-gray-600 leading-tight mt-2">
               <input type="checkbox" className="mr-2 mt-1 accent-blue-500" />
               <p>
-                By creating an account you agree to the{" "}
+                By creating an account you agree to the{' '}
                 <a href="#" className="text-[#1B74F3] hover:underline">
                   terms of use
-                </a>{" "}
-                and{" "}
+                </a>{' '}
+                and{' '}
                 <a href="#" className="text-[#1B74F3] hover:underline">
                   privacy policy
-                </a>.
+                </a>
+                .
               </p>
             </div>
 
@@ -163,7 +176,7 @@ const Register: React.FC = () => {
 
             {/* Login Link */}
             <p className="text-center text-sm text-gray-600 mt-3">
-              Already have an account?{" "}
+              Already have an account?{' '}
               <Link to="/login" className="text-[#1B74F3] hover:underline font-medium">
                 Log in
               </Link>
@@ -173,11 +186,7 @@ const Register: React.FC = () => {
 
         {/* Illustration Section */}
         <div className="hidden md:flex w-1/2 bg-blue-50 items-center justify-center p-6">
-          <img
-            src={registerIllustration}
-            alt="Register illustration"
-            className="w-4/5 h-auto"
-          />
+          <img src={registerIllustration} alt="Register illustration" className="w-4/5 h-auto" />
         </div>
       </div>
     </div>

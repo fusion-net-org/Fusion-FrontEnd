@@ -1,12 +1,12 @@
-import React from "react";
-import { useForm } from "react-hook-form";
-import { useDispatch } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import { jwtDecode } from "jwt-decode";
-import { login } from "@/services/authService.js";
-import { loginUser } from "@/redux/userSlice";
-import loginIllustration from "@/assets/auth/login.png";
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { useDispatch } from 'react-redux';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { jwtDecode } from 'jwt-decode';
+import { login } from '@/services/authService.js';
+import { loginUser } from '@/redux/userSlice';
+import loginIllustration from '@/assets/auth/login.png';
 
 interface LoginFormInputs {
   email: string;
@@ -14,7 +14,11 @@ interface LoginFormInputs {
 }
 
 const Login: React.FC = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormInputs>();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormInputs>();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -29,24 +33,23 @@ const Login: React.FC = () => {
           token,
           refreshToken: response.data.refreshToken,
           email: decodedToken.email,
-          username: response.data.userName
+          username: response.data.userName,
         };
 
         dispatch(loginUser({ user }));
-        toast.success("Đăng nhập thành công!");
-        navigate("/company");
+        toast.success('Login successful!');
+        navigate('/company');
       } else {
-        toast.error("Đăng nhập thất bại!");
+        toast.error('Login failed!');
       }
-    } catch (error) {
-      toast.error("Thông tin đăng nhập không đúng!");
+    } catch (error: any) {
+      toast.error(error.response?.message || 'Incorrect login information!');
     }
   };
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-blue-400 to-blue-600">
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-5xl flex overflow-hidden">
-        
         {/* Left Form Section */}
         <div className="w-full md:w-1/2 p-10">
           <h2 className="text-3xl font-semibold text-gray-800 mb-6">Sign in</h2>
@@ -58,7 +61,7 @@ const Login: React.FC = () => {
                 type="email"
                 placeholder="Email"
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                {...register("email", { required: "Email không được để trống" })}
+                {...register('email', { required: 'Email không được để trống' })}
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
             </div>
@@ -70,9 +73,11 @@ const Login: React.FC = () => {
                 type="password"
                 placeholder="Password"
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                {...register("password", { required: "Mật khẩu không được để trống" })}
+                {...register('password', { required: 'Mật khẩu không được để trống' })}
               />
-              {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>}
+              {errors.password && (
+                <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+              )}
             </div>
 
             {/* Remember me + Forgot password */}
@@ -81,7 +86,9 @@ const Login: React.FC = () => {
                 <input type="checkbox" className="accent-blue-500" />
                 Remember me
               </label>
-              <a href="#" className="text-[#1B74F3] hover:underline">Forgot password?</a>
+              <a href="#" className="text-[#1B74F3] hover:underline">
+                Forgot password?
+              </a>
             </div>
 
             {/* Submit */}
@@ -112,7 +119,7 @@ const Login: React.FC = () => {
 
             {/* Sign up link */}
             <p className="text-center text-gray-600 text-sm mt-6">
-              Don’t have account?{" "}
+              Don’t have account?{' '}
               <Link to="/register" className="text-[#1B74F3] hover:underline font-medium">
                 Sign up
               </Link>
