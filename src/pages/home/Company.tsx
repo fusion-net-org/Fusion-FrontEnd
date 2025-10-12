@@ -7,6 +7,7 @@ import FormCreateCompany from '@/components/Company/CreateCompany';
 import { getPagedCompanies } from '@/services/companyService.js';
 import type { CompanyResponse, Company } from '@/interfaces/Company/company';
 import CardCompany from '@/components/Company/CardCompany';
+import EmptyState from '@/utils/EmptyState';
 
 const Company: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -144,27 +145,37 @@ const Company: React.FC = () => {
         </div>
       </div>
 
-      {/* Company Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {companies.map((company: Company) => (
-          <CardCompany key={company.id} company={company} />
-        ))}
-      </div>
+      {/* Empty / List */}
+      {companies.length === 0 ? (
+        <EmptyState
+    title="DON'T HAVE ANY COMPANY"
+    primaryAction={<FormCreateCompany /> } imageSize="xl"  titlePlacement="over"   overlayStyle={{ top: '30%' }} 
+  />
+      ) : (
+        <>
+          {/* Company Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {companies.map((company: Company) => (
+              <CardCompany key={company.id} company={company} />
+            ))}
+          </div>
 
-      {/* Pagination */}
-      <div className="flex justify-end mt-6 pr-2">
-        <Stack spacing={2}>
-          <Pagination
-            count={Math.ceil(pagination.totalCount / pagination.pageSize)}
-            color="primary"
-            variant="outlined"
-            shape="rounded"
-            size="medium"
-            showFirstButton
-            showLastButton
-          />
-        </Stack>
-      </div>
+          {/* Pagination */}
+          <div className="flex justify-end mt-6 pr-2">
+            <Stack spacing={2}>
+              <Pagination
+                count={Math.ceil(pagination.totalCount / pagination.pageSize)}
+                color="primary"
+                variant="outlined"
+                shape="rounded"
+                size="medium"
+                showFirstButton
+                showLastButton
+              />
+            </Stack>
+          </div>
+        </>
+      )}
     </div>
   );
 };
