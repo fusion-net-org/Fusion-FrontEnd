@@ -1,54 +1,82 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
-import { Modal, message } from 'antd';
-import { createCompany } from '../../services/companyService.js';
+import { Modal } from 'antd';
+import { createCompany } from '@/services/companyService.js';
 import { Plus } from 'lucide-react';
+import { toast } from 'react-toastify';
 
-const FormCreateCompany: React.FC = () => {
+interface FormCreateCompanyProps {
+  onCreated?: () => void;
+}
+const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     companyName: '',
     taxCode: '',
-    phoneNumber: '',
+    detail: '',
+    email: '',
     avatar: null,
     banner: null,
   });
 
+  // Handlers for modal visibility
   const handleOpen = () => setIsModalOpen(true);
   const handleClose = () => setIsModalOpen(false);
 
+  // Handlers for form inputs
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Handlers for image uploads
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
-    if (files && files[0]) {
+
+    if (files && files.length > 0) {
       setFormData({ ...formData, [name]: files[0] });
+    } else {
+      // Nếu người dùng cancel => reset ảnh cũ
+      setFormData({ ...formData, [name]: null });
     }
+
+    e.target.value = '';
   };
 
+  const handleImageClick = (name: string) => {
+    setFormData((prev) => ({ ...prev, [name]: null }));
+  };
+
+  // Handle form submission
   const handleSubmit = async () => {
     try {
       const fd = new FormData();
       fd.append('Name', formData.companyName);
       fd.append('TaxCode', formData.taxCode);
-      fd.append('PhoneNumber', formData.phoneNumber);
-      if (formData.avatar) fd.append('AvatarImage', formData.avatar);
-      if (formData.banner) fd.append('BannerImage', formData.banner);
+      fd.append('Detail', formData.detail);
+      fd.append('Email', formData.email);
 
-      await createCompany(fd);
-      message.success('Company created successfully!');
+      if (formData.avatar) fd.append('AvatarCompany', formData.avatar);
+      if (formData.banner) fd.append('ImageCompany', formData.banner);
+
+      const res = await createCompany(fd);
+
+      const msg = res.data?.message || 'Company created successfully!';
+      toast.success(msg);
+
+      if (onCreated) onCreated();
+
       setFormData({
         companyName: '',
         taxCode: '',
-        phoneNumber: '',
+        detail: '',
+        email: '',
         avatar: null,
         banner: null,
       });
       handleClose();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      message.error(err.message || 'Failed to create company!');
+      toast.error(err.response?.data?.message || err.message || 'Failed to create company!');
     }
   };
 
@@ -61,9 +89,18 @@ const FormCreateCompany: React.FC = () => {
         <Plus className="w-5 h-5" /> Create New Company
       </button>
 
-      <Modal open={isModalOpen} footer={null} onCancel={handleClose} closable centered width={500}>
+      <Modal
+        className="p-3 mb-2"
+        open={isModalOpen}
+        footer={null}
+        onCancel={handleClose}
+        closable
+        centered
+        width={500}
+      >
         <h2 className="text-xl font-semibold mb-4 text-gray-800">Create New Company</h2>
 
+        {/* Company Name */}
         <div className="flex flex-col gap-4">
           <div>
             <label className="text-sm font-medium text-gray-700">Company Name</label>
@@ -77,6 +114,7 @@ const FormCreateCompany: React.FC = () => {
             />
           </div>
 
+          {/* Tax Code */}
           <div>
             <label className="text-sm font-medium text-gray-700">Tax code</label>
             <input
@@ -89,14 +127,27 @@ const FormCreateCompany: React.FC = () => {
             />
           </div>
 
+          {/* Detail */}
           <div>
-            <label className="text-sm font-medium text-gray-700">Phone number</label>
+            <label className="text-sm font-medium text-gray-700">Detail</label>
             <input
-              name="phoneNumber"
+              name="detail"
               type="text"
-              value={formData.phoneNumber}
+              value={formData.detail}
               onChange={handleChange}
-              placeholder="Input phone number"
+              placeholder="Input Detail"
+              className="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          {/* Email */}
+          <div>
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <input
+              name="email"
+              type="text"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Input Email"
               className="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
@@ -109,6 +160,7 @@ const FormCreateCompany: React.FC = () => {
                 type="file"
                 name="avatar"
                 accept="image/*"
+                onClick={() => handleImageClick('avatar')}
                 onChange={handleImageChange}
                 className="hidden"
                 id="avatar-upload"
@@ -135,6 +187,14 @@ const FormCreateCompany: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-1">Supports: JPEG, PNG, SVG</p>
                 </div>
               </label>
+
+              {formData.avatar && (
+                <img
+                  src={URL.createObjectURL(formData.avatar)}
+                  alt="Avatar Preview"
+                  className="mt-3 w-40 h-40 object-cover rounded-lg border"
+                />
+              )}
             </div>
           </div>
 
@@ -146,6 +206,7 @@ const FormCreateCompany: React.FC = () => {
                 type="file"
                 name="banner"
                 accept="image/*"
+                onClick={() => handleImageClick('banner')}
                 onChange={handleImageChange}
                 className="hidden"
                 id="banner-upload"
@@ -172,6 +233,14 @@ const FormCreateCompany: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-1">Supports: JPEG, PNG, SVG</p>
                 </div>
               </label>
+
+              {formData.banner && (
+                <img
+                  src={URL.createObjectURL(formData.banner)}
+                  alt="Banner Preview"
+                  className="mt-3 w-40 h-40 object-cover rounded-lg border"
+                />
+              )}
             </div>
           </div>
 
