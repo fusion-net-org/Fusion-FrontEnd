@@ -1,22 +1,39 @@
-// src/components/Company/CardCompany.tsx
-import React from 'react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { useState, useEffect, use } from 'react';
 import { Users, Folder } from 'lucide-react';
-import type { Company } from '../../interfaces/Company/company';
+import type { Company } from '@/interfaces/Company/company';
+import { getSelfUser } from '@/services/userService.js';
+import type { User, UserResponse } from '@/interfaces/User/User';
+import { Tooltip } from 'antd';
 
 interface CardCompanyProps {
   company: Company;
 }
 
 const CardCompany: React.FC<CardCompanyProps> = ({ company }) => {
+  const [selfUser, setSelfUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const fetchSelfUser = async () => {
+      try {
+        const response: UserResponse = await getSelfUser();
+        setSelfUser(response.data);
+        console.log(response.data);
+      } catch (err) {
+        console.error('error:', err);
+      }
+    };
+    fetchSelfUser();
+  }, []);
+
   return (
     <div
       key={company.id}
-      className="font-inter border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white flex flex-col h-full"
+      className="font-inter border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white flex flex-col h-full cursor-pointer"
     >
       <img src={company.imageCompany} alt="cover" className="w-full h-32 object-cover" />
 
       <div className="p-4 flex flex-col justify-between flex-1">
-        {/* Nội dung chính */}
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <img
@@ -25,8 +42,17 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company }) => {
               className="w-10 h-10 rounded-full object-cover border"
             />
             <div>
-              <h3 className="font-semibold text-gray-800 line-clamp-2">{company.name}</h3>
-              <p className="text-sm text-gray-500 line-clamp-2">{company.detail}</p>
+              <Tooltip title={company.name} placement="topLeft">
+                <h3 className="font-semibold text-gray-800 line-clamp-1 cursor-pointer">
+                  {company.name}
+                </h3>
+              </Tooltip>
+
+              <Tooltip title={company.detail} placement="topLeft">
+                <p className="text-sm text-gray-500 line-clamp-1 cursor-pointer">
+                  {company.detail}
+                </p>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -44,17 +70,19 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company }) => {
             </span>
           </div>
 
-          <div className="flex gap-2 text-sm text-gray-600">
-            <img
-              src="https://randomuser.me/api/portraits/men/32.jpg"
-              alt="owner avatar"
-              className="w-9 h-9 rounded-full object-cover border border-gray-200"
-            />
-            <div className="flex flex-col">
-              <span className="font-medium text-xs">Owner</span>
-              <span className="font-semibold">{company.ownerUserName}</span>
+          {selfUser && (
+            <div className="flex gap-2 text-sm text-gray-600">
+              <img
+                src={selfUser.avatar}
+                alt="owner avatar"
+                className="w-9 h-9 rounded-full object-cover border border-gray-200"
+              />
+              <div className="flex flex-col">
+                <span className="font-medium text-xs">Owner</span>
+                <span className="font-semibold">{company.ownerUserName}</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

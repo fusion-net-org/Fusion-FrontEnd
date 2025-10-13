@@ -5,13 +5,13 @@ export const createCompany = async (data) => {
     const response = await axiosInstance.post('/company', data, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data;
+    return response;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
 
-export const getPagedCompanies = async (pageNumber = 1, pageSize = 10) => {
+export const getPagedCompanies = async (pageNumber = 1, pageSize = 8) => {
   try {
     const response = await axiosInstance.get(`/company/paged`, {
       params: {
@@ -20,6 +20,43 @@ export const getPagedCompanies = async (pageNumber = 1, pageSize = 10) => {
       },
     });
 
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const searchCompanies = async (keyword, pageNumber = 1, pageSize = 8) => {
+  try {
+    const response = await axiosInstance.get(
+      `/company/paged?Keyword=${encodeURIComponent(keyword)}`,
+      {
+        params: {
+          pageNumber,
+          pageSize,
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+export const filterAndSortCompanies = async (
+  SortColumn,
+  SortDescending,
+  pageNumber = 1,
+  pageSize = 8,
+) => {
+  try {
+    const response = await axiosInstance.get('/company/paged', {
+      params: {
+        SortColumn,
+        SortDescending,
+        PageNumber: pageNumber,
+        PageSize: pageSize,
+      },
+    });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
