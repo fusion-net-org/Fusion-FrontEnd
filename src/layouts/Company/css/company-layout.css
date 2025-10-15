@@ -1,0 +1,75 @@
+/* ===================== THEME TOKENS ===================== */
+.cmp-theme{
+  --cmp-brand-50:#eef6ff;--cmp-brand-100:#d8ebff;--cmp-brand-200:#b9dbff;--cmp-brand-300:#8cc4ff;
+  --cmp-brand-400:#56a6ff;--cmp-brand-500:#2e8bff;--cmp-brand-600:#1e6fde;--cmp-brand-700:#1757b1;
+  --cmp-brand-800:#154a91;--cmp-brand-900:#133e77;
+  --cmp-gray-25:#fcfcfd;--cmp-gray-50:#f7f7f8;--cmp-gray-100:#eff1f5;--cmp-gray-200:#e5e7eb;
+  --cmp-gray-300:#d2d6db;--cmp-gray-400:#9aa4b2;--cmp-gray-500:#6b7280;--cmp-gray-600:#4b5563;
+  --cmp-gray-700:#374151;--cmp-gray-800:#1f2937;--cmp-gray-900:#111827;
+  --cmp-success:#22c55e;--cmp-danger:#ef4444;--cmp-warn:#f59e0b;
+
+  --cmp-radius-lg:16px;--cmp-radius-md:12px;--cmp-radius-sm:10px;
+  --cmp-font:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+  --cmp-text-xxs:11px;--cmp-text-xs:12.5px;--cmp-text-sm:14px;--cmp-text-md:15.5px;--cmp-text-lg:18px;--cmp-text-xl:22px;
+
+  --cmp-shadow-sm:0 1px 2px rgba(17,24,39,.06);
+  --cmp-shadow-md:0 8px 24px rgba(17,24,39,.08);
+  --cmp-border:1px solid var(--cmp-gray-200);
+}
+
+/* ===================== SHELL LAYOUT ===================== */
+.cmp-shell{font-family:var(--cmp-font);color:var(--cmp-gray-800);background:var(--cmp-gray-50);
+  min-height:100vh;display:grid;grid-template-rows:auto 1fr auto}
+.cmp-content{display:grid;grid-template-columns:240px 1fr}
+.cmp-main{padding:24px 28px}
+.cmp-main.is-initialTall{min-height:calc(100vh + 220px)}
+.cmp-pagefade{animation:cmpFade .25s ease}
+@keyframes cmpFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===================== HEADER ===================== */
+.cmp-header{position:sticky;top:0;z-index:20;background:#fff;box-shadow:var(--cmp-shadow-sm);border-bottom:var(--cmp-border)}
+.cmp-header__inner{height:60px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:16px;padding:0 20px}
+.cmp-header__brand{display:inline-flex;gap:10px;align-items:center}
+.cmp-header__back{width:32px;height:32px;border-radius:999px;background:var(--cmp-brand-50);
+  box-shadow:inset 0 0 0 2px var(--cmp-brand-100);display:flex;align-items:center;justify-content:center;
+  margin-right:6px;border:none;cursor:pointer}
+.cmp-header__back:hover{background:var(--cmp-brand-100)}
+.cmp-header__logo{width:28px;height:28px;border-radius:50%;background:var(--cmp-brand-100);box-shadow:inset 0 0 0 2px var(--cmp-brand-200)}
+.cmp-header__name{font-weight:700;font-size:var(--cmp-text-md);color:var(--cmp-gray-800)}
+.cmp-header__owner{margin-left:10px;font-size:var(--cmp-text-xxs);padding:3px 8px;border-radius:999px;background:#fff7e6;color:#b25e00;border:1px solid #ffe0a6}
+.cmp-header__right{display:inline-flex;gap:14px;align-items:center}
+.cmp-header__iconBtn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid var(--cmp-gray-200);background:#fff}
+.cmp-header__avatar{width:28px;height:28px;border-radius:50%;background:var(--cmp-gray-200)}
+.cmp-header__user{display:inline-flex;align-items:center;gap:10px;font-size:var(--cmp-text-sm)}
+
+/* ===================== SIDEBAR / NAV ===================== */
+.cmp-nav{background:#fff;border-right:var(--cmp-border)}
+.cmp-nav__menu{--item-h:44px;--gap:8px;padding:16px 10px}
+.cmp-nav__groupTitle{padding:10px 12px;font-size:var(--cmp-text-xs);font-weight:700;letter-spacing:.02em;color:var(--cmp-gray-500);text-transform:uppercase}
+
+/* Container chỉ chứa items để indicator không lệch do title */
+.cmp-nav__items{position:relative;display:grid;gap:var(--gap);margin:0 6px}
+
+/* Indicator dính mép trái giống design */
+.cmp-nav__indicator{position:absolute;left:-10px;top:0;width:6px;height:var(--item-h);border-radius:0 8px 8px 0;
+  background:var(--cmp-brand-500);box-shadow:0 6px 16px rgba(46,139,255,.35);
+  transform:translateY(calc(var(--active-index) * (var(--item-h) + var(--gap))));
+  transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+
+/* Item + hover/active */
+.cmp-nav__item{height:var(--item-h);border-radius:12px;display:flex;align-items:center;gap:12px;
+  padding:0 12px;color:var(--cmp-gray-700);text-decoration:none;position:relative;overflow:hidden}
+.cmp-nav__item::after{content:"";position:absolute;inset:0;background:var(--cmp-gray-100);opacity:0;transition:opacity .18s}
+.cmp-nav__item:hover::after{opacity:.85}
+.cmp-nav__item.is-active{background:var(--cmp-brand-50);border:1px solid var(--cmp-brand-200);color:var(--cmp-brand-700)}
+
+/* Icon linh hoạt */
+.cmp-nav__glyph{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;
+  background:var(--cmp-brand-100);box-shadow:inset 0 0 0 1px var(--cmp-brand-200);transition:transform .18s}
+.cmp-nav__item:hover .cmp-nav__glyph{transform:scale(1.06)}
+.cmp-nav__dot{width:8px;height:8px;border-radius:2px;background:var(--cmp-brand-500)}
+.cmp-nav__svg{width:14px;height:14px;display:block;stroke:currentColor;color:var(--cmp-brand-700)}
+
+/* ===================== FOOTER ===================== */
+.cmp-footer{border-top:var(--cmp-border);background:#fff}
+.cmp-footer__inner{height:52px;display:flex;align-items:center;justify-content:center;color:var(--cmp-gray-500);font-size:var(--cmp-text-xs)}

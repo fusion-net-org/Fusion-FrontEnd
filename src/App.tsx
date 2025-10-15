@@ -8,6 +8,8 @@ import Company from './pages/home/Company';
 import MainLayout from './layouts/MainLayout/MainLayout';
 import Landing from './pages/landing/Landing';
 import HomeLayout from './layouts/HomeLayout/HomeLayout';
+import CompanyLayout from './layouts/Company/CompanyLayout';
+import AccessRolePage from './pages/home/AccessRolePage';
 
 function App() {
   return (
@@ -24,6 +26,9 @@ function App() {
         {/* Route home layout */}
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
+        </Route>
+        <Route element={<CompanyLayout />}>
+          <Route path="/company/access-role" element={<AccessRolePage/>} />
         </Route>
 
         {/* Route ko có layout */}
