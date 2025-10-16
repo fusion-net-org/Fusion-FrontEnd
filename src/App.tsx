@@ -4,13 +4,12 @@ import { ToastContainer } from 'react-toastify';
 import ScrollToTop from './utils/ScrollToTop';
 import NotFound from './pages/notfound/NotFound';
 import Register from './pages/register/Register';
-import Company from './pages/home/Company';
-import MainLayout from './layouts/MainLayout/MainLayout';
+import Company from '@/pages/home/Company';
 import Landing from './pages/landing/Landing';
 import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
-
+import Partners from '@/pages/partners/Partner';
 function App() {
   return (
     <>
@@ -19,7 +18,7 @@ function App() {
 
       <Routes>
         {/* Route main layout */}
-        <Route path="/" >
+        <Route path="/">
           <Route index element={<Landing />} />
         </Route>
 
@@ -28,13 +27,18 @@ function App() {
           <Route path="/company" element={<Company />} />
         </Route>
         <Route element={<CompanyLayout />}>
-          <Route path="/company/access-role" element={<AccessRolePage/>} />
+          <Route path="/company/access-role" element={<AccessRolePage />} />
         </Route>
 
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="*" element={<NotFound />} />
+
+        {/* partners */}
+        <Route element={<CompanyLayout />}>
+          <Route path="/company/partners" element={<Partners />} />
+        </Route>
       </Routes>
     </>
   );
