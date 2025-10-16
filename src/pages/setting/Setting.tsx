@@ -1,5 +1,19 @@
 import { useState } from 'react';
-import { Shield, Bell, Palette, Save, User, Mail, Moon, Sun, Sliders } from 'lucide-react';
+import {
+  Shield,
+  Bell,
+  Palette,
+  Save,
+  User,
+  Mail,
+  Moon,
+  Sun,
+  Sliders,
+  Languages,
+  KeyRound,
+  LockKeyhole,
+  RotateCcwKey,
+} from 'lucide-react';
 
 // General Settings
 const GeneralSettings = () => {
@@ -47,7 +61,10 @@ const GeneralSettings = () => {
 
         {/* Language */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Languages className="inline w-4 h-4 mr-2" />
+            Language
+          </label>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -83,12 +100,30 @@ const SecuritySettings = () => {
 
       <div className="space-y-4">
         {[
-          { label: 'Current Password', value: currentPassword, set: setCurrentPassword },
-          { label: 'New Password', value: newPassword, set: setNewPassword },
-          { label: 'Confirm New Password', value: confirmPassword, set: setConfirmPassword },
+          {
+            label: 'Current Password',
+            icon: <KeyRound className="inline w-4 h-4 mr-2" />,
+            value: currentPassword,
+            set: setCurrentPassword,
+          },
+          {
+            label: 'New Password',
+            icon: <LockKeyhole className="inline w-4 h-4 mr-2" />,
+            value: newPassword,
+            set: setNewPassword,
+          },
+          {
+            label: 'Confirm New Password',
+            icon: <RotateCcwKey className="inline w-4 h-4 mr-2" />,
+            value: confirmPassword,
+            set: setConfirmPassword,
+          },
         ].map((field, i) => (
           <div key={i}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{field.label}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {field.icon}
+              {field.label}
+            </label>
             <input
               type="password"
               value={field.value}
