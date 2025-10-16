@@ -10,13 +10,13 @@ import {
   searchCompanies,
   filterAndSortCompanies,
 } from '@/services/companyService.js';
-import type { CompanyResponse, Company } from '@/interfaces/Company/company';
+import type { CompanyResponse, CompanyRequest } from '@/interfaces/Company/company';
 import CardCompany from '@/components/Company/CardCompany';
 import EmptyState from '@/utils/EmptyState';
 
 const Company: React.FC = () => {
   //useState get all companies
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<CompanyRequest[]>([]);
   //useState search
   const [searchTerm, setSearchTerm] = useState('');
   //useState pagination
@@ -220,8 +220,6 @@ const Company: React.FC = () => {
             >
               <option value="name">Name</option>
               <option value="createAt">Created At</option>
-              <option value="totalMember">Total Members</option>
-              <option value="totalProject">Total Projects</option>
             </select>
             <ChevronDown className="absolute right-2 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
@@ -258,14 +256,16 @@ const Company: React.FC = () => {
       ) : (
         <>
           {/* Company Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {companies.map((company: Company) => (
-              <CardCompany key={company.id} company={company} />
+          <div className="flex flex-wrap gap-6">
+            {companies.map((company) => (
+              <div key={company.id} className="w-[280px]">
+                <CardCompany company={company} />
+              </div>
             ))}
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-end mt-6 pr-2">
+          <div className="flex justify-end mt-6 pr-3">
             <Stack spacing={2}>
               <Pagination
                 count={Math.ceil(pagination.totalCount / pagination.pageSize)}

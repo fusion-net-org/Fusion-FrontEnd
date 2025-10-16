@@ -1,4 +1,4 @@
-export interface Company {
+export interface CompanyRequest {
   id: string;
   name: string;
   ownerUserId: string;
@@ -15,7 +15,7 @@ export interface Company {
 }
 
 export interface CompanyResponse {
-  items: Company[];
+  items: CompanyRequest[];
   pageNumber: number;
   pageSize: number;
   totalCount: number;
