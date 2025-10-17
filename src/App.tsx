@@ -10,6 +10,7 @@ import Landing from './pages/landing/Landing';
 import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
+import ProjectsPage from './pages/home/ProjectsPage';
 
 function App() {
   return (
@@ -30,7 +31,9 @@ function App() {
         <Route element={<CompanyLayout />}>
           <Route path="/company/access-role" element={<AccessRolePage/>} />
         </Route>
-
+        <Route element={<CompanyLayout />}>
+          <Route path="/company/project" element={<ProjectsPage/>} />
+        </Route>
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
