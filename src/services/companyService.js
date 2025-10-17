@@ -62,3 +62,21 @@ export const filterAndSortCompanies = async (
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+//https://localhost:7160/api/company/8e27874a-9364-40aa-96e9-a0677fa58d4c
+// export const getCompanyById = async (id) => {
+//   try {
+//     const response = await axiosInstance.get($`/company/{id}`);
+//     return response.data;
+//   } catch (error) {
+//     throw new Error(error.response?.data?.message || 'Error!');
+//   }
+// };
+
+export const getCompanyById = async (id) => {
+  try {
+    const { data } = await axiosInstance.get(`/company/${id}`);
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
