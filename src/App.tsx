@@ -10,6 +10,7 @@ import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import Partners from '@/pages/partners/Partner';
+import PartnerDetails from '@/pages/partners/PartnerDetails';
 function App() {
   return (
     <>
@@ -38,6 +39,7 @@ function App() {
         {/* partners */}
         <Route element={<CompanyLayout />}>
           <Route path="/company/partners" element={<Partners />} />
+          <Route path="/company/partners/:id" element={<PartnerDetails />} />
         </Route>
       </Routes>
     </>
