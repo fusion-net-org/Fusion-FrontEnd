@@ -17,7 +17,7 @@ import {
 
 // General Settings
 const GeneralSettings = () => {
-  const [name, setName] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [email, setEmail] = useState('');
   const [language, setLanguage] = useState('en');
 
@@ -26,7 +26,7 @@ const GeneralSettings = () => {
       <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-2">General Settings</h3>
         <p className="text-sm text-gray-600 mb-6">
-          Manage your account information and preferences
+          Manage your project information and preferences
         </p>
       </div>
 
@@ -35,12 +35,12 @@ const GeneralSettings = () => {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <User className="inline w-4 h-4 mr-2" />
-            Full Name
+            Project Name
           </label>
           <input
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
             className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -68,7 +68,7 @@ const GeneralSettings = () => {
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full md:w-1/4 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="en">English</option>
             <option value="vi">Tiếng Việt</option>
