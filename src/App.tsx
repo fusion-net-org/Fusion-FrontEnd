@@ -10,6 +10,7 @@ import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import Partners from '@/pages/partners/Partner';
+import UserProfile from './pages/UserProfile/UserProfile';
 function App() {
   return (
     <>
@@ -33,6 +34,7 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/user-profile" element={<UserProfile />} />
         <Route path="*" element={<NotFound />} />
 
         {/* partners */}
