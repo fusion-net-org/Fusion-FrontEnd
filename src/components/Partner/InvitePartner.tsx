@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import { Modal, Input } from 'antd';
-
+import { InvitePartnert } from '@/services/partnerService.js';
 interface InvitePartnerProps {
   open: boolean;
   onClose: () => void;
