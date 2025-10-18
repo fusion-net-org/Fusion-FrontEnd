@@ -5,15 +5,25 @@ import { UserPlus, Users, Check, X, Ban } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import InvitePartners from '@/components/Partner/InvitePartner';
-import { GetCompanyPartners, GetStatusSumaryPartners } from '@/services/partnerService.js';
+import {
+  GetCompanyPartners,
+  GetStatusSumaryPartners,
+  SearchPartners,
+  FilterPartners,
+  CancelInvitePartner,
+  AcceptInvitePartnert,
+  InvitePartnert,
+} from '@/services/partnerService.js';
 import { getCompanyById } from '@/services/companyService.js';
-import type {
-  PartnerResponse,
-  SummaryStatusPartnerResponse,
-  SummaryStatusPartner,
-} from '@/interfaces/Partner/partner';
+import type { PartnerResponse, SummaryStatusPartner } from '@/interfaces/Partner/partner';
 import type { CompanyRequest } from '@/interfaces/Company/company';
+import { DatePicker } from 'antd';
+
+const { RangePicker } = DatePicker;
+
 const Partners: React.FC = () => {
+  //#region State
+
   //state partner
   const [partners, setPartners] = useState<any[]>([]);
   //state pagination
@@ -30,7 +40,10 @@ const Partners: React.FC = () => {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   //state summary status partners
   const [summaryStatusPartner, setSummaryStatusPartner] = useState<SummaryStatusPartner>();
-
+  //state search
+  const [searchTerm, setSearchTerm] = useState('');
+  //state filter status
+  const [filterStatus, setFilterStatus] = useState('');
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active':
@@ -43,33 +56,120 @@ const Partners: React.FC = () => {
         return 'bg-gray-100 text-gray-700 border-gray-300';
     }
   };
+  //#endregion
+
+  //#region  handle
   // Handle page change
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
     setCurrentPage(value);
     fetchPartners(value);
   };
 
+  // Handle search
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      fetchPartners();
+      return;
+    }
+    try {
+      const res = await SearchPartners(searchTerm);
+      const data: PartnerResponse = res.data;
+      const enrichedPartners = await enrichPartnerInfo(data.items);
+      setPartners(enrichedPartners);
+      setPagination({
+        pageNumber: data.pageNumber,
+        pageSize: data.pageSize,
+        totalCount: data.totalCount,
+      });
+    } catch (error: any) {
+      console.error('Error searching:', error.message);
+    }
+  };
+
+  // Handle enter key for search
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+  // Handle filter status partner
+  const handleFilterStatus = async (status: string) => {
+    try {
+      if (!status || status === 'All') {
+        fetchPartners();
+        return;
+      }
+
+      const res = await FilterPartners(status);
+      const data: PartnerResponse = res.data;
+      const enrichedPartners = await enrichPartnerInfo(data.items);
+
+      setPartners(enrichedPartners);
+      setPagination({
+        pageNumber: data.pageNumber,
+        pageSize: data.pageSize,
+        totalCount: data.totalCount,
+      });
+    } catch (error: any) {
+      console.error('Error filter:', error.message);
+    }
+  };
+  // handle filter by date
+  const handleFilterByDate = async (startDate: any, endDate: any) => {
+    try {
+      if (!startDate || !endDate) {
+        fetchPartners();
+        return;
+      }
+
+      const from = startDate.format('YYYY-MM-DD');
+      const to = endDate.format('YYYY-MM-DD');
+
+      const res = await GetCompanyPartners(from, to);
+      const data: PartnerResponse = res.data;
+      console.log(data);
+      const enrichedPartners = await enrichPartnerInfo(data.items);
+      setPartners(enrichedPartners);
+      setPagination({
+        pageNumber: data.pageNumber,
+        pageSize: data.pageSize,
+        totalCount: data.totalCount,
+      });
+    } catch (error: any) {
+      console.error('Error filtering by date:', error.message);
+    }
+  };
+
+  //#endregion
+
+  //#region Call API
+  //promise partners with compani
+  const enrichPartnerInfo = async (partners: any[]) => {
+    return Promise.all(
+      partners.map(async (p) => {
+        try {
+          const companyRes = await getCompanyById(p.companyBId);
+          const company: CompanyRequest = companyRes.data;
+          return { ...p, companyInfo: company };
+        } catch {
+          return { ...p, companyInfo: null };
+        }
+      }),
+    );
+  };
   //call api to get partners data
   const fetchPartners = async (pageNumber = 1) => {
     try {
-      const response = await GetCompanyPartners(pageNumber, pagination.pageSize, null, null);
-      const data: PartnerResponse = response.data;
-      const enrichedPartners = await Promise.all(
-        data.items.map(async (p) => {
-          try {
-            const companyRes = await getCompanyById(p.companyBId);
-            const company: CompanyRequest = companyRes.data;
-            return {
-              ...p,
-              companyInfo: company,
-            };
-          } catch (err) {
-            console.error('Error fetching company info:', err);
-            return { ...p, companyInfo: null };
-          }
-        }),
+      const response = await GetCompanyPartners(
+        null,
+        null,
+        pageNumber,
+        pagination.pageSize,
+        null,
+        null,
       );
-
+      const data: PartnerResponse = response.data;
+      const enrichedPartners = await enrichPartnerInfo(data.items);
       setPartners(enrichedPartners);
       setPagination({
         pageNumber: data.pageNumber,
@@ -84,7 +184,6 @@ const Partners: React.FC = () => {
   const fetchSummaryStatusPartners = async () => {
     const response = await GetStatusSumaryPartners();
     const data: SummaryStatusPartner = response.data;
-    console.log(data);
     setSummaryStatusPartner(data);
     return data;
   };
@@ -93,7 +192,9 @@ const Partners: React.FC = () => {
     fetchPartners(1);
     fetchSummaryStatusPartners();
   }, []);
+  //#endregion
 
+  //#region  logic
   return (
     <div className="px-6 font-inter">
       {/* Header */}
@@ -134,17 +235,47 @@ const Partners: React.FC = () => {
       <div className="flex justify-between items-center bg-gray-50 p-1 rounded-md mb-3">
         <input
           type="text"
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Search Company/Owner/Status"
-          className="w-1/2 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-100"
+          className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-100"
         />
-        <div className="flex items-center gap-2 text-blue-600 text-sm cursor-pointer">
-          <select className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none">
-            <option>All</option>
-            <option>Connected</option>
-            <option>Incoming</option>
-            <option>Outgoing</option>
+
+        {/* filter range date */}
+        <div>
+          <span>Create Date: </span>
+          <RangePicker
+            className="border border-gray-300 rounded-md  text-sm"
+            format="DD/MM/YYYY"
+            placeholder={['Date From', 'Date To']}
+            onChange={(dates) => {
+              if (!dates) {
+                fetchPartners();
+                return;
+              }
+              const [start, end] = dates;
+              handleFilterByDate(start, end);
+            }}
+          />
+        </div>
+
+        <div className="flex items-center gap-2 text-blue-600 text-sm">
+          <select
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none"
+            value={filterStatus}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFilterStatus(value);
+              handleFilterStatus(value);
+            }}
+          >
+            <option value="All">All</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Pending">Pending</option>
           </select>
-          <span>5 results</span>
+          {/* //result filter */}
+          <span>{pagination.totalCount} results</span>
         </div>
       </div>
 
@@ -260,6 +391,7 @@ const Partners: React.FC = () => {
       </div>
     </div>
   );
+  //#endregion
 };
 
 export default Partners;
