@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  User,
+  User as UserIcon,
   Mail,
   Phone,
   MapPin,
@@ -21,37 +21,37 @@ import {
   Bell,
   Shield,
   CreditCard,
+  KeyRound,
+  LockKeyhole,
+  RotateCcwKey,
   Menu,
 } from 'lucide-react';
-
-interface UserData {
-  userName: string;
-  email: string;
-  phone: string;
-  address: string;
-  gender: string;
-  avatar: string;
-}
+import { toast } from 'react-toastify';
+import type { User } from '@/interfaces/User/User';
+import { getSelfUser, putSelfUser } from '@/services/userService.js';
+import { useNavigate } from 'react-router-dom';
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const navigate = useNavigate();
 
-  const [profileData, setProfileData] = useState<UserData>({
-    userName: 'Luong Cong Bang',
-    email: 'luongcongbang@company.com',
-    phone: '+84 123 456 789',
-    address: 'Quận 9, Hồ Chí Minh, Việt Nam',
-    gender: 'Nam',
+  const [profileData, setProfileData] = useState<User>({
+    userName: 'Unknown',
+    email: '',
+    phone: '',
+    address: '',
+    gender: '',
     avatar: '',
   });
 
-  const [tempData, setTempData] = useState<UserData>(profileData);
+  const [tempData, setTempData] = useState<User>(profileData);
 
   const menuItems = [
-    { id: 'profile', label: 'My profile', icon: User },
+    { id: 'profile', label: 'My profile', icon: UserIcon },
     { id: 'password', label: 'Change password', icon: Lock },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
@@ -88,21 +88,38 @@ const UserProfile = () => {
   ];
 
   const handleEdit = () => {
-    setTempData(profileData);
+    setTempData({ ...profileData });
     setIsEditing(true);
   };
 
   const handleSave = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setProfileData(tempData);
+    try {
+      const formData = new FormData();
+      formData.append('Phone', profileData.phone);
+      formData.append('Address', profileData.address);
+      formData.append('Gender', profileData.gender);
+      if (selectedAvatarFile) {
+        formData.append('Avatar', selectedAvatarFile);
+      }
+
+      const response = await putSelfUser(formData);
+
+      setProfileData(response.data);
+      setSelectedAvatarFile(null);
+      toast.success('Updated successfully!');
       setIsEditing(false);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Update failed!';
+      toast.error(msg);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleCancel = () => {
-    setTempData(profileData);
+    setProfileData({ ...tempData });
+    setSelectedAvatarFile(null);
     setIsEditing(false);
   };
 
@@ -112,10 +129,25 @@ const UserProfile = () => {
   };
 
   const handleLogout = () => {
-    if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-      console.log('Đăng xuất');
+    localStorage.removeItem('user');
+    toast.success('Signed out successfully!');
+    navigate('/');
+  };
+
+  //Handle api:
+  const fetchUserInfo = async (): Promise<void> => {
+    try {
+      const response = await getSelfUser();
+      setProfileData(response.data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error!';
+      toast.error(message);
     }
   };
+
+  useEffect(() => {
+    fetchUserInfo();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-50">
@@ -135,19 +167,47 @@ const UserProfile = () => {
           <div className="hidden lg:block p-6 border-b border-gray-200">
             <div className="flex flex-col items-center text-center">
               <div className="relative group">
-                {/* Avatar */}
-                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-3xl shadow-md border-4 border-white transition-all duration-200 group-hover:scale-105">
-                  {profileData.userName.charAt(0).toUpperCase()}
+                {/* Avatar hiển thị */}
+                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white font-bold text-3xl shadow-md border-4 border-white transition-all duration-200 group-hover:scale-105 overflow-hidden">
+                  {profileData.avatar ? (
+                    <img
+                      src={
+                        selectedAvatarFile
+                          ? URL.createObjectURL(selectedAvatarFile)
+                          : profileData.avatar
+                      }
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    profileData.userName.charAt(0).toUpperCase()
+                  )}
                 </div>
 
-                {/* Nút chỉnh sửa ảnh (hiện khi isEditing = true) */}
                 {isEditing && (
-                  <button
-                    className="absolute bottom-1 right-1 bg-blue-600 text-white rounded-full p-2.5 shadow-md hover:bg-blue-700 hover:scale-110 border-2 border-white transition-all duration-200"
-                    title="Thay đổi ảnh đại diện"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => document.getElementById('avatarInput')?.click()}
+                      className="absolute bottom-1 right-1 bg-blue-500 text-white rounded-full p-2.5 shadow-md hover:bg-blue-700 hover:scale-110 border-2 border-white transition-all duration-200"
+                      title="Change avatar"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+
+                    <input
+                      id="avatarInput"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSelectedAvatarFile(file);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </>
                 )}
               </div>
 
@@ -170,7 +230,7 @@ const UserProfile = () => {
                   onClick={() => handleMenuClick(item.id)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium text-left text-sm ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-md'
+                      ? 'bg-blue-500 text-white shadow-md'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -206,7 +266,7 @@ const UserProfile = () => {
                 {!isEditing ? (
                   <button
                     onClick={handleEdit}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium shadow-sm self-start sm:self-auto"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition-all font-medium shadow-sm self-start sm:self-auto"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit
@@ -240,84 +300,86 @@ const UserProfile = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-medium text-gray-500 flex items-center gap-2 mb-2">
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
                       <Mail className="w-4 h-4" />
                       Email
                     </label>
                     {isEditing ? (
                       <input
                         type="email"
-                        value={tempData.email}
-                        onChange={(e) => setTempData({ ...tempData, email: e.target.value })}
+                        value={profileData.email}
+                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                         <Mail className="w-5 h-5 text-blue-600" />
-                        <p className="text-sm font-medium text-gray-900">{tempData.email}</p>
+                        <p className="text-sm font-medium text-gray-900">{profileData.email}</p>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-gray-500 flex items-center gap-2 mb-2">
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
                       <Phone className="w-4 h-4" />
                       Phone number
                     </label>
                     {isEditing ? (
                       <input
                         type="tel"
-                        value={tempData.phone}
-                        onChange={(e) => setTempData({ ...tempData, phone: e.target.value })}
+                        value={profileData.phone}
+                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       />
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                         <Phone className="w-5 h-5 text-green-600" />
-                        <p className="text-sm font-medium text-gray-900">{tempData.phone}</p>
+                        <p className="text-sm font-medium text-gray-900">{profileData.phone}</p>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-gray-500 flex items-center gap-2 mb-2">
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
                       <MapPin className="w-4 h-4" />
                       Address
                     </label>
                     {isEditing ? (
                       <input
                         type="text"
-                        value={tempData.address}
-                        onChange={(e) => setTempData({ ...tempData, address: e.target.value })}
+                        value={profileData.address}
+                        onChange={(e) =>
+                          setProfileData({ ...profileData, address: e.target.value })
+                        }
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
                         <MapPin className="w-5 h-5 text-purple-600" />
-                        <p className="text-sm font-medium text-gray-900">{tempData.address}</p>
+                        <p className="text-sm font-medium text-gray-900">{profileData.address}</p>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-gray-500 flex items-center gap-2 mb-2">
-                      <User className="w-4 h-4" />
+                    <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
+                      <UserIcon className="w-4 h-4" />
                       Gender
                     </label>
                     {isEditing ? (
                       <select
-                        value={tempData.gender}
-                        onChange={(e) => setTempData({ ...tempData, gender: e.target.value })}
+                        value={profileData.gender}
+                        onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                       >
-                        <option value="Nam">Nam</option>
-                        <option value="Nữ">Nữ</option>
-                        <option value="Khác">Khác</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
                       </select>
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
-                        <User className="w-5 h-5 text-pink-600" />
-                        <p className="text-sm font-medium text-gray-900">{tempData.gender}</p>
+                        <UserIcon className="w-5 h-5 text-pink-600" />
+                        <p className="text-sm font-medium text-gray-900">{profileData.gender}</p>
                       </div>
                     )}
                   </div>
@@ -462,41 +524,55 @@ const UserProfile = () => {
           )}
 
           {activeTab === 'password' && (
-            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 max-w-2xl">
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 max-w-3xl space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Security Settings</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Manage your password and security preferences
+                </p>
+              </div>
+
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current password
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter current password"
-                  />
+                {[
+                  {
+                    label: 'Current password',
+                    icon: <KeyRound className="inline w-4 h-4 mr-2 text-gray-500" />,
+                    placeholder: 'Enter current password',
+                  },
+                  {
+                    label: 'New password',
+                    icon: <LockKeyhole className="inline w-4 h-4 mr-2 text-gray-500" />,
+                    placeholder: 'Enter a new password',
+                  },
+                  {
+                    label: 'Confirm new password',
+                    icon: <RotateCcwKey className="inline w-4 h-4 mr-2 text-gray-500" />,
+                    placeholder: 'Re-enter new password',
+                  },
+                ].map((field, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                  >
+                    <label className="flex items-center text-sm font-medium text-gray-700 w-full sm:w-1/3">
+                      {field.icon}
+                      {field.label}
+                    </label>
+                    <input
+                      type="password"
+                      placeholder={field.placeholder}
+                      className="w-full sm:w-2/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                ))}
+
+                {/* Update button align right */}
+                <div className="flex justify-end pt-4">
+                  <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center">
+                    <Save className="w-4 h-4 mr-2" />
+                    Update Password
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    New password
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter a new password"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm new password
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Re-enter new password"
-                  />
-                </div>
-                <button className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium mt-4">
-                  Update password
-                </button>
               </div>
             </div>
           )}
