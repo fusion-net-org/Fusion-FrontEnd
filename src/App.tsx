@@ -15,6 +15,7 @@ import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import Settings from './pages/setting/Setting';
+import UserProfile from './pages/UserProfile/UserProfile';
 function App() {
   return (
     <>
@@ -36,6 +37,7 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/my-profile" element={<UserProfile />} />
         <Route path="*" element={<NotFound />} />
 
         {/*Route payment-result */}
