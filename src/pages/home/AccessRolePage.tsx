@@ -19,6 +19,7 @@ import ConfirmModal from "@/common/ConfirmModal.js";
 
 // ---- dùng metadata chức năng từ file JSON (không gọi API) ----
 import functionsMeta from "@/static/functions.json";
+import { Can } from "@/permission/PermissionProvider";
 
 // ---- helper: group function theo page_code -> PermissionGroup[] ----
 type FnMeta = {
@@ -282,7 +283,9 @@ export default function AccessRolePage() {
 
   return (
     <>
-      <h1
+     
+<Can code="REGISTER">
+  <h1
         style={{
           fontSize: 24,
           lineHeight: "1.25",
@@ -293,7 +296,7 @@ export default function AccessRolePage() {
       >
         Access Role
       </h1>
-
+</Can>
       <RoleForm
         model={model}
         roleLevels={roles}

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { getEffectivePermissions, clearCurrentCompanyId } from "@/services/permissionService.js";
-import { setCurrentCompanyId } from "@/utils/companyContext";
-
+import { getEffectivePermissions } from "@/services/permissionService.js";
+import { getCurrentCompanyId, setCurrentCompanyId, clearCurrentCompanyId } from "@/apiConfig.js";
 type PermState = {
   companyId: string | null;
   loading: boolean;
@@ -20,9 +19,8 @@ const Ctx = createContext<PermState | null>(null);
 
 type Props = {
   companyId?: string | null;
-  userId: string;               // Truyền vào (lấy từ token "sub" hoặc từ state app)
+  userId: string ;              
   children: React.ReactNode;
-  /** Optional: cache theo companyId để back/forward nhanh hơn */
   cacheTtlMs?: number;
 };
 
@@ -43,33 +41,37 @@ export function PermissionProvider({ companyId, userId, children, cacheTtlMs = 6
     setCodes(new Set()); setIds(new Set()); setRoles([]); setErr(null);
   };
 
-  const load = async () => {
-    if (!companyId) { clear(); clearCurrentCompanyId();   return; }
+ const load = async () => {
+  const cid = companyId ?? getCurrentCompanyId(); 
+  if (!cid) { clear(); return; }
 
-    // set header cho axios
-    setCurrentCompanyId(companyId);
+  // set header cho axios
+  setCurrentCompanyId(cid);
 
-    // cache theo company
-    const hit = cache.get(companyId);
-    if (hit && Date.now() - hit.at < cacheTtlMs) {
-      setCodes(new Set(hit.codes)); setIds(new Set(hit.ids)); setRoles(hit.roles); setErr(null);
-      return;
-    }
+  // cache theo company
+  const hit = cache.get(cid);
+  if (hit && Date.now() - hit.at < cacheTtlMs) {
+    setCodes(new Set(hit.codes));
+    setIds(new Set(hit.ids));
+    setRoles(hit.roles);
+    setErr(null);
+    return;
+  }
 
-    setLoading(true); setErr(null);
-    try {
-      const { codes: c, ids: i, roles: r } = await getEffectivePermissions(companyId, userId);
-      if (!mounted.current) return;
-      setCodes(new Set(c)); setIds(new Set(i)); setRoles(r);
-      cache.set(companyId, { at: Date.now(), codes: new Set(c), ids: new Set(i), roles: r });
-    } catch (e: any) {
-      if (!mounted.current) return;
-      setErr(e?.message || "Load permissions failed");
-      clear();
-    } finally {
-      if (mounted.current) setLoading(false);
-    }
-  };
+  setLoading(true); setErr(null);
+  try {
+    const { codes: c, ids: i, roles: r } = await getEffectivePermissions(cid, userId);
+    if (!mounted.current) return;
+    setCodes(new Set(c)); setIds(new Set(i)); setRoles(r);
+    cache.set(cid, { at: Date.now(), codes: new Set(c), ids: new Set(i), roles: r });
+  } catch (e: any) {
+    if (!mounted.current) return;
+    setErr(e?.message || "Load permissions failed");
+    clear();
+  } finally {
+    if (mounted.current) setLoading(false);
+  }
+};
 
   // load khi companyId/userId đổi
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, userId]);

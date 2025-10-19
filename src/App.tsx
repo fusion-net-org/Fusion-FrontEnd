@@ -29,11 +29,14 @@ function App() {
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
         </Route>
+       <Route element={<CompanyLayout/>}>
+  <Route
+    path="/companies/:companyId/access-role"
+    element={<AccessRolePage />}
+  />
+</Route>
         <Route element={<CompanyLayout />}>
-          <Route path="/company/access-role" element={<AccessRolePage />} />
-        </Route>
-        <Route element={<CompanyLayout />}>
-          <Route path="/company/project" element={<ProjectsPage/>} />
+          <Route path="/company/:companyId/project" element={<ProjectsPage/>} />
         </Route>
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />

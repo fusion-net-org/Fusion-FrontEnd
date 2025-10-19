@@ -1,60 +1,141 @@
 // src/services/permissionService.js
-import { axiosInstance } from "../apiConfig";
+import { axiosInstance, getCurrentCompanyId } from '@/apiConfig';
 
-/** Lấy các role của user trong 1 company */
-export const getMemberRoles = async (companyId, userId) => {
-  try {
-    const response = await axiosInstance.get(
-      `/companies/${companyId}/members/${userId}/roles`
-    );
-    // [{ roleId, name, description }]
-    return response.data?.data ?? [];
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Error!");
-  }
-};
+/* ========================== Core loaders ========================== */
 
-/** Lấy chi tiết 1 role (kèm permissions) */
-export const getRoleDetail = async (companyId, roleId) => {
-  try {
-    const response = await axiosInstance.get(
-      `/companies/${companyId}/roles/${Number(roleId)}`
-    );
-    // { id, name, description, permissions: [{ functionId, functionCode, functionName, isAccess }] }
-    return response.data?.data ?? null;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Error!");
-  }
-};
+/** Roles của 1 user trong company */
+export async function getMemberRoles(companyId, userId) {
+console.log("[PermSvc] getMemberRoles", { companyId, userId });
+  const { data } = await axiosInstance.get(
+    `/companies/${companyId}/members/${userId}/roles`
+  );
+  const arr = data?.data ?? data ?? [];
+  return arr.map((r) => ({
+    roleId: Number(r.roleId ?? r.id),
+    name: r.name ?? r.roleName ?? '',
+    description: r.description ?? '',
+  }));
+}
 
-/** Hợp nhất quyền hiệu lực của user trong company (gộp từ các role) */
-export const getEffectivePermissions = async (companyId, userId) => {
-  try {
-    const roles = await getMemberRoles(companyId, userId);
-    const details = await Promise.all(
-      roles.map((r) => getRoleDetail(companyId, Number(r.roleId)))
-    );
+/** Chi tiết role (có mảng permissions) */
+export async function getRoleDetail(companyId, roleId) {
+console.log("[PermSvc] getRoleDetail", { companyId, roleId });
+  const { data } = await axiosInstance.get(
+    `/companies/${companyId}/roles/${Number(roleId)}`
+  );
+  return data?.data ?? data ?? null;
+}
 
-    const codes = new Set(); // functionCode
-    const ids = new Set();   // functionId
-    const byRole = new Map(); // roleId -> { name, codes[] }
+/** Lấy danh sách permission codes của 1 role (đã lọc isAccess=true) */
+export async function getRolePermissionCodes(companyId, roleId) {
+  const d = await getRoleDetail(companyId, roleId);
+  const perms = Array.isArray(d?.permissions) ? d.permissions : [];
+  return perms
+    .filter((p) => p?.isAccess !== false)
+    .map((p) => p.functionCode || p.code)
+    .filter(Boolean);
+}
 
-    details.forEach((d) => {
-      if (!d) return;
-      const granted = (d.permissions ?? []).filter((p) => p?.isAccess === true);
-      const roleCodes = [];
-      granted.forEach((p) => {
-        if (p?.functionCode) {
-          codes.add(String(p.functionCode));
-          roleCodes.push(String(p.functionCode));
-        }
-        if (p?.functionId != null) ids.add(Number(p.functionId));
+/* ========================== In-memory cache ========================== */
+/** key: `${companyId}:${userId}` -> { codes:Set<string>, roleIds:Set<number>, roles:any[], ts:number } */
+const cache = new Map();
+const inflight = new Map(); // chống request trùng key
+
+const keyOf = (companyId, userId) => `${companyId}:${userId}`;
+
+/** Xoá cache theo companyId + userId; nếu không truyền → xoá hết */
+export function clearPermissionCache(companyId, userId) {
+  if (companyId && userId) cache.delete(keyOf(companyId, userId));
+  else cache.clear();
+}
+
+/** Lấy nhanh từ cache hiện tại (dựa trên current company header) */
+export function getCachedPermissions(companyId, userId) {
+  const cid = companyId || getCurrentCompanyId();
+  if (!cid || !userId)
+    return { codes: new Set(), roleIds: new Set(), roles: [] };
+  return (
+    cache.get(keyOf(cid, userId)) || {
+      codes: new Set(),
+      roleIds: new Set(),
+      roles: [],
+    }
+  );
+}
+
+/**
+ * Tính / cache “effective permissions” cho (companyId, userId)
+ * @param {string} companyId
+ * @param {string|number} userId
+ * @param {{force?: boolean, parallel?: boolean}} opts
+ *  - force: bỏ qua cache, load lại
+ *  - parallel: load quyền các role song song (mặc định: tuần tự để giảm tải)
+ */
+export async function getEffectivePermissions(
+  companyId,
+  userId,
+  opts = { force: false, parallel: false }
+) {
+  const cid = companyId || getCurrentCompanyId();
+  if (!cid || !userId)
+    return { codes: new Set(), roleIds: new Set(), roles: [] };
+
+  const k = keyOf(cid, userId);
+
+  if (!opts.force && cache.has(k)) return cache.get(k);
+  if (inflight.has(k)) return inflight.get(k);
+
+  const runner = (async () => {
+    const roles = await getMemberRoles(cid, userId);
+
+    const codesSet = new Set();
+    const roleIds = new Set();
+
+    if (opts.parallel) {
+      // load các role song song
+      const tasks = roles.map(async (r) => {
+        const rid = Number(r.roleId ?? r.id);
+        roleIds.add(rid);
+        const codes = await getRolePermissionCodes(cid, rid);
+        codes.forEach((c) => codesSet.add(c));
       });
-      byRole.set(Number(d.id), { name: d.name ?? "", codes: roleCodes });
-    });
+      await Promise.all(tasks);
+    } else {
+      // load tuần tự (an toàn với BE)
+      for (const r of roles) {
+        const rid = Number(r.roleId ?? r.id);
+        roleIds.add(rid);
+        const codes = await getRolePermissionCodes(cid, rid);
+        codes.forEach((c) => codesSet.add(c));
+      }
+    }
 
-    return { codes, ids, roles, byRole };
-  } catch (error) {
-    throw new Error(error.response?.data?.message || "Error!");
-  }
-};
+    const result = { codes: codesSet, roleIds, roles, ts: Date.now() };
+    cache.set(k, result);
+    inflight.delete(k);
+    return result;
+  })();
+
+  inflight.set(k, runner);
+  return runner;
+}
+
+// Alias tương thích tên cũ
+export const loadEffectivePermissions = getEffectivePermissions;
+
+/* ========================== UI helpers ========================== */
+
+export const has = (codesSet, code) => codesSet?.has?.(code) === true;
+export const hasAny = (codesSet, ...codes) =>
+  codes.some((c) => codesSet.has(c));
+export const hasAll = (codesSet, ...codes) =>
+  codes.every((c) => codesSet.has(c));
+
+/* ========================== (Optional) tiện ích ========================== */
+
+/** Preload quyền theo current company + userId (nếu bạn muốn gọi sớm) */
+export async function preloadCurrentCompanyPermissions(userId, opts) {
+  const cid = getCurrentCompanyId();
+  if (!cid || !userId) return { codes: new Set(), roleIds: new Set(), roles: [] };
+  return getEffectivePermissions(cid, userId, opts);
+}
