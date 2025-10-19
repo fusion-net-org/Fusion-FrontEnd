@@ -11,6 +11,9 @@ import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
+import SubscriptionPage from './pages/subscription/SubscriptionPage';
+import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
+import PaymentFailed from './pages/subscription/PaymentFailPage';
 function App() {
   return (
     <>
@@ -26,6 +29,7 @@ function App() {
         {/* Route home layout */}
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
         </Route>
         <Route element={<CompanyLayout />}>
           <Route path="/company/access-role" element={<AccessRolePage />} />
@@ -35,6 +39,10 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="*" element={<NotFound />} />
+
+        {/*Route payment-result */}
+        <Route path="/payment-success" element={<PaymentSuccess />} />
+        <Route path="/payment-failed" element={<PaymentFailed />} />
 
         {/* partners */}
         <Route element={<CompanyLayout />}>
