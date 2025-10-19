@@ -2,6 +2,18 @@ import axios from 'axios';
 import { refreshToken } from './services/authService';
 
 const API_BASE_URL = import.meta.env.VITE_FUSION_API_BASE_URL;
+const COMPANY_KEY = 'ctx.company_id';
+
+export const setCurrentCompanyId = (companyId) => {
+  if (companyId) sessionStorage.setItem(COMPANY_KEY, companyId);
+  else sessionStorage.removeItem(COMPANY_KEY);
+};
+
+export const getCurrentCompanyId = () =>
+  sessionStorage.getItem(COMPANY_KEY) || '';
+
+export const clearCurrentCompanyId = () =>
+  sessionStorage.removeItem(COMPANY_KEY);
 
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -113,4 +125,27 @@ axiosInstance.interceptors.response.use(
 
     return Promise.reject(error);
   },
+);
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    const token = user?.token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // ADD: truyền CompanyId cho backend middleware
+    const cid = getCurrentCompanyId();
+    if (cid) {
+      config.headers['X-Company-Id'] = cid;
+    }
+
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+      console.log('FormData detected: Content-Type header removed to let axios handle it');
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error),
 );
