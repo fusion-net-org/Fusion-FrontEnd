@@ -44,12 +44,12 @@ const Register: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-5xl flex overflow-hidden">
         {/* Form Section */}
         <div className="w-full md:w-1/2 p-10">
-          <h2 className="text-3xl font-semibold text-gray-800 mb-8">Sign Up</h2>
+          <h2 className="text-3xl font-semibold text-gray-800 mb-6">Sign Up</h2>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
             {/* First Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-gray-600">First Name</label>
               <input
                 type="text"
                 placeholder="First Name"
@@ -63,7 +63,7 @@ const Register: React.FC = () => {
 
             {/* Last Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-gray-600">Last Name</label>
               <input
                 type="text"
                 placeholder="Last Name"
@@ -77,7 +77,7 @@ const Register: React.FC = () => {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-600">Email</label>
               <input
                 type="email"
                 placeholder="Email"
@@ -95,7 +95,7 @@ const Register: React.FC = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-600">Password</label>
               <input
                 type="password"
                 placeholder="Password"
