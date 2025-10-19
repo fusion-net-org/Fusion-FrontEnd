@@ -89,11 +89,13 @@ export const getRolePermissionIds = async (companyId, roleId) => {
 /** Ghi lại permissions (replace set) cho role */
 export const saveRolePermissions = async (companyId, roleId, functionIds /* number[] */) => {
   // đảm bảo các phần tử là số
-    const payload = { functionIdsToGrant: Array.isArray(functionIds) ? functionIds : [] };
+   const ids = (Array.isArray(functionIds) ? functionIds : [])
+    .map(Number)
+    .filter(Number.isFinite);
 
   const res = await axiosInstance.put(
     `/companies/${companyId}/roles/${Number(roleId)}/permissions`,
-    payload, // <-- sẽ serialize thành JSON array: [1,2,3]
+    ids, // <-- sẽ serialize thành JSON array: [1,2,3]
     { headers: { "Content-Type": "application/json" } }
   );
 
