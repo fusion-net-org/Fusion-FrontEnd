@@ -34,7 +34,7 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/user-profile" element={<UserProfile />} />
+        <Route path="/my-profile" element={<UserProfile />} />
         <Route path="*" element={<NotFound />} />
 
         {/* partners */}

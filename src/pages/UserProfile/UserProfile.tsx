@@ -30,6 +30,7 @@ import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
 import { getSelfUser, putSelfUser } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
+import UserMenu from '@/components/UserMenu/UserMenu';
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -153,22 +154,24 @@ const UserProfile = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-50">
       <div className="flex flex-col lg:flex-row">
         {/* NavLeft User Profile */}
-        <div className="lg:w-72 lg:min-h-screen bg-white shadow-md border-r border-gray-200 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+        <div className="lg:w-72 lg:min-h-screen bg-white border-r border-gray-200 lg:sticky lg:top-0 lg:h-screen flex flex-col justify-between">
+          {/* Mobile header */}
           <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-            <h2 className="text-lg font-bold text-gray-900">Menu</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-all duration-200"
             >
               <Menu className="w-6 h-6 text-gray-600" />
             </button>
           </div>
 
-          <div className="hidden lg:block p-6 border-b border-gray-200">
+          {/* User Profile */}
+          <div className="hidden lg:block p-6 border-b border-gray-100">
             <div className="flex flex-col items-center text-center">
               <div className="relative group">
-                {/* Avatar hiển thị */}
-                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white font-bold text-3xl shadow-md border-4 border-white transition-all duration-200 group-hover:scale-105 overflow-hidden">
+                {/* Avatar */}
+                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white font-bold text-3xl shadow-lg border-4 border-white transition-transform duration-300 group-hover:scale-105 overflow-hidden">
                   {profileData.avatar ? (
                     <img
                       src={
@@ -188,12 +191,11 @@ const UserProfile = () => {
                   <>
                     <button
                       onClick={() => document.getElementById('avatarInput')?.click()}
-                      className="absolute bottom-1 right-1 bg-blue-500 text-white rounded-full p-2.5 shadow-md hover:bg-blue-700 hover:scale-110 border-2 border-white transition-all duration-200"
-                      title="Change avatar"
+                      className="absolute bottom-1 right-1 bg-blue-500 text-white rounded-full p-2 shadow-md hover:bg-blue-600 hover:scale-110 border-2 border-white transition-all duration-200"
+                      title="Thay đổi ảnh đại diện"
                     >
                       <Camera className="w-4 h-4" />
                     </button>
-
                     <input
                       id="avatarInput"
                       type="file"
@@ -211,41 +213,56 @@ const UserProfile = () => {
                 )}
               </div>
 
-              <h3 className="font-bold text-gray-900 mt-3 mb-1">{profileData.userName}</h3>
-              <p className="text-sm text-gray-600 mb-2">Project Manager</p>
-              <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+              <h3 className="font-semibold text-gray-900 mt-4 text-base">{profileData.userName}</h3>
+              <p className="text-xs text-gray-500 mb-2 tracking-wide">Project Manager</p>
+
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-[11px] font-medium">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                Active
+                <span>Online</span>
               </div>
             </div>
           </div>
 
-          <nav className={`${isMobileMenuOpen ? 'block' : 'hidden'} lg:block p-4 space-y-1`}>
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleMenuClick(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium text-left text-sm ${
-                    isActive
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium text-left text-sm text-red-600 hover:bg-red-50 mt-4 border-t border-gray-200 pt-4"
-            >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
-              <span>Đăng xuất</span>
-            </button>
+          {/* Navigation */}
+          <nav
+            className={`transition-all duration-300 ${
+              isMobileMenuOpen ? 'block' : 'hidden'
+            } lg:block flex-1 p-4 overflow-y-auto`}
+          >
+            <div className="space-y-1">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleMenuClick(item.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${
+                      isActive
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-5 h-5 flex-shrink-0 ${
+                        isActive ? 'text-white' : 'text-gray-500'
+                      }`}
+                    />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-gray-200 mt-4 pt-4">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100"
+              >
+                <LogOut className="w-5 h-5 flex-shrink-0" />
+                <span>Đăng xuất</span>
+              </button>
+            </div>
           </nav>
         </div>
 
