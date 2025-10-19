@@ -30,7 +30,6 @@ import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
 import { getSelfUser, putSelfUser } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
-import UserMenu from '@/components/UserMenu/UserMenu';
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
