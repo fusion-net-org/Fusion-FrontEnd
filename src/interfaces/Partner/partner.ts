@@ -4,6 +4,7 @@ export interface Partner {
   companyBId: string;
   requesterId: string;
   status: string;
+  note: string;
   respondedAt: string;
   lastActionBy: string;
   createdAt: string;

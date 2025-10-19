@@ -65,7 +65,7 @@ export const FilterPartners = async (status) => {
 export const CancelInvitePartner = async (id) => {
   try {
     const response = await axiosInstance.get(`/partners/cancel/${id}`);
-    return response.data;
+    return response;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
   }
@@ -75,13 +75,12 @@ export const CancelInvitePartner = async (id) => {
 export const AcceptInvitePartnert = async (id) => {
   try {
     const response = await axiosInstance.get(`/partners/accept/${id}`);
-    return response.data;
+    return response;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
 
-//https://localhost:7160/api/partners/invite
 export const InvitePartnert = async (data) => {
   try {
     const response = await axiosInstance.post('/partners/invite', data, {
