@@ -14,6 +14,7 @@ import PartnerDetails from '@/pages/partners/PartnerDetails';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
+import Settings from './pages/setting/Setting';
 import UserProfile from './pages/UserProfile/UserProfile';
 function App() {
   return (
@@ -30,10 +31,7 @@ function App() {
         {/* Route home layout */}
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
-          <Route path="/subscription" element={<SubscriptionPage />} />
-        </Route>
-        <Route element={<CompanyLayout />}>
-          <Route path="/company/access-role" element={<AccessRolePage />} />
+          <Route path="/setting" element={<Settings />} />
         </Route>
 
         {/* Route ko có layout */}
