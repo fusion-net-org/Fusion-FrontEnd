@@ -74,8 +74,8 @@ function renderIcon(icon?: PresetIcon | React.ReactNode) {
 const defaultItems: Item[] = [
   { key: 'access-role', label: 'Access Role', to: '/company/access-role', icon: 'grid' },
   { key: 'projects', label: 'Projects', to: '/company/projects', icon: 'layers' },
-  { key: 'partners', label: 'Partners', to: '/company/partners', icon: 'partners' }, // ✅ dùng icon mới
-  { key: 'detail2', label: 'Detail', to: '/company/detail-2', icon: 'users' },
+  { key: 'partners', label: 'Partners', to: '/company/partners', icon: 'partners' },
+  { key: 'partnerdetails', label: 'PartnerDetails', to: '/company/partners/:id', icon: 'partners' },
   { key: 'detail3', label: 'Detail', to: '/company/detail-3', icon: 'settings' },
 ];
 
