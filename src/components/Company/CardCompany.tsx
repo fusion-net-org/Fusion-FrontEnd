@@ -33,7 +33,7 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company }) => {
     >
       <img src={company.imageCompany} alt="cover" className="w-full h-32 object-cover" />
 
-      <div className="p-4 flex flex-col justify-between flex-1">
+      <div className="p-4 w-25 flex flex-col justify-between flex-1">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <img

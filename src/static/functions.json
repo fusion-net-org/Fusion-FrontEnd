@@ -1,0 +1,9 @@
+[
+  { "id": 1,  "functionCode": "REGISTER",            "functionName": "Register",            "pageCode": "AUTH",    "sortOrder": 1 },
+  { "id": 2,  "functionCode": "LOGIN",               "functionName": "Login",               "pageCode": "AUTH",    "sortOrder": 2 },
+  { "id": 10, "functionCode": "CREATE_COMPANY",      "functionName": "Create company",      "pageCode": "COMPANY", "sortOrder": 1 },
+  { "id": 14, "functionCode": "CREATE_ROLE",         "functionName": "Create role",         "pageCode": "ROLE",    "sortOrder": 5 },
+  { "id": 15, "functionCode": "ASSIGN_PERMISSION",   "functionName": "Assign permission",   "pageCode": "ROLE",    "sortOrder": 6 },
+  { "id": 34, "functionCode": "CREATE_PROJECT",      "functionName": "Create project",      "pageCode": "PROJECT", "sortOrder": 1 },
+  { "id": 42, "functionCode": "MANAGE_TASK",         "functionName": "Manage task",         "pageCode": "TASK",    "sortOrder": 2 }
+]
