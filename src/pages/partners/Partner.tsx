@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
-import { UserPlus, Users, Check, X, Ban } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { UserPlus, Users, Check, X, Ban, Eye } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import InvitePartners from '@/components/Partner/InvitePartner';
 import {
-  GetCompanyPartners,
+  GetCompanyPartnersByCompanyID,
   GetStatusSumaryPartners,
   SearchPartners,
   FilterPartners,
@@ -19,14 +19,16 @@ import type { CompanyRequest } from '@/interfaces/Company/company';
 import { DatePicker } from 'antd';
 import { getUserIdFromToken } from '@/utils/token';
 import { toast } from 'react-toastify';
-
-const { RangePicker } = DatePicker;
-
-const userIdFromLogin = getUserIdFromToken();
+import { useNavigate, useParams } from 'react-router-dom';
+import { debounce } from 'lodash';
 
 const Partners: React.FC = () => {
-  //#region State
+  const { RangePicker } = DatePicker;
+  const userIdFromLogin = getUserIdFromToken();
+  const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
 
+  //#region State
   //state partner
   const [partners, setPartners] = useState<any[]>([]);
   //state pagination
@@ -69,32 +71,42 @@ const Partners: React.FC = () => {
   };
 
   // Handle search
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      fetchPartners();
-      return;
-    }
-    try {
-      const res = await SearchPartners(searchTerm);
-      const data: PartnerResponse = res.data;
-      const enrichedPartners = await enrichPartnerInfo(data.items);
-      setPartners(enrichedPartners);
-      setPagination({
-        pageNumber: data.pageNumber,
-        pageSize: data.pageSize,
-        totalCount: data.totalCount,
-      });
-    } catch (error: any) {
-      console.error('Error searching:', error.message);
-    }
-  };
+  // Handle search debounce
+  const handleSearch = useCallback(
+    debounce(async (keyword: string) => {
+      try {
+        if (!keyword) {
+          fetchPartners();
+          return;
+        }
 
-  // Handle enter key for search
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
+        const res = await GetCompanyPartnersByCompanyID(
+          companyId,
+          keyword,
+          null, // FromDate
+          null, // ToDate
+          1, // pageNumber
+          pagination.pageSize,
+          null, // SortColumn
+          null, // SortDescending
+        );
+
+        const data: PartnerResponse = res.data;
+        const enrichedPartners = await enrichPartnerInfo(data.items);
+
+        setPartners(enrichedPartners);
+        setPagination({
+          pageNumber: data.pageNumber,
+          pageSize: data.pageSize,
+          totalCount: data.totalCount,
+        });
+      } catch (error: any) {
+        console.error('Error searching:', error.message);
+      }
+    }, 500), // delay 500ms
+    [companyId, pagination.pageSize],
+  );
+
   // Handle filter status partner
   const handleFilterStatus = async (status: string) => {
     try {
@@ -103,7 +115,7 @@ const Partners: React.FC = () => {
         return;
       }
 
-      const res = await FilterPartners(status);
+      const res = await FilterPartners(companyId, status);
       const data: PartnerResponse = res.data;
       const enrichedPartners = await enrichPartnerInfo(data.items);
 
@@ -128,7 +140,16 @@ const Partners: React.FC = () => {
       const from = startDate.format('YYYY-MM-DD');
       const to = endDate.format('YYYY-MM-DD');
 
-      const res = await GetCompanyPartners(from, to);
+      const res = await GetCompanyPartnersByCompanyID(
+        companyId,
+        null,
+        from,
+        to,
+        1,
+        pagination.pageSize,
+        null,
+        null,
+      );
       const data: PartnerResponse = res.data;
       const enrichedPartners = await enrichPartnerInfo(data.items);
       setPartners(enrichedPartners);
@@ -188,7 +209,9 @@ const Partners: React.FC = () => {
   //call api to get partners data
   const fetchPartners = async (pageNumber = 1) => {
     try {
-      const response = await GetCompanyPartners(
+      const response = await GetCompanyPartnersByCompanyID(
+        companyId,
+        null,
         null,
         null,
         pageNumber,
@@ -210,13 +233,14 @@ const Partners: React.FC = () => {
   };
   //call api sumary status partners
   const fetchSummaryStatusPartners = async () => {
-    const response = await GetStatusSumaryPartners();
+    const response = await GetStatusSumaryPartners(companyId);
     const data: SummaryStatusPartner = response.data;
     setSummaryStatusPartner(data);
     return data;
   };
 
   useEffect(() => {
+    console.log(partners);
     fetchPartners(1);
     fetchSummaryStatusPartners();
   }, []);
@@ -267,8 +291,11 @@ const Partners: React.FC = () => {
       <div className="flex justify-between items-center bg-gray-50 p-1 rounded-md mb-3">
         <input
           type="text"
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSearchTerm(value);
+            handleSearch(value);
+          }}
           placeholder="Search Company/Owner/Status"
           className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-100"
         />
@@ -323,13 +350,14 @@ const Partners: React.FC = () => {
               <th className="px-4 py-3 text-left">Projects</th>
               <th className="px-4 py-3 text-left">Members</th>
               <th className="px-4 py-3 text-left">Option</th>
+              <th className="px-4 py-3 text-left">Details</th>
             </tr>
           </thead>
 
           <tbody>
             {partners.map((p, i) => (
               <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 cursor-pointer ">
                   <div>
                     <div className="font-semibold text-gray-800">
                       {p.companyInfo?.name || 'N/A'}
@@ -410,6 +438,12 @@ const Partners: React.FC = () => {
                       <Ban className="w-4 h-4" /> Cancel
                     </button>
                   )}
+                </td>
+                <td className="px-4 py-3 cursor-pointer ">
+                  <Eye
+                    className="ww-4 h-4"
+                    onClick={() => navigate(`/company/partners/${p.companyInfo.id}`)}
+                  />
                 </td>
               </tr>
             ))}

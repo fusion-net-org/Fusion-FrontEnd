@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { type PropsWithChildren, useEffect, useState } from 'react';
 import { Outlet, useLocation, useParams } from 'react-router-dom';
 import CompanyHeader from './CompanyHeader';
@@ -7,48 +9,51 @@ import './css/company-layout.css';
 import { setCurrentCompanyId, clearCurrentCompanyId } from '@/apiConfig.js';
 import { PermissionProvider } from '@/permission/PermissionProvider';
 import { getUserIdFromToken } from '@/utils/token';
+import { getOwnerUser } from '@/services/userService.js';
+
 type Props = PropsWithChildren<{ initialTall?: boolean }>;
-function getUserIdFromStorage() {
-  // ADD: lấy userId cho PermissionProvider
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) return '';
-    const u = JSON.parse(raw);
-    return u?.userId || u?.id || u?.sub || '';
-  } catch {
-    return '';
-  }
-}
+
 export default function CompanyLayout({ children, initialTall = true }: Props) {
   const { pathname } = useLocation();
   const [fadeKey, setFadeKey] = useState(0);
   const { companyId } = useParams();
-  const [permKey, setPermKey] = useState(0); // ADD: reset PermissionProvider khi đổi company
+  const [permKey, setPermKey] = useState(0);
   const userId = getUserIdFromToken();
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 
   useEffect(() => setFadeKey((k) => k + 1), [pathname]);
+
   useEffect(() => {
-    if (companyId) {
-      setCurrentCompanyId(String(companyId));
-    } else {
-      clearCurrentCompanyId();
-    }
+    const fetchOwnerUser = async () => {
+      try {
+        if (!userId) return;
+        const response = await getOwnerUser(companyId);
+        const id = response?.data || null;
+        setOwnerUserId(id);
+      } catch (err) {
+        console.error('Error fetching owner user:', err);
+      }
+    };
+    fetchOwnerUser();
+  }, [userId]);
+
+  useEffect(() => {
+    if (companyId) setCurrentCompanyId(String(companyId));
+    else clearCurrentCompanyId();
+
     setPermKey((k) => k + 1);
     return () => {
       if (!companyId) clearCurrentCompanyId();
     };
   }, [companyId]);
+
   return (
     <div className="cmp-theme cmp-shell">
       <CompanyHeader />
       <div className="cmp-content">
-        <CompanyNavbar />
+        <CompanyNavbar ownerUserId={ownerUserId ?? ''} />
 
-        <PermissionProvider
-          key={permKey}
-          userId={userId ?? ''}
-          companyId={companyId as string}
-        >
+        <PermissionProvider key={permKey} userId={userId ?? ''} companyId={companyId as string}>
           <main
             key={fadeKey}
             className={`cmp-main cmp-pagefade ${initialTall ? 'is-initialTall' : ''}`}

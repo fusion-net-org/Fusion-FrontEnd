@@ -18,7 +18,7 @@ import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
 import Settings from './pages/setting/Setting';
-
+import CompanyDetail from './pages/home/CompanyDetail';
 function App() {
   return (
     <>
@@ -54,7 +54,8 @@ function App() {
 
         {/* partners */}
         <Route element={<CompanyLayout />}>
-          <Route path="/company/partners" element={<Partners />} />
+          <Route path="/company/:companyId" element={<CompanyDetail />} />
+          <Route path="/company/:companyId/partners" element={<Partners />} />
           <Route path="/company/partners/:id" element={<PartnerDetails />} />
         </Route>
       </Routes>
