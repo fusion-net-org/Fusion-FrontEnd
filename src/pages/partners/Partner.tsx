@@ -12,14 +12,17 @@ import {
   FilterPartners,
   CancelInvitePartner,
   AcceptInvitePartnert,
-  InvitePartnert,
 } from '@/services/partnerService.js';
 import { getCompanyById } from '@/services/companyService.js';
 import type { PartnerResponse, SummaryStatusPartner } from '@/interfaces/Partner/partner';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import { DatePicker } from 'antd';
+import { getUserIdFromToken } from '@/utils/token';
+import { toast } from 'react-toastify';
 
 const { RangePicker } = DatePicker;
+
+const userIdFromLogin = getUserIdFromToken();
 
 const Partners: React.FC = () => {
   //#region State
@@ -127,7 +130,6 @@ const Partners: React.FC = () => {
 
       const res = await GetCompanyPartners(from, to);
       const data: PartnerResponse = res.data;
-      console.log(data);
       const enrichedPartners = await enrichPartnerInfo(data.items);
       setPartners(enrichedPartners);
       setPagination({
@@ -139,8 +141,32 @@ const Partners: React.FC = () => {
       console.error('Error filtering by date:', error.message);
     }
   };
+  //handle accept
+  const handleAccept = async (id: number) => {
+    try {
+      const res = await AcceptInvitePartnert(id);
+      console.log(res);
+      toast.success(res.data.message || 'Accepted successfully!');
+      fetchPartners(currentPage);
+    } catch (error: any) {
+      toast.error(error.data.message || 'Failed to accept!');
+    }
+  };
 
-  //#endregion
+  const handleReject = async (id: number) => {
+    try {
+      const res = await CancelInvitePartner(id);
+      toast.info(res.data.message || 'Invite rejected!');
+      fetchPartners(currentPage);
+    } catch (error: any) {
+      toast.error(error.data.message || 'Failed to reject!');
+    }
+  };
+  const handleInviteSuccess = async () => {
+    await fetchPartners(currentPage);
+    await fetchSummaryStatusPartners();
+  };
+  //#endregion;
 
   //#region Call API
   //promise partners with compani
@@ -148,7 +174,9 @@ const Partners: React.FC = () => {
     return Promise.all(
       partners.map(async (p) => {
         try {
-          const companyRes = await getCompanyById(p.companyBId);
+          const targetCompanyId = userIdFromLogin === p.requesterId ? p.companyBId : p.companyAId;
+
+          const companyRes = await getCompanyById(targetCompanyId);
           const company: CompanyRequest = companyRes.data;
           return { ...p, companyInfo: company };
         } catch {
@@ -212,7 +240,11 @@ const Partners: React.FC = () => {
           <UserPlus className="w-4 h-4" />
           Invite Partner
         </button>
-        <InvitePartners open={isInviteOpen} onClose={() => setIsInviteOpen(false)} />
+        <InvitePartners
+          open={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+          onSuccess={handleInviteSuccess}
+        />
       </div>
 
       {/* Status summary */}
@@ -346,23 +378,35 @@ const Partners: React.FC = () => {
                 </td>
 
                 <td className="px-4 py-3">
-                  {p.status === 'Pending' && (
+                  {p.status === 'Pending' && userIdFromLogin !== p.requesterId && (
                     <div className="flex gap-2">
-                      <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 flex items-center gap-1">
+                      <button
+                        onClick={() => handleAccept(p.id)}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 flex items-center gap-1"
+                      >
                         <Check className="w-4 h-4" /> Accept
                       </button>
-                      <button className="px-3 py-1 border border-gray-300 text-sm rounded-full hover:bg-gray-100 flex items-center gap-1">
+                      <button
+                        onClick={() => handleReject(p.id)}
+                        className="px-3 py-1 border border-gray-300 text-sm rounded-full hover:bg-gray-100 flex items-center gap-1"
+                      >
                         <X className="w-4 h-4" /> Reject
                       </button>
                     </div>
                   )}
+
+                  {p.status === 'Pending' && userIdFromLogin === p.requesterId && (
+                    <span className="px-3 py-1 border rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border-yellow-400">
+                      Waiting for response
+                    </span>
+                  )}
                   {p.status === 'Active' && (
-                    <button className="px-3 py-1 border border-blue-400 text-blue-500 rounded-full text-sm hover:bg-blue-50 flex items-center gap-1">
+                    <button className="px-3 py-1 border border-blue-400 text-blue-500 rounded-full text-sm  cursor-default hover:bg-blue-50 flex items-center gap-1">
                       <Users className="w-4 h-4" /> Friend
                     </button>
                   )}
                   {p.status === 'Inactive' && (
-                    <button className="px-3 py-1 border border-red-400 text-red-500 rounded-md text-sm hover:bg-red-50 flex items-center gap-1">
+                    <button className="px-3 py-1 border border-red-400 text-red-500 rounded-md text-sm hover:bg-red-50  cursor-default flex items-center gap-1">
                       <Ban className="w-4 h-4" /> Cancel
                     </button>
                   )}

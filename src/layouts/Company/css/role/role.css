@@ -17,3 +17,21 @@
 .item{display:flex;align-items:center;gap:10px;padding:8px 2px;font-size:14px;color:var(--cmp-gray-700)}
 .checkbox{width:18px;height:18px;border-radius:6px;border:1px solid var(--cmp-gray-300);background:#fff;display:inline-block}
 .checkboxChecked{border-color:var(--cmp-brand-500);background:linear-gradient(180deg,var(--cmp-brand-400),var(--cmp-brand-600));position:relative}
+/* ==== Modal ==== */
+.modalBackdrop{
+  position: fixed; top:0; right:0; bottom:0; left:0;
+  background: rgba(15,23,42,.45);
+  display: grid; place-items: center;
+  z-index: 9999;
+}
+.modalPanel{
+  background:#fff; border-radius:16px;
+  border:1px solid var(--cmp-gray-200);
+  box-shadow: 0 20px 48px rgba(2,6,23,.25);
+  max-height:85vh; overflow:auto;
+}
+.modalHeader{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--cmp-gray-200)}
+.modalTitle{font-weight:700;color:var(--cmp-gray-800);font-size:16px}
+.modalClose{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--cmp-gray-500)}
+.modalBody{padding:16px}
+.modalFooter{padding:12px 16px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--cmp-gray-200)}

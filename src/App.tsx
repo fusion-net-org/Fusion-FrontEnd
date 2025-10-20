@@ -9,12 +9,16 @@ import Landing from './pages/landing/Landing';
 import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
+import ProjectsPage from './pages/home/ProjectsPage';
+
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
+import Settings from './pages/setting/Setting';
+
 function App() {
   return (
     <>
@@ -30,12 +34,14 @@ function App() {
         {/* Route home layout */}
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
-          <Route path="/subscription" element={<SubscriptionPage />} />
+          <Route path="/setting" element={<Settings />} />
         </Route>
         <Route element={<CompanyLayout />}>
-          <Route path="/company/access-role" element={<AccessRolePage />} />
+          <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
         </Route>
-
+        <Route element={<CompanyLayout />}>
+          <Route path="/company/:companyId/project" element={<ProjectsPage />} />
+        </Route>
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

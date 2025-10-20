@@ -42,6 +42,31 @@ export const searchCompanies = async (keyword, pageNumber = 1, pageSize = 8) => 
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+export const getAllCompanies = async (
+  keyword = '',
+  ownerUserName = '',
+  pageNumber = 1,
+  pageSize = 25,
+  companyId = '',
+) => {
+  try {
+    const params = new URLSearchParams();
+
+    if (keyword && keyword.trim()) params.append('Keyword', keyword);
+    if (ownerUserName && ownerUserName.trim()) params.append('OwnerUserName', ownerUserName);
+    if (companyId && companyId.trim()) params.append('companyId', companyId);
+    params.append('PageNumber', pageNumber.toString());
+    params.append('PageSize', pageSize.toString());
+
+    const response = await axiosInstance.get(`/company/all-companies?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw new Error(error.response?.data?.message || 'Error fetching companies!');
+  }
+};
+
 export const filterAndSortCompanies = async (
   SortColumn,
   SortDescending,
@@ -62,15 +87,6 @@ export const filterAndSortCompanies = async (
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
-//https://localhost:7160/api/company/8e27874a-9364-40aa-96e9-a0677fa58d4c
-// export const getCompanyById = async (id) => {
-//   try {
-//     const response = await axiosInstance.get($`/company/{id}`);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error(error.response?.data?.message || 'Error!');
-//   }
-// };
 
 export const getCompanyById = async (id) => {
   try {
