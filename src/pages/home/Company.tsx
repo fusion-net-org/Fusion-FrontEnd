@@ -1,25 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, ChevronDown, Bell, SlidersHorizontal, ArrowUp, ArrowDown } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import FormCreateCompany from '@/components/Company/CreateCompany';
-import {
-  getPagedCompanies,
-  searchCompanies,
-  filterAndSortCompanies,
-} from '@/services/companyService.js';
+import { getAllCompanies } from '@/services/companyService.js';
 import type { CompanyResponse, CompanyRequest } from '@/interfaces/Company/company';
 import CardCompany from '@/components/Company/CardCompany';
 import EmptyState from '@/utils/EmptyState';
+import { useNavigate } from 'react-router-dom';
+import { debounce } from 'lodash';
+import LoadingOverlay from '@/common/LoadingOverlay';
 
 const Company: React.FC = () => {
-  //useState get all companies
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<CompanyRequest[]>([]);
-  //useState search
   const [searchTerm, setSearchTerm] = useState('');
-  //useState pagination
   const [pagination, setPagination] = useState<
     Pick<CompanyResponse, 'pageNumber' | 'pageSize' | 'totalCount'>
   >({
@@ -27,76 +25,23 @@ const Company: React.FC = () => {
     pageSize: 8,
     totalCount: 0,
   });
-  //use state filter sort
   const [sortColumn, setSortColumn] = useState('name');
   const [sortDescending, setSortDescending] = useState(false);
-
-  // Current page state
+  const [filterRelationship, setFilterRelationship] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Handle page change
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setCurrentPage(value);
-    fetchCompanies(value);
-  };
-  // Handle search
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      fetchCompanies();
-      return;
-    }
+  const fetchCompanies = async (keyword = '', page = 1) => {
     try {
-      const res = await searchCompanies(searchTerm);
-      const data: CompanyResponse = res.data;
-      setCompanies(data.items);
-      setPagination({
-        pageNumber: data.pageNumber,
-        pageSize: data.pageSize,
-        totalCount: data.totalCount,
-      });
-    } catch (error: any) {
-      console.error('Error searching:', error.message);
-    }
-  };
-
-  // Handle enter key for search
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  //handing sort change
-  const handleSortChange = async (column: string, descending = sortDescending) => {
-    setSortColumn(column);
-    setSortDescending(descending);
-
-    try {
-      const res = await filterAndSortCompanies(
-        column,
-        descending,
-        currentPage,
+      setLoading(true);
+      const res = await getAllCompanies(
+        keyword.trim(),
+        '',
+        filterRelationship === 'All' ? '' : filterRelationship,
+        page,
         pagination.pageSize,
+        sortColumn,
+        sortDescending,
       );
-      const data: CompanyResponse = res.data || res;
-
-      if (!data || !data.items) return;
-
-      setCompanies(data.items);
-      setPagination({
-        pageNumber: data.pageNumber,
-        pageSize: data.pageSize,
-        totalCount: data.totalCount,
-      });
-    } catch (error: any) {
-      console.error('Error sorting companies:', error.message);
-    }
-  };
-
-  //fetch all companies
-  const fetchCompanies = async (page = 1) => {
-    try {
-      const res = await getPagedCompanies(page, pagination.pageSize);
       const data: CompanyResponse = res.data;
       setCompanies(data.items);
       setPagination({
@@ -106,11 +51,40 @@ const Company: React.FC = () => {
       });
       setCurrentPage(data.pageNumber);
     } catch (error: any) {
-      console.error('Error', error.message);
+      console.error('Error fetching companies:', error.message);
+    } finally {
+      setTimeout(() => setLoading(false), 300);
     }
   };
 
-  //useEffect get all companies
+  const debouncedSearch = useCallback(
+    debounce((value: string) => {
+      fetchCompanies(value, 1);
+    }, 300),
+    [filterRelationship, sortColumn, sortDescending, pagination.pageSize],
+  );
+
+  useEffect(() => {
+    debouncedSearch(searchTerm);
+    return debouncedSearch.cancel;
+  }, [searchTerm, debouncedSearch]);
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+    fetchCompanies(searchTerm, value);
+  };
+
+  const handleSortChange = async (column: string, descending = sortDescending) => {
+    setSortColumn(column);
+    setSortDescending(descending);
+    fetchCompanies(searchTerm, 1);
+  };
+
+  const handleFilterRelationship = async (relation: string) => {
+    setFilterRelationship(relation);
+    fetchCompanies(searchTerm, 1);
+  };
+
   useEffect(() => {
     fetchCompanies();
   }, []);
@@ -124,21 +98,19 @@ const Company: React.FC = () => {
           <div className="relative">
             <Search
               className="absolute left-3 top-2.5 text-gray-400 w-5 h-5 cursor-pointer"
-              onClick={handleSearch}
+              onClick={() => fetchCompanies(searchTerm, 1)}
             />
             <input
               type="text"
-              placeholder="Input search companies...."
+              placeholder="Input search companies..."
               className="pl-10 pr-4 py-2 rounded-full border border-gray-200 w-[600px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={handleKeyDown}
+              value={searchTerm}
             />
           </div>
         </div>
 
-        {/* avatar */}
         <div className="flex items-center gap-4 mr-2">
-          {/* Notification icon */}
           <button className="relative">
             <Bell className="w-6 h-6 text-gray-600 hover:text-blue-600 transition" />
             <span className="absolute top-0 right-0 block w-2 h-2 bg-red-500 rounded-full"></span>
@@ -161,7 +133,6 @@ const Company: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Company</h2>
@@ -169,42 +140,28 @@ const Company: React.FC = () => {
             Manage all companies you belong to and their settings.
           </p>
         </div>
-        {/* Button Create Company */}
         <div>
           <FormCreateCompany onCreated={fetchCompanies} />
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Relationship filter */}
         <div className="flex items-center gap-3">
           <p className="font-medium text-gray-500">Relationship:</p>
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 border border-blue-200 rounded-lg text-sm text-blue-600 hover:bg-blue-100 transition cursor-pointer">
-              All
-            </button>
-            <button className="px-3 py-1.5 border border-blue-500 rounded-lg text-sm text-white bg-blue-500 font-medium shadow-sm hover:bg-blue-600 transition">
-              Owner
-            </button>
-            <button className="px-3 py-1.5 border border-blue-200 rounded-lg text-sm text-blue-600 hover:bg-blue-100 transition">
-              Member
-            </button>
-          </div>
-        </div>
-
-        {/* Role filter */}
-        <div className="flex items-center gap-3">
-          <p className="font-medium text-gray-500">Role:</p>
-          <div className="flex gap-2">
-            <button className="px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-orange-500 hover:bg-orange-100 transition">
-              Product Manager
-            </button>
-            <button className="px-3 py-1.5 border border-orange-500 rounded-lg text-sm text-white bg-orange-500 font-medium shadow-sm hover:bg-orange-600 transition">
-              Team Lead
-            </button>
-            <button className="px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-orange-500 hover:bg-orange-100 transition">
-              Dev
-            </button>
+            {['All', 'Owner', 'Member'].map((relation) => (
+              <button
+                key={relation}
+                onClick={() => handleFilterRelationship(relation)}
+                className={`px-3 py-1.5 border rounded-lg text-sm font-medium transition ${
+                  filterRelationship === relation
+                    ? 'border-blue-500 text-white bg-blue-500 shadow-sm hover:bg-blue-600'
+                    : 'border-blue-200 text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                {relation}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -224,7 +181,7 @@ const Company: React.FC = () => {
             <ChevronDown className="absolute right-2 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
 
-          {/* Nút đổi hướng tăng/giảm */}
+          {/* Nút đổi hướng */}
           <button
             onClick={() => handleSortChange(sortColumn, !sortDescending)}
             className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition"
@@ -259,7 +216,7 @@ const Company: React.FC = () => {
           <div className="flex flex-wrap gap-6">
             {companies.map((company) => (
               <div key={company.id} className="w-[280px]">
-                <CardCompany company={company} />
+                <CardCompany company={company} onClick={() => navigate(`/company/${company.id}`)} />
               </div>
             ))}
           </div>
@@ -281,6 +238,11 @@ const Company: React.FC = () => {
             </Stack>
           </div>
         </>
+      )}
+      {loading && (
+        <div className="relative min-h-screen">
+          <LoadingOverlay loading={loading} message="loading companies..." />
+        </div>
       )}
     </div>
   );

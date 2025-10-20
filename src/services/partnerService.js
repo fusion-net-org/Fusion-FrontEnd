@@ -1,8 +1,32 @@
 import { axiosInstance } from '../apiConfig';
 
-//https://localhost:7160/api/partners/owner?PageNumber=1&PageSize=2
-// https://localhost:7160/api/partners/owner?FromDate=2025-11-11&ToDate=2025-11-12
-export const GetCompanyPartners = async (
+// export const GetCompanyPartners = async (
+//   FromDate,
+//   ToDate,
+//   pageNumber = 1,
+//   pageSize = 8,
+//   SortColumn,
+//   SortDescending,
+// ) => {
+//   try {
+//     const response = await axiosInstance.get('/partners/owner', {
+//       params: {
+//         FromDate: FromDate,
+//         ToDate: ToDate,
+//         PageNumber: pageNumber,
+//         PageSize: pageSize,
+//         SortColumn,
+//         SortDescending,
+//       },
+//     });
+//     return response.data;
+//   } catch (error) {
+//     throw new Error(error.response?.data?.message || 'Error!');
+//   }
+// };
+export const GetCompanyPartnersByCompanyID = async (
+  companyId,
+  Keyword,
   FromDate,
   ToDate,
   pageNumber = 1,
@@ -11,8 +35,10 @@ export const GetCompanyPartners = async (
   SortDescending,
 ) => {
   try {
-    const response = await axiosInstance.get('/partners/owner', {
+    const response = await axiosInstance.get('/partners/by-company/v2', {
       params: {
+        companyId: companyId,
+        Keyword: Keyword,
         FromDate: FromDate,
         ToDate: ToDate,
         PageNumber: pageNumber,
@@ -28,9 +54,13 @@ export const GetCompanyPartners = async (
 };
 
 // https://localhost:7160/api/partners/status-summary
-export const GetStatusSumaryPartners = async () => {
+export const GetStatusSumaryPartners = async (companyId) => {
   try {
-    const response = await axiosInstance.get('partners/status-summary');
+    const response = await axiosInstance.get('partners/status-summary', {
+      params: {
+        companyId,
+      },
+    });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
@@ -52,9 +82,14 @@ export const SearchPartners = async (Keyword) => {
 };
 
 //https://localhost:7160/api/partners/pending
-export const FilterPartners = async (status) => {
+export const FilterPartners = async (companyId, status) => {
   try {
-    const response = await axiosInstance.get(`/partners/${status}`);
+    const response = await axiosInstance.get(`/partners/status`, {
+      params: {
+        companyId,
+        status,
+      },
+    });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');

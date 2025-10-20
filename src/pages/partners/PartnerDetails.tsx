@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Mail,
   Phone,
@@ -14,11 +14,16 @@ import {
   Dot,
   Link as LinkIcon,
 } from 'lucide-react';
-
+import { useParams } from 'react-router-dom';
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 
 const PartnerDetails: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'activity'>('overview');
+
+  const { id } = useParams();
+  useEffect(() => {
+    console.log('Partner ID:', id);
+  }, [id]);
 
   const projectRequests = [
     {
