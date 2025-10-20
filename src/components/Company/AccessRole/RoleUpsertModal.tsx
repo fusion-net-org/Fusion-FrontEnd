@@ -3,6 +3,7 @@ import Modal from "@/common/Modal";
 import { Label, Input, Select } from "./FormControls";
 import type { RoleOption } from "@/types/role";
 import { createRole, getRolePermissionIds, saveRolePermissions, updateRole } from "@/services/roleService.js";
+import { toast } from "react-toastify";
 
 type Mode = "create" | "edit";
 type Props = {
@@ -61,7 +62,7 @@ export default function RoleUpsertModal({ mode, isOpen, companyId, roles, initia
       }
     } catch (e) {
       console.error(e);
-      alert(mode === "create" ? "Create role failed" : "Update role failed");
+      toast.error(mode === "create" ? "Create role failed" : "Update role failed");
     } finally {
       setSaving(false);
     }

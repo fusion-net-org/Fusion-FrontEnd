@@ -10,7 +10,7 @@ export type PermissionGroup = {
   items: PermissionItem[];
 };
 
-export type RoleOption = { id: string; name: string; levelLabel: string; };
+export type RoleOption = { id: string; name: string; description: string; };
 
 export type AccessRoleFormModel = {
   roleName: string;
