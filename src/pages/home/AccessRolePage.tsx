@@ -20,6 +20,7 @@ import ConfirmModal from "@/common/ConfirmModal.js";
 // ---- dùng metadata chức năng từ file JSON (không gọi API) ----
 import functionsMeta from "@/static/functions.json";
 import { Can } from "@/permission/PermissionProvider";
+import { toast } from "react-toastify";
 
 // ---- helper: group function theo page_code -> PermissionGroup[] ----
 type FnMeta = {
@@ -132,10 +133,10 @@ export default function AccessRolePage() {
       await deleteRole(companyId, Number(selectedRoleId));
       setOpenDelete(false);
       await reloadRolesAndSelect(); // sẽ tự chọn role đầu tiên còn lại
-      alert("Role deleted");
+      toast.success('Role deleted');
     } catch (e) {
       console.error(e);
-      alert("Delete failed");
+      toast.error('Delete failed');
     } finally {
       setDeleting(false);
     }
@@ -147,7 +148,7 @@ export default function AccessRolePage() {
       .map((r: any) => ({
         id: String(r.id),
         name: r.name ?? r.roleName ?? `Role#${r.id}`,
-        levelLabel: "",
+        description: r.description ?? "",
       }))
       .sort((a: RoleOption, b: RoleOption) => a.name.localeCompare(b.name));
 
@@ -171,7 +172,7 @@ export default function AccessRolePage() {
           .map((r: any) => ({
             id: String(r.id),
             name: r.name ?? r.roleName ?? `Role#${r.id}`,
-            levelLabel: "",
+            description: r.description ?? "",
           }))
           .sort((a: RoleOption, b: RoleOption) => a.name.localeCompare(b.name));
 
@@ -267,10 +268,10 @@ export default function AccessRolePage() {
       const ids = await getRolePermissionIds(companyId, Number(selectedRoleId));
       const granted = new Set<number>((ids ?? []).map(Number));
       setModel((prev) => ({ ...prev, groups: toGroups(functions, granted) }));
-      alert("Saved!");
+      toast.success("Saved!");
     } catch (e) {
       console.error(e);
-      alert("Save failed");
+      toast.success("Save failed");
     } finally {
       setSaving(false);
     }
@@ -321,12 +322,7 @@ export default function AccessRolePage() {
         </div>
       </div>
 
-      <button
-        className="btn btnGhost"
-        onClick={() => selectedRoleId && setSelectedRoleId(selectedRoleId)}
-      >
-        Cancel
-      </button>
+     
       <button
         className="btn btnPrimary"
         disabled={saving || loading}
@@ -345,7 +341,7 @@ export default function AccessRolePage() {
         onCreated={async (newRoleId) => {
           setOpenCreate(false);
           await reloadRolesAndSelect(String(newRoleId));
-          alert("Role created!");
+          toast.success("Role created!");
         }}
       />
 
@@ -360,7 +356,7 @@ export default function AccessRolePage() {
         onUpdated={async () => {
           setOpenEdit(false);
           await reloadRolesAndSelect(selectedRoleId);
-          alert("Role updated!");
+          toast.success("Role updated!");
         }}
       />
 
