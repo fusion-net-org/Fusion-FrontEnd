@@ -33,9 +33,6 @@
 
 .toolbar{ display:flex; align-items:center; justify-content:space-between; margin:12px 0 20px; }
 
-.grid{ display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:18px; }
-@media (min-width:680px){ .grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media (min-width:1024px){ .grid{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
 /* Card */
 .card{
