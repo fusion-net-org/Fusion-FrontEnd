@@ -15,6 +15,7 @@ import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/UserProfile/UserProfile';
+import Calendar from './pages/calendar/Calendar';
 function App() {
   return (
     <>
@@ -31,6 +32,7 @@ function App() {
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
+          <Route path="/calendar" element={<Calendar />} />
         </Route>
         <Route element={<CompanyLayout />}>
           <Route path="/company/access-role" element={<AccessRolePage />} />
