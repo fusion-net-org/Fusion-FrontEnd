@@ -14,7 +14,7 @@ import PartnerDetails from '@/pages/partners/PartnerDetails';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/UserProfile/UserProfile';
+import UserProfile from './pages/userProfile/UserProfile';
 function App() {
   return (
     <>

@@ -32,6 +32,7 @@ const Login: React.FC = () => {
         const user = {
           token,
           refreshToken: response.data.refreshToken,
+          id: decodedToken.sub,
           email: decodedToken.email,
           username: response.data.userName,
         };
