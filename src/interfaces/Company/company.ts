@@ -3,6 +3,7 @@ export interface CompanyRequest {
   name: string;
   ownerUserId: string;
   ownerUserName: string;
+  ownerUserAvatar: string;
   taxCode: string;
   email: string;
   detail: string;

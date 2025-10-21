@@ -90,6 +90,9 @@ export default function CompanyNavbar({
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIdLogin = user?.id;
 
+  console.log('navbar userlogin' + userIdLogin);
+  console.log('navbar ownerUserId' + ownerUserId);
+
   const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
   const visibleItems = isOwner ? items : items.filter((i) => i.key === 'Company Detail');
 

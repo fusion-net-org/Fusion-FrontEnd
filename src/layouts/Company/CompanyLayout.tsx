@@ -10,6 +10,7 @@ import { setCurrentCompanyId, clearCurrentCompanyId } from '@/apiConfig.js';
 import { PermissionProvider } from '@/permission/PermissionProvider';
 import { getUserIdFromToken } from '@/utils/token';
 import { getOwnerUser } from '@/services/userService.js';
+import type { User } from '@/interfaces/User/User';
 
 type Props = PropsWithChildren<{ initialTall?: boolean }>;
 
@@ -28,8 +29,8 @@ export default function CompanyLayout({ children, initialTall = true }: Props) {
       try {
         if (!userId) return;
         const response = await getOwnerUser(companyId);
-        const id = response?.data || null;
-        setOwnerUserId(id);
+        const data: User = response?.data || null;
+        setOwnerUserId(data.id);
       } catch (err) {
         console.error('Error fetching owner user:', err);
       }
