@@ -19,6 +19,7 @@ import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
+import Workflow from './pages/home/Workflow';
 function App() {
   return (
     <>
@@ -38,6 +39,9 @@ function App() {
         </Route>
         <Route element={<CompanyLayout />}>
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
+        </Route>
+         <Route element={<CompanyLayout />}>
+          <Route path="/companies/:companyId/workflow" element={<Workflow />} />
         </Route>
         <Route element={<CompanyLayout />}>
           <Route path="/company/:companyId/project" element={<ProjectsPage />} />
