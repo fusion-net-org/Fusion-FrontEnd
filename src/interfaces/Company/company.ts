@@ -5,14 +5,20 @@ export interface CompanyRequest {
   ownerUserName: string;
   ownerUserAvatar: string;
   taxCode: string;
+  phoneNumber: string;
+  address: string;
+  website: string;
   email: string;
   detail: string;
   imageCompany: string;
   avatarCompany: string;
   createAt: string;
   updateAt: string;
+  isDeleted: boolean;
   totalMember: number;
   totalProject: number;
+  totalPartners: number;
+  totalApproved: number;
 }
 export interface CompanyRequestV2 {
   id: string;

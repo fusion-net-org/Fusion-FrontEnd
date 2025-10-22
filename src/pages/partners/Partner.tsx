@@ -8,7 +8,6 @@ import InvitePartners from '@/components/Partner/InvitePartner';
 import {
   GetCompanyPartnersByCompanyID,
   GetStatusSumaryPartners,
-  SearchPartners,
   FilterPartners,
   CancelInvitePartner,
   AcceptInvitePartnert,
@@ -21,12 +20,14 @@ import { getUserIdFromToken } from '@/utils/token';
 import { toast } from 'react-toastify';
 import { useNavigate, useParams } from 'react-router-dom';
 import { debounce } from 'lodash';
+import LoadingOverlay from '@/common/LoadingOverlay';
 
 const Partners: React.FC = () => {
   const { RangePicker } = DatePicker;
   const userIdFromLogin = getUserIdFromToken();
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
+  const [loading, setLoading] = useState(false);
 
   //#region State
   //state partner
@@ -75,6 +76,7 @@ const Partners: React.FC = () => {
   const handleSearch = useCallback(
     debounce(async (keyword: string) => {
       try {
+        setLoading(true);
         if (!keyword) {
           fetchPartners();
           return;
@@ -102,6 +104,8 @@ const Partners: React.FC = () => {
         });
       } catch (error: any) {
         console.error('Error searching:', error.message);
+      } finally {
+        setLoading(false);
       }
     }, 500), // delay 500ms
     [companyId, pagination.pageSize],
@@ -110,6 +114,7 @@ const Partners: React.FC = () => {
   // Handle filter status partner
   const handleFilterStatus = async (status: string) => {
     try {
+      setLoading(true);
       if (!status || status === 'All') {
         fetchPartners();
         return;
@@ -127,11 +132,15 @@ const Partners: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error filter:', error.message);
+    } finally {
+      setLoading(false);
     }
   };
   // handle filter by date
   const handleFilterByDate = async (startDate: any, endDate: any) => {
     try {
+      setLoading(true);
+
       if (!startDate || !endDate) {
         fetchPartners();
         return;
@@ -160,6 +169,8 @@ const Partners: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error filtering by date:', error.message);
+    } finally {
+      setLoading(false);
     }
   };
   //handle accept
@@ -209,6 +220,7 @@ const Partners: React.FC = () => {
   //call api to get partners data
   const fetchPartners = async (pageNumber = 1) => {
     try {
+      setLoading(true);
       const response = await GetCompanyPartnersByCompanyID(
         companyId,
         null,
@@ -229,6 +241,8 @@ const Partners: React.FC = () => {
       });
     } catch (error) {
       console.error('Error fetching partners:', error);
+    } finally {
+      setLoading(false);
     }
   };
   //call api sumary status partners
@@ -248,226 +262,255 @@ const Partners: React.FC = () => {
 
   //#region  logic
   return (
-    <div className="px-6 font-inter">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-800">Partners</h1>
-          <p className="text-gray-500 text-sm">
-            Connect businesses to open project rights and share personnel
-          </p>
-        </div>
-        <button
-          onClick={() => setIsInviteOpen(true)}
-          className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-full shadow-sm hover:bg-blue-700 hover:shadow-md transition"
-        >
-          <UserPlus className="w-4 h-4" />
-          Invite Partner
-        </button>
-        <InvitePartners
-          open={isInviteOpen}
-          onClose={() => setIsInviteOpen(false)}
-          onSuccess={handleInviteSuccess}
-        />
-      </div>
-
-      {/* Status summary */}
-      <div className="flex gap-3 mb-4">
-        <span className="text-sm px-3 py-1 rounded-full bg-green-100 text-green-700">
-          Active: {summaryStatusPartner?.active}
-        </span>
-        <span className="text-sm px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
-          Pending: {summaryStatusPartner?.pending}
-        </span>
-        <span className="text-sm px-3 py-1 rounded-full bg-red-100 text-red-700">
-          Inactive: {summaryStatusPartner?.inactive}
-        </span>
-        <span className="text-sm px-3 py-1 rounded-full bg-blue-100 text-blue-700">
-          Total: {summaryStatusPartner?.total}
-        </span>
-      </div>
-
-      {/* Search + filter */}
-      <div className="flex justify-between items-center bg-gray-50 p-1 rounded-md mb-3">
-        <input
-          type="text"
-          onChange={(e) => {
-            const value = e.target.value;
-            setSearchTerm(value);
-            handleSearch(value);
-          }}
-          placeholder="Search Company/Owner/Status"
-          className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-100"
-        />
-
-        {/* filter range date */}
-        <div>
-          <span>Create Date: </span>
-          <RangePicker
-            className="border border-gray-300 rounded-md  text-sm"
-            format="DD/MM/YYYY"
-            placeholder={['Date From', 'Date To']}
-            onChange={(dates) => {
-              if (!dates) {
-                fetchPartners();
-                return;
-              }
-              const [start, end] = dates;
-              handleFilterByDate(start, end);
-            }}
+    <>
+      <LoadingOverlay loading={loading} />
+      <div className="px-6 font-inter">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-800">Partners</h1>
+            <p className="text-gray-500 text-sm">
+              Connect businesses to open project rights and share personnel
+            </p>
+          </div>
+          <button
+            onClick={() => setIsInviteOpen(true)}
+            className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-full shadow-sm hover:bg-blue-700 hover:shadow-md transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite Partner
+          </button>
+          <InvitePartners
+            open={isInviteOpen}
+            onClose={() => setIsInviteOpen(false)}
+            onSuccess={handleInviteSuccess}
           />
         </div>
 
-        <div className="flex items-center gap-2 text-blue-600 text-sm">
-          <select
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none"
-            value={filterStatus}
+        {/* Status summary */}
+        <div className="flex gap-3 mb-4">
+          <span className="text-sm px-3 py-1 rounded-full bg-green-100 text-green-700">
+            Active: {summaryStatusPartner?.active}
+          </span>
+          <span className="text-sm px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
+            Pending: {summaryStatusPartner?.pending}
+          </span>
+          <span className="text-sm px-3 py-1 rounded-full bg-red-100 text-red-700">
+            Inactive: {summaryStatusPartner?.inactive}
+          </span>
+          <span className="text-sm px-3 py-1 rounded-full bg-blue-100 text-blue-700">
+            Total: {summaryStatusPartner?.total}
+          </span>
+        </div>
+
+        {/* Search + filter */}
+        <div className="flex justify-between items-center bg-gray-50 p-1 rounded-md mb-3">
+          <input
+            type="text"
             onChange={(e) => {
               const value = e.target.value;
-              setFilterStatus(value);
-              handleFilterStatus(value);
+              setSearchTerm(value);
+              handleSearch(value);
             }}
-          >
-            <option value="All">All</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Pending">Pending</option>
-          </select>
-          {/* //result filter */}
-          <span>{pagination.totalCount} results</span>
+            placeholder="Search Company/Owner/Status"
+            className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-100"
+          />
+
+          {/* filter range date */}
+          <div>
+            <span>Create Date: </span>
+            <RangePicker
+              className="border border-gray-300 rounded-md  text-sm"
+              format="DD/MM/YYYY"
+              placeholder={['Date From', 'Date To']}
+              onChange={(dates) => {
+                if (!dates) {
+                  fetchPartners();
+                  return;
+                }
+                const [start, end] = dates;
+                handleFilterByDate(start, end);
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 text-blue-600 text-sm">
+            <select
+              className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none"
+              value={filterStatus}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFilterStatus(value);
+                handleFilterStatus(value);
+              }}
+            >
+              <option value="All">All</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Pending">Pending</option>
+            </select>
+            {/* //result filter */}
+            <span>{pagination.totalCount} results</span>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm text-gray-700">
+            <thead className="bg-gray-100 text-gray-600">
+              <tr>
+                <th className="px-4 py-3 text-left">Company</th>
+                <th className="px-4 py-3 text-left">Owner</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Projects</th>
+                <th className="px-4 py-3 text-left">Members</th>
+                <th className="px-4 py-3 text-left">Option</th>
+                <th className="px-4 py-3 text-left">Details</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {partners.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-10 text-gray-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Ban className="w-6 h-6 text-gray-400" />
+                      {searchTerm
+                        ? `No partners found for "${searchTerm}".`
+                        : 'No partners available.'}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                partners.map((p, i) => (
+                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 cursor-pointer">
+                      <div>
+                        <div className="font-semibold text-gray-800">
+                          {p.companyInfo?.name || 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Tax Code: {p.companyInfo?.taxCode || 'N/A'}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-800">
+                        {p.companyInfo?.ownerUserName || '—'}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-3 py-1 border rounded-full text-xs font-medium ${getStatusColor(
+                          p.status,
+                        )}`}
+                      >
+                        {p.status}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div>
+                        <div>
+                          <span className="font-medium text-gray-800">Since:</span>{' '}
+                          {new Date(p.createdAt).toLocaleDateString('vi-VN')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Responded:{' '}
+                          {p.respondedAt
+                            ? new Date(p.respondedAt).toLocaleDateString('vi-VN')
+                            : '-'}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-gray-800">{p.totalProject}</span> Projects
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-gray-800">{p.totalMember}</span> Members
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {p.status === 'Pending' && userIdFromLogin !== p.requesterId && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAccept(p.id)}
+                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 flex items-center gap-1"
+                          >
+                            <Check className="w-4 h-4" /> Accept
+                          </button>
+                          <button
+                            onClick={() => handleReject(p.id)}
+                            className="px-3 py-1 border border-gray-300 text-sm rounded-full hover:bg-gray-100 flex items-center gap-1"
+                          >
+                            <X className="w-4 h-4" /> Reject
+                          </button>
+                        </div>
+                      )}
+
+                      {p.companyInfo?.isDeleted ? (
+                        <button className="px-3 py-1 border border-red-400 text-red-500 rounded-md text-sm hover:bg-red-50 cursor-default flex items-center gap-1">
+                          <Ban className="w-4 h-4" /> Company Inactive
+                        </button>
+                      ) : (
+                        <>
+                          {p.status === 'Pending' && userIdFromLogin === p.requesterId && (
+                            <span className="px-3 py-1 border rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border-yellow-400">
+                              Waiting for response
+                            </span>
+                          )}
+
+                          {p.status === 'Active' && (
+                            <button className="px-3 py-1 border border-blue-400 text-blue-500 rounded-full text-sm cursor-default hover:bg-blue-50 flex items-center gap-1">
+                              <Users className="w-4 h-4" /> Friend
+                            </button>
+                          )}
+
+                          {p.status === 'Inactive' && (
+                            <button className="px-3 py-1 border border-red-400 text-red-500 rounded-md text-sm hover:bg-red-50 cursor-default flex items-center gap-1">
+                              <Ban className="w-4 h-4" /> Cancel
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 cursor-pointer">
+                      <Eye
+                        className="w-4 h-4"
+                        onClick={() => navigate(`/company/partners/${p.companyInfo.id}`)}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-end mt-4">
+          <Stack spacing={2}>
+            <Pagination
+              count={Math.ceil(pagination.totalCount / pagination.pageSize)}
+              page={currentPage}
+              onChange={handlePageChange}
+              color="primary"
+              variant="outlined"
+              shape="rounded"
+              size="medium"
+              showFirstButton
+              showLastButton
+            />
+          </Stack>
         </div>
       </div>
-
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm text-gray-700">
-          <thead className="bg-gray-100 text-gray-600">
-            <tr>
-              <th className="px-4 py-3 text-left">Company</th>
-              <th className="px-4 py-3 text-left">Owner</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Date</th>
-              <th className="px-4 py-3 text-left">Projects</th>
-              <th className="px-4 py-3 text-left">Members</th>
-              <th className="px-4 py-3 text-left">Option</th>
-              <th className="px-4 py-3 text-left">Details</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {partners.map((p, i) => (
-              <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                <td className="px-4 py-3 cursor-pointer ">
-                  <div>
-                    <div className="font-semibold text-gray-800">
-                      {p.companyInfo?.name || 'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Tax Code: {p.companyInfo?.taxCode || 'N/A'}
-                    </div>
-                  </div>
-                </td>
-
-                <td className="px-4 py-3">
-                  <div className="font-medium text-gray-800">
-                    {p.companyInfo?.ownerUserName || '—'}
-                  </div>
-                </td>
-
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-3 py-1 border rounded-full text-xs font-medium ${getStatusColor(
-                      p.status,
-                    )}`}
-                  >
-                    {p.status}
-                  </span>
-                </td>
-
-                <td className="px-4 py-3">
-                  <div>
-                    <div>
-                      <span className="font-medium text-gray-800">Since:</span>{' '}
-                      {new Date(p.createdAt).toLocaleDateString('vi-VN')}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Responded:{' '}
-                      {p.respondedAt ? new Date(p.respondedAt).toLocaleDateString('vi-VN') : '-'}
-                    </div>
-                  </div>
-                </td>
-
-                <td className="px-4 py-3">
-                  <span className="font-semibold text-gray-800">{p.totalProject}</span> Projects
-                </td>
-
-                <td className="px-4 py-3">
-                  <span className="font-semibold text-gray-800">{p.totalMember}</span> Members
-                </td>
-
-                <td className="px-4 py-3">
-                  {p.status === 'Pending' && userIdFromLogin !== p.requesterId && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAccept(p.id)}
-                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 flex items-center gap-1"
-                      >
-                        <Check className="w-4 h-4" /> Accept
-                      </button>
-                      <button
-                        onClick={() => handleReject(p.id)}
-                        className="px-3 py-1 border border-gray-300 text-sm rounded-full hover:bg-gray-100 flex items-center gap-1"
-                      >
-                        <X className="w-4 h-4" /> Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {p.status === 'Pending' && userIdFromLogin === p.requesterId && (
-                    <span className="px-3 py-1 border rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border-yellow-400">
-                      Waiting for response
-                    </span>
-                  )}
-                  {p.status === 'Active' && (
-                    <button className="px-3 py-1 border border-blue-400 text-blue-500 rounded-full text-sm  cursor-default hover:bg-blue-50 flex items-center gap-1">
-                      <Users className="w-4 h-4" /> Friend
-                    </button>
-                  )}
-                  {p.status === 'Inactive' && (
-                    <button className="px-3 py-1 border border-red-400 text-red-500 rounded-md text-sm hover:bg-red-50  cursor-default flex items-center gap-1">
-                      <Ban className="w-4 h-4" /> Cancel
-                    </button>
-                  )}
-                </td>
-                <td className="px-4 py-3 cursor-pointer ">
-                  <Eye
-                    className="ww-4 h-4"
-                    onClick={() => navigate(`/company/partners/${p.companyInfo.id}`)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-end mt-4">
-        <Stack spacing={2}>
-          <Pagination
-            count={Math.ceil(pagination.totalCount / pagination.pageSize)}
-            page={currentPage}
-            onChange={handlePageChange}
-            color="primary"
-            variant="outlined"
-            shape="rounded"
-            size="medium"
-            showFirstButton
-            showLastButton
-          />
-        </Stack>
-      </div>
-    </div>
+    </>
   );
   //#endregion
 };

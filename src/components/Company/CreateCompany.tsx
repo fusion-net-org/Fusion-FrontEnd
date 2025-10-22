@@ -5,12 +5,14 @@ import { Modal } from 'antd';
 import { createCompany } from '@/services/companyService.js';
 import { Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
+import LoadingOverlay from '@/common/LoadingOverlay';
 
 interface FormCreateCompanyProps {
   onCreated?: () => void;
 }
 const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     companyName: '',
     taxCode: '',
@@ -50,6 +52,9 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
   // Handle form submission
   const handleSubmit = async () => {
     try {
+      if (loading) return;
+      handleClose();
+      setLoading(true);
       const fd = new FormData();
       fd.append('Name', formData.companyName);
       fd.append('TaxCode', formData.taxCode);
@@ -74,14 +79,17 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
         avatar: null,
         banner: null,
       });
-      handleClose();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to create company!');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <>
+      <LoadingOverlay loading={loading} message="Creating a company, please wait..." />
+
       <button
         onClick={handleOpen}
         className="flex items-center gap-2 bg-blue-600 h-[40px] text-white px-4 py-2 rounded-full hover:bg-blue-700 transition"
