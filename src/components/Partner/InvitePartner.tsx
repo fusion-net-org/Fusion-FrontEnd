@@ -7,6 +7,7 @@ import { getAllCompanies } from '@/services/companyService.js';
 import { Loader2 } from 'lucide-react';
 import type { CompanyRequestV2, CompanyResponseV2 } from '@/interfaces/Company/company';
 import { toast } from 'react-toastify';
+import LoadingOverlay from '@/common/LoadingOverlay';
 
 interface InvitePartnerProps {
   open: boolean;
@@ -37,7 +38,7 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
 
       const start = Date.now();
 
-      const res = await getAllCompanies(term, '', 1, 25, selectedCompany || '');
+      const res = await getAllCompanies(term, '', '', 1, 25, null, null, selectedCompany || '');
       const data: CompanyResponseV2 = res.data;
 
       if (!res.succeeded) {
@@ -68,6 +69,7 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
         companyBID,
         note: note || null,
       };
+      setLoading(true);
 
       const res = await InvitePartnert(body);
       const responseData = res.data;
@@ -75,10 +77,9 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
       if (responseData.succeeded) {
         toast.success(responseData.message || 'Invite sent successfully!');
 
-        setLoading(true);
         await fetchCompanies(1, 25, selectedCompany || '');
         setLoading(false);
-
+        onClose?.();
         onSuccess?.();
       } else {
         toast.error(responseData.message || 'Something went wrong');
@@ -99,9 +100,9 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
       setErrorMessage(null);
 
       const start = Date.now();
-      const res = await getAllCompanies('', '', pageNumber, pageSize, companyId);
+      const res = await getAllCompanies('', '', '', pageNumber, pageSize, null, null, companyId);
       const data: CompanyResponseV2 = res.data;
-
+      console.log(data);
       if (!res.succeeded) {
         setCompanies([]);
         setErrorMessage(res.message || 'No companies found.');
@@ -125,7 +126,7 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
     const userData = localStorage.getItem('user');
     const username = userData ? JSON.parse(userData).username : '';
     try {
-      const response = await getAllCompanies('', username || '', pageNumber, pageSize);
+      const response = await getAllCompanies('', username || '', '', pageNumber, pageSize);
       const data: CompanyResponseV2 = response.data;
       const ownerList = data.items ?? [];
       setOwnerCompanies(data.items ?? []);
@@ -184,6 +185,8 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
       centered
       width={500}
     >
+      <LoadingOverlay loading={loading} message="Loading Partners..." />
+
       <div className="flex flex-col gap-3">
         <div>
           <label className="text-sm font-medium text-gray-700">Your Company</label>
