@@ -1,26 +1,74 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventApi, DateSelectArg, EventClickArg, EventContentArg } from '@fullcalendar/core';
+import type {
+  EventApi,
+  DateSelectArg,
+  EventClickArg,
+  EventContentArg,
+  DatesSetArg,
+} from '@fullcalendar/core';
 import { formatDate } from '@fullcalendar/core';
 import { INITIAL_EVENTS, createEventId } from './event-utils';
 
-const Calendar: React.FC = () => {
-  const [weekendsVisible, setWeekendsVisible] = useState(true);
-  const [currentEvents, setCurrentEvents] = useState<EventApi[]>([]);
-
-  const handleWeekendsToggle = () => {
-    setWeekendsVisible(!weekendsVisible);
+/* ======= Helpers to decorate your demo events with UI props ======= */
+type UiEvent = {
+  id?: string;
+  title: string;
+  start: string | Date;
+  end?: string | Date;
+  allDay?: boolean;
+  extendedProps?: {
+    owner?: string; // initials e.g. "MF"
+    ownerColor?: string; // tailwind bg-* for avatar
+    pill?: string; // tailwind bg-* for pill
+    tags?: string[]; // tailwind bg-* for little squares
   };
+};
+
+const palette = [
+  { pill: 'bg-pink-400', avatar: 'bg-indigo-600' },
+  { pill: 'bg-amber-300', avatar: 'bg-amber-600' },
+  { pill: 'bg-emerald-400', avatar: 'bg-emerald-600' },
+  { pill: 'bg-sky-400', avatar: 'bg-sky-600' },
+  { pill: 'bg-violet-400', avatar: 'bg-violet-600' },
+];
+
+function decorate(events: any[]): UiEvent[] {
+  return events.map((e, i) => {
+    const p = palette[i % palette.length];
+    return {
+      ...e,
+      extendedProps: {
+        ...(e.extendedProps || {}),
+        owner: ['MF', 'AL', 'NA', 'JP', 'TT'][i % 5] as string,
+        ownerColor: p.avatar,
+        pill: p.pill,
+        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300'].slice(0, (i % 4) + 1),
+      },
+    };
+  });
+}
+
+/* ================= Component ================= */
+const Calendar: React.FC = () => {
+  const calendarRef = useRef<FullCalendar | null>(null);
+  const [title, setTitle] = useState<string>('');
+  const [currentEvents, setCurrentEvents] = useState<EventApi[]>([]);
+  const initialDecorated = useMemo(() => decorate(INITIAL_EVENTS), []);
+
+  /* Header actions */
+  const api = () => calendarRef.current?.getApi();
+  const gotoPrev = () => api()?.prev();
+  const gotoNext = () => api()?.next();
+  const gotoToday = () => api()?.today();
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
-    const title = prompt('Please enter a new title for your event');
+    const title = prompt('Event title?');
     const calendarApi = selectInfo.view.calendar;
-
     calendarApi.unselect();
-
     if (title) {
       calendarApi.addEvent({
         id: createEventId(),
@@ -28,87 +76,144 @@ const Calendar: React.FC = () => {
         start: selectInfo.startStr,
         end: selectInfo.endStr,
         allDay: selectInfo.allDay,
+        extendedProps: {
+          owner: 'YOU',
+          ownerColor: 'bg-slate-600',
+          pill: 'bg-slate-300',
+          tags: ['bg-slate-400'],
+        },
       });
     }
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
-    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'?`)) {
-      clickInfo.event.remove();
-    }
-  };
-
-  const handleEvents = (events: EventApi[]) => {
-    setCurrentEvents(events);
+    if (confirm(`Delete '${clickInfo.event.title}'?`)) clickInfo.event.remove();
   };
 
   return (
-    <div className="demo-app flex">
-      {/* Sidebar */}
-      <div className="demo-app-sidebar w-1/4 p-4 bg-gray-50 border-r border-gray-200">
-        <div className="demo-app-sidebar-section mb-4">
-          <h2 className="font-semibold text-lg mb-2">Instructions</h2>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-            <li>Select dates and create events</li>
-            <li>Drag, drop, and resize events</li>
-            <li>Click an event to delete it</li>
-          </ul>
+    <div className="min-h-[80vh] w-full rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+      {/* Top nav (like screenshot) */}
+      <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <button
+            className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-black/90"
+            onClick={() => alert('Hook this to your create-task flow')}
+          >
+            + Add task
+          </button>
+          <div className="h-5 w-px bg-gray-200" />
+          <button
+            onClick={gotoToday}
+            className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Today
+          </button>
+
+          <div className="ml-1 flex items-center">
+            <button
+              onClick={gotoPrev}
+              className="rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50"
+              aria-label="Prev"
+            >
+              ‹
+            </button>
+            <button
+              onClick={gotoNext}
+              className="rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50"
+              aria-label="Next"
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="ml-2 text-base font-semibold text-gray-900">{title}</div>
         </div>
 
-        <div className="demo-app-sidebar-section mb-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={weekendsVisible} onChange={handleWeekendsToggle} />
-            Toggle weekends
-          </label>
-        </div>
-
-        <div className="demo-app-sidebar-section">
-          <h2 className="font-semibold text-lg mb-2">All Events ({currentEvents.length})</h2>
-          <ul className="text-sm space-y-1">{currentEvents.map(renderSidebarEvent)}</ul>
+        <div className="flex items-center gap-2">
+          <button className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+            Months
+          </button>
+          <button className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+            Filter
+          </button>
+          <button className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+            Unscheduled
+          </button>
+          <button className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+            Options
+          </button>
         </div>
       </div>
 
-      {/* Main calendar */}
-      <div className="demo-app-main flex-1 p-4">
+      {/* Calendar */}
+      <div className="p-3">
         <FullCalendar
+          ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay',
-          }}
           initialView="dayGridMonth"
-          editable={true}
-          selectable={true}
-          selectMirror={true}
-          dayMaxEvents={true}
-          weekends={weekendsVisible}
-          initialEvents={INITIAL_EVENTS}
+          headerToolbar={false}
+          height="auto"
+          editable
+          selectable
+          selectMirror
+          weekends
+          /* Let us style events ourselves */
+          eventColor="transparent"
+          eventBorderColor="transparent"
+          eventDisplay="block"
+          /* Data */
+          initialEvents={initialDecorated as any}
           select={handleDateSelect}
           eventContent={renderEventContent}
           eventClick={handleEventClick}
-          eventsSet={handleEvents}
+          eventsSet={(evts) => setCurrentEvents(evts)}
+          datesSet={(arg: DatesSetArg) => setTitle(arg.view.title)}
+          dayMaxEventRows={3}
         />
+      </div>
+
+      {/* Footer small summary like “All events (x)” (optional) */}
+      <div className="border-t border-gray-200 px-4 py-3 text-sm text-gray-600">
+        All events: <span className="font-medium text-gray-900">{currentEvents.length}</span>
       </div>
     </div>
   );
 };
 
-function renderEventContent(eventContent: EventContentArg) {
-  return (
-    <>
-      <b>{eventContent.timeText}</b>&nbsp;
-      <i>{eventContent.event.title}</i>
-    </>
-  );
-}
+/* ======= Custom event renderer (pill bar with avatar + tags) ======= */
+function renderEventContent(arg: EventContentArg) {
+  const { event, timeText } = arg;
+  const ex = (event.extendedProps || {}) as any;
+  const pill = ex.pill || 'bg-slate-300';
+  const owner = ex.owner || '';
+  const ownerColor = ex.ownerColor || 'bg-slate-600';
+  const tags: string[] = ex.tags || [];
 
-function renderSidebarEvent(event: EventApi) {
   return (
-    <li key={event.id} className="flex flex-col">
-      <b>{formatDate(event.start!, { year: 'numeric', month: 'short', day: 'numeric' })}</b>
-      <i>{event.title}</i>
-    </li>
+    <div className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs text-gray-900 ${pill}`}>
+      {/* avatar initials */}
+      {owner ? (
+        <span
+          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${ownerColor}`}
+          title={owner}
+        >
+          {owner}
+        </span>
+      ) : null}
+
+      {/* time (only in week/day views) */}
+      {timeText ? <b className="mr-1 hidden sm:inline">{timeText}</b> : null}
+
+      {/* title */}
+      <span className="min-w-0 truncate">{event.title}</span>
+
+      {/* tags (colored squares) */}
+      <span className="ml-auto flex gap-1">
+        {tags.map((c, i) => (
+          <span key={i} className={`h-3 w-3 rounded-sm ${c}`} />
+        ))}
+      </span>
+    </div>
   );
 }
 
