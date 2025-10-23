@@ -66,7 +66,7 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
 };
 
 const defaultItems: Item[] = [
-  { key: 'Company Detail', label: 'Detail', to: '/company/:companyId', icon: 'settings' },
+  { key: 'company-detail', label: 'Company Detail', to: '/company/:companyId', icon: 'settings' },
   {
     key: 'access-role',
     label: 'Access Role',
@@ -75,6 +75,13 @@ const defaultItems: Item[] = [
   },
   { key: 'projects', label: 'Projects', to: '/company/:companyId/project', icon: 'layers' },
   { key: 'partners', label: 'Partners', to: '/company/:companyId/partners', icon: 'partners' },
+  {
+    key: 'partner-detail',
+    label: 'Partner Details',
+    to: '/company/partners/:id',
+    icon: 'partners',
+  },
+  { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
 ];
 
 export default function CompanyNavbar({
@@ -91,9 +98,19 @@ export default function CompanyNavbar({
   const userIdLogin = user?.id;
 
   const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
-  const visibleItems = isOwner ? items : items.filter((i) => i.key === 'Company Detail');
 
-  // 🧠 dùng matchPath để xác định active item chính xác
+  const isPartnerDetailPage = /^\/company\/partners\/[^/]+$/.test(pathname);
+
+  let visibleItems;
+
+  if (isPartnerDetailPage) {
+    visibleItems = items.filter((i) => i.key === 'partner-detail');
+  } else if (isOwner) {
+    visibleItems = items.filter((i) => i.key !== 'partner-detail');
+  } else {
+    visibleItems = items.filter((i) => i.key === 'company-detail');
+  }
+
   const activeIdx = Math.max(
     0,
     visibleItems.findIndex((i) => {

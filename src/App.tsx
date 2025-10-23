@@ -13,13 +13,13 @@ import ProjectsPage from './pages/home/ProjectsPage';
 
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
-import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
+import CompanyMember from './pages/home/CompanyMember';
 function App() {
   return (
     <>
@@ -37,15 +37,18 @@ function App() {
           <Route path="/company" element={<Company />} />
           <Route path="/setting" element={<Settings />} />
         </Route>
+
+        {/* route company layout */}
         <Route element={<CompanyLayout />}>
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
-        </Route>
-         <Route element={<CompanyLayout />}>
+          <Route path="/company/:companyId" element={<CompanyDetail />} />
+          <Route path="/company/:companyId/partners" element={<Partners />} />
+          <Route path="/company/partners/:id" element={<PartnerDetails />} />
+          <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<Workflow />} />
-        </Route>
-        <Route element={<CompanyLayout />}>
           <Route path="/company/:companyId/project" element={<ProjectsPage />} />
         </Route>
+
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -55,13 +58,6 @@ function App() {
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-failed" element={<PaymentFailed />} />
-
-        {/* partners */}
-        <Route element={<CompanyLayout />}>
-          <Route path="/company/:companyId" element={<CompanyDetail />} />
-          <Route path="/company/:companyId/partners" element={<Partners />} />
-          <Route path="/company/partners/:id" element={<PartnerDetails />} />
-        </Route>
       </Routes>
     </>
   );
