@@ -16,6 +16,7 @@ import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
 import Calendar from './pages/calendar/Calendar';
+import ResetPassword from './pages/resetPassword/ResetPassword';
 function App() {
   return (
     <>
@@ -41,6 +42,7 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/my-profile" element={<UserProfile />} />
         <Route path="*" element={<NotFound />} />
 
