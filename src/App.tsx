@@ -11,7 +11,8 @@ import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import ProjectsPage from './pages/home/ProjectsPage';
-
+import Calendar from './pages/calendar/Calendar';
+import ResetPassword from './pages/resetPassword/ResetPassword';
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
