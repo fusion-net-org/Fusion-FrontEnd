@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Login from './pages/login/Login';
 import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import ScrollToTop from './utils/ScrollToTop';
 import NotFound from './pages/notfound/NotFound';
 import Register from './pages/register/Register';
@@ -15,15 +16,16 @@ import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/userProfile/UserProfile';
+import UserProfile from './pages/UserProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
+import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 function App() {
   return (
     <>
-      <ToastContainer />
+      <ToastContainer position="top-right" autoClose={3000} />
       <ScrollToTop />
 
       <Routes>
@@ -47,6 +49,7 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<Workflow />} />
           <Route path="/company/:companyId/project" element={<ProjectsPage />} />
+          <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
         </Route>
 
         {/* Route ko có layout */}

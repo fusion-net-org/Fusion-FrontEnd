@@ -82,6 +82,7 @@ const defaultItems: Item[] = [
     icon: 'partners',
   },
   { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
+  { key: 'member-detail', label: 'Member Detail', to: '/company/members/:Id', icon: 'users' },
 ];
 
 export default function CompanyNavbar({
@@ -100,13 +101,16 @@ export default function CompanyNavbar({
   const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
 
   const isPartnerDetailPage = /^\/company\/partners\/[^/]+$/.test(pathname);
+  const isMemberDetailPage = /^\/company\/members\/[^/]+$/.test(pathname);
 
   let visibleItems;
 
   if (isPartnerDetailPage) {
     visibleItems = items.filter((i) => i.key === 'partner-detail');
+  } else if (isMemberDetailPage) {
+    visibleItems = items.filter((i) => i.key === 'member-detail');
   } else if (isOwner) {
-    visibleItems = items.filter((i) => i.key !== 'partner-detail');
+    visibleItems = items.filter((i) => i.key !== 'partner-detail' && i.key !== 'member-detail');
   } else {
     visibleItems = items.filter((i) => i.key === 'company-detail');
   }
