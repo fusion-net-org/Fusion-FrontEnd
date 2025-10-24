@@ -16,10 +16,13 @@ import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
+import Calendar from './pages/calendar/Calendar';
+import ResetPassword from './pages/resetPassword/ResetPassword';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
+import SubscriptionPage from './pages/subscription/SubscriptionPage';
 function App() {
   return (
     <>
@@ -35,6 +38,8 @@ function App() {
         {/* Route home layout */}
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
         </Route>
 
@@ -52,6 +57,7 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/my-profile" element={<UserProfile />} />
         <Route path="*" element={<NotFound />} />
 
