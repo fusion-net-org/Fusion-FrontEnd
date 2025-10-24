@@ -22,6 +22,7 @@ import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
+import SubscriptionPage from './pages/subscription/SubscriptionPage';
 function App() {
   return (
     <>
@@ -37,6 +38,8 @@ function App() {
         {/* Route home layout */}
         <Route element={<HomeLayout />}>
           <Route path="/company" element={<Company />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
         </Route>
 
@@ -55,6 +58,7 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/my-profile" element={<UserProfile />} />
         <Route path="*" element={<NotFound />} />
 
