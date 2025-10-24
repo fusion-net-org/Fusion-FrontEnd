@@ -87,9 +87,9 @@ const Login: React.FC = () => {
                 <input type="checkbox" className="accent-blue-500" />
                 Remember me
               </label>
-              <a href="#" className="text-[#1B74F3] hover:underline">
+              <Link to="/request-reset-password" className="text-[#1B74F3] hover:underline">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             {/* Submit */}

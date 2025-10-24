@@ -37,3 +37,23 @@ export const refreshToken = async (refreshTokenValue) => {
     throw new Error(message);
   }
 };
+
+export const requestPasswordReset = async (email) => {
+  try {
+    const response = await axiosInstance.post('/Authen/request-password-reset', email);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
+
+export const resetPassword = async (data) => {
+  try {
+    const response = await axiosInstance.post('/Authen/reset-password', data);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
