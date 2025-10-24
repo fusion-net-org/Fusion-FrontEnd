@@ -1,33 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect, use } from 'react';
+import React from 'react';
 import { Users, Folder } from 'lucide-react';
 import type { Company } from '@/interfaces/Company/company';
-import { getSelfUser } from '@/services/userService.js';
-import type { User, UserResponse } from '@/interfaces/User/User';
 import { Tooltip } from 'antd';
 
 interface CardCompanyProps {
   company: Company;
+  onClick?: () => void;
 }
 
-const CardCompany: React.FC<CardCompanyProps> = ({ company }) => {
-  const [selfUser, setSelfUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const fetchSelfUser = async () => {
-      try {
-        const response: UserResponse = await getSelfUser();
-        setSelfUser(response.data);
-        console.log(response.data);
-      } catch (err) {
-        console.error('error:', err);
-      }
-    };
-    fetchSelfUser();
-  }, []);
-
+const CardCompany: React.FC<CardCompanyProps> = ({ company, onClick }) => {
   return (
     <div
+      onClick={onClick}
       key={company.id}
       className="font-inter border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white flex flex-col h-full cursor-pointer"
     >
@@ -70,19 +56,17 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company }) => {
             </span>
           </div>
 
-          {selfUser && (
-            <div className="flex gap-2 text-sm text-gray-600">
-              <img
-                src={selfUser.avatar}
-                alt="owner avatar"
-                className="w-9 h-9 rounded-full object-cover border border-gray-200"
-              />
-              <div className="flex flex-col">
-                <span className="font-medium text-xs">Owner</span>
-                <span className="font-semibold">{company.ownerUserName}</span>
-              </div>
+          <div className="flex gap-2 text-sm text-gray-600">
+            <img
+              src={company.ownerUserAvatar}
+              alt="owner avatar"
+              className="w-9 h-9 rounded-full object-cover border border-gray-200"
+            />
+            <div className="flex flex-col">
+              <span className="font-medium text-xs">Owner</span>
+              <span className="font-semibold">{company.ownerUserName}</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

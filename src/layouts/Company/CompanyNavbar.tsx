@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { type JSX } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React from 'react';
+import { NavLink, useLocation, useParams, matchPath } from 'react-router-dom';
 
 type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners';
 type Item = { key: string; label: string; to: string; icon?: PresetIcon | React.ReactNode };
 
-const Preset: Record<PresetIcon, JSX.Element> = {
+const Preset: Record<PresetIcon, React.ReactNode> = {
   grid: (
     <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
       <path
@@ -65,25 +65,58 @@ const Preset: Record<PresetIcon, JSX.Element> = {
   ),
 };
 
-function renderIcon(icon?: PresetIcon | React.ReactNode) {
-  if (!icon) return <span className="cmp-nav__dot" />;
-  if (React.isValidElement(icon)) return icon;
-  return Preset[icon as PresetIcon] ?? <span className="cmp-nav__dot" />;
-}
-
 const defaultItems: Item[] = [
-  { key: 'access-role', label: 'Access Role', to: '/company/access-role', icon: 'grid' },
-  { key: 'projects', label: 'Projects', to: '/company/projects', icon: 'layers' },
-  { key: 'partners', label: 'Partners', to: '/company/partners', icon: 'partners' },
-  { key: 'partnerdetails', label: 'PartnerDetails', to: '/company/partners/:id', icon: 'partners' },
-  { key: 'detail3', label: 'Detail', to: '/company/detail-3', icon: 'settings' },
+  { key: 'company-detail', label: 'Company Detail', to: '/company/:companyId', icon: 'settings' },
+  {
+    key: 'access-role',
+    label: 'Access Role',
+    to: '/companies/:companyId/access-role',
+    icon: 'grid',
+  },
+  { key: 'projects', label: 'Projects', to: '/company/:companyId/project', icon: 'layers' },
+  { key: 'partners', label: 'Partners', to: '/company/:companyId/partners', icon: 'partners' },
+  {
+    key: 'partner-detail',
+    label: 'Partner Details',
+    to: '/company/partners/:id',
+    icon: 'partners',
+  },
+  { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
 ];
 
-export default function CompanyNavbar({ items = defaultItems }: { items?: Item[] }) {
+export default function CompanyNavbar({
+  items = defaultItems,
+  ownerUserId,
+}: {
+  items?: Item[];
+  ownerUserId?: string;
+}) {
   const { pathname } = useLocation();
+  const { companyId } = useParams();
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userIdLogin = user?.id;
+
+  const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
+
+  const isPartnerDetailPage = /^\/company\/partners\/[^/]+$/.test(pathname);
+
+  let visibleItems;
+
+  if (isPartnerDetailPage) {
+    visibleItems = items.filter((i) => i.key === 'partner-detail');
+  } else if (isOwner) {
+    visibleItems = items.filter((i) => i.key !== 'partner-detail');
+  } else {
+    visibleItems = items.filter((i) => i.key === 'company-detail');
+  }
+
   const activeIdx = Math.max(
     0,
-    items.findIndex((i) => pathname.startsWith(i.to)),
+    visibleItems.findIndex((i) => {
+      const routePath = i.to.replace(':companyId', companyId || '');
+      return matchPath({ path: routePath, end: true }, pathname) !== null;
+    }),
   );
 
   return (
@@ -92,16 +125,20 @@ export default function CompanyNavbar({ items = defaultItems }: { items?: Item[]
         <div className="cmp-nav__groupTitle">Menu</div>
         <div className="cmp-nav__items" style={{ ['--active-index' as any]: activeIdx }}>
           <div className="cmp-nav__indicator" />
-          {items.map((it) => (
-            <NavLink
-              key={it.key}
-              to={it.to}
-              className={({ isActive }) => `cmp-nav__item ${isActive ? 'is-active' : ''}`}
-            >
-              <span className="cmp-nav__glyph">{renderIcon(it.icon)}</span>
-              <span>{it.label}</span>
-            </NavLink>
-          ))}
+          {visibleItems.map((it) => {
+            const routePath = it.to.replace(':companyId', companyId || '');
+            return (
+              <NavLink
+                key={it.key}
+                to={routePath}
+                end
+                className={({ isActive }) => `cmp-nav__item ${isActive ? 'is-active' : ''}`}
+              >
+                <span className="cmp-nav__glyph">{Preset[it.icon as PresetIcon]}</span>
+                <span>{it.label}</span>
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
     </aside>

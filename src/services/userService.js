@@ -21,3 +21,12 @@ export const putSelfUser = async (formData) => {
     throw new Error(error.response?.data?.message || 'Update failed!');
   }
 };
+
+export const getOwnerUser = async (companyID) => {
+  try {
+    const response = await axiosInstance.get(`/User/owner-user/${companyID}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Get owner user failed!');
+  }
+};
