@@ -101,7 +101,7 @@ const NotificationDropdown: React.FC = () => {
                 {/* Text */}
                 <div className="flex-1">
                   <p className="text-sm text-gray-700">
-                    <span className="font-medium text-gray-900">{item.name}</span> {item.message}{' '}
+                    <span className="font-bold text-gray-900">{item.name}</span> {item.message}{' '}
                     <span className="font-medium text-gray-900">{item.project}</span>
                   </p>
                   <p className="text-xs text-gray-500 mt-1">{item.time}</p>
