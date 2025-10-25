@@ -4,8 +4,9 @@ import { useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
-import { login } from '@/services/authService.js';
+import { login, loginGG } from '@/services/authService.js';
 import { loginUser } from '@/redux/userSlice';
+import { GoogleLogin } from '@react-oauth/google';
 import loginIllustration from '@/assets/auth/login.png';
 
 interface LoginFormInputs {
@@ -45,6 +46,39 @@ const Login: React.FC = () => {
       }
     } catch (error: any) {
       toast.error(error.response?.message || 'Incorrect login information!');
+    }
+  };
+
+  const handleLoginGoogle = async (credentialResponse: any) => {
+    try {
+      const idToken = credentialResponse.credential;
+      if (!idToken) {
+        toast.error('Google Login failed!');
+        return;
+      }
+      console.log(idToken);
+      const response = await loginGG({ idToken });
+
+      if (response && response.data?.accessToken) {
+        const token = response.data.accessToken;
+        const decodedToken: any = jwtDecode(token);
+
+        const user = {
+          token,
+          refreshToken: response.data.refreshToken,
+          id: decodedToken.sub,
+          email: decodedToken.email,
+          username: response.data.userName,
+        };
+
+        dispatch(loginUser({ user }));
+        toast.success('Login with Google successful!');
+        navigate('/company');
+      } else {
+        toast.error('Login with Google failed!');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Login with Google failed!');
     }
   };
 
@@ -106,17 +140,13 @@ const Login: React.FC = () => {
               Or
               <div className="h-px w-20 bg-gray-300"></div>
             </div>
-            <button
-              type="button"
-              className="flex items-center justify-center w-full border border-gray-300 rounded-md py-2 hover:bg-gray-50"
-            >
-              <img
-                src="https://www.svgrepo.com/show/355037/google.svg"
-                alt="Google"
-                className="w-5 h-5 mr-2"
+
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleLoginGoogle}
+                onError={() => toast.error('Google Login failed!')}
               />
-              Sign in with Google
-            </button>
+            </div>
 
             {/* Sign up link */}
             <p className="text-center text-gray-600 text-sm mt-6">

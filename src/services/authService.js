@@ -57,3 +57,13 @@ export const resetPassword = async (data) => {
     throw new Error(message);
   }
 };
+
+export const loginGG = async (data) => {
+  try {
+    const response = await axiosInstance.post('/Authen/login-google', data);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
