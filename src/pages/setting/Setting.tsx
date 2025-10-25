@@ -14,56 +14,29 @@ import {
   LockKeyhole,
   RotateCcwKey,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // General Settings
 const GeneralSettings = () => {
-  const [projectName, setProjectName] = useState('');
-  const [email, setEmail] = useState('');
-  const [language, setLanguage] = useState('en');
+  const { t, i18n } = useTranslation();
+  const [language, setLanguage] = useState(i18n.language || 'en');
+
+  const handleSaveLanguage = () => {
+    i18n.changeLanguage(language);
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">General Settings</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          Manage your project information and preferences
-        </p>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('settings.general')}</h3>
+        <p className="text-sm text-gray-600 mb-6">{t('settings.general_desc')}</p>
       </div>
 
       <div className="space-y-4">
-        {/* Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <User className="inline w-4 h-4 mr-2" />
-            Project Name
-          </label>
-          <input
-            type="text"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <Mail className="inline w-4 h-4 mr-2" />
-            Email Address
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        {/* Language */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <Languages className="inline w-4 h-4 mr-2" />
-            Language
+            {t('settings.language')}
           </label>
           <select
             value={language}
@@ -75,9 +48,12 @@ const GeneralSettings = () => {
           </select>
         </div>
 
-        <button className="mt-4 w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button
+          onClick={handleSaveLanguage}
+          className="mt-4 w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           <Save className="inline w-4 h-4 mr-2" />
-          Save
+          {t('settings.save')}
         </button>
       </div>
     </div>

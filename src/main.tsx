@@ -7,6 +7,7 @@ import './index.css';
 import App from './App.tsx';
 import './index.css';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import '@/18n.ts';
 
 const GOOGLE_CLIENT_ID =
   '1036034902450-21b13t9dj3cgjttqt1t9akb06roappvu.apps.googleusercontent.com';
