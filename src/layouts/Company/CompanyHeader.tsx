@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Crown, Bell, ChevronDown } from 'lucide-react';
+import { Crown, Bell } from 'lucide-react';
+import UserMenu from '@/components/UserMenu/UserMenu';
 
 export default function CompanyHeader({
   companyName = 'Company Name',
@@ -13,10 +14,9 @@ export default function CompanyHeader({
   const goBack = () => nav(-1);
 
   return (
-    <header className="cmp-header w-full bg-white border-b border-gray-100 px-2 py-3 flex items-center justify-between">
-      {/* LEFT SIDE */}
+    <header className=" sticky top-0 z-50 w-full border-b border-gray-300/60 bg-white/80 backdrop-blur-md px-3 py-3 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3">
-        {/* Nút Back */}
+        {/* Back Button */}
         <button
           className="p-1 rounded hover:bg-gray-100 transition"
           onClick={goBack}
@@ -33,19 +33,19 @@ export default function CompanyHeader({
           </svg>
         </button>
 
-        {/* Logo công ty */}
+        {/* Logo */}
         <img
           src="https://i.ibb.co/XzKJx7F/company-logo.png"
           alt="Company Logo"
           className="w-8 h-8 rounded-full object-cover"
         />
 
-        {/* Tên công ty */}
+        {/* Company Name */}
         <span className="text-blue-600 font-medium text-sm hover:underline cursor-pointer">
           {companyName}
         </span>
 
-        {/* Badge Owner */}
+        {/* Owner Badge */}
         <div className="flex items-center gap-1 border border-yellow-400 text-yellow-500 bg-yellow-50 px-2 py-0.5 rounded-full text-xs font-medium">
           <Crown size={14} strokeWidth={2} />
           <span>Owner</span>
@@ -53,8 +53,7 @@ export default function CompanyHeader({
       </div>
 
       {/* RIGHT SIDE */}
-      <div className="flex items-center">
-        {/* Icon Notification */}
+      <div className="flex items-center gap-2 relative overflow-visible">
         <button
           className="relative p-2 rounded-full hover:bg-gray-100 transition"
           aria-label="Notifications"
@@ -63,16 +62,7 @@ export default function CompanyHeader({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
         </button>
 
-        {/* User info */}
-        <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded-lg">
-          <img
-            src="https://i.ibb.co/pb0nYkB/avatar.png"
-            alt="User Avatar"
-            className="w-8 h-8 rounded-full object-cover"
-          />
-          <span className="text-gray-700 text-sm font-medium">{userName}</span>
-          <ChevronDown size={25} className="text-gray-400 mt-1" />
-        </div>
+        <UserMenu />
       </div>
     </header>
   );

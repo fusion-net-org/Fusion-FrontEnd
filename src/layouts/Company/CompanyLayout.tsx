@@ -49,21 +49,24 @@ export default function CompanyLayout({ children, initialTall = true }: Props) {
   }, [companyId]);
 
   return (
-    <div className="cmp-theme cmp-shell">
+    <>
       <CompanyHeader />
-      <div className="cmp-content">
-        <CompanyNavbar ownerUserId={ownerUserId ?? ''} />
 
-        <PermissionProvider key={permKey} userId={userId ?? ''} companyId={companyId as string}>
-          <main
-            key={fadeKey}
-            className={`cmp-main cmp-pagefade ${initialTall ? 'is-initialTall' : ''}`}
-          >
-            {children ?? <Outlet />}
-          </main>
-        </PermissionProvider>
+      <div className="cmp-theme cmp-shell">
+        <div className="cmp-content">
+          <CompanyNavbar ownerUserId={ownerUserId ?? ''} />
+
+          <PermissionProvider key={permKey} userId={userId ?? ''} companyId={companyId as string}>
+            <main
+              key={fadeKey}
+              className={`cmp-main cmp-pagefade ${initialTall ? 'is-initialTall' : ''}`}
+            >
+              {children ?? <Outlet />}
+            </main>
+          </PermissionProvider>
+        </div>
+        <CompanyFooter />
       </div>
-      <CompanyFooter />
-    </div>
+    </>
   );
 }
