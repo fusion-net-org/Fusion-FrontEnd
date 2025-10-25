@@ -25,6 +25,7 @@ import {
   LockKeyhole,
   RotateCcwKey,
   Menu,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
@@ -286,6 +287,13 @@ const UserProfile = () => {
             </div>
 
             <div className="border-t border-gray-200 mt-4 pt-4">
+              <button
+                onClick={() => navigate('/company')}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium text-blue-600 hover:bg-blue-50 active:bg-blue-100"
+              >
+                <ArrowLeft className="w-5 h-5 flex-shrink-0" />
+                <span>Exit</span>
+              </button>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100"
