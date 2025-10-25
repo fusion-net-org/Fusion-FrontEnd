@@ -12,6 +12,7 @@ import EmptyState from '@/utils/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import UserMenu from '@/components/UserMenu/UserMenu';
 
 const Company: React.FC = () => {
   const navigate = useNavigate();
@@ -116,7 +117,7 @@ const Company: React.FC = () => {
             <span className="absolute top-0 right-0 block w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <img
               src={
                 sessionStorage.getItem('avatar') || 'https://randomuser.me/api/portraits/men/32.jpg'
@@ -129,7 +130,8 @@ const Company: React.FC = () => {
               <p className="text-gray-500 text-xs">Admin</p>
             </div>
             <ChevronDown className="w-5 h-5 text-gray-600 mb-3" />
-          </div>
+          </div> */}
+          <UserMenu />
         </div>
       </div>
 

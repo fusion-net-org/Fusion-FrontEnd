@@ -28,8 +28,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
-import { getSelfUser, putSelfUser } from '@/services/userService.js';
+import { getSelfUser, putSelfUser, changePassword } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
+
+type PasswordFieldName = 'oldPassword' | 'newPassword' | 'confirmPassword';
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -46,6 +48,11 @@ const UserProfile = () => {
     address: '',
     gender: '',
     avatar: '',
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   const [tempData, setTempData] = useState<User>(profileData);
@@ -96,9 +103,10 @@ const UserProfile = () => {
     setIsLoading(true);
     try {
       const formData = new FormData();
-      formData.append('Phone', profileData.phone);
-      formData.append('Address', profileData.address);
-      formData.append('Gender', profileData.gender);
+      formData.append('Phone', profileData.phone || '');
+      formData.append('Address', profileData.address || '');
+      formData.append('Gender', profileData.gender || '');
+
       if (selectedAvatarFile) {
         formData.append('Avatar', selectedAvatarFile);
       }
@@ -148,6 +156,30 @@ const UserProfile = () => {
   useEffect(() => {
     fetchUserInfo();
   }, []);
+
+  //Handle Change Password
+  const handleChangePassword = async () => {
+    if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New password and confirmation do not match');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await changePassword(passwordForm);
+      toast.success('Password changed successfully!');
+      setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Change password failed';
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-50">
@@ -540,23 +572,28 @@ const UserProfile = () => {
               </div>
 
               <div className="space-y-4">
-                {[
-                  {
-                    label: 'Current password',
-                    icon: <KeyRound className="inline w-4 h-4 mr-2 text-gray-500" />,
-                    placeholder: 'Enter current password',
-                  },
-                  {
-                    label: 'New password',
-                    icon: <LockKeyhole className="inline w-4 h-4 mr-2 text-gray-500" />,
-                    placeholder: 'Enter a new password',
-                  },
-                  {
-                    label: 'Confirm new password',
-                    icon: <RotateCcwKey className="inline w-4 h-4 mr-2 text-gray-500" />,
-                    placeholder: 'Re-enter new password',
-                  },
-                ].map((field, i) => (
+                {(
+                  [
+                    {
+                      label: 'Current password',
+                      icon: <KeyRound className="inline w-4 h-4 mr-2 text-gray-500" />,
+                      placeholder: 'Enter current password',
+                      name: 'oldPassword' as PasswordFieldName,
+                    },
+                    {
+                      label: 'New password',
+                      icon: <LockKeyhole className="inline w-4 h-4 mr-2 text-gray-500" />,
+                      placeholder: 'Enter a new password',
+                      name: 'newPassword' as PasswordFieldName,
+                    },
+                    {
+                      label: 'Confirm new password',
+                      icon: <RotateCcwKey className="inline w-4 h-4 mr-2 text-gray-500" />,
+                      placeholder: 'Re-enter new password',
+                      name: 'confirmPassword' as PasswordFieldName,
+                    },
+                  ] as const
+                ).map((field, i) => (
                   <div
                     key={i}
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
@@ -567,17 +604,30 @@ const UserProfile = () => {
                     </label>
                     <input
                       type="password"
+                      name={field.name}
                       placeholder={field.placeholder}
+                      value={passwordForm[field.name]}
+                      onChange={(e) =>
+                        setPasswordForm((prev) => ({
+                          ...prev,
+                          [field.name]: e.target.value,
+                        }))
+                      }
                       className="w-full sm:w-2/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 ))}
 
-                {/* Update button align right */}
                 <div className="flex justify-end pt-4">
-                  <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center">
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={isLoading}
+                    className={`px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center ${
+                      isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Update Password
+                    {isLoading ? 'Updating...' : 'Update Password'}
                   </button>
                 </div>
               </div>
