@@ -17,13 +17,15 @@ import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/UserProfile/UserProfile';
+import UserProfile from './pages/userProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
+import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
+import RequireAuth from './components/RequireAuth/RequireAuth';
 function App() {
   return (
     <>
@@ -37,7 +39,13 @@ function App() {
         </Route>
 
         {/* Route home layout */}
-        <Route element={<HomeLayout />}>
+        <Route
+          element={
+            <RequireAuth>
+              <HomeLayout />
+            </RequireAuth>
+          }
+        >
           <Route path="/company" element={<Company />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/calendar" element={<Calendar />} />
@@ -59,8 +67,16 @@ function App() {
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/request-reset-password" element={<RequestResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/my-profile" element={<UserProfile />} />
+        <Route
+          path="/my-profile"
+          element={
+            <RequireAuth>
+              <UserProfile />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<NotFound />} />
 
         {/*Route payment-result */}
