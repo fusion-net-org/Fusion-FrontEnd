@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Login from './pages/login/Login';
 import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import ScrollToTop from './utils/ScrollToTop';
 import NotFound from './pages/notfound/NotFound';
 import Register from './pages/register/Register';
@@ -10,24 +11,25 @@ import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import ProjectsPage from './pages/home/ProjectsPage';
-
+import Calendar from './pages/calendar/Calendar';
+import ResetPassword from './pages/resetPassword/ResetPassword';
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
-import Calendar from './pages/calendar/Calendar';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
+import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
-import ResetPassword from './pages/resetPassword/ResetPassword';
+import RequireAuth from './components/RequireAuth/RequireAuth';
 function App() {
   return (
     <>
-      <ToastContainer />
+      <ToastContainer position="top-right" autoClose={3000} />
       <ScrollToTop />
 
       <Routes>
@@ -37,7 +39,13 @@ function App() {
         </Route>
 
         {/* Route home layout */}
-        <Route element={<HomeLayout />}>
+        <Route
+          element={
+            <RequireAuth>
+              <HomeLayout />
+            </RequireAuth>
+          }
+        >
           <Route path="/company" element={<Company />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/calendar" element={<Calendar />} />
@@ -53,6 +61,7 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<Workflow />} />
           <Route path="/company/:companyId/project" element={<ProjectsPage />} />
+          <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
         </Route>
 
         {/* Route ko có layout */}
@@ -60,7 +69,14 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/request-reset-password" element={<RequestResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/my-profile" element={<UserProfile />} />
+        <Route
+          path="/my-profile"
+          element={
+            <RequireAuth>
+              <UserProfile />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<NotFound />} />
 
         {/*Route payment-result */}
