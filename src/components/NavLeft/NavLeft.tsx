@@ -1,7 +1,3 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import logo_fusion from '@/assets/logo_fusion.png';
 import {
   LayoutDashboard,
   BarChart2,
@@ -10,9 +6,15 @@ import {
   FileText,
   Settings,
   LogOut,
-  Menu as MenuIcon,
-  ChevronLeft,
 } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import logo_fusion from '@/assets/logo_fusion.png';
+
+type NavLeftProps = {
+  isCollapsed: boolean;
+  toggleSidebar: () => void;
+};
 
 type MenuItem = {
   name: string;
@@ -22,25 +24,10 @@ type MenuItem = {
   danger?: boolean;
 };
 
-const NavLeft = () => {
+const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('nav-collapsed') === '1';
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('nav-collapsed', isCollapsed ? '1' : '0');
-    } catch {}
-  }, [isCollapsed]);
-
-  // === LOGOUT ===
   const handleLogout = () => {
     localStorage.removeItem('user');
     toast.success('Signed out successfully!');
@@ -57,11 +44,8 @@ const NavLeft = () => {
     { name: 'Logout', icon: LogOut, onClick: handleLogout, danger: true },
   ];
 
-  const isActivePath = (path?: string) => {
-    if (!path) return false;
-    if (location.pathname === path) return true;
-    return location.pathname.startsWith(path + '/');
-  };
+  const isActivePath = (path?: string) =>
+    path && (location.pathname === path || location.pathname.startsWith(path + '/'));
 
   return (
     <aside
@@ -69,14 +53,13 @@ const NavLeft = () => {
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
-      {/* Header: Logo + Toggle */}
       <div className="p-4">
+        {/* Logo + Toggle */}
         <div
           className={`flex items-center justify-between mb-6 ${
             isCollapsed ? 'flex-col space-y-3' : ''
           }`}
         >
-          {/* Logo */}
           <div
             className={`flex items-center ${
               isCollapsed ? 'justify-center w-full' : 'justify-start gap-2'
@@ -87,18 +70,6 @@ const NavLeft = () => {
             </div>
             {!isCollapsed && <span className="text-lg font-semibold">Fusion</span>}
           </div>
-
-          {/* Toggle */}
-          <button
-            onClick={() => setIsCollapsed((v) => !v)}
-            className={`text-gray-500 hover:text-gray-700 transition ${
-              isCollapsed ? '' : 'ml-auto'
-            }`}
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={isCollapsed ? 'Expand' : 'Collapse'}
-          >
-            {isCollapsed ? <MenuIcon size={20} /> : <ChevronLeft size={20} />}
-          </button>
         </div>
 
         {/* Menu */}
@@ -119,14 +90,9 @@ const NavLeft = () => {
               ' ',
             );
 
-            const iconColor = danger ? 'text-red-600' : active ? 'text-blue-600' : 'text-gray-500';
-
             const handleClick = () => {
-              if (item.onClick) {
-                item.onClick();
-              } else if (item.path) {
-                navigate(item.path);
-              }
+              if (item.onClick) item.onClick();
+              else if (item.path) navigate(item.path);
             };
 
             return (
@@ -136,9 +102,8 @@ const NavLeft = () => {
                 className={className}
                 title={isCollapsed ? item.name : undefined}
                 aria-current={active ? 'page' : undefined}
-                aria-label={isCollapsed ? item.name : undefined}
               >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
+                <Icon className="w-5 h-5 flex-shrink-0" />
                 {!isCollapsed && <span>{item.name}</span>}
               </button>
             );
