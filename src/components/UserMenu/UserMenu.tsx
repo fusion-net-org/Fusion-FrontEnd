@@ -25,20 +25,10 @@ interface UserMenuProps {
   user?: UserInfo;
   menuItems?: MenuItem[];
   onItemClick?: (href: string) => void;
-  navigationMode?: 'router' | 'window' | 'custom';
   className?: string;
-  buttonClassName?: string;
-  menuClassName?: string;
 }
 
-export default function UserMenu({
-  user,
-  menuItems,
-  onItemClick,
-  className = '',
-  buttonClassName = '',
-  menuClassName = '',
-}: UserMenuProps) {
+export default function UserMenu({ user, menuItems, onItemClick, className = '' }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -54,24 +44,19 @@ export default function UserMenu({
   const currentUser: UserInfo =
     user ||
     (userFromRedux
-      ? {
-          name: userFromRedux.username || 'Unknown',
-          email: userFromRedux.email,
-        }
+      ? { name: userFromRedux.username || 'Unknown', email: userFromRedux.email }
       : { name: 'Unknown', email: 'user@company.com' });
 
-  // Default menu items
   const defaultMenuItems: MenuItem[] = [
-    { icon: User, label: 'My profile', href: '/my-profile', color: 'text-blue-600' },
-    { icon: Bell, label: 'Notifications', href: '/notifications', color: 'text-yellow-600' },
-    { icon: Settings, label: 'Settings', href: '/settings', color: 'text-gray-600' },
+    { icon: User, label: 'My Profile', href: '/my-profile' },
+    { icon: Bell, label: 'Notifications', href: '/notifications' },
+    { icon: Settings, label: 'Settings', href: '/settings' },
     {
       icon: LogOut,
-      label: 'Logout',
+      label: 'Sign Out',
       href: '/logout',
-      color: 'text-red-600',
-      divider: true,
       onClick: handleLogout,
+      divider: true,
     },
   ];
 
@@ -91,7 +76,6 @@ export default function UserMenu({
     if (item.onClick) item.onClick();
     else if (onItemClick) onItemClick(item.href);
     else if (item.href && item.href !== '/logout') navigate(item.href);
-
     setIsOpen(false);
   };
 
@@ -105,49 +89,41 @@ export default function UserMenu({
 
   return (
     <div className={`relative ${className}`} ref={menuRef}>
-      {/* Nút toggle */}
+      {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-3 px-4 py-3 bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-gray-200 ${buttonClassName}`}
+        className="flex items-center gap-2 py-2 rounded-full hover:bg-gray-100 transition-all duration-150"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-            {getInitials()}
-          </div>
-          <div className="text-left">
-            <div className="font-medium text-gray-800">{currentUser.name}</div>
-            <div className="text-xs text-gray-500">{currentUser.email}</div>
-          </div>
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+          {getInitials()}
+        </div>
+        <div className="text-left hidden sm:block">
+          <div className="text-sm font-medium text-gray-800">{currentUser.name}</div>
+          <div className="text-xs text-gray-500">{currentUser.email}</div>
         </div>
         <ChevronDown
-          className={`w-5 h-5 text-gray-600 transition-transform duration-300 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
+          className={`w-4 h-4 text-gray-600 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
       {/* Dropdown Menu */}
       <div
-        className={`absolute left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden transition-all duration-300 origin-top z-50 ${
+        className={`absolute right-0 mt-2 w-56 bg-white rounded-lg transition-all duration-200 z-50 ${
           isOpen
-            ? 'opacity-100 scale-100 translate-y-0'
-            : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
-        } ${menuClassName}`}
+            ? 'opacity-100 translate-y-0 scale-100'
+            : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
+        }`}
       >
-        <div className="py-2">
+        <div className="py-1">
           {currentMenuItems.map((item, index) => (
             <div key={index}>
-              {item.divider && <div className="my-2 border-t border-gray-200" />}
+              {item.divider && <div className="my-1 border-t border-gray-100" />}
               <button
                 onClick={() => handleItemClick(item)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors duration-150 text-left group"
+                className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors duration-150 text-left group"
               >
-                <item.icon
-                  className={`w-5 h-5 ${
-                    item.color || 'text-gray-600'
-                  } group-hover:scale-110 transition-transform duration-200`}
-                />
-                <span className="text-gray-700 font-medium group-hover:text-gray-900">
+                <item.icon className="w-5 h-5 text-gray-500 group-hover:text-gray-800" />
+                <span className="text-sm text-gray-700 group-hover:text-gray-900">
                   {item.label}
                 </span>
               </button>

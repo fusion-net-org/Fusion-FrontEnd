@@ -270,7 +270,7 @@ const CompanyMember: React.FC = () => {
         {/* TABLE */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-md overflow-hidden">
           <table className="w-full text-sm text-gray-700">
-            <thead className="bg-blue-50 text-gray-600 uppercase text-xs font-semibold">
+            <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
               <tr>
                 <th className="px-6 py-3 text-left">Member</th>
                 <th className="px-6 py-3 text-center">Role</th>

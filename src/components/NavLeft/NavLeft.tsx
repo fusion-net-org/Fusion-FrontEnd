@@ -11,7 +11,7 @@ import {
   Settings,
   LogOut,
   Menu as MenuIcon,
-  ChevronLeft,
+  ArrowLeft,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -35,9 +35,7 @@ const NavLeft = () => {
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem('nav-collapsed', isCollapsed ? '1' : '0');
-    } catch {}
+    localStorage.setItem('nav-collapsed', isCollapsed ? '1' : '0');
   }, [isCollapsed]);
 
   // === LOGOUT ===
@@ -65,7 +63,7 @@ const NavLeft = () => {
 
   return (
     <aside
-      className={`flex flex-col justify-between h-screen border-r bg-gray-50 transition-all duration-300 ${
+      className={`flex flex-col justify-between bg-white transition-all duration-300 h-screen ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
@@ -82,10 +80,14 @@ const NavLeft = () => {
               isCollapsed ? 'justify-center w-full' : 'justify-start gap-2'
             }`}
           >
-            <div className="bg-blue-600 p-2 rounded-full flex items-center justify-center">
-              <img src={logo_fusion} alt="Fusion logo" className="w-6 h-6" />
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-xl flex items-center justify-center">
+              <img src={logo_fusion} alt="Fusion" className="w-6 h-6" />
             </div>
-            {!isCollapsed && <span className="text-lg font-semibold">Fusion</span>}
+            {!isCollapsed && (
+              <span className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Fusion
+              </span>
+            )}
           </div>
 
           {/* Toggle */}
@@ -97,7 +99,7 @@ const NavLeft = () => {
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={isCollapsed ? 'Expand' : 'Collapse'}
           >
-            {isCollapsed ? <MenuIcon size={20} /> : <ChevronLeft size={20} />}
+            {isCollapsed ? <MenuIcon size={20} /> : <ArrowLeft size={25} />}
           </button>
         </div>
 
@@ -109,11 +111,11 @@ const NavLeft = () => {
             const danger = item.danger;
 
             const base =
-              'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-colors';
+              'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-all duration-200';
             const layout = isCollapsed ? 'justify-center' : 'justify-start';
-            const normal = 'text-gray-600 hover:bg-gray-200 hover:text-gray-800';
-            const activeCls = 'bg-blue-100 text-blue-700 font-medium';
-            const dangerCls = 'text-red-600 hover:bg-red-100 hover:text-red-700';
+            const normal = 'text-gray-600 hover:bg-gray-100 hover:text-gray-800';
+            const activeCls = 'bg-blue-50 text-blue-700 font-medium border border-blue-100';
+            const dangerCls = 'text-red-600 hover:bg-red-50 hover:text-red-700';
 
             const className = [base, layout, danger ? dangerCls : active ? activeCls : normal].join(
               ' ',

@@ -3,10 +3,10 @@ import NavLeft from '../../components/NavLeft/NavLeft';
 
 const HomeLayout = () => {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex bg-white min-h-screen">
       <NavLeft />
 
-      <main className="flex-1 p-6 overflow-y-auto bg-white">
+      <main className="flex-1 p-6 overflow-y-auto bg-white border-l-[2px] border-gray-300">
         <Outlet />
       </main>
     </div>

@@ -113,24 +113,9 @@ const Company: React.FC = () => {
 
         <div className="flex items-center gap-4 mr-2">
           <button className="relative">
-            <Bell className="w-6 h-6 text-gray-600 hover:text-blue-600 transition" />
             <span className="absolute top-0 right-0 block w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
-          {/* <div className="flex items-center gap-2">
-            <img
-              src={
-                sessionStorage.getItem('avatar') || 'https://randomuser.me/api/portraits/men/32.jpg'
-              }
-              alt="avatar"
-              className="w-9 h-9 rounded-full object-cover border border-gray-200"
-            />
-            <div className="text-sm">
-              <p className="font-medium text-gray-800">Nguyen Tuong</p>
-              <p className="text-gray-500 text-xs">Admin</p>
-            </div>
-            <ChevronDown className="w-5 h-5 text-gray-600 mb-3" />
-          </div> */}
           <UserMenu />
         </div>
       </div>
