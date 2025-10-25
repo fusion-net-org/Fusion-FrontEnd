@@ -49,7 +49,7 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
 
   return (
     <aside
-      className={`flex flex-col justify-between h-screen border-r bg-gray-50 transition-all duration-300 ${
+      className={`flex flex-col justify-between bg-white transition-all duration-300 h-screen ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
