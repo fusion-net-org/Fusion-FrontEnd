@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import UserMenu from '@/components/UserMenu/UserMenu';
+import HomeHeader from '@/components/Header/HomeHeader';
 
 const Company: React.FC = () => {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ const Company: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         {/* Search */}
-        <div className="flex items-center gap-3">
+        {/* <div className="flex items-center gap-3">
           <div className="relative">
             <Search
               className="absolute left-3 top-2.5 text-gray-400 w-5 h-5 cursor-pointer"
@@ -109,15 +110,15 @@ const Company: React.FC = () => {
               value={searchTerm}
             />
           </div>
-        </div>
+        </div> */}
 
-        <div className="flex items-center gap-4 mr-2">
+        {/* <div className="flex items-center gap-4 mr-2">
           <button className="relative">
             <Bell className="w-6 h-6 text-gray-600 hover:text-blue-600 transition" />
             <span className="absolute top-0 right-0 block w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
-          {/* <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2">
             <img
               src={
                 sessionStorage.getItem('avatar') || 'https://randomuser.me/api/portraits/men/32.jpg'
@@ -130,9 +131,10 @@ const Company: React.FC = () => {
               <p className="text-gray-500 text-xs">Admin</p>
             </div>
             <ChevronDown className="w-5 h-5 text-gray-600 mb-3" />
-          </div> */}
-          <UserMenu />
+          </div> 
+          
         </div>
+             */}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
