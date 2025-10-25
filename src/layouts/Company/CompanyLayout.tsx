@@ -30,7 +30,7 @@ export default function CompanyLayout({ children, initialTall = true }: Props) {
         if (!userId) return;
         const response = await getOwnerUser(companyId);
         const data: User = response?.data || null;
-        setOwnerUserId(data.id);
+        setOwnerUserId(data.id || null);
       } catch (err) {
         console.error('Error fetching owner user:', err);
       }

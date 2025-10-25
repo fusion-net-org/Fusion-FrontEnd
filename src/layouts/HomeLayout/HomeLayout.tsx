@@ -13,9 +13,7 @@ const HomeLayout = () => {
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem('nav-collapsed', isCollapsed ? '1' : '0');
-    } catch {}
+    localStorage.setItem('nav-collapsed', isCollapsed ? '1' : '0');
   }, [isCollapsed]);
 
   const toggleSidebar = () => {
@@ -23,11 +21,11 @@ const HomeLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex bg-white min-h-screen">
       <NavLeft isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} />
       <div className="flex flex-col flex-1">
         <HomeHeader toggleSidebar={toggleSidebar} />
-        <main className="flex-1 p-6 overflow-y-auto bg-white">
+        <main className="flex-1 px-6 pb-6 overflow-y-auto bg-white border-l-[2px] border-gray-200">
           <Outlet />
         </main>
       </div>

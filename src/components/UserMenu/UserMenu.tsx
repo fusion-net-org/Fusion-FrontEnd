@@ -148,7 +148,7 @@ export default function UserMenu({
         <div
           className={`absolute right-0 mt-2 w-64 origin-top-right rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900 z-[9999] ${menuClassName}`}
         >
-          <div className="py-1">
+          <div className="py-2 mx-5">
             {currentMenuItems.map((item, index) => (
               <div key={index}>
                 {item.divider && (
@@ -156,7 +156,7 @@ export default function UserMenu({
                 )}
                 <button
                   onClick={() => handleItemClick(item)}
-                  className="group flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="group flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <item.icon
                     className={`h-4 w-4 transition-transform group-hover:scale-110 ${
