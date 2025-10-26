@@ -94,9 +94,11 @@ const Company: React.FC = () => {
   return (
     <div className="p-1 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center"></div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
         {/* Search */}
-        {/* <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="relative">
             <Search
               className="absolute left-3 top-2.5 text-gray-400 w-5 h-5 cursor-pointer"
@@ -105,44 +107,11 @@ const Company: React.FC = () => {
             <input
               type="text"
               placeholder="Input search companies..."
-              className="pl-10 pr-4 py-2 rounded-full border border-gray-200 w-[600px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="pl-10 pr-4 py-2 rounded-full border border-gray-400 w-[600px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
               onChange={(e) => setSearchTerm(e.target.value)}
               value={searchTerm}
             />
           </div>
-        </div> */}
-
-        {/* <div className="flex items-center gap-4 mr-2">
-          <button className="relative">
-            <Bell className="w-6 h-6 text-gray-600 hover:text-blue-600 transition" />
-            <span className="absolute top-0 right-0 block w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-
-           <div className="flex items-center gap-2">
-            <img
-              src={
-                sessionStorage.getItem('avatar') || 'https://randomuser.me/api/portraits/men/32.jpg'
-              }
-              alt="avatar"
-              className="w-9 h-9 rounded-full object-cover border border-gray-200"
-            />
-            <div className="text-sm">
-              <p className="font-medium text-gray-800">Nguyen Tuong</p>
-              <p className="text-gray-500 text-xs">Admin</p>
-            </div>
-            <ChevronDown className="w-5 h-5 text-gray-600 mb-3" />
-          </div> 
-          
-        </div>
-             */}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">Company</h2>
-          <p className="text-gray-500 text-sm">
-            Manage all companies you belong to and their settings.
-          </p>
         </div>
         <div>
           <FormCreateCompany onCreated={fetchCompanies} />

@@ -142,24 +142,24 @@ export default function UserMenu({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className={`absolute right-0 mt-2 w-64 origin-top-right rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900 z-[9999] ${menuClassName}`}
+          className={`absolute right-0 mt-2 w-64 origin-top-right rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 z-[9999] ${menuClassName}`}
         >
-          <div className="py-1">
+          <div className="p-2">
             {currentMenuItems.map((item, index) => (
               <div key={index}>
                 {item.divider && (
-                  <div className="my-1 border-t border-gray-200 dark:border-gray-800" />
+                  <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
                 )}
                 <button
                   onClick={() => handleItemClick(item)}
-                  className="group flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition-all  hover:bg-gray-50 dark:bg-gray-800  dark:hover:bg-gray-700"
                 >
                   <item.icon
-                    className={`h-4 w-4 transition-transform group-hover:scale-110 ${
-                      item.color || 'text-gray-600 dark:text-gray-400'
+                    className={`h-5 w-5 flex-shrink-0 transition-transform group-hover:scale-110 ${
+                      item.color || 'text-gray-500 dark:text-gray-400'
                     }`}
                   />
-                  <span className="font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                  <span className="text-gray-900 dark:text-gray-100 group-hover:text-gray-900 dark:group-hover:text-white">
                     {item.label}
                   </span>
                 </button>

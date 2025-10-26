@@ -56,7 +56,7 @@
   grid-template-columns: 240px 1fr;
 }
 .cmp-main {
-  padding: 24px 28px;
+  padding: 1px 28px;
 }
 /* .cmp-main.is-initialTall{min-height:calc(100vh + 220px)} */
 .cmp-pagefade {
@@ -168,7 +168,7 @@
 .cmp-nav__menu {
   --item-h: 44px;
   --gap: 8px;
-  padding: 16px 10px;
+  padding: 7px 10px;
 }
 .cmp-nav__groupTitle {
   padding: 10px 12px;
