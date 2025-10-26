@@ -1,0 +1,72 @@
+30723acfa8635aae6bca7d823aa8bd9a38870d75,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-24 02:59:32 +0700,"Merge pull request #38 from fusion-net-org/feature/page-company-members",HEAD -> main, origin/main, origin/HEAD
+be3f7f7874d138992bf35a9ea2c8fe8c631e024f,Tuongtan,tuongtan110203@gmail.com,2025-10-24 02:59:00 +0700,"#12 Page company detail and company member",origin/feature/page-company-members
+0a3f1611da35c9801337e5d967f50eaa70f32211,cong-bang,13092k1lcbang@gmail.com,2025-10-23 13:14:37 +0700,"stype: fix ui calendar",origin/feature/calendar
+b311ffddc2b1cf4efd9f587b9af0e74be2296506,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-23 05:05:44 +0700,"Merge pull request #37 from fusion-net-org/page/36-workflow",
+cf443406cd63036c60b35a073cc786cc140953e7,unknown,duyng21303@gmail.com,2025-10-23 05:05:03 +0700,"#36 workflow page",origin/page/36-workflow, page/36-workflow, page/18-role-permission
+4b21b22f99ebf9c4f00ab3f8f42b94f0d7be79d3,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-23 02:21:21 +0700,"Merge pull request #35 from fusion-net-org/feature/Company-partners-detal-company-member",
+4534b56870649bb604c41be0c6c4997b343a3426,Tuongtan,tuongtan110203@gmail.com,2025-10-23 02:20:43 +0700,"#12 update company detail",origin/feature/Company-partners-detal-company-member
+7c2258df92910b83d51987904fd1ebc842d47df2,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-22 01:37:01 +0700,"Merge pull request #34 from fusion-net-org/feature/Update-UI-Company-Detail-and-Partner-Detail",
+ab421f67624192f5f6b6f802d0194e87d7e3e838,Tuongtan,tuongtan110203@gmail.com,2025-10-22 01:36:28 +0700,"#12 update ui company partner",origin/feature/Update-UI-Company-Detail-and-Partner-Detail
+c2ad64e31a295d895fef23b0bf4c2eb5216ad59e,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-21 05:01:37 +0700,"Merge pull request #33 from fusion-net-org/page/18-role-permission",
+fc162211665bfe949ee45fa68f251562283ac102,unknown,duyng21303@gmail.com,2025-10-21 04:56:47 +0700,"#18 fix UI",origin/page/18-role-permission
+d15ec7f6b81934541f664b891238f7967d1acbf1,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-21 03:25:06 +0700,"Merge pull request #32 from fusion-net-org/feature/Update-Logic-Partner",
+aa1b406d85c676d173536c0e7ba792032fe47c1c,Tuongtan,tuongtan110203@gmail.com,2025-10-21 03:24:38 +0700,"#12 update partner logic v2",origin/feature/Update-Logic-Partner
+5865da5f50f6411fbee34a9be3719b803fa39b81,cong-bang,155416049+cong-bang@users.noreply.github.com,2025-10-20 18:50:58 +0700,"Merge pull request #31 from fusion-net-org/feature/8-user-detail-page",
+704275b3c80ce6f589062a13a2e13bab82fa00ce,cong-bang,13092k1lcbang@gmail.com,2025-10-20 18:49:23 +0700,"#8 handle conflic merge",origin/feature/8-user-detail-page
+881ee70833808a8cef6e749b5299e4fcd5913ae5,cong-bang,13092k1lcbang@gmail.com,2025-10-20 18:44:36 +0700,"#8 feat: add id user from decoded token",
+a46d8a3e40178ebbd7c39114f8f26baefd557c3a,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-20 14:18:09 +0700,"Merge pull request #30 from fusion-net-org/page/13-project-page",
+cbffa6aee7a4782cd3a6f41b376156c72cbdf56b,duyng21303,duyng21303@gmail.com,2025-10-20 14:16:30 +0700,"#18 role",origin/page/13-project-page
+d540167d21a6565636f62036c2315ce413e095cf,cong-bang,13092k1lcbang@gmail.com,2025-10-20 07:50:20 +0700,"feat: add calendar",
+0bf0b7dc454445eba07cd3acfaeced1d7faeb2d2,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-20 05:55:17 +0700,"Merge pull request #29 from fusion-net-org/page/18-role-permission",
+ccc39e551fc90562e6ff6e6f7993cbcfb40ce6f0,unknown,duyng21303@gmail.com,2025-10-20 05:54:39 +0700,"#18 update",
+95d862d3b342f5a90299a12f12422d5db5537480,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-20 04:06:19 +0700,"Merge pull request #28 from fusion-net-org/page/18-role-permission",
+915ed3d7415bd672ad5257a4776e0ca5750b3ba1,unknown,duyng21303@gmail.com,2025-10-20 03:55:44 +0700,"#18 role permission global",
+23ab0a4b548ace3dd0e5477beff8852ea676990b,unknown,duyng21303@gmail.com,2025-10-20 03:54:36 +0700,"#18 role permission global",
+13edb5b607746aeccd9b6d95f03970738c84caf6,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-20 01:38:23 +0700,"Merge pull request #27 from fusion-net-org/feature/Update-partners-V2",
+75668101bbf60478fba53584b78ab9312b73aa8d,Tuongtan,tuongtan110203@gmail.com,2025-10-20 01:37:32 +0700,"#12 update partners page",origin/feature/Update-partners-V2
+7c6049d218f89d2218de1fe3de46358d3c8b2cc6,cong-bang,155416049+cong-bang@users.noreply.github.com,2025-10-20 00:32:28 +0700,"Merge pull request #26 from fusion-net-org/feature/9-setting-website",
+a97463c536a07db2dd73750172d455a79e21348a,cong-bang,13092k1lcbang@gmail.com,2025-10-20 00:31:50 +0700,"#9 handle merge main",origin/feature/9-setting-website
+b970beca9589576d6a5d9829614422abacf5c361,cong-bang,13092k1lcbang@gmail.com,2025-10-20 00:26:34 +0700,"#9 handle merge main",
+f3ba1dd4a4867c1b856cb61dd9ff2175ce7585ab,cong-bang,155416049+cong-bang@users.noreply.github.com,2025-10-20 00:15:28 +0700,"Merge pull request #25 from fusion-net-org/feature/8-user-detail-page",
+577b4af9cf9ef4c1fdc0b3b100b6fbde25afecac,cong-bang,13092k1lcbang@gmail.com,2025-10-20 00:14:37 +0700,"#8 merge main",
+7d705fa65c41f7683a845de3303677b0d8ba8e61,cong-bang,13092k1lcbang@gmail.com,2025-10-19 22:08:59 +0700,"#8 del: redundant code",
+447d6264b0c7f717b521e4f2d765554fc7680033,cong-bang,13092k1lcbang@gmail.com,2025-10-19 22:06:14 +0700,"#8 feat: add usermenu",
+1edb256b4e0f4399a0b7f88c2791729e6e0e7671,BabyGau9,113918778+BabyGau9@users.noreply.github.com,2025-10-19 20:58:25 +0700,"Merge pull request #23 from fusion-net-org/Payos",
+6498bb335505f83fbce20b45677b66cdb65fa1b2,BabyGau9,caodung832003@gmail.com,2025-10-19 20:55:26 +0700,"add_subscription_payos",origin/Payos
+91ce2d236678806ff95e6583cadd017a75ffe9be,unknown,duyng21303@gmail.com,2025-10-19 15:42:31 +0700,"#18 role",
+56a96e9b94ea6c5d241cb4c75268ebae9bfeabee,cong-bang,13092k1lcbang@gmail.com,2025-10-19 04:01:39 +0700,"#8 feat: handle api user profile",
+d3d878fb00f2f43203d406a5e3e0c03b80e6dfec,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-19 01:44:07 +0700,"Merge pull request #22 from fusion-net-org/Update-layout-partners",
+76c73b83c5f0f4621cd36398ff466effd2f32635,Tuongtan,tuongtan110203@gmail.com,2025-10-19 01:43:28 +0700,"#12 update code partners page and call api",origin/Update-layout-partners
+2644bf2d9c00a9ee9aa0815d0c61ebd92b13ba88,cong-bang,13092k1lcbang@gmail.com,2025-10-18 03:12:02 +0700,"#8 feat: add ui user profile page",
+a81acd428a8562b610563885fdb9257dcf969412,unknown,duyng21303@gmail.com,2025-10-18 01:10:53 +0700,"merge",
+6b32e359400b1e533fc337362fd4a0a27b86c1ea,unknown,duyng21303@gmail.com,2025-10-18 01:10:05 +0700,"#18 role",
+25caf8ff351d1f0dc4835ebabe4d7ec96dd7c0ed,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-18 01:05:23 +0700,"Merge pull request #21 from fusion-net-org/feature/Update-Partner",
+1d401019d25d97d37b43b77fb9fbb8ba58fc6450,Tuongtan,tuongtan110203@gmail.com,2025-10-18 01:04:35 +0700,"#12 Partner Page",origin/feature/Update-Partner
+f0bcfa8ab4d8a4956bac7c44654431bacf12d85a,cong-bang,13092k1lcbang@gmail.com,2025-10-17 15:03:41 +0700,"#9 fix: general setting",
+864572489c4cd4d20f066295073c94bb0f3bcd73,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-17 00:58:00 +0700,"Merge pull request #20 from fusion-net-org/feature/partners",
+354ac51e2e0ff488bd3174855c967dc17d1ab49f,Tuongtan,tuongtan110203@gmail.com,2025-10-17 00:57:35 +0700,"#10 Partner and Create Page",origin/feature/partners
+fab3192cee7b7b73680f690b85dbc2b7b8f7ce5c,cong-bang,13092k1lcbang@gmail.com,2025-10-16 08:46:28 +0700,"#9 style: fix ui for setting page",
+8cd12890d6bcdd6177d1b3e11e6b7e632d749346,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-16 04:43:29 +0700,"Merge pull request #19 from fusion-net-org/page/18-role-permission",
+3f6abf02b405f5c9edb9d3be3e5ce564593cffdc,unknown,duyng21303@gmail.com,2025-10-16 04:42:40 +0700,"#18 page: role permission",
+9243942887fb044dd1a84bbed56eb63fab994cf5,cong-bang,13092k1lcbang@gmail.com,2025-10-15 23:25:05 +0700,"#9 feat: add ui setting page and fix layout home page",
+7ba9a9850781049c65476d9b0e231172fdff873c,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-14 01:17:23 +0700,"Merge pull request #17 from fusion-net-org/Update-Home-Page-Company",
+828c5f19bcc23aac077ce8e7070aa26038d78f0a,Tuongtan,tuongtan110203@gmail.com,2025-10-14 01:16:48 +0700,"#2 update code home page company",origin/Update-Home-Page-Company
+6b83b102f5fe116bf1610c49be1eff21ef0303de,unknown,duyng21303@gmail.com,2025-10-13 03:46:11 +0700,"update empty state",
+d3bf44bb5897e0172118d09bddbeb203fb6844f1,cong-bang,155416049+cong-bang@users.noreply.github.com,2025-10-10 00:11:49 +0700,"Merge pull request #7 from fusion-net-org/feat/handle-register-login",
+e856db294ca2aabc65de36177f4c58f19c0f10c5,cong-bang,13092k1lcbang@gmail.com,2025-10-10 00:10:55 +0700,"style: fix ui",origin/feat/handle-register-login
+2172c8e3064ca7c721544238d8888d5fdefe0681,cong-bang,13092k1lcbang@gmail.com,2025-10-10 00:06:40 +0700,"Merge branch 'main' into feat/handle-register-login",
+c9f0b00bb6e5642ea3757d02ca15359badaf142a,cong-bang,13092k1lcbang@gmail.com,2025-10-10 00:02:52 +0700,"feat: add refresh token",
+0580be288ea2b929aba2c7a57dbd437061949a3a,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-09 23:26:56 +0700,"Merge pull request #6 from fusion-net-org/feat/Home-Page-Create-Company-V2",
+13d0ff42365db6bff0c1eb9952cac50dbafe114b,Tuongtan,tuongtan110203@gmail.com,2025-10-09 23:26:23 +0700,"#2 update Home Page Company",origin/feat/Home-Page-Create-Company-V2
+1b75924282c094637fba70bd23de466f5bddc9b2,Nguyễn Duy,133040402+duyng21303@users.noreply.github.com,2025-10-09 03:34:48 +0700,"Merge pull request #5 from fusion-net-org/page/4-landing-page-base",
+bbe28b42d3638f666c060d435fe350d81771a800,unknown,duyng21303@gmail.com,2025-10-09 03:31:52 +0700,"#4 page: landing-page",origin/page/4-landing-page-base, page/4-landing-page-base
+47558cc71d419e10883a169add4b43732195c2aa,cong-bang,13092k1lcbang@gmail.com,2025-10-09 01:04:57 +0700,"style(ui): add ui for login and register",
+e7f58a7fda7861d09913c4e3012fa602dc0e31ce,Tuong,166013719+Tuongtan110203@users.noreply.github.com,2025-10-09 00:23:54 +0700,"Merge pull request #3 from fusion-net-org/Tuong/Home-Page-Create-Company",
+b0e72afabbb218caa58a12f0fd29b6622cd3e48f,Tuongtan,tuongtan110203@gmail.com,2025-10-09 00:22:25 +0700,"#2 Layout Home Page Company",origin/Tuong/Home-Page-Create-Company
+190a6547eb2fbd5efc8d13e0d33b676e0c9ecfee,cong-bang,155416049+cong-bang@users.noreply.github.com,2025-10-07 21:20:08 +0700,"Merge pull request #1 from fusion-net-org/feat/handle-register-login",
+845eeae31d7b28b4f8a26adbf1d9ed2069135bba,cong-bang,13092k1lcbang@gmail.com,2025-10-07 21:18:55 +0700,"feat: setup layouts",
+42c1492557f3f3a610ab662adc62c7e49bbb741a,cong-bang,13092k1lcbang@gmail.com,2025-10-06 10:27:26 +0700,"fix: config layouts + create company",
+b62a22b92c6b617e4d2550a58b08c2c246ea7e7b,cong-bang,13092k1lcbang@gmail.com,2025-10-03 20:38:45 +0700,"feat: handle register",
+b410059b1688790f1103d53b90ba19510accbc99,cong-bang,13092k1lcbang@gmail.com,2025-10-01 23:49:51 +0700,"feat: handle login",
+9d51cd1b6678511ae467ae9f96d3e425f96f95fd,cong-bang,13092k1lcbang@gmail.com,2025-09-29 10:53:48 +0700,"feat: init base prj by vite react ts",
+f54dd724cd366e5345774380fc6787b279b4291d,unknown,duyng21303@gmail.com,2025-09-04 03:39:54 +0700,"first commit",
