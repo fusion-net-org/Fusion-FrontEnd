@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import { logoutUser } from '@/redux/userSlice';
+import { useTranslation } from 'react-i18next';
 
 export interface MenuItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -44,6 +45,7 @@ export default function UserMenu({
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const userFromRedux = useAppSelector((state) => state.user.user);
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     dispatch(logoutUser());
@@ -64,25 +66,19 @@ export default function UserMenu({
   const defaultMenuItems: MenuItem[] = [
     {
       icon: User,
-      label: 'My profile',
+      label: t('user_menu.my_profile'),
       href: '/my-profile',
       color: 'text-blue-600 dark:text-blue-400',
     },
     {
       icon: Bell,
-      label: 'Notifications',
+      label: t('user_menu.notification'),
       href: '/notifications',
       color: 'text-yellow-600 dark:text-yellow-400',
     },
     {
-      icon: Settings,
-      label: 'Settings',
-      href: '/settings',
-      color: 'text-gray-600 dark:text-gray-400',
-    },
-    {
       icon: LogOut,
-      label: 'Logout',
+      label: t('user_menu.logout'),
       href: '/logout',
       color: 'text-red-600 dark:text-red-400',
       divider: true,

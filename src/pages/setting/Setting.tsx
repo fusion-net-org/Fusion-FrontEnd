@@ -65,38 +65,38 @@ const SecuritySettings = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [twoFactor, setTwoFactor] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Security Settings</h3>
-        <p className="text-sm text-gray-600 mb-6">Manage your password and security preferences</p>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('settings.security')}</h3>
+        <p className="text-sm text-gray-600 mb-6">{t('settings.security_desc')}</p>
       </div>
 
       <div className="space-y-4">
         {[
           {
-            label: 'Current Password',
+            label: t('settings.current_password'),
             icon: <KeyRound className="inline w-4 h-4 mr-2" />,
             value: currentPassword,
             set: setCurrentPassword,
           },
           {
-            label: 'New Password',
+            label: t('settings.new_password'),
             icon: <LockKeyhole className="inline w-4 h-4 mr-2" />,
             value: newPassword,
             set: setNewPassword,
           },
           {
-            label: 'Confirm New Password',
+            label: t('settings.confirm_password'),
             icon: <RotateCcwKey className="inline w-4 h-4 mr-2" />,
             value: confirmPassword,
             set: setConfirmPassword,
           },
         ].map((field, i) => (
           <div key={i}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700">
               {field.icon}
               {field.label}
             </label>
@@ -109,29 +109,9 @@ const SecuritySettings = () => {
           </div>
         ))}
 
-        {/* Toggle 2FA */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
-          <div className="mb-2 sm:mb-0">
-            <p className="font-medium text-gray-800">Two-Factor Authentication</p>
-            <p className="text-sm text-gray-600">Add an extra layer of security</p>
-          </div>
-          <button
-            onClick={() => setTwoFactor(!twoFactor)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              twoFactor ? 'bg-blue-600' : 'bg-gray-300'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                twoFactor ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-
         <button className="mt-4 w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           <Save className="inline w-4 h-4 mr-2" />
-          Update Password
+          {t('settings.update')}
         </button>
       </div>
     </div>
@@ -143,6 +123,7 @@ const NotificationSettings = () => {
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [activeNotifs, setActiveNotifs] = useState(true);
   const [smsNotifs, setSmsNotifs] = useState(false);
+  const { t } = useTranslation();
 
   const toggleSwitch = (value: boolean, set: any) => (
     <button
@@ -162,26 +143,26 @@ const NotificationSettings = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Notification Settings</h3>
-        <p className="text-sm text-gray-600 mb-6">Choose how you want to be notified</p>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('settings.notification')}</h3>
+        <p className="text-sm text-gray-600 mb-6">{t('settings.notification_desc')}</p>
       </div>
 
       {[
         {
-          title: 'Activate Notifications',
-          desc: 'Get notified every time you have a new announcement',
+          title: t('settings.activate_notifications.title'),
+          desc: t('settings.activate_notifications.desc'),
           value: activeNotifs,
           set: setActiveNotifs,
         },
         {
-          title: 'Email Notifications',
-          desc: 'Receive notifications via email',
+          title: t('settings.email_notifications.title'),
+          desc: t('settings.email_notifications.desc'),
           value: emailNotifs,
           set: setEmailNotifs,
         },
         {
-          title: 'SMS Notifications',
-          desc: 'Receive notifications via SMS',
+          title: t('settings.sms_notifications.title'),
+          desc: t('settings.sms_notifications.desc'),
           value: smsNotifs,
           set: setSmsNotifs,
         },
@@ -200,7 +181,7 @@ const NotificationSettings = () => {
 
       <button className="mt-4 w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
         <Save className="inline w-4 h-4 mr-2" />
-        Save
+        {t('settings.save')}
       </button>
     </div>
   );
@@ -209,27 +190,24 @@ const NotificationSettings = () => {
 // Appearance Settings
 const AppearanceSettings = () => {
   const [theme, setTheme] = useState('light');
-  const [fontSize, setFontSize] = useState('medium');
-  const [compactMode, setCompactMode] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Appearance Settings</h3>
-        <p className="text-sm text-gray-600 mb-6">Customize how the app looks and feels</p>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('settings.appearance')}</h3>
+        <p className="text-sm text-gray-600 mb-6">{t('settings.appearance_desc')}</p>
       </div>
-
       {/* Theme selector */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           <Palette className="inline w-4 h-4 mr-2" />
-          Theme
+          {t('settings.theme')}
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { key: 'light', icon: Sun, color: 'text-yellow-500', label: 'Light' },
-            { key: 'dark', icon: Moon, color: 'text-indigo-600', label: 'Dark' },
-            { key: 'auto', icon: Sliders, color: 'text-gray-600', label: 'Auto' },
+            { key: 'light', icon: Sun, color: 'text-yellow-500', label: t('settings.theme_light') },
+            { key: 'dark', icon: Moon, color: 'text-indigo-600', label: t('settings.theme_dark') },
           ].map(({ key, icon: Icon, color, label }) => (
             <button
               key={key}
@@ -247,43 +225,9 @@ const AppearanceSettings = () => {
         </div>
       </div>
 
-      {/* Font Size */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
-        <select
-          value={fontSize}
-          onChange={(e) => setFontSize(e.target.value)}
-          className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
-
-      {/* Compact Mode */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
-        <div className="mb-2 sm:mb-0">
-          <p className="font-medium text-gray-800">Compact Mode</p>
-          <p className="text-sm text-gray-600">Use a more condensed layout</p>
-        </div>
-        <button
-          onClick={() => setCompactMode(!compactMode)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            compactMode ? 'bg-blue-600' : 'bg-gray-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              compactMode ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
-      </div>
-
       <button className="mt-4 w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
         <Save className="inline w-4 h-4 mr-2" />
-        Save
+        {t('settings.save')}
       </button>
     </div>
   );
@@ -291,16 +235,32 @@ const AppearanceSettings = () => {
 
 // Settings Page
 const Settings = () => {
+  const { t } = useTranslation();
   const tabs = [
-    { key: 'general', label: 'General', icon: Sliders, component: <GeneralSettings /> },
-    { key: 'security', label: 'Security', icon: Shield, component: <SecuritySettings /> },
+    {
+      key: 'general',
+      label: t('settings.general_title'),
+      icon: Sliders,
+      component: <GeneralSettings />,
+    },
+    {
+      key: 'security',
+      label: t('settings.security_title'),
+      icon: Shield,
+      component: <SecuritySettings />,
+    },
     {
       key: 'notifications',
-      label: 'Notifications',
+      label: t('settings.notification_title'),
       icon: Bell,
       component: <NotificationSettings />,
     },
-    { key: 'appearance', label: 'Appearance', icon: Palette, component: <AppearanceSettings /> },
+    {
+      key: 'appearance',
+      label: t('settings.appearance_title'),
+      icon: Palette,
+      component: <AppearanceSettings />,
+    },
   ];
 
   const [activeTab, setActiveTab] = useState('general');
@@ -311,10 +271,10 @@ const Settings = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600 text-sm sm:text-base">
-            Manage your account settings and preferences
-          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            {t('settings.title')}
+          </h1>
+          <p className="text-gray-600 text-sm sm:text-base">{t('settings.sub_title')}</p>
         </div>
 
         {/* Card */}

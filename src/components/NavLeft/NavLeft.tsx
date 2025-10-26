@@ -10,6 +10,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import logo_fusion from '@/assets/logo_fusion.png';
+import { useTranslation } from 'react-i18next';
 
 type NavLeftProps = {
   isCollapsed: boolean;
@@ -27,6 +28,7 @@ type MenuItem = {
 const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -35,13 +37,13 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   };
 
   const menuItems: MenuItem[] = [
-    { name: 'Company', icon: LayoutDashboard, path: '/company' },
-    { name: 'Analytics', icon: BarChart2, path: '/analytics' },
-    { name: 'Invoice', icon: Ticket, path: '/invoice' },
-    { name: 'Schedule', icon: FileText, path: '/schedule' },
-    { name: 'Calendar', icon: CalendarDays, path: '/calendar' },
-    { name: 'Setting', icon: Settings, path: '/setting' },
-    { name: 'Logout', icon: LogOut, onClick: handleLogout, danger: true },
+    { name: t('menu_item.company'), icon: LayoutDashboard, path: '/company' },
+    { name: t('menu_item.analytics'), icon: BarChart2, path: '/analytics' },
+    { name: t('menu_item.invoice'), icon: Ticket, path: '/invoice' },
+    { name: t('menu_item.schedule'), icon: FileText, path: '/schedule' },
+    { name: t('menu_item.calendar'), icon: CalendarDays, path: '/calendar' },
+    { name: t('menu_item.setting'), icon: Settings, path: '/setting' },
+    { name: t('menu_item.logout'), icon: LogOut, onClick: handleLogout, danger: true },
   ];
 
   const isActivePath = (path?: string) =>

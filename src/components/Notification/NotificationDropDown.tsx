@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import userImg from '../../assets/user/male_user.png';
+import { useTranslation } from 'react-i18next';
 
 interface Notification {
   id: number;
@@ -14,6 +15,7 @@ interface Notification {
 const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifying, setNotifying] = useState(true);
+  const { t } = useTranslation();
 
   const notifications: Notification[] = [
     {
@@ -68,7 +70,9 @@ const NotificationDropdown: React.FC = () => {
         <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-gray-200 bg-white shadow-lg p-3 z-50">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
-            <h5 className="text-lg font-semibold text-gray-800">Notifications</h5>
+            <h5 className="text-lg font-semibold text-gray-800">
+              {t('settings.notification_title')}
+            </h5>
             <button
               onClick={closeDropdown}
               className="text-gray-400 hover:text-gray-700 transition"

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import UserMenu from '../UserMenu/UserMenu';
 import NotificationDropdown from '../Notification/NotificationDropDown';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 type HomeHeaderProps = {
   toggleSidebar: () => void;
@@ -11,7 +12,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ toggleSidebar }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
-
+  const { t } = useTranslation();
   const handleToggle = () => {
     toggleSidebar();
     setIsMobileOpen((prev) => !prev);
@@ -19,14 +20,15 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ toggleSidebar }) => {
 
   const getPageTitle = (path: string): string => {
     const routes: Record<string, string> = {
-      '/company': 'Company',
-      '/analytics': 'Analytics',
-      '/invoice': 'Invoice',
-      '/schedule': 'Schedule',
-      '/calendar': 'Calendar',
-      '/setting': 'Settings',
+      '/company': t('menu_item.company'),
+      '/analytics': t('menu_item.analytics'),
+      '/invoice': t('menu_item.invoice'),
+      '/schedule': t('menu_item.schedule'),
+      '/calendar': t('menu_item.calendar'),
+      '/setting': t('menu_item.setting'),
     };
-    return routes[path] || 'Company';
+
+    return routes[path] || t('menu_item.company');
   };
 
   const currentTitle = getPageTitle(location.pathname);
