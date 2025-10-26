@@ -14,19 +14,29 @@ type Task = {
   key?: string | number;
   title: string;
   description?: string;
-  type?: 'Bug' | 'Task' | string;
-  priority?: 'High' | 'Medium' | 'Low' | string;
+  type?: 'Feature' | 'Task' | 'Bug';
+  priority?: 'Low' | 'Medium' | 'High';
   point?: number;
   source?: string;
   dueDate?: string;
-  status?: 'To Do' | 'In Progress' | 'Pending Review' | 'Completed' | string;
+  status?: 'In Progress' | 'Done';
 };
 
 const statusColors: Record<string, string> = {
-  'To Do': 'blue',
   'In Progress': 'gold',
-  'Pending Review': 'purple',
-  Completed: 'green',
+  Done: 'green',
+};
+
+const typeColors: Record<string, string> = {
+  Feature: 'blue',
+  Task: 'geekblue',
+  Bug: 'red',
+};
+
+const priorityColors: Record<string, string> = {
+  High: 'red',
+  Medium: 'orange',
+  Low: 'blue',
 };
 
 const formatDate = (date?: string) => (date ? new Date(date).toLocaleDateString('vi-VN') : '—');
@@ -46,7 +56,16 @@ export const TaskList: React.FC = () => {
     (async () => {
       try {
         const res = await getAllTask();
-        if (res?.succeeded) setTasks((res.data as Task[]) || []);
+        if (res?.succeeded) {
+          const filtered = (res.data as Task[]).map((t) => ({
+            ...t,
+            // Chuẩn hoá giá trị không hợp lệ
+            status: ['In Progress', 'Done'].includes(t.status || '') ? t.status : 'In Progress',
+            type: ['Feature', 'Task', 'Bug'].includes(t.type || '') ? t.type : 'Task',
+            priority: ['Low', 'Medium', 'High'].includes(t.priority || '') ? t.priority : 'Low',
+          }));
+          setTasks(filtered);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -73,11 +92,9 @@ export const TaskList: React.FC = () => {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      width: 110,
+      width: 120,
       responsive: MD_UP,
-      render: (type?: string) => (
-        <Tag color={type === 'Bug' ? 'red' : 'green'}>{type || 'Task'}</Tag>
-      ),
+      render: (type?: string) => <Tag color={typeColors[type || 'Task']}>{type || 'Task'}</Tag>,
     },
     {
       title: 'Priority',
@@ -85,10 +102,9 @@ export const TaskList: React.FC = () => {
       key: 'priority',
       width: 120,
       responsive: ALL,
-      render: (priority?: string) => {
-        const color = priority === 'High' ? 'red' : priority === 'Medium' ? 'orange' : 'blue';
-        return <Tag color={color}>{priority || 'Low'}</Tag>;
-      },
+      render: (priority?: string) => (
+        <Tag color={priorityColors[priority || 'Low']}>{priority || 'Low'}</Tag>
+      ),
     },
     {
       title: 'Story Point',
@@ -123,7 +139,7 @@ export const TaskList: React.FC = () => {
       width: 140,
       responsive: ALL,
       render: (status?: string) => (
-        <Tag color={status ? statusColors[status] : undefined}>{status || 'To Do'}</Tag>
+        <Tag color={statusColors[status || 'In Progress']}>{status || 'In Progress'}</Tag>
       ),
     },
   ];
@@ -168,7 +184,7 @@ export const TaskList: React.FC = () => {
                       <div className="flex flex-wrap gap-6">
                         <div>
                           <span className="font-medium">Type: </span>
-                          <Tag color={record.type === 'Bug' ? 'red' : 'green'}>
+                          <Tag color={typeColors[record.type || 'Task']}>
                             {record.type || 'Task'}
                           </Tag>
                         </div>
