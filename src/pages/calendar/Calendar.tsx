@@ -17,8 +17,8 @@ import { demoEventsFor } from './event-utils';
 import { TaskList } from './TaskList';
 
 const menuItems = [
-  { id: 'list' as const, label: 'List', icon: ListChecks },
   { id: 'calendar' as const, label: 'Calendar', icon: CalendarDays },
+  { id: 'list' as const, label: 'List', icon: ListChecks },
 ];
 
 const Calendar: React.FC = () => {
