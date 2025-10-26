@@ -195,19 +195,21 @@ const CompanyMember: React.FC = () => {
 
       <div className="px-8 py-6 font-inter bg-gray-50 min-h-screen">
         {/* HEADER */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-400 rounded-2xl p-6 mb-8 text-white shadow-md flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-semibold">Members</h1>
-            <p className="text-blue-100 text-sm mt-1">Manage and monitor company members</p>
-          </div>
-          <button
-            className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 font-medium rounded-full shadow hover:bg-blue-50 transition"
-            onClick={() => setIsInviteOpen(true)}
-          >
-            <UserPlus className="w-4 h-4" /> Invite Member
-          </button>
-        </div>
 
+        <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">Members</h1>
+              <p className="text-blue-100 text-sm">Manage and monitor company members</p>
+            </div>
+            <button
+              onClick={() => setIsInviteOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
+            >
+              <UserPlus className="w-4 h-4" /> Invite Member
+            </button>
+          </div>
+        </div>
         {/* STATUS SUMMARY */}
         <div className="flex flex-wrap gap-3 mb-6">
           <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">

@@ -357,14 +357,14 @@ const Partners: React.FC = () => {
           <table className="w-full text-sm text-gray-700">
             <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
               <tr className="hover:bg-blue-100/70 transition">
-                <th className="px-6 py-3 text-center">Company</th>
-                <th className="px-6 py-3 text-center">Owner</th>
-                <th className="px-6 py-3 text-center">Status</th>
-                <th className="px-6 py-3 text-center">Since</th>
-                <th className="px-6 py-3 text-center">Projects</th>
-                <th className="px-6 py-3 text-center">Members</th>
-                <th className="px-6 py-3 text-center">Action</th>
-                <th className="px-6 py-3 text-center">Details</th>
+                <th className="px-6 py-3 text-left w-[30%]">Company</th>
+                <th className="px-6 py-3 text-center w-[15%]">Owner</th>
+                <th className="px-6 py-3 text-center w-[10%]">Status</th>
+                <th className="px-6 py-3 text-center w-[10%]">Since</th>
+                <th className="px-6 py-3 text-center w-[5%]">Projects</th>
+                <th className="px-6 py-3 text-center w-[5%]">Members</th>
+                <th className="px-6 py-3 text-center w-[20%]">Action</th>
+                <th className="px-6 py-3 text-center w-[5%]">Details</th>
               </tr>
             </thead>
             <tbody>
