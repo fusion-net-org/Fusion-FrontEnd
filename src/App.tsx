@@ -26,6 +26,7 @@ import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
 import RequireAuth from './components/RequireAuth/RequireAuth';
+import ProjectRequest from './pages/home/ProjectRequest';
 function App() {
   return (
     <>
@@ -37,7 +38,6 @@ function App() {
         <Route path="/">
           <Route index element={<Landing />} />
         </Route>
-
         {/* Route home layout */}
         <Route
           element={
@@ -51,7 +51,6 @@ function App() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
         </Route>
-
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
@@ -61,9 +60,9 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<Workflow />} />
           <Route path="/company/:companyId/project" element={<ProjectsPage />} />
+          <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
         </Route>
-
         {/* Route ko có layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -78,7 +77,6 @@ function App() {
           }
         />
         <Route path="*" element={<NotFound />} />
-
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-failed" element={<PaymentFailed />} />

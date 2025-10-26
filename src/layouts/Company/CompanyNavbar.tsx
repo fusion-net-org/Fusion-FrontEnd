@@ -74,6 +74,13 @@ const defaultItems: Item[] = [
     icon: 'grid',
   },
   { key: 'projects', label: 'Projects', to: '/company/:companyId/project', icon: 'layers' },
+  {
+    key: 'project-request',
+    label: 'Project Request',
+    to: '/company/:companyId/project-request',
+    icon: 'layers',
+  },
+
   { key: 'partners', label: 'Partners', to: '/company/:companyId/partners', icon: 'partners' },
   {
     key: 'partner-detail',
