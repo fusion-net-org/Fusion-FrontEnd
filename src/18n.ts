@@ -23,6 +23,7 @@ i18n.use(initReactI18next).init({
           new_password: "New password",
           confirm_password: "Confirm password",
           update: "Update",
+          updating: "Updating...",
           //Notification
           notification_title: "Notifications",
           notification: "Notifications Settings",
@@ -83,6 +84,7 @@ i18n.use(initReactI18next).init({
           new_password: "Mật khẩu mới",
           confirm_password: "Xác nhận mật khẩu",
           update: "Cập nhật",
+          updating: "Đang cập nhật...",
           //Notification
           notification_title: "Thông báo",
           notification: "Cài Đặt Thông Báo",
