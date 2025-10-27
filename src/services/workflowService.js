@@ -6,8 +6,9 @@ const url = {
   create: (companyId) => `/companies/${companyId}/workflows`,
   remove: (companyId, workflowId) => `/companies/${companyId}/workflows/${workflowId}`,
   designerGet: (workflowId) => `/workflows/${workflowId}/designer`,
-  designerPut: (companyId, workflowId) => `/companies/${companyId}/workflows/${workflowId}/designer`,
+  designerPut: (companyId, workflowId) => `/workflows/${workflowId}/designer?companyId=${encodeURIComponent(companyId)}`,
     designerPost: (companyId) => `/companies/${companyId}/workflows/designer`, // NEW
+  previews: (companyId) => `/companies/${companyId}/workflows/previews`,
 
 };
 
@@ -26,6 +27,14 @@ export const getWorkflows = async (companyId) => {
   }
 };
 
+export const getWorkflowPreviews = async (companyId) => {
+  try {
+    const res = await axiosInstance.get(url.previews(companyId));
+    return res.data?.data ?? res.data; // List<WorkflowPreviewVm>
+  } catch (error) {
+    throw new Error(getErr(error, 'Cannot load workflow previews'));
+  }
+};
 /** Tạo workflow mới: trả về { id, ... } (tuỳ BE) */
 export const postWorkflow = async (companyId, name) => {
   try {
@@ -90,6 +99,7 @@ export const putWorkflowDesigner = async (companyId, workflowId, payload) => {
 };
 
 export default {
+    getWorkflowPreviews,
   getWorkflows,
   postWorkflow,
   deleteWorkflow,
