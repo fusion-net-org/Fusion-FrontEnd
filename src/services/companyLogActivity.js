@@ -27,6 +27,6 @@ export const AllActivityLogCompanyById = async (
     });
     return response.data;
   } catch (error) {
-    throw new Error(error.response?.data?.message || 'Fail!');
+    throw error;
   }
 };

@@ -100,7 +100,7 @@ export default function CompanyNavbar({
   ownerUserId?: string;
 }) {
   const { pathname } = useLocation();
-  const { companyId } = useParams();
+  const { companyId, id } = useParams();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIdLogin = user?.id;
@@ -125,7 +125,10 @@ export default function CompanyNavbar({
   const activeIdx = Math.max(
     0,
     visibleItems.findIndex((i) => {
-      const routePath = i.to.replace(':companyId', companyId || '');
+      let routePath = i.to;
+      if (i.key === 'partner-detail') routePath = routePath.replace(':id', id || '');
+      else if (i.key === 'member-detail') routePath = routePath.replace(':id', id || '');
+      else routePath = routePath.replace(':companyId', companyId || '');
       return matchPath({ path: routePath, end: true }, pathname) !== null;
     }),
   );
@@ -137,7 +140,11 @@ export default function CompanyNavbar({
         <div className="cmp-nav__items" style={{ ['--active-index' as any]: activeIdx }}>
           <div className="cmp-nav__indicator" />
           {visibleItems.map((it) => {
-            const routePath = it.to.replace(':companyId', companyId || '');
+            let routePath = it.to;
+            if (it.key === 'partner-detail') routePath = routePath.replace(':id', id || '');
+            else if (it.key === 'member-detail') routePath = routePath.replace(':id', id || '');
+            else if (companyId) routePath = routePath.replace(':companyId', companyId);
+
             return (
               <NavLink
                 key={it.key}

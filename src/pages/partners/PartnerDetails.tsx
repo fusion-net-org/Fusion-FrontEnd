@@ -46,6 +46,7 @@ const PartnerDetails: React.FC = () => {
   const [partner, setPartner] = useState<CompanyRequest>();
   const [loading, setLoading] = useState(false);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activityForbidden, setActivityForbidden] = useState(false);
   const { id } = useParams();
   const [openDeleteModal, setOpenDeleteModel] = useState(false);
   const [partnerV2, setPartnerV2] = useState<Partner>();
@@ -72,23 +73,44 @@ const PartnerDetails: React.FC = () => {
   const [loadingProject, setLoadingProject] = useState(false);
 
   //call api get company by id
+
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-        const [companyRes, partnerRes, logActivityRes, projectRequestRes] = await Promise.all([
+        const [companyRes, partnerRes, projectRequestRes] = await Promise.all([
           getCompanyById(id),
           GetPartnerBetweenTwoCompanies(myCompanyId, id),
-          AllActivityLogCompanyById(id),
           GetProjectRequestByCompanyId(id),
         ]);
 
-        const dataLogActivity: LogActivityResponse = logActivityRes?.data ?? { items: [] };
         const dataProjectRequest: ProjectRequestResponse = projectRequestRes?.data ?? { items: [] };
+
         setPartner(companyRes?.data ?? null);
         setPartnerV2(partnerRes?.data ?? null);
-        setLogActivity(dataLogActivity.items ?? []);
         setProjectRequest(dataProjectRequest.items ?? []);
+
+        let logActivityRes;
+
+        try {
+          logActivityRes = await AllActivityLogCompanyById(id);
+
+          if (logActivityRes?.succeeded && Array.isArray(logActivityRes?.data)) {
+            setLogActivity(logActivityRes.data);
+          } else {
+            setLogActivity([]);
+          }
+        } catch (error: any) {
+          if (error.response?.status === 403) {
+            console.log('activityForbidden', error.response?.status);
+
+            setActivityForbidden(true);
+            setLogActivity([]);
+          } else {
+            console.error('Error fetching activity logs:', error);
+            setLogActivity([]);
+          }
+        }
       } catch (error: any) {
         console.error('error', error.message);
       } finally {
@@ -555,48 +577,66 @@ const PartnerDetails: React.FC = () => {
               <section>
                 <h3 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h3>
 
-                {/* Search */}
-                <div className="relative w-1/2">
-                  <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search Activity..."
-                    className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                {/* Timeline */}
-                <div className="rounded-xl border border-gray-300 bg-white p-5 mt-3">
-                  <div className="relative pl-8">
-                    {/* Timeline rail */}
-                    <span className="pointer-events-none absolute left-[2px] top-2 bottom-2 w-[5px] h-full bg-gradient-to-r from-blue-200 via-gray-200 to-transparent" />
-                    <ul className="space-y-8">
-                      {filteredLogs.length > 0 ? (
-                        filteredLogs.map((item, idx) => (
-                          <li key={idx} className="relative">
-                            <span className="absolute -left-[18px] top-5 grid h-4 w-4 place-items-center">
-                              <span className="h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100" />
-                            </span>
-                            <p className="text-xs text-gray-500">
-                              {new Date(item.createdAt).toLocaleDateString('vi-VN')}
-                            </p>
-                            <p className="font-medium text-gray-800">{item.title}</p>
-                            <p className="text-gray-600 text-sm">{item.description}</p>
-                          </li>
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
-                          {' '}
-                          <Activity className="h-8 w-8 text-gray-400 mb-2" />{' '}
-                          <p className="text-base font-medium text-gray-700">No Activity Found</p>{' '}
-                          <p className="text-sm text-gray-400">Try adjusting your search keyword</p>{' '}
-                        </div>
-                      )}
-                    </ul>
+                {activityForbidden ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
+                    <Activity className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-base font-medium text-red-600">
+                      No permission to view activity logs
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Please contact the company administrator for access
+                    </p>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {' '}
+                    {/* Search */}
+                    <div className="relative w-1/2">
+                      <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search Activity..."
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    {/* Timeline */}
+                    <div className="rounded-xl border border-gray-300 bg-white p-5 mt-3">
+                      <div className="relative pl-8">
+                        {/* Timeline rail */}
+                        <span className="pointer-events-none absolute left-[2px] top-2 bottom-2 w-[5px] h-full bg-gradient-to-r from-blue-200 via-gray-200 to-transparent" />
+                        <ul className="space-y-8">
+                          {filteredLogs.length > 0 ? (
+                            filteredLogs.map((item, idx) => (
+                              <li key={idx} className="relative">
+                                <span className="absolute -left-[18px] top-5 grid h-4 w-4 place-items-center">
+                                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100" />
+                                </span>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                                </p>
+                                <p className="font-medium text-gray-800">{item.title}</p>
+                                <p className="text-gray-600 text-sm">{item.description}</p>
+                              </li>
+                            ))
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
+                              {' '}
+                              <Activity className="h-8 w-8 text-gray-400 mb-2" />{' '}
+                              <p className="text-base font-medium text-gray-700">
+                                No Activity Found
+                              </p>{' '}
+                              <p className="text-sm text-gray-400">
+                                Try adjusting your search keyword
+                              </p>{' '}
+                            </div>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Pagination */}
                 <div className="flex justify-end mt-3">
