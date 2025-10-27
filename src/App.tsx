@@ -69,6 +69,7 @@ function App() {
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
 <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
+<Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}

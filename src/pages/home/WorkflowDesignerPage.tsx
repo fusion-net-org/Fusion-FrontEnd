@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import WorkflowDesigner from "@/components/Workflow/WorkflowDesigner";
 import type { DesignerDto } from "@/types/workflow";
 import { getWorkflowDesigner, postWorkflow, putWorkflowDesigner, postWorkflowWithDesigner } from "@/services/workflowService.js";
+import { toast } from "react-toastify";
 
 const makeInitialDto = (name = "New Workflow"): DesignerDto => {
   const uid = () => (typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2));
@@ -54,6 +55,8 @@ export default function WorkflowDesignerPage() {
     });
     // điều hướng về list hoặc trang chi tiết
     // nav(`/companies/${companyId}/workflows/${wfId}`);
+    toast("Workflow saved successfully!");
+    nav(-1);
   };
 
   if (loading) return <div className="h-[80vh] grid place-items-center text-gray-500">Loading...</div>;
