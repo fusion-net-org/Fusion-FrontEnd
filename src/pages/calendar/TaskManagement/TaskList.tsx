@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Tooltip, Grid } from 'antd';
+import { Table, Tag, Tooltip, Grid, Button, Modal } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Breakpoint } from 'antd/es/_util/responsiveObserver';
-import { LoadingOutlined } from '@ant-design/icons';
+import { LoadingOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { toast } from 'react-toastify';
 import { getAllTask } from '@/services/taskService.js';
 
 const { useBreakpoint } = Grid;
+const { confirm } = Modal;
 
-/** ====== Types ====== */
 type Task = {
   id?: string | number;
   _id?: string | number;
@@ -20,6 +21,11 @@ type Task = {
   source?: string;
   dueDate?: string;
   status?: 'In Progress' | 'Done';
+};
+
+type TaskListProps = {
+  onEdit?: (task: Task) => void;
+  onDelete?: (id: string | number) => Promise<void> | void;
 };
 
 const statusColors: Record<string, string> = {
@@ -46,7 +52,7 @@ const MD_UP: Breakpoint[] = ['md', 'lg', 'xl', 'xxl'];
 const LG_UP: Breakpoint[] = ['lg', 'xl', 'xxl'];
 const SM_UP: Breakpoint[] = ['sm', 'md', 'lg', 'xl', 'xxl'];
 
-export const TaskList: React.FC = () => {
+export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const screens = useBreakpoint();
@@ -59,7 +65,6 @@ export const TaskList: React.FC = () => {
         if (res?.succeeded) {
           const filtered = (res.data as Task[]).map((t) => ({
             ...t,
-            // Chuẩn hoá giá trị không hợp lệ
             status: ['In Progress', 'Done'].includes(t.status || '') ? t.status : 'In Progress',
             type: ['Feature', 'Task', 'Bug'].includes(t.type || '') ? t.type : 'Task',
             priority: ['Low', 'Medium', 'High'].includes(t.priority || '') ? t.priority : 'Low',
@@ -68,11 +73,35 @@ export const TaskList: React.FC = () => {
         }
       } catch (err) {
         console.error(err);
+        toast.error('Failed to load task list');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  const showDeleteConfirm = (id: string | number) => {
+    console.log('showDeleteConfirm called with id:', id);
+    confirm({
+      title: 'Are you sure you want to delete this task?',
+      icon: <ExclamationCircleOutlined />,
+      content: 'This action cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      centered: true,
+      async onOk() {
+        console.log('Confirm OK pressed, deleting task:', id);
+        try {
+          await onDelete?.(id);
+          setTasks((prev) => prev.filter((t) => t.id !== id && t._id !== id));
+        } catch (err) {
+          console.error(err);
+          toast.error('Failed to delete task');
+        }
+      },
+    });
+  };
 
   const columns: ColumnsType<Task> = [
     {
@@ -142,6 +171,29 @@ export const TaskList: React.FC = () => {
         <Tag color={statusColors[status || 'In Progress']}>{status || 'In Progress'}</Tag>
       ),
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      fixed: 'right',
+      width: 140,
+      render: (_, record) => (
+        <div className="flex gap-2">
+          <Button size="small" onClick={() => onEdit?.(record)}>
+            Edit
+          </Button>
+          <Button
+            size="small"
+            danger
+            onClick={() => {
+              console.log('Clicked delete for id:', record.id || record._id);
+              showDeleteConfirm(record.id || record._id!);
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -149,7 +201,7 @@ export const TaskList: React.FC = () => {
       {loading ? (
         <div className="flex justify-center items-center py-10">
           <LoadingOutlined className="text-blue-500 text-2xl animate-spin" />
-          <span className="ml-2 text-gray-600">Đang tải danh sách task...</span>
+          <span className="ml-2 text-gray-600">Loading task list...</span>
         </div>
       ) : (
         <Table<Task>
@@ -164,48 +216,6 @@ export const TaskList: React.FC = () => {
             showSizeChanger: !isMobile,
           }}
           scroll={isMobile ? { x: 720 } : undefined}
-          expandable={
-            isMobile
-              ? {
-                  expandRowByClick: true,
-                  rowExpandable: (record) =>
-                    !!record?.description ||
-                    !!record?.source ||
-                    !!record?.dueDate ||
-                    record?.point !== undefined,
-                  expandedRowRender: (record) => (
-                    <div className="text-sm text-gray-700 space-y-2">
-                      {record?.description && (
-                        <div>
-                          <span className="font-medium">Description: </span>
-                          <span className="text-gray-600">{record.description}</span>
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-6">
-                        <div>
-                          <span className="font-medium">Type: </span>
-                          <Tag color={typeColors[record.type || 'Task']}>
-                            {record.type || 'Task'}
-                          </Tag>
-                        </div>
-                        <div>
-                          <span className="font-medium">Source: </span>
-                          <Tag color="geekblue">{record.source || 'N/A'}</Tag>
-                        </div>
-                        <div>
-                          <span className="font-medium">Due: </span>
-                          <span className="text-gray-600">{formatDate(record.dueDate)}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">SP: </span>
-                          <span className="text-gray-700">{record.point ?? 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ),
-                }
-              : undefined
-          }
         />
       )}
     </div>

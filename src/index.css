@@ -120,3 +120,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.ant-modal-root {
+  z-index: 2000 !important;
+}
+

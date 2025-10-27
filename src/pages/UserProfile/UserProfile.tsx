@@ -31,6 +31,7 @@ import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
 import { getSelfUser, putSelfUser, changePassword } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 
 type PasswordFieldName = 'oldPassword' | 'newPassword' | 'confirmPassword';
 
@@ -40,6 +41,7 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const userFromRedux = useAppSelector((state) => state.user.user);
   const navigate = useNavigate();
 
   const [profileData, setProfileData] = useState<User>({
@@ -49,7 +51,9 @@ const UserProfile = () => {
     address: '',
     gender: '',
     avatar: '',
+    role: 'User',
   });
+
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -147,6 +151,7 @@ const UserProfile = () => {
   const fetchUserInfo = async (): Promise<void> => {
     try {
       const response = await getSelfUser();
+      console.log(response.data);
       setProfileData(response.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error!';
@@ -246,7 +251,9 @@ const UserProfile = () => {
               </div>
 
               <h3 className="font-semibold text-gray-900 mt-4 text-base">{profileData.userName}</h3>
-              <p className="text-xs text-gray-500 mb-2 tracking-wide">Project Manager</p>
+              <p className="text-xs text-gray-500 mb-2 tracking-wide">
+                {userFromRedux ? userFromRedux.role : 'User'}
+              </p>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-[11px] font-medium">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>

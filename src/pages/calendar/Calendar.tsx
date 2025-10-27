@@ -14,7 +14,8 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { demoEventsFor } from './event-utils';
-import { TaskList } from './TaskList';
+import { TaskList } from './TaskManagement/TaskList';
+import TaskPage from './TaskManagement/TaskPage';
 
 const menuItems = [
   { id: 'calendar' as const, label: 'Calendar', icon: CalendarDays },
@@ -154,7 +155,7 @@ const Calendar: React.FC = () => {
       {/* === LIST VIEW === */}
       {activeTab === 'list' && (
         <div className="rounded-xl bg-white ring-1 ring-gray-200 p-6 text-gray-600">
-          <TaskList />
+          <TaskPage />
         </div>
       )}
     </div>

@@ -36,6 +36,7 @@ const Login: React.FC = () => {
           id: decodedToken.sub,
           email: decodedToken.email,
           username: response.data.userName,
+          role: decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
         };
 
         dispatch(loginUser({ user }));
@@ -69,6 +70,7 @@ const Login: React.FC = () => {
           id: decodedToken.sub,
           email: decodedToken.email,
           username: response.data.userName,
+          role: decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
         };
 
         dispatch(loginUser({ user }));

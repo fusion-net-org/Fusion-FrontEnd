@@ -6,6 +6,7 @@ export interface User {
   address: string;
   gender: string;
   avatar: string;
+  role?: string;
 }
 
 export interface UserResponse {
