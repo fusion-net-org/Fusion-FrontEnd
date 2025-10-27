@@ -5,6 +5,7 @@ import type { Breakpoint } from 'antd/es/_util/responsiveObserver';
 import { LoadingOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { toast } from 'react-toastify';
 import { getAllTask } from '@/services/taskService.js';
+import type { TablePaginationConfig, FilterValue, SorterResult } from 'antd/es/table/interface';
 
 const { useBreakpoint } = Grid;
 const { confirm } = Modal;
@@ -28,23 +29,8 @@ type TaskListProps = {
   onDelete?: (id: string | number) => Promise<void> | void;
 };
 
-const statusColors: Record<string, string> = {
-  'In Progress': 'gold',
-  Done: 'green',
-};
-
-const typeColors: Record<string, string> = {
-  Feature: 'blue',
-  Task: 'geekblue',
-  Bug: 'red',
-};
-
-const priorityColors: Record<string, string> = {
-  High: 'red',
-  Medium: 'orange',
-  Low: 'blue',
-};
-
+const typeColors: Record<string, string> = { Feature: 'blue', Task: 'geekblue', Bug: 'red' };
+const priorityColors: Record<string, string> = { High: 'red', Medium: 'orange', Low: 'blue' };
 const formatDate = (date?: string) => (date ? new Date(date).toLocaleDateString('vi-VN') : '—');
 
 const ALL: Breakpoint[] = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
@@ -52,55 +38,79 @@ const MD_UP: Breakpoint[] = ['md', 'lg', 'xl', 'xxl'];
 const LG_UP: Breakpoint[] = ['lg', 'xl', 'xxl'];
 const SM_UP: Breakpoint[] = ['sm', 'md', 'lg', 'xl', 'xxl'];
 
+const pickItemsAndTotal = (res: any) => {
+  const payload = res?.data ?? res;
+  const items = Array.isArray(payload) ? payload : payload?.items ?? [];
+  const total = Array.isArray(payload) ? items.length : payload?.totalCount ?? 0;
+  return { items, total };
+};
+
+const normalizeTasks = (items: any[]): Task[] =>
+  items.map((t: any) => ({
+    ...t,
+    status: ['In Progress', 'Done'].includes(t?.status || '') ? t.status : 'In Progress',
+    type: ['Feature', 'Task', 'Bug'].includes(t?.type || '') ? t.type : 'Task',
+    priority: ['Low', 'Medium', 'High'].includes(t?.priority || '') ? t.priority : 'Low',
+  }));
+
 export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getAllTask();
-        if (res?.succeeded) {
-          const filtered = (res.data as Task[]).map((t) => ({
-            ...t,
-            status: ['In Progress', 'Done'].includes(t.status || '') ? t.status : 'In Progress',
-            type: ['Feature', 'Task', 'Bug'].includes(t.type || '') ? t.type : 'Task',
-            priority: ['Low', 'Medium', 'High'].includes(t.priority || '') ? t.priority : 'Low',
-          }));
-          setTasks(filtered);
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error('Failed to load task list');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [sorter, setSorter] = useState<{ field: 'title'; order: 'ascend' | 'descend' }>({
+    field: 'title',
+    order: 'ascend',
+  });
 
-  const showDeleteConfirm = (id: string | number) => {
-    console.log('showDeleteConfirm called with id:', id);
-    confirm({
-      title: 'Are you sure you want to delete this task?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'This action cannot be undone.',
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      centered: true,
-      async onOk() {
-        console.log('Confirm OK pressed, deleting task:', id);
-        try {
-          await onDelete?.(id);
-          setTasks((prev) => prev.filter((t) => t.id !== id && t._id !== id));
-        } catch (err) {
-          console.error(err);
-          toast.error('Failed to delete task');
-        }
-      },
-    });
+  useEffect(() => {
+    fetchTasks();
+  }, [pagination.current, pagination.pageSize, sorter]);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    try {
+      const res = await getAllTask({
+        pageNumber: pagination.current,
+        pageSize: pagination.pageSize,
+        sortDescending: sorter.order === 'descend',
+      });
+      if (res?.succeeded) {
+        const { items, total } = pickItemsAndTotal(res);
+        setTasks(normalizeTasks(items));
+        setPagination((p) => ({ ...p, total }));
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load task list');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTableChange = (
+    paginationConfig: TablePaginationConfig,
+    _filters: Record<string, FilterValue | null>,
+    sorterConfig: SorterResult<Task> | SorterResult<Task>[],
+  ) => {
+    setPagination((p) => ({
+      ...p,
+      current: paginationConfig.current || 1,
+      pageSize: paginationConfig.pageSize || 10,
+    }));
+
+    const s = Array.isArray(sorterConfig) ? sorterConfig[0] : sorterConfig;
+    if (!s) return;
+
+    const key = (s.columnKey ?? s.field) as string | undefined;
+    if (key === 'title') {
+      const nextOrder =
+        (s.order as 'ascend' | 'descend' | undefined) ??
+        (sorter.order === 'ascend' ? 'descend' : 'ascend');
+      setSorter({ field: 'title', order: nextOrder });
+    }
   };
 
   const columns: ColumnsType<Task> = [
@@ -111,6 +121,9 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       ellipsis: true,
       width: 260,
       responsive: ALL,
+      sorter: true,
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sorter.order,
       render: (text: string, record) => (
         <Tooltip title={record.description || text}>
           <span className="font-medium text-gray-800">{text}</span>
@@ -162,16 +175,6 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       render: (date?: string) => <span className="text-gray-600">{formatDate(date)}</span>,
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 140,
-      responsive: ALL,
-      render: (status?: string) => (
-        <Tag color={statusColors[status || 'In Progress']}>{status || 'In Progress'}</Tag>
-      ),
-    },
-    {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
@@ -185,8 +188,17 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
             size="small"
             danger
             onClick={() => {
-              console.log('Clicked delete for id:', record.id || record._id);
-              showDeleteConfirm(record.id || record._id!);
+              confirm({
+                title: 'Are you sure you want to delete this task?',
+                icon: <ExclamationCircleOutlined />,
+                okText: 'Delete',
+                okType: 'danger',
+                cancelText: 'Cancel',
+                centered: true,
+                async onOk() {
+                  await onDelete?.(record.id || record._id!);
+                },
+              });
             }}
           >
             Delete
@@ -208,12 +220,14 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
           columns={columns}
           dataSource={tasks}
           rowKey={(r) => (r.id ?? r._id ?? r.key) as React.Key}
-          className="custom-ant-table"
-          size={isMobile ? 'small' : 'middle'}
+          loading={loading}
+          onChange={handleTableChange}
           pagination={{
-            pageSize: isMobile ? 5 : 10,
-            simple: isMobile,
-            showSizeChanger: !isMobile,
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: false,
+            showTotal: (total) => `Total ${total} tasks`,
           }}
           scroll={isMobile ? { x: 720 } : undefined}
         />

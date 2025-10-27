@@ -14,7 +14,6 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { demoEventsFor } from './event-utils';
-import { TaskList } from './TaskManagement/TaskList';
 import TaskPage from './TaskManagement/TaskPage';
 
 const menuItems = [

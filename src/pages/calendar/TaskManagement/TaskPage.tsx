@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Modal } from 'antd';
+import { Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { toast } from 'react-toastify';
 import TaskList from './TaskList';
@@ -61,10 +61,9 @@ const TaskPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Task List */}
+      {/* Chỉ sắp xếp theo title trong TaskList, không filter title */}
       <TaskList key={refreshKey} onEdit={handleEdit} onDelete={handleDelete} />
 
-      {/* Create / Edit Modal */}
       <TaskFormModal
         open={openModal}
         onCancel={() => setOpenModal(false)}

@@ -1,11 +1,42 @@
 import { axiosInstance } from '../apiConfig';
 
-export const getAllTask = async () => {
+export const getAllTask = async ({
+  pageNumber = 1,
+  pageSize = 10,
+  sortColumn = 'title',
+  sortDescending = false,
+  // Filter parameters
+  search = '',
+  type = [],
+  priority = [],
+  status = [],
+  dueDateFrom = '',
+  dueDateTo = '',
+  pointMin,
+  pointMax,
+} = {}) => {
   try {
-    const response = await axiosInstance.get('/tasks');
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    // Add filter parameters if they exist
+    if (search) params.Search = search;
+    if (type.length > 0) params.Type = type.join(',');
+    if (priority.length > 0) params.Priority = priority.join(',');
+    if (status.length > 0) params.Status = status.join(',');
+    if (dueDateFrom) params.DueDateFrom = dueDateFrom;
+    if (dueDateTo) params.DueDateTo = dueDateTo;
+    if (pointMin !== undefined) params.PointMin = pointMin;
+    if (pointMax !== undefined) params.PointMax = pointMax;
+
+    const response = await axiosInstance.get('/tasks', { params });
     return response.data;
   } catch (error) {
-    const message = error.response?.data?.message || 'Error!';
+    const message = error.response?.data?.message || 'Error fetching tasks';
     throw new Error(message);
   }
 };
