@@ -1,3 +1,4 @@
+// src/components/workflow/WorkflowDesigner.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   addEdge, Background, ConnectionMode, Controls, MarkerType,
@@ -6,83 +7,89 @@ import ReactFlow, {
 import type { Node, Edge, NodeProps, Connection, NodeTypes as RFNodeTypes } from "reactflow";
 import "reactflow/dist/style.css";
 import { Plus, Save, RotateCcw, Trash2, Play, CheckCircle2, Link2 } from "lucide-react";
-import { useParams } from "react-router-dom";
-import NotFound from "../notfound/NotFound.js";
+import type { DesignerDto, StatusVm, TransitionVm, TransitionType } from "@/types/workflow";
 
-import {
-  postWorkflow,
-  putWorkflowDesigner as apiPutDesigner,
-} from "../../services/workflowService.js";
-
-/* ================= Types ================= */
-export type WorkflowVm = { id: string; name: string };
-export type TransitionType = "success" | "failure" | "optional";
-export type StatusVm = {
-  id: string; name: string; isStart: boolean; isEnd: boolean;
-  x: number; y: number; roles: string[]; color?: string;
-};
-export type TransitionVm = {
-  id?: number; fromStatusId: string; toStatusId: string; type: TransitionType;
-  label?: string; rule?: string; roleNames?: string[];
-};
-export type DesignerDto = { workflow: WorkflowVm; statuses: StatusVm[]; transitions: TransitionVm[] };
-
-/* ================= Utils ================= */
 const uid = () =>
   (typeof crypto !== "undefined" && (crypto as any).randomUUID
     ? (crypto as any).randomUUID()
     : Math.random().toString(36).slice(2));
 
 const EDGE_COLORS: Record<TransitionType, string> = {
-  success: "#10b981", failure: "#ef4444", optional: "#111827",
+  success: "#10b981",
+  failure: "#ef4444",
+  optional: "#111827",
 };
 const EDGE_LABEL: Record<TransitionType, string> = {
-  success: "Success", failure: "Fail", optional: "Optional",
+  success: "Success",
+  failure: "Fail",
+  optional: "Optional",
 };
-const hexToRgba = (hex: string, alpha = 0.18) => {
+const hexToRgba = (hex?: string | null, alpha = 0.18) => {
+  if (!hex) return "rgba(156,163,175,0.18)";
   try {
     const h = hex.replace("#", "");
     const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
     const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  } catch { return "rgba(156,163,175,0.18)"; }
-};
-const makeEdgeId = (t: TransitionVm, i?: number) => `e-${i ?? "x"}-${t.fromStatusId}-${t.toStatusId}`;
-export type EdgeData = { type: TransitionType; roleNames?: string[]; rule?: string; label?: string };
-const makeEdge = (t: TransitionVm, showLabels: boolean): Edge<EdgeData> => {
-  const color = EDGE_COLORS[t.type];
-  return {
-    id: makeEdgeId(t),
-    source: t.fromStatusId,
-    target: t.toStatusId,
-    label: showLabels ? (t.label || EDGE_LABEL[t.type]) : undefined,
-    style: { stroke: color, strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color },
-    data: { type: t.type, roleNames: t.roleNames ?? [], rule: t.rule, label: t.label },
-  } as Edge<EdgeData>;
+  } catch {
+    return "rgba(156,163,175,0.18)";
+  }
 };
 const isDuplicateEdge = (edges: Edge<EdgeData>[], source: string, target: string) =>
   edges.some(e => String(e.source) === source && String(e.target) === target);
+
+export type EdgeData = { type: TransitionType; roleNames?: string[]; rule?: string; label?: string };
+
+const makeEdge = (t: TransitionVm, showLabels: boolean): Edge<EdgeData> => {
+  const color = EDGE_COLORS[t.type];
+  return {
+    id: `e-${t.fromStatusId}-${t.toStatusId}`,
+    source: t.fromStatusId,
+    target: t.toStatusId,
+    style: { stroke: color, strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color },
+    label: showLabels ? (t.label || EDGE_LABEL[t.type]) : undefined,
+    data: { type: t.type, roleNames: t.roleNames ?? [], rule: t.rule ?? undefined, label: t.label ?? undefined },
+  };
+};
 const withLabels = (show: boolean, es: Edge<EdgeData>[]) =>
   es.map(e => {
     const t: TransitionType = (e.data?.type as TransitionType) ?? "optional";
     return { ...e, label: show ? (e.data?.label || EDGE_LABEL[t]) : undefined } as Edge<EdgeData>;
   });
 
-/* ================= Default template for NEW workflow ================= */
-function makeInitialDto(name = "New Workflow"): DesignerDto {
-  const s1: StatusVm = { id: uid(), name: "Start", isStart: true, isEnd: false, x: 200, y: 350, roles: ["Reporter"], color: "#10b981" };
-  const s2: StatusVm = { id: uid(), name: "Work",  isStart: false, isEnd: false, x: 520, y: 350, roles: ["Developer"], color: "#4f46e5" };
-  const s3: StatusVm = { id: uid(), name: "Done",  isStart: false, isEnd: true,  x: 840, y: 350, roles: ["Reviewer","QA"], color: "#111827" };
-  const transitions: TransitionVm[] = [
-    { fromStatusId: s1.id, toStatusId: s2.id, type: "success", label: "Go" },
-    { fromStatusId: s2.id, toStatusId: s3.id, type: "success", label: "Complete" },
-    { fromStatusId: s3.id, toStatusId: s2.id, type: "failure", label: "Rework" },
-  ];
-  return { workflow: { id: uid(), name }, statuses: [s1, s2, s3], transitions };
-}
+/** Node card */
+type StatusNodeData = { status: StatusVm; onEdit: (id: string, patch: Partial<StatusVm>) => void; };
+const StatusNode: React.FC<NodeProps<StatusNodeData>> = ({ data, selected }) => {
+  const st = data.status; const accent = st.color || "#9ca3af";
+  return (
+    <div className={`rounded-xl border shadow-sm w-[220px] bg-white relative ${selected ? "ring-2 ring-emerald-500" : ""}`}>
+      <span className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl" style={{ background: accent, opacity: 0.9 }} />
+      <Handle type="target" position={Position.Left} id="in"  style={{ left: -8,  background: "#fff", border: "1px solid #e5e7eb", width: 14, height: 14 }} />
+      <Handle type="source" position={Position.Right} id="out" style={{ right: -8, background: "#fff", border: "1px solid #e5e7eb", width: 14, height: 14 }} />
+      <div className="px-3 py-2 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
+          <div className="font-semibold truncate max-w-[140px]">{st.name}</div>
+        </div>
+        <div className="flex gap-1 opacity-90 text-gray-700">
+          {st.isStart && <Play size={16} />} {st.isEnd && <CheckCircle2 size={16} />}
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="text-[11px] uppercase tracking-wide font-medium mb-1 opacity-70">Assigned Roles</div>
+        <div className="flex flex-wrap gap-1 min-h-[26px]">
+          {(st.roles?.length ?? 0) > 0 ? st.roles!.map((r, i) =>
+            <span key={`${r}-${i}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs border bg-white/70 shadow-sm">{r}</span>
+          ) : <span className="text-xs text-gray-400">No roles</span>}
+        </div>
+      </div>
+    </div>
+  );
+};
+const nodeTypes: RFNodeTypes = { statusNode: StatusNode };
 
-/* ================= Reusable components ================= */
+/** Tags input (tiny) */
 const TagsInput: React.FC<{ value: string[]; onChange: (n: string[]) => void; placeholder?: string; }> = ({ value, onChange, placeholder }) => {
   const [text, setText] = useState(""); const [isComposing, setIsComposing] = useState(false);
   const add = (raw: string) => { const v = raw.trim(); if (!v || value.includes(v)) return; onChange([...value, v]); setText(""); };
@@ -93,7 +100,7 @@ const TagsInput: React.FC<{ value: string[]; onChange: (n: string[]) => void; pl
         {value.map((t, i) => (
           <span key={`${t}-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 border">
             {t}
-            <button className="ml-1 text-gray-500 hover:text-gray-700" onClick={() => remove(i)} aria-label={`remove ${t}`}>&times;</button>
+            <button className="ml-1 text-gray-500 hover:text-gray-700" onClick={() => remove(i)}>&times;</button>
           </span>
         ))}
       </div>
@@ -115,56 +122,25 @@ const TagsInput: React.FC<{ value: string[]; onChange: (n: string[]) => void; pl
   );
 };
 
-export type StatusNodeData = { status: StatusVm; onEdit: (id: string, patch: Partial<StatusVm>) => void; };
-const StatusNode: React.FC<NodeProps<StatusNodeData>> = ({ data, selected }) => {
-  const st = data.status; const accent = st.color || "#9ca3af";
-  return (
-    <div className={`rounded-xl border shadow-sm w-[220px] bg-white relative ${selected ? "ring-2 ring-emerald-500" : ""}`}>
-      <span className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl" style={{ background: accent, opacity: 0.9 }} />
-      <Handle type="target" position={Position.Left} id="in"  style={{ left: -8,  background: "#fff", border: "1px solid #e5e7eb", width: 14, height: 14 }} />
-      <Handle type="source" position={Position.Right} id="out" style={{ right: -8, background: "#fff", border: "1px solid #e5e7eb", width: 14, height: 14 }} />
-      <div className="px-3 py-2 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
-          <div className="font-semibold truncate max-w-[140px]">{st.name}</div>
-        </div>
-        <div className="flex gap-1 opacity-90 text-gray-700">
-          {st.isStart && <Play size={16} />} {st.isEnd && <CheckCircle2 size={16} />}
-        </div>
-      </div>
-      <div className="px-3 py-2">
-        <div className="text-[11px] uppercase tracking-wide font-medium mb-1 opacity-70">Assigned Roles</div>
-        <div className="flex flex-wrap gap-1 min-h-[26px]">
-          {st.roles?.length ? st.roles.map((r, i) =>
-            <span key={`${r}-${i}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs border bg-white/70 shadow-sm">{r}</span>
-          ) : <span className="text-xs text-gray-400">No roles</span>}
-        </div>
-      </div>
-    </div>
-  );
+export type WorkflowDesignerProps = {
+  /** Dữ liệu ban đầu (từ API edit) hoặc template tạo mới */
+  initialDto: DesignerDto;
+  /** Lưu – trả về dto đã build (đã chèn vị trí node + edge data) */
+  onSave: (payload: DesignerDto) => Promise<void>;
+  /** Nhãn tiêu đề nhỏ */
+  title?: string;
+  /** Loading/saving flags kiểm soát từ ngoài (tuỳ thích) */
+  externalSaving?: boolean;
 };
-const nodeTypes: RFNodeTypes = { statusNode: StatusNode };
 
-/* ================= Page (CREATE) ================= */
-export default function WorkflowCreatePage() {
-  const { companyId: companyIdRaw } = useParams();
-  const companyId = (companyIdRaw || "").trim();
-  if (!companyId) return <NotFound />;
-
-  return <WorkflowDesignerNew companyId={companyId} />;
-}
-
-/* ================= Main Designer (Create Mode) ================= */
-export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: string; workflowId?: string }) {
-  const [loading, setLoading] = useState(false);
+export default function WorkflowDesigner({ initialDto, onSave, title = "Workflow designer", externalSaving }: WorkflowDesignerProps) {
+  const [dto, setDto] = useState<DesignerDto>(initialDto);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
-  const [dto, setDto] = useState<DesignerDto>(() => makeInitialDto());
   const [edgeMode, setEdgeMode] = useState<TransitionType>("success");
 
-  // lưu id được tạo sau POST lần đầu
-  const createdWorkflowIdRef = useRef<string | null>(null);
-
-  // ReactFlow state
+  // RF states
   const [nodes, setNodes, onNodesChange] = useNodesState<StatusNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<EdgeData>([]);
 
@@ -175,19 +151,28 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
     () => edges.find((e): e is Edge<EdgeData> => e.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId]
   );
+const selectedStatus = useMemo(
+  () => (dto?.statuses ?? []).find(s => s.id === selectedNodeId) ?? null,
+  [dto?.statuses, selectedNodeId]
+);
 
-  // init from default DTO
+
+
+  // init graph when initialDto changes (edit & create đều dùng)
   useEffect(() => {
-    setLoading(true);
-    const ns: Node<StatusNodeData>[] = dto.statuses.map((s) => ({
-      id: s.id, type: "statusNode",
+    const ns: Node<StatusNodeData>[] = (initialDto.statuses ?? []).map((s) => ({
+      id: s.id,
+      type: "statusNode",
       data: { status: s, onEdit: handleEditStatus },
-      position: { x: s.x ?? 120, y: s.y ?? 300 },
+      position: { x: s.x ?? 200, y: s.y ?? 320 },
     }));
-    const es: Edge<EdgeData>[] = dto.transitions.map((t, idx) => ({ ...makeEdge(t, showLabels), id: makeEdgeId(t, idx) }));
-    setNodes(ns); setEdges(es); setLoading(false);
+    const es: Edge<EdgeData>[] = (initialDto.transitions ?? []).map((t) => makeEdge(t, showLabels));
+    setNodes(ns);
+    setEdges(es);
+    setDto(initialDto);
+    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // only once
+  }, [JSON.stringify(initialDto)]);
 
   useEffect(() => { setEdges(eds => withLabels(showLabels, eds)); }, [showLabels]);
 
@@ -237,12 +222,7 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
     setSelectedEdgeId(selEdges?.[0]?.id ?? null);
   }, []);
 
-  const selectedStatus = useMemo(
-    () => dto.statuses.find(s => s.id === selectedNodeId) ?? null,
-    [dto.statuses, selectedNodeId]
-  );
-
-  // name draft
+  // name draft for status
   const [statusNameDraft, setStatusNameDraft] = useState("");
   useEffect(() => { setStatusNameDraft(selectedStatus?.name ?? ""); }, [selectedStatus?.id]);
 
@@ -293,6 +273,7 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
     }));
   }, []);
 
+  // delete hotkey
   useEffect(() => {
     const isTyping = () => {
       const ae = document.activeElement as HTMLElement | null;
@@ -312,25 +293,13 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedEdgeId, selectedNodeId]);
 
-  /* ====== CREATE then PUT designer ====== */
-  const [saving, setSaving] = useState(false);
+  // build payload & save
   const handleSave = async () => {
-    if (!dto || saving) return;
+    if (externalSaving) return; // parent điều khiển
     setSaving(true);
     try {
-      // 1) nếu chưa có id từ server => tạo workflow
-      let wfId = createdWorkflowIdRef.current;
-      if (!wfId) {
-        const created = await postWorkflow(companyId, (dto.workflow.name || "New Workflow").trim());
-        wfId = typeof created === "string" ? created : created?.id;
-        if (!wfId) throw new Error("Cannot get workflowId from POST response");
-        createdWorkflowIdRef.current = wfId;
-      }
-
-      // 2) build payload và PUT designer
       const payload: DesignerDto = {
         ...dto,
-        workflow: { id: wfId, name: dto.workflow.name },
         transitions: edges.map((e) => ({
           fromStatusId: String(e.source),
           toStatusId: String(e.target),
@@ -344,16 +313,13 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
           return { ...s, x: Math.round(n.position.x), y: Math.round(n.position.y) };
         }),
       };
-
-      await apiPutDesigner(companyId, wfId, payload);
-      // bạn có thể điều hướng về trang list hoặc hiển thị toast ở đây
-      // navigate(`/companies/${companyId}/workflow/${wfId}`)  // nếu muốn
+      await onSave(payload);
     } finally {
       setSaving(false);
     }
   };
 
-  const resetLocal = () => setDto(makeInitialDto(dto.workflow.name || "New Workflow"));
+  const resetLocal = () => setDto(initialDto);
 
   if (loading) return <div className="h-[80vh] grid place-items-center text-gray-500">Loading...</div>;
 
@@ -361,11 +327,9 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
 
   return (
     <div className="h-[calc(100vh-40px)] w-full flex overflow-hidden">
-      {/* Canvas */}
       <div className="flex-1 relative">
-        {/* Top bar */}
         <div className="absolute z-50 left-4 top-3 flex flex-wrap gap-2 items-center bg-white/90 backdrop-blur rounded-xl border shadow px-3 py-2">
-          <div className="text-sm text-gray-600">Create workflow</div>
+          <div className="text-sm text-gray-600">{title}</div>
           <input
             className="ml-2 border rounded-lg px-2 py-1 text-sm"
             value={dto.workflow.name}
@@ -377,7 +341,6 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
             <Plus size={16} /> Add status
           </button>
 
-          {/* Edge mode */}
           <div className="mx-2 w-px h-5 bg-gray-200" />
           <div className="flex items-center gap-1 text-sm">
             <span className="text-gray-600 mr-1">Create edge as:</span>
@@ -399,12 +362,12 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
           </label>
 
           <div className="mx-2 w-px h-5 bg-gray-200" />
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={handleSave} disabled={saving || externalSaving}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-60 hover:bg-emerald-700">
-            <Save size={16}/>{createdWorkflowIdRef.current ? "Save changes" : "Create workflow"}
+            <Save size={16}/>Save
           </button>
           <button onClick={resetLocal} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50">
-            <RotateCcw size={16}/>Discard changes
+            <RotateCcw size={16}/>Discard
           </button>
         </div>
 
@@ -433,9 +396,9 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
             position="bottom-right"
             pannable zoomable nodeBorderRadius={12}
             maskColor="rgba(17,24,39,0.05)"
-            nodeColor={(n)=>hexToRgba((n as any)?.data?.status?.color || "#9ca3af", 0.18)}
+            nodeColor={(n)=>hexToRgba((n as any)?.data?.status?.color, 0.18)}
             nodeStrokeColor={(n)=>{
-              const st = (n as any)?.data?.status;
+              const st = (n as any)?.data?.status as StatusVm | undefined;
               if (!st) return "#cbd5e1";
               if (st.isStart) return "#10b981";
               if (st.isEnd)   return "#111827";

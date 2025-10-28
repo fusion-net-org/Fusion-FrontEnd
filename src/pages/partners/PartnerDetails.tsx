@@ -16,6 +16,8 @@ import {
   Handshake,
   CheckCircle,
   Building2,
+  Search,
+  SearchIcon,
 } from 'lucide-react';
 import { useParams, useLocation } from 'react-router-dom';
 import { getCompanyById } from '@/services/companyService.js';
@@ -24,7 +26,15 @@ import LoadingOverlay from '@/common/LoadingOverlay';
 import UnfriendPartner from '@/components/Partner/UnfriendPartner';
 import { GetPartnerBetweenTwoCompanies } from '@/services/partnerService.js';
 import type { Partner } from '@/interfaces/Partner/partner';
-
+import type { ILogActivity, LogActivityResponse } from '@/interfaces/LogActivity/LogActivity';
+import { AllActivityLogCompanyById } from '@/services/companyLogActivity.js';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
+import type {
+  IProjectRequset,
+  ProjectRequestResponse,
+} from '@/interfaces/ProjectRequest/projectRequest';
+import { GetProjectRequestByCompanyId } from '@/services/projectRequest.js';
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 
 const PartnerDetails: React.FC = () => {
@@ -35,21 +45,72 @@ const PartnerDetails: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'activity'>('overview');
   const [partner, setPartner] = useState<CompanyRequest>();
   const [loading, setLoading] = useState(false);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activityForbidden, setActivityForbidden] = useState(false);
   const { id } = useParams();
   const [openDeleteModal, setOpenDeleteModel] = useState(false);
   const [partnerV2, setPartnerV2] = useState<Partner>();
+  const [logActivity, setLogActivity] = useState<ILogActivity[]>([]);
+  const [projectRequest, setProjectRequest] = useState<IProjectRequset[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  // State cho filter + search + pagination project request
+  const [searchProject, setSearchProject] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [totalProjectCount, setTotalProjectCount] = useState(0);
+
+  //loading tab state
+  const [tabLoading, setTabLoading] = useState(false);
+  const handleTabChange = (tab: typeof activeTab) => {
+    setTabLoading(true);
+    setActiveTab(tab);
+    setTimeout(() => setTabLoading(false), 400);
+  };
+  //loading project
+  const [loadingProject, setLoadingProject] = useState(false);
 
   //call api get company by id
+
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-        const [companyRes, partnerRes] = await Promise.all([
+        const [companyRes, partnerRes, projectRequestRes] = await Promise.all([
           getCompanyById(id),
           GetPartnerBetweenTwoCompanies(myCompanyId, id),
+          GetProjectRequestByCompanyId(id),
         ]);
-        setPartner(companyRes.data);
-        setPartnerV2(partnerRes.data);
+
+        const dataProjectRequest: ProjectRequestResponse = projectRequestRes?.data ?? { items: [] };
+
+        setPartner(companyRes?.data ?? null);
+        setPartnerV2(partnerRes?.data ?? null);
+        setProjectRequest(dataProjectRequest.items ?? []);
+
+        let logActivityRes;
+
+        try {
+          logActivityRes = await AllActivityLogCompanyById(id);
+
+          if (logActivityRes?.succeeded && Array.isArray(logActivityRes?.data)) {
+            setLogActivity(logActivityRes.data);
+          } else {
+            setLogActivity([]);
+          }
+        } catch (error: any) {
+          if (error.response?.status === 403) {
+            console.log('activityForbidden', error.response?.status);
+
+            setActivityForbidden(true);
+            setLogActivity([]);
+          } else {
+            console.error('Error fetching activity logs:', error);
+            setLogActivity([]);
+          }
+        }
       } catch (error: any) {
         console.error('error', error.message);
       } finally {
@@ -60,28 +121,66 @@ const PartnerDetails: React.FC = () => {
     fetchAllData();
   }, [id, myCompanyId]);
 
-  const projectRequests = [
-    {
-      id: 'PRQ-001',
-      status: 'Accepted' as const,
-      date: '15/04/2025',
-      desc: 'Project request accepted',
-    },
-    { id: 'PRQ-002', status: 'Done' as const, date: '04/02/2025', desc: 'Project completed' },
-  ];
+  const fetchProjectRequests = async (
+    keyword = searchProject,
+    status = selectedStatus,
+    page = pageNumber,
+  ) => {
+    try {
+      setLoadingProject(true);
+      const res = await GetProjectRequestByCompanyId(
+        id,
+        keyword || null,
+        status || null,
+        null,
+        null,
+        null,
+        null,
+        page,
+        pageSize,
+        null,
+        null,
+      );
 
-  const activities = [
-    { date: '18/11/2025', action: 'Status of PRQ-002 changed to Done' },
-    { date: '19/07/2025', action: 'PRQ-001 — Submitted' },
-    { date: '15/04/2025', action: 'PRQ-001 — Accepted' },
-    { date: '04/02/2025', action: 'PRQ-002 — Done' },
-    { date: '22/03/2025', action: 'Created partnership request' },
-    { date: '22/03/2025', action: 'Created partnership request' },
-    { date: '22/03/2025', action: 'Created partnership request' },
-    { date: '22/03/2025', action: 'Created partnership request' },
-    { date: '22/03/2025', action: 'Created partnership request' },
-    { date: '22/03/2025', action: 'Created partnership request' },
-  ];
+      const data: ProjectRequestResponse = res?.data ?? { items: [], totalCount: 0 };
+      setProjectRequest(data.items ?? []);
+      setTotalProjectCount(data.totalCount ?? 0);
+    } catch (err) {
+      console.error('Fetch Project Requests failed:', err);
+    } finally {
+      setTimeout(() => setLoadingProject(false), 300);
+    }
+  };
+
+  const filteredLogs = useMemo(() => {
+    const filtered = logActivity.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+
+    const startIndex = (currentPage - 1) * pageSize;
+    return filtered.slice(startIndex, startIndex + pageSize);
+  }, [logActivity, searchTerm, currentPage]);
+
+  const filteredTotalCount = useMemo(() => {
+    return logActivity.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+    ).length;
+  }, [logActivity, searchTerm]);
+
+  const handlePageChangeActivity = (event: React.ChangeEvent<unknown>, value: number) => {
+    setLoadingActivity(true);
+    setCurrentPage(value);
+    setTimeout(() => setLoadingActivity(false), 300);
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    fetchProjectRequests(searchProject, selectedStatus, pageNumber);
+  }, [searchProject, selectedStatus, pageNumber, id]);
 
   const stats = useMemo(
     () => [
@@ -116,16 +215,26 @@ const PartnerDetails: React.FC = () => {
     ],
     [partner],
   );
-
-  const statusPill = (status: 'Done' | 'Accepted' | string) => {
-    if (status === 'Done') return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200';
-    if (status === 'Accepted') return 'bg-blue-50 text-blue-700 ring-1 ring-blue-200';
-    return 'bg-gray-50 text-gray-700 ring-1 ring-gray-200';
+  const statusPill = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200';
+      case 'accepted':
+        return 'bg-blue-50 text-blue-700 ring-1 ring-blue-200';
+      case 'rejected':
+        return 'bg-red-50 text-red-700 ring-1 ring-red-200';
+      case 'finished':
+        return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200';
+      default:
+        return 'bg-gray-50 text-gray-700 ring-1 ring-gray-200';
+    }
   };
+
+  //#endregion
 
   return (
     <>
-      <LoadingOverlay loading={loading} message="Loading Partner Details..." />
+      {tabLoading && <LoadingOverlay loading={true} message="Loading..." />}
       {!loading && (
         <div className="w-full mx-auto max-w-6xl bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {/* Banner */}
@@ -205,7 +314,6 @@ const PartnerDetails: React.FC = () => {
               </button>
             </div>
           </div>
-
           {/* Stats */}
           <div className="mt-20 px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((s, i) => (
@@ -245,7 +353,7 @@ const PartnerDetails: React.FC = () => {
                   key={tab.id}
                   role="tab"
                   aria-selected={activeTab === (tab.id as typeof activeTab)}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  onClick={() => handleTabChange(tab.id as typeof activeTab)}
                   className={cls(
                     'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                     activeTab === (tab.id as typeof activeTab)
@@ -325,78 +433,229 @@ const PartnerDetails: React.FC = () => {
             {/* project requests */}
             {activeTab === 'requests' && (
               <section>
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <h3 className="text-lg font-semibold text-gray-900">Project Requests</h3>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">All</span>
-                    <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">
-                      Accepted
-                    </span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
-                      Done
-                    </span>
+                </div>
+
+                {/* Search bar + Sort dropdown */}
+                <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="relative w-full md:w-1/3">
+                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by project name..."
+                      className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={searchProject}
+                      onChange={(e) => {
+                        setPageNumber(1);
+                        setSearchProject(e.target.value);
+                      }}
+                    />
+                  </div>
+
+                  {/* Filter status */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {['All', 'Pending', 'Accepted', 'Rejected', 'Finished'].map((s) => (
+                      <button
+                        key={s}
+                        className={`rounded-full px-3 py-1 font-medium transition ${
+                          selectedStatus === (s === 'All' ? null : s)
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        onClick={() => {
+                          setPageNumber(1);
+                          setSelectedStatus(s === 'All' ? null : s);
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
+                {/* Table */}
                 <div className="overflow-hidden rounded-xl border border-gray-300">
-                  <div className="max-h-[360px] overflow-auto">
+                  <div className="max-h-[420px] overflow-auto">
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur border-b text-gray-600 text-left">
                         <tr>
-                          <th className="px-4 py-3 font-medium">ID</th>
-                          <th className="px-4 py-3 font-medium">Status</th>
-                          <th className="px-4 py-3 font-medium">Date</th>
+                          <th className="px-4 py-3 font-medium">Code</th>
+                          <th className="px-4 py-3 font-medium">Requester Company</th>
+                          <th className="px-4 py-3 font-medium">Executor Company</th>
+                          <th className="px-4 py-3 font-medium">Created Name</th>
+                          <th className="px-4 py-3 font-medium">Project Name</th>
                           <th className="px-4 py-3 font-medium">Description</th>
+                          <th className="px-4 py-3 font-medium">Start Date</th>
+                          <th className="px-4 py-3 font-medium">End Date</th>
+                          <th className="px-4 py-3 font-medium">Status</th>
                         </tr>
                       </thead>
+
                       <tbody>
-                        {projectRequests.map((req) => (
-                          <tr
-                            key={req.id}
-                            className="border-b last:border-b-0 hover:bg-gray-50/70 transition"
-                          >
-                            <td className="px-4 py-3 font-medium text-blue-700">{req.id}</td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={cls(
-                                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                                  statusPill(req.status),
-                                )}
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />{' '}
-                                {req.status}
-                              </span>
+                        {projectRequest?.length > 0 ? (
+                          projectRequest.map((req) => (
+                            <tr
+                              key={req.id}
+                              className="border-b last:border-b-0 hover:bg-gray-50/70 transition"
+                            >
+                              <td className="px-4 py-3 font-medium text-blue-700">{req.code}</td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {req.requesterCompanyName}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">{req.executorCompanyName}</td>
+                              <td className="px-4 py-3 text-gray-700">{req.createdName}</td>
+                              <td className="px-4 py-3 text-gray-800">{req.projectName}</td>
+                              <td className="px-4 py-3 text-gray-600">{req.description}</td>
+                              <td className="px-4 py-3 text-gray-600">
+                                {req.startDate
+                                  ? new Date(req.startDate).toLocaleDateString('vi-VN')
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-gray-600">
+                                {req.endDate
+                                  ? new Date(req.endDate).toLocaleDateString('vi-VN')
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusPill(
+                                    req.status,
+                                  )}`}
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                                  {req.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={9} className="py-10 text-center text-gray-500">
+                              <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
+                                {' '}
+                                <Activity className="h-8 w-8 text-gray-400 mb-2" />{' '}
+                                <p className="text-base font-medium text-gray-700">
+                                  No Project Request Found
+                                </p>{' '}
+                                <p className="text-sm text-gray-400">
+                                  Try adjusting your search keyword
+                                </p>{' '}
+                              </div>{' '}
                             </td>
-                            <td className="px-4 py-3 text-gray-700">{req.date}</td>
-                            <td className="px-4 py-3 text-gray-600">{req.desc}</td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
+
+                {/* Pagination */}
+                <div className="flex justify-end mt-3">
+                  <Stack
+                    spacing={2}
+                    className="bg-white p-3 rounded-xl shadow-sm border border-gray-100"
+                  >
+                    <Pagination
+                      count={Math.ceil(totalProjectCount / pageSize) || 1}
+                      page={pageNumber}
+                      onChange={(e, value) => setPageNumber(value)}
+                      color="primary"
+                      variant="outlined"
+                      shape="rounded"
+                      size="medium"
+                      showFirstButton
+                      showLastButton
+                    />
+                  </Stack>
+                </div>
               </section>
             )}
+
             {/* activity */}
             {activeTab === 'activity' && (
               <section>
                 <h3 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h3>
-                <div className="rounded-xl border border-gray-300 bg-white p-5">
-                  <div className="relative pl-8">
-                    {/* Timeline rail */}
-                    <span className="pointer-events-none absolute left-[2px] top-2 bottom-2 w-[5px] h-full bg-gradient-to-r from-blue-200 via-gray-200 to-transparent" />
-                    <ul className="space-y-8">
-                      {activities.map((item, idx) => (
-                        <li key={idx} className="relative">
-                          <span className="absolute -left-[18px] top-5 grid h-4 w-4 place-items-center">
-                            <span className="h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100 " />
-                          </span>
-                          <p className="text-xs text-gray-500">{item.date}</p>
-                          <p className="font-medium text-gray-800">{item.action}</p>
-                        </li>
-                      ))}
-                    </ul>
+
+                {activityForbidden ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
+                    <Activity className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-base font-medium text-red-600">
+                      No permission to view activity logs
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Please contact the company administrator for access
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    {' '}
+                    {/* Search */}
+                    <div className="relative w-1/2">
+                      <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search Activity..."
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    {/* Timeline */}
+                    <div className="rounded-xl border border-gray-300 bg-white p-5 mt-3">
+                      <div className="relative pl-8">
+                        {/* Timeline rail */}
+                        <span className="pointer-events-none absolute left-[2px] top-2 bottom-2 w-[5px] h-full bg-gradient-to-r from-blue-200 via-gray-200 to-transparent" />
+                        <ul className="space-y-8">
+                          {filteredLogs.length > 0 ? (
+                            filteredLogs.map((item, idx) => (
+                              <li key={idx} className="relative">
+                                <span className="absolute -left-[18px] top-5 grid h-4 w-4 place-items-center">
+                                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100" />
+                                </span>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                                </p>
+                                <p className="font-medium text-gray-800">{item.title}</p>
+                                <p className="text-gray-600 text-sm">{item.description}</p>
+                              </li>
+                            ))
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
+                              {' '}
+                              <Activity className="h-8 w-8 text-gray-400 mb-2" />{' '}
+                              <p className="text-base font-medium text-gray-700">
+                                No Activity Found
+                              </p>{' '}
+                              <p className="text-sm text-gray-400">
+                                Try adjusting your search keyword
+                              </p>{' '}
+                            </div>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Pagination */}
+                <div className="flex justify-end mt-3">
+                  <Stack
+                    spacing={2}
+                    className="bg-white p-3 rounded-xl shadow-sm border border-gray-100"
+                  >
+                    <Pagination
+                      count={Math.ceil(filteredTotalCount / pageSize) || 1}
+                      page={currentPage}
+                      onChange={handlePageChangeActivity}
+                      color="primary"
+                      variant="outlined"
+                      shape="rounded"
+                      size="medium"
+                      showFirstButton
+                      showLastButton
+                    />
+                  </Stack>
                 </div>
               </section>
             )}
