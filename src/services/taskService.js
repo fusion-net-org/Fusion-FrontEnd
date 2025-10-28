@@ -54,8 +54,10 @@ export const getTaskById = async (id) => {
 export const postTask = async (data) => {
   try {
     const payload = {
-      projectId: '6909CE3D-38DF-4C71-919E-82300C9984A3',
-      sprintId: 'EF92CB06-5C70-41C4-AAFA-DB00FE7E9313',
+      //projectId: '6909CE3D-38DF-4C71-919E-82300C9984A3',
+      //sprintId: 'EF92CB06-5C70-41C4-AAFA-DB00FE7E9313',
+      projectId: '',
+      sprintId: '',
       ...data,
     };
     const response = await axiosInstance.post('/tasks', payload);
