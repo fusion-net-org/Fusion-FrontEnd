@@ -34,7 +34,10 @@ import type {
   IProjectRequset,
   ProjectRequestResponse,
 } from '@/interfaces/ProjectRequest/projectRequest';
-import { GetProjectRequestByCompanyId } from '@/services/projectRequest.js';
+import {
+  GetProjectRequestByCompanyId,
+  GetProjectRequestByCompanyIdAndPartnerId,
+} from '@/services/projectRequest.js';
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 
 const PartnerDetails: React.FC = () => {
@@ -71,9 +74,8 @@ const PartnerDetails: React.FC = () => {
   };
   //loading project
   const [loadingProject, setLoadingProject] = useState(false);
-
+  console.log(id);
   //call api get company by id
-
   useEffect(() => {
     const fetchAllData = async () => {
       try {
@@ -81,10 +83,12 @@ const PartnerDetails: React.FC = () => {
         const [companyRes, partnerRes, projectRequestRes] = await Promise.all([
           getCompanyById(id),
           GetPartnerBetweenTwoCompanies(myCompanyId, id),
-          GetProjectRequestByCompanyId(id),
+          GetProjectRequestByCompanyIdAndPartnerId(myCompanyId, id),
         ]);
 
-        const dataProjectRequest: ProjectRequestResponse = projectRequestRes?.data ?? { items: [] };
+        const dataProjectRequest: ProjectRequestResponse = projectRequestRes;
+
+        console.log(dataProjectRequest.items);
 
         setPartner(companyRes?.data ?? null);
         setPartnerV2(partnerRes?.data ?? null);
@@ -95,8 +99,8 @@ const PartnerDetails: React.FC = () => {
         try {
           logActivityRes = await AllActivityLogCompanyById(id);
 
-          if (logActivityRes?.succeeded && Array.isArray(logActivityRes?.data)) {
-            setLogActivity(logActivityRes.data);
+          if (logActivityRes?.succeeded && Array.isArray(logActivityRes?.data?.items)) {
+            setLogActivity(logActivityRes.data.items);
           } else {
             setLogActivity([]);
           }
@@ -128,7 +132,8 @@ const PartnerDetails: React.FC = () => {
   ) => {
     try {
       setLoadingProject(true);
-      const res = await GetProjectRequestByCompanyId(
+      const res = await GetProjectRequestByCompanyIdAndPartnerId(
+        myCompanyId,
         id,
         keyword || null,
         status || null,
@@ -142,7 +147,7 @@ const PartnerDetails: React.FC = () => {
         null,
       );
 
-      const data: ProjectRequestResponse = res?.data ?? { items: [], totalCount: 0 };
+      const data: ProjectRequestResponse = res;
       setProjectRequest(data.items ?? []);
       setTotalProjectCount(data.totalCount ?? 0);
     } catch (err) {

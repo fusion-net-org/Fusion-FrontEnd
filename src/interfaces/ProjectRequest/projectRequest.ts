@@ -2,8 +2,10 @@ export interface IProjectRequset {
   id: string;
   requesterCompanyId: string;
   requesterCompanyName: string;
+  requesterCompanyLogoUrl: string;
   executorCompanyId: string;
   executorCompanyName: string;
+  executorCompanyLogoUrl: string;
   createdBy: string;
   createdName: string;
   code: string;

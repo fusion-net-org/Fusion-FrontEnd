@@ -268,7 +268,7 @@ const Partners: React.FC = () => {
   return (
     <>
       <LoadingOverlay loading={loading} message="Loading Partners" />
-      <div className="px-8 py-6 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
           <div className="flex justify-between items-center">
@@ -383,7 +383,12 @@ const Partners: React.FC = () => {
                 partners.map((p, i) => (
                   <tr
                     key={i}
-                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center"
+                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center cursor-pointer"
+                    onClick={() =>
+                      navigate(`/company/partners/${p.companyInfo?.id}`, {
+                        state: { companyId, partnerId: p.id },
+                      })
+                    }
                   >
                     {/* Cột Company vẫn giữ text-left để hình và tên công ty hiển thị đẹp */}
                     <td className="px-6 py-4 flex items-center gap-3 text-left">

@@ -193,7 +193,7 @@ const CompanyMember: React.FC = () => {
     <>
       <LoadingOverlay loading={loading} message="Loading members..." />
 
-      <div className="px-8 py-6 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
         {/* HEADER */}
 
         <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
