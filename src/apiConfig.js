@@ -90,7 +90,6 @@ axiosInstance.interceptors.response.use(
 
       try {
         const data = await refreshToken(refreshTokenValue);
-        console.log('refreshToken data:', data);
 
         const newAccessToken = data.accessToken;
         const newRefreshToken = data.refreshToken;

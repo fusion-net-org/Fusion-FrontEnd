@@ -1,93 +1,91 @@
+// src/utils/event-util.tsx
 import type { EventInput } from '@fullcalendar/core';
 
-export function demoEventsFor(date = new Date()): EventInput[] {
-  const Y = date.getFullYear();
-  const M = date.getMonth();
-  return [
-    {
-      title: 'Design for new shopping...',
-      start: new Date(Y, M, 21, 18, 30),
-      extendedProps: {
-        owner: 'AL',
-        ownerColor: 'bg-indigo-600',
-        pill: 'bg-pink-400',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300'],
-      },
-    },
-    {
-      title: 'Fix tasks',
-      start: new Date(Y, M, 21),
-      end: new Date(Y, M, 26),
-      allDay: true,
-      extendedProps: {
-        owner: 'MF',
-        ownerColor: 'bg-indigo-600',
-        pill: 'bg-pink-400',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300'],
-      },
-    },
-    {
-      title: 'Test',
-      start: new Date(Y, M, 21),
-      end: new Date(Y, M, 22),
-      allDay: true,
-      extendedProps: {
-        owner: 'NA',
-        ownerColor: 'bg-sky-600',
-        pill: 'bg-rose-300',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300'],
-      },
-    },
-
-    {
-      title: 'Website content',
-      start: new Date(Y, M, 22),
-      end: new Date(Y, M, 23),
-      allDay: true,
-      extendedProps: {
-        owner: 'MF',
-        ownerColor: 'bg-indigo-600',
-        pill: 'bg-amber-300',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300'],
-      },
-    },
-
-    {
-      title: 'Update product packaging in-...',
-      start: new Date(Y, M, 24),
-      end: new Date(Y, M, 25),
-      allDay: true,
-      extendedProps: {
-        owner: 'MF',
-        ownerColor: 'bg-indigo-600',
-        pill: 'bg-amber-300',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300'],
-      },
-    },
-
-    {
-      title: 'Japanese Launch Assets',
-      start: new Date(Y, M, 29),
-      end: new Date(Y, M + 1, 2),
-      allDay: true,
-      extendedProps: {
-        owner: 'JP',
-        ownerColor: 'bg-emerald-600',
-        pill: 'bg-emerald-400',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300', 'bg-violet-300'],
-      },
-    },
-    {
-      title: 'Sales video update - Forms v2...',
-      start: new Date(Y, M, 29),
-      end: new Date(Y, M, 30),
-      allDay: true,
-      extendedProps: {
-        owner: 'MF',
-        ownerColor: 'bg-indigo-600',
-        pill: 'bg-violet-400',
-        tags: ['bg-yellow-300', 'bg-pink-300', 'bg-sky-300'],
-      },
-    },
-  ];
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  source?: string;
+  point?: number;
+  dueDate?: string;
+  startDate?: string;
+  endDate?: string;
+  assignedTo?: string;
 }
+
+// Màu nền theo priority
+export const priorityColors: Record<string, string> = {
+  High: '#fee2e2',
+  Medium: '#fed7aa',
+  Low: '#dcfce7',
+};
+
+// Màu viền theo type
+export const typeColors: Record<string, string> = {
+  Bug: '#ef4444',
+  Feature: '#3b82f6',
+  Task: '#06b6d4',
+};
+
+// Màu avatar theo owner (có thể tùy chỉnh)
+export const ownerColors: Record<string, string> = {
+  default: 'bg-slate-600',
+  A: 'bg-blue-600',
+  B: 'bg-green-600',
+  C: 'bg-purple-600',
+  D: 'bg-pink-600',
+  E: 'bg-yellow-600',
+};
+
+// Màu tag theo type (squares)
+export const typeTagColors: Record<string, string> = {
+  Bug: 'bg-red-500',
+  Feature: 'bg-blue-500',
+  Task: 'bg-cyan-500',
+};
+
+/**
+ * Convert Task[] from API to FullCalendar EventInput[]
+ */
+export function mapTasksToEvents(tasks: Task[]): EventInput[] {
+  // Validation: ensure tasks is an array
+  if (!Array.isArray(tasks)) {
+    console.error('mapTasksToEvents: tasks is not an array', tasks);
+    return [];
+  }
+
+  return tasks.map((task) => {
+    const priority = task.priority || 'Low';
+    const type = task.type || 'Task';
+    const owner = task.assignedTo || '';
+    const ownerInitial = owner ? owner.charAt(0).toUpperCase() : '';
+
+    return {
+      id: task.id,
+      title: task.title,
+      start: task.startDate || task.dueDate,
+      end: task.endDate || task.dueDate,
+      allDay: !task.startDate,
+
+      classNames: [`priority-${priority.toLowerCase()}`],
+      extendedProps: {
+        ...task,
+
+        pillClass: `pill-${priority.toLowerCase()}`,
+        owner: ownerInitial,
+        ownerColor: ownerColors[ownerInitial] || ownerColors.default,
+        tags: [typeTagColors[type]],
+      },
+    };
+  });
+}
+
+/**
+ * Format date into readable form
+ */
+export const formatDate = (date?: string): string => {
+  if (!date) return '';
+  return new Date(date).toLocaleDateString('vi-VN');
+};
