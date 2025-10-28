@@ -60,17 +60,14 @@ const Calendar: React.FC = () => {
         } else if (res.data?.tasks && Array.isArray(res.data.tasks)) {
           taskData = res.data.tasks;
         } else {
-          console.warn('Unexpected data structure:', res.data);
         }
 
-        console.log('Processed tasks:', taskData);
         setTasks(taskData);
       } else {
         toast.error('Failed to load tasks');
         setTasks([]);
       }
     } catch (err) {
-      console.error('Error fetching tasks:', err);
       toast.error('An error occurred while loading tasks');
       setTasks([]);
     } finally {
@@ -91,7 +88,6 @@ const Calendar: React.FC = () => {
       const mappedEvents = mapTasksToEvents(tasks);
       return mappedEvents;
     } catch (error) {
-      console.error('Error mapping tasks to events:', error);
       return [];
     }
   }, [tasks]);
@@ -103,7 +99,6 @@ const Calendar: React.FC = () => {
 
   // Handle add/update
   const handleAddOrUpdateTask = async (values: any) => {
-    console.log('✅ SUBMIT VALUES:', values);
     setLoading(true);
     try {
       if (isEditMode && values?.id) {
@@ -129,7 +124,6 @@ const Calendar: React.FC = () => {
       setIsEditMode(false);
       setFormInitialValues(null);
     } catch (err) {
-      console.error(err);
       toast.error('An error occurred while saving the task.');
     } finally {
       setLoading(false);
@@ -254,12 +248,9 @@ const Calendar: React.FC = () => {
                 events={events}
                 eventContent={EventPill}
                 datesSet={(arg) => setTitle(arg.view.title)}
-                eventDidMount={(info) => {
-                  console.log('Event mounted:', info.event);
-                }}
+                eventDidMount={(info) => {}}
                 eventClick={async (info) => {
                   const taskId = info.event.id;
-                  console.log('Clicked event:', taskId);
 
                   setSelectedTask(null);
                   setLoadingTaskDetail(true);
@@ -267,14 +258,13 @@ const Calendar: React.FC = () => {
 
                   try {
                     const res = await getTaskById(taskId);
-                    console.log('data', res.data);
+
                     if (res?.succeeded && res.data) {
                       setSelectedTask(res.data);
                     } else {
                       toast.error('Failed to load task details');
                     }
                   } catch (err) {
-                    console.error('Error fetching task detail:', err);
                     toast.error('An error occurred while loading task details');
                   } finally {
                     setLoadingTaskDetail(false);

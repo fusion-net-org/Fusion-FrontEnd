@@ -6,29 +6,19 @@ import { LoadingOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { toast } from 'react-toastify';
 import { getAllTask } from '@/services/taskService.js';
 import type { TablePaginationConfig, FilterValue, SorterResult } from 'antd/es/table/interface';
+import type { Task } from '@/interfaces/Task/task';
 import { DatePicker } from 'antd';
 import dayjs from 'dayjs';
 
 const { useBreakpoint } = Grid;
 const { confirm } = Modal;
 
-type Task = {
-  id?: string | number;
-  _id?: string | number;
-  key?: string | number;
-  title: string;
-  description?: string;
-  type?: 'Feature' | 'Task' | 'Bug';
-  priority?: 'Low' | 'Medium' | 'High';
-  point?: number;
-  source?: string;
-  dueDate?: string;
-  status?: 'In Progress' | 'Done';
-};
-
 type TaskListProps = {
   onEdit?: (task: Task) => void;
   onDelete?: (id: string | number) => Promise<void> | void;
+  onViewDetail?: (task: Task) => void;
+  sortColumn?: string;
+  sortDescending?: boolean;
 };
 
 const typeColors: Record<string, string> = { Feature: 'blue', Task: 'geekblue', Bug: 'red' };
@@ -55,7 +45,13 @@ const normalizeTasks = (items: any[]): Task[] =>
     priority: ['Low', 'Medium', 'High'].includes(t?.priority || '') ? t.priority : 'Low',
   }));
 
-export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
+const TaskList: React.FC<TaskListProps> = ({
+  onEdit,
+  onDelete,
+  onViewDetail,
+  sortColumn,
+  sortDescending,
+}) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const screens = useBreakpoint();
@@ -70,7 +66,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
 
   useEffect(() => {
     fetchTasks();
-  }, [pagination.current, pagination.pageSize, sorter]);
+  }, [pagination.current, pagination.pageSize, sortColumn, sortDescending]);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -78,8 +74,8 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       const res = await getAllTask({
         pageNumber: pagination.current,
         pageSize: pagination.pageSize,
-        sortColumn: sorter.field,
-        sortDescending: sorter.order === 'descend',
+        sortColumn,
+        sortDescending,
       });
 
       if (res?.succeeded) {
@@ -111,8 +107,9 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
     const s = Array.isArray(sorterConfig) ? sorterConfig[0] : sorterConfig;
     if (s && s.field) {
       const field = s.field as string;
-      const order = (s.order as 'ascend' | 'descend' | undefined) ?? 'ascend';
-      setSorter({ field, order });
+      const order = (s.order as 'ascend' | 'descend' | undefined) ?? undefined;
+
+      setSorter({ field, order: order || 'ascend' });
     } else {
       setSorter({ field: 'title', order: 'ascend' });
     }
@@ -123,16 +120,19 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
-      ellipsis: true,
-      width: 260,
-      responsive: ALL,
-      sorter: true,
-      sortDirections: ['ascend', 'descend'],
-      sortOrder: sorter.order,
-      render: (text: string, record) => (
-        <Tooltip title={record.description || text}>
-          <span className="font-medium text-gray-800">{text}</span>
-        </Tooltip>
+      width: 200,
+      render: (text: string) => (
+        <span
+          className="block truncate"
+          style={{
+            maxWidth: 200,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {text}
+        </span>
       ),
     },
     {
@@ -141,6 +141,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       key: 'type',
       width: 120,
       responsive: MD_UP,
+      sortOrder: sorter.field === 'title' ? sorter.order : undefined,
       render: (type?: string) => <Tag color={typeColors[type || 'Task']}>{type || 'Task'}</Tag>,
     },
     {
@@ -175,6 +176,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       title: 'Due Date',
       dataIndex: 'dueDate',
       key: 'dueDate',
+      sortOrder: sortColumn === 'dueDate' ? (sortDescending ? 'descend' : 'ascend') : undefined,
       width: 140,
       responsive: SM_UP,
       render: (date?: string) => <span className="text-gray-600">{formatDate(date)}</span>,
@@ -212,9 +214,12 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 140,
+      width: 180,
       render: (_, record) => (
         <div className="flex gap-2">
+          <Button size="small" onClick={() => onViewDetail?.(record)}>
+            View
+          </Button>
           <Button size="small" onClick={() => onEdit?.(record)}>
             Edit
           </Button>

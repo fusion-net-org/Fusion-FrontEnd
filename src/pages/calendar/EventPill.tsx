@@ -4,7 +4,7 @@ function EventPill(arg: EventContentArg) {
   const { event, timeText } = arg;
   const ex: any = event.extendedProps || {};
 
-  const owner = ex.owner || '';
+  const owner = ex.owner || 'U';
   const ownerColor = ex.ownerColor || 'bg-slate-600';
   const tags: string[] = ex.tags || [];
   const priority = ex.priority || '';
