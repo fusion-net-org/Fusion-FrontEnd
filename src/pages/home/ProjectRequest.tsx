@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Check, CheckCircle, Eye, Search, X, XCircle } from 'lucide-react';
+import { Check, CheckCircle, Eye, Search, UserPlus, X, XCircle } from 'lucide-react';
 import { DatePicker } from 'antd';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import Pagination from '@mui/material/Pagination';
@@ -23,6 +23,7 @@ const { RangePicker } = DatePicker;
 const ProjectRequestPage: React.FC = () => {
   const { companyId } = useParams();
   const [loading, setLoading] = useState(false);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const [data, setData] = useState<IProjectRequset[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -31,6 +32,7 @@ const ProjectRequestPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
+  const [viewMode, setViewMode] = useState<'AsRequester' | 'AsExecutor'>('AsRequester');
 
   //open popup
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -49,12 +51,19 @@ const ProjectRequestPage: React.FC = () => {
 
   //handing accept and reject for company executor
   const handleAccept = async (id: string) => {
-    const res = await AcceptProjectRequest(id);
-    if (res.succeeded) {
-      toast.success('Request accepted successfully!');
-      fetchData();
-    } else {
-      toast.error(res.message || 'Failed to accept request');
+    setAcceptingId(id);
+    try {
+      const res = await AcceptProjectRequest(id);
+      if (res.succeeded) {
+        toast.success('Request accepted successfully!');
+        fetchData();
+      } else {
+        toast.error(res.message || 'Failed to accept request');
+      }
+    } catch (error) {
+      toast.error('Error while accepting request');
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -86,13 +95,12 @@ const ProjectRequestPage: React.FC = () => {
     try {
       const startDateStr = dateParam ? dateParam[0]?.format('YYYY-MM-DD') : null;
       const endDateStr = dateParam ? dateParam[1]?.format('YYYY-MM-DD') : null;
-
       const res: ProjectRequestResponse = await GetProjectRequestByCompanyId(
         companyIdParam,
         searchParam || null,
         statusParam === 'All' ? null : statusParam,
-        null,
-        null,
+        viewMode,
+        'StartEndDate',
         startDateStr,
         endDateStr,
         pageParam,
@@ -124,12 +132,21 @@ const ProjectRequestPage: React.FC = () => {
       debouncedFetch.cancel();
     };
   }, [searchTerm, debouncedFetch]);
+  console.log('🔄 Fetching with ViewMode:', viewMode);
 
   useEffect(() => {
     fetchData();
-  }, [companyId, statusFilter, dateRange, pageNumber, pageSize]);
+  }, [companyId, statusFilter, dateRange, pageNumber, pageSize, viewMode]);
 
   const countStatus = (status: string) => data.filter((p) => p.status === status).length;
+
+  const showActionColumn = useMemo(() => {
+    return (
+      viewMode === 'AsExecutor'
+      //    &&
+      //data.some((p) => p.status === 'Pending' && p.executorCompanyId === companyId)
+    );
+  }, [data, viewMode, companyId]);
 
   const getStatusBadge = (status: string) => {
     const styleMap: Record<string, string> = {
@@ -151,21 +168,23 @@ const ProjectRequestPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 min-h-screen">
+    <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
       <LoadingOverlay loading={loading} message="Loading project requests..." />
-
-      {/* HEADER */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-500 rounded-2xl p-6 mb-6 shadow-md flex items-center justify-between text-white">
-        <div>
-          <h1 className="text-2xl font-bold">Project Requests</h1>
-          <p className="text-sm text-blue-100">Manage requests for inter-company collaborations</p>
+      <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Project Requests</h1>
+            <p className="text-blue-100 text-sm">
+              Manage requests for inter-company collaborations
+            </p>
+          </div>
+          <button
+            onClick={handleNewClick}
+            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
+          >
+            <UserPlus className="w-4 h-4" /> New Request
+          </button>
         </div>
-        <button
-          onClick={handleNewClick}
-          className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition"
-        >
-          + New Request
-        </button>
       </div>
 
       {/* STATUS SUMMARY */}
@@ -221,6 +240,21 @@ const ProjectRequestPage: React.FC = () => {
             <option value="Accepted">Accepted</option>
             <option value="Finished">Finished</option>
           </select>
+
+          <select
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            value={viewMode}
+            onChange={(e) => {
+              const value = e.target.value as 'AsRequester' | 'AsExecutor';
+              console.log('Change ViewMode:', value);
+              setViewMode(value);
+              setPageNumber(1);
+            }}
+          >
+            <option value="AsRequester">My Requests</option>
+            <option value="AsExecutor">Requests To Me</option>
+          </select>
+
           <span className="text-sm text-gray-500">{data.length} results</span>
         </div>
       </div>
@@ -238,9 +272,7 @@ const ProjectRequestPage: React.FC = () => {
               <th className="px-4 py-3 font-medium text-center">Start Date</th>
               <th className="px-4 py-3 font-medium text-center">End Date</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
-              {data.some((item) => item.executorCompanyId === companyId) && (
-                <th className="px-4 py-3 font-medium text-center">Action</th>
-              )}
+              {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
               <th className="px-4 py-3 font-medium text-left">Detail</th>
             </tr>
           </thead>
@@ -248,9 +280,6 @@ const ProjectRequestPage: React.FC = () => {
           <tbody>
             {data.length > 0 ? (
               data.map((item) => {
-                const isExecutor = item.executorCompanyId === companyId;
-                const isRequester = item.requesterCompanyId === companyId;
-
                 return (
                   <tr
                     key={item.id}
@@ -258,12 +287,42 @@ const ProjectRequestPage: React.FC = () => {
                   >
                     <td className="px-4 py-3 text-gray-800 font-medium">{item.code}</td>
                     <td className="px-4 py-3 text-gray-800 text-center">{item.projectName}</td>
+                    {/* Requester Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
-                      {item.requesterCompanyName}
+                      <div className="flex items-center justify-center gap-2">
+                        {item.requesterCompanyLogoUrl ? (
+                          <img
+                            src={item.requesterCompanyLogoUrl}
+                            alt="Requester Logo"
+                            className="w-7 h-7 rounded-full object-cover border"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                            N
+                          </div>
+                        )}
+                        <span>{item.requesterCompanyName}</span>
+                      </div>
                     </td>
+
+                    {/* Executor Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
-                      {item.executorCompanyName}
+                      <div className="flex items-center justify-center gap-2">
+                        {item.executorCompanyLogoUrl ? (
+                          <img
+                            src={item.executorCompanyLogoUrl}
+                            alt="Executor Logo"
+                            className="w-7 h-7 rounded-full object-cover border"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                            N
+                          </div>
+                        )}
+                        <span>{item.executorCompanyName}</span>
+                      </div>
                     </td>
+
                     <td className="px-4 py-3 text-center">{getStatusBadge(item.status)}</td>
                     <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.startDate).toLocaleDateString('vi-VN')}
@@ -272,17 +331,53 @@ const ProjectRequestPage: React.FC = () => {
                       {new Date(item.endDate).toLocaleDateString('vi-VN')}
                     </td>
 
-                    {isExecutor && (
+                    {showActionColumn && item.executorCompanyId === companyId && (
                       <td className="px-4 py-3 text-center">
                         {item.status === 'Pending' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handleAccept(item.id)}
-                              className="flex items-center gap-1 px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition"
+                              disabled={acceptingId === item.id}
+                              className={`flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-lg transition min-w-[90px]
+                                ${
+                                  acceptingId === item.id
+                                    ? 'bg-green-100 text-green-600 cursor-not-allowed'
+                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                }
+                              `}
                             >
-                              <Check className="h-4 w-4" />
-                              Accept
+                              {acceptingId === item.id ? (
+                                <>
+                                  <svg
+                                    className="animate-spin h-4 w-4 text-green-700"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    ></circle>
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8v8H4z"
+                                    ></path>
+                                  </svg>
+                                  <span>Processing...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="h-4 w-4" />
+                                  Accept
+                                </>
+                              )}
                             </button>
+
                             <button
                               onClick={() => openRejectModal(item.id)}
                               className="flex items-center gap-1 px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
@@ -325,8 +420,13 @@ const ProjectRequestPage: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={9} className="text-center text-gray-500 py-6 italic">
-                  No project requests found
+                <td colSpan={9}>
+                  <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                    <p className="text-lg font-medium">No project requests found</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Try adjusting filters or create a new request
+                    </p>
+                  </div>
                 </td>
               </tr>
             )}

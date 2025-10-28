@@ -133,7 +133,7 @@ export const TaskList: React.FC = () => {
       {loading ? (
         <div className="flex justify-center items-center py-10">
           <LoadingOutlined className="text-blue-500 text-2xl animate-spin" />
-          <span className="ml-2 text-gray-600">Đang tải danh sách task...</span>
+          <span className="ml-2 text-gray-600">Loading task...</span>
         </div>
       ) : (
         <Table<Task>

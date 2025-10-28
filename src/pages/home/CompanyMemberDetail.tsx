@@ -1,6 +1,18 @@
 import React from 'react';
-import { Mail, Phone, Calendar, MessageSquare, Edit, Folder, Star, Clock } from 'lucide-react';
+import {
+  Mail,
+  Phone,
+  Calendar,
+  MessageSquare,
+  Edit,
+  Folder,
+  Star,
+  Clock,
+  Search,
+} from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Pagination } from 'antd';
+import Stack from '@mui/material/Stack';
 
 const data = [
   { name: 'Productivity', value: 75 },
@@ -110,33 +122,86 @@ export default function CompanyMemberDetail() {
         {/* Right Column */}
         <div className="col-span-2 space-y-6">
           <div className="grid md:grid-cols-2 gap-6"></div>
-
-          {/* Projects */}
+          {/* Projects Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <h3 className="text-lg font-semibold mb-4">Projects</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'Project Alpha', progress: 80 },
-                { name: 'Project Beta', progress: 60 },
-                { name: 'Project Gamma', progress: 45 },
-              ].map((proj) => (
-                <div key={proj.name}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium">{proj.name}</span>
-                    <span className="text-gray-500">{proj.progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-indigo-400 h-2.5 rounded-full"
-                      style={{ width: `${proj.progress}%` }}
-                    ></div>
-                  </div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Projects</h3>
+
+              {/* Search + Status Filter */}
+              <div className="flex gap-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search size={18} className="absolute left-2 top-2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search project..."
+                    className="pl-8 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-300 outline-none"
+                  />
                 </div>
-              ))}
+
+                {/* Filter Status */}
+                <select className="px-3 py-2 border rounded-lg text-sm text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-300">
+                  <option>Status: All</option>
+                  <option>In Progress</option>
+                  <option>Completed</option>
+                  <option>Pending</option>
+                </select>
+              </div>
             </div>
-            <button className="mt-5 w-full py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium text-sm transition">
-              View All Projects
-            </button>
+
+            {/* Table */}
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-600 border-b bg-gray-50">
+                  <th className="p-3 font-medium">Project Name</th>
+                  <th className="p-3 font-medium">Status</th>
+                  <th className="p-3 font-medium">Progress</th>
+                  <th className="p-3 font-medium text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { name: 'Project Alpha', status: 'In Progress', progress: 80 },
+                  { name: 'Project Beta', status: 'Completed', progress: 100 },
+                  { name: 'Project Gamma', status: 'Pending', progress: 45 },
+                ].map((proj) => (
+                  <tr key={proj.name} className="border-b hover:bg-blue-50 transition">
+                    <td className="p-3 font-medium text-gray-800">{proj.name}</td>
+                    <td className="p-3">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium
+                ${
+                  proj.status === 'Completed'
+                    ? 'bg-green-100 text-green-600'
+                    : proj.status === 'Pending'
+                    ? 'bg-yellow-100 text-yellow-600'
+                    : 'bg-blue-100 text-blue-600'
+                }`}
+                      >
+                        {proj.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-gray-700">{proj.progress}%</td>
+                    <td className="p-3 text-center">
+                      <button className="text-blue-600 hover:underline text-sm">View</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="flex justify-end mt-6 pr-3">
+              <Stack spacing={2}>
+                <Pagination
+                  color="primary"
+                  variant="outlined"
+                  shape="rounded"
+                  size="default"
+                  showFirstButton
+                  showLastButton
+                />
+              </Stack>
+            </div>
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@ interface LoadingOverlayProps {
 
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   loading,
-  message = 'Đang tải dữ liệu...',
+  message = 'Loading..',
   transparent = false,
 }) => {
   if (!loading) return null;
