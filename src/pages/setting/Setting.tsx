@@ -20,11 +20,27 @@ import { changePassword } from '@/services/userService.js';
 const GeneralSettings = () => {
   const { t, i18n } = useTranslation();
   const [language, setLanguage] = useState(i18n.language || 'en');
+  const [isActive, setIsActive] = useState(true);
 
   const handleSaveLanguage = () => {
     i18n.changeLanguage(language);
     toast.success('Language changed successfully');
   };
+
+  const Toggle = (value: boolean, set: any) => (
+    <button
+      onClick={() => set(!value)}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+        value ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          value ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
 
   return (
     <div className="space-y-6">
@@ -35,6 +51,15 @@ const GeneralSettings = () => {
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
           {t('settings.general_desc')}
         </p>
+      </div>
+
+      {/* Is active company */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
+        <div>
+          <p className="font-medium text-gray-900 dark:text-gray-100">Active company</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Active company</p>
+        </div>
+        {Toggle(isActive, setIsActive)}
       </div>
 
       <div className="space-y-4">

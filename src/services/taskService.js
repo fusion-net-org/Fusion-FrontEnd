@@ -43,7 +43,7 @@ export const getAllTask = async ({
 
 export const getTaskById = async (id) => {
   try {
-    const response = await axiosInstance.get('/tasks', id);
+    const response = await axiosInstance.get(`/tasks/${id}`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';

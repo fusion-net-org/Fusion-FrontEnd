@@ -45,7 +45,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ open, onCancel, onSubmit,
         formatted.img = null;
       }
 
-      onSubmit(formatted);
+      onSubmit({ ...task, ...formatted });
     } catch {}
   };
 

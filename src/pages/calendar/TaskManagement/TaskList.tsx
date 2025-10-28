@@ -6,6 +6,8 @@ import { LoadingOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { toast } from 'react-toastify';
 import { getAllTask } from '@/services/taskService.js';
 import type { TablePaginationConfig, FilterValue, SorterResult } from 'antd/es/table/interface';
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
 
 const { useBreakpoint } = Grid;
 const { confirm } = Modal;
@@ -58,9 +60,10 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
   const [loading, setLoading] = useState(true);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const [filters, setFilters] = useState<Record<string, FilterValue | null>>({});
 
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
-  const [sorter, setSorter] = useState<{ field: 'title'; order: 'ascend' | 'descend' }>({
+  const [sorter, setSorter] = useState<{ field: string; order: 'ascend' | 'descend' }>({
     field: 'title',
     order: 'ascend',
   });
@@ -75,8 +78,10 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       const res = await getAllTask({
         pageNumber: pagination.current,
         pageSize: pagination.pageSize,
+        sortColumn: sorter.field,
         sortDescending: sorter.order === 'descend',
       });
+
       if (res?.succeeded) {
         const { items, total } = pickItemsAndTotal(res);
         setTasks(normalizeTasks(items));
@@ -92,7 +97,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
 
   const handleTableChange = (
     paginationConfig: TablePaginationConfig,
-    _filters: Record<string, FilterValue | null>,
+    filtersConfig: Record<string, FilterValue | null>,
     sorterConfig: SorterResult<Task> | SorterResult<Task>[],
   ) => {
     setPagination((p) => ({
@@ -101,15 +106,15 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       pageSize: paginationConfig.pageSize || 10,
     }));
 
-    const s = Array.isArray(sorterConfig) ? sorterConfig[0] : sorterConfig;
-    if (!s) return;
+    setFilters(filtersConfig);
 
-    const key = (s.columnKey ?? s.field) as string | undefined;
-    if (key === 'title') {
-      const nextOrder =
-        (s.order as 'ascend' | 'descend' | undefined) ??
-        (sorter.order === 'ascend' ? 'descend' : 'ascend');
-      setSorter({ field: 'title', order: nextOrder });
+    const s = Array.isArray(sorterConfig) ? sorterConfig[0] : sorterConfig;
+    if (s && s.field) {
+      const field = s.field as string;
+      const order = (s.order as 'ascend' | 'descend' | undefined) ?? 'ascend';
+      setSorter({ field, order });
+    } else {
+      setSorter({ field: 'title', order: 'ascend' });
     }
   };
 
@@ -173,6 +178,35 @@ export const TaskList: React.FC<TaskListProps> = ({ onEdit, onDelete }) => {
       width: 140,
       responsive: SM_UP,
       render: (date?: string) => <span className="text-gray-600">{formatDate(date)}</span>,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <DatePicker
+            value={selectedKeys[0] ? dayjs(selectedKeys[0] as string) : null}
+            onChange={(date) => setSelectedKeys(date ? [date.format('YYYY-MM-DD')] : [])}
+            style={{ width: 188, marginBottom: 8, display: 'block' }}
+          />
+          <div className="flex gap-2">
+            <Button type="primary" onClick={() => confirm()} size="small" style={{ width: 90 }}>
+              Filter
+            </Button>
+            <Button
+              onClick={() => {
+                clearFilters?.();
+                confirm();
+              }}
+              size="small"
+              style={{ width: 90 }}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      ),
+      onFilter: (value, record) => {
+        if (!value || !record.dueDate) return true;
+        return record.dueDate.startsWith(value as string);
+      },
+      filteredValue: filters.dueDate || null,
     },
     {
       title: 'Actions',

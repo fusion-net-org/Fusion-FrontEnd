@@ -61,7 +61,6 @@ const TaskPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Chỉ sắp xếp theo title trong TaskList, không filter title */}
       <TaskList key={refreshKey} onEdit={handleEdit} onDelete={handleDelete} />
 
       <TaskFormModal
