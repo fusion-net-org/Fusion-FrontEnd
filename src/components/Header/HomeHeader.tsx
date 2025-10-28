@@ -35,7 +35,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ toggleSidebar }) => {
   const currentTitle = getPageTitle(location.pathname);
 
   return (
-    <header className="sticky top-0 z-50 flex w-full border-l-[2px] border-gray-200 bg-white/80 backdrop-blur-md shadow-sm">
+    <header className="sticky top-0 z-50 flex w-full border-l-[2px] border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm transition-colors duration-500">
       <div className="flex w-full flex-col items-center justify-between lg:flex-row lg:pr-6">
         <div className="flex w-full items-center justify-between gap-2 border-b border-gray-200 px-3 py-2 sm:gap-4 lg:border-b-0 lg:px-0 lg:py-2">
           <div className="flex items-center">
@@ -51,7 +51,9 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ toggleSidebar }) => {
               )}
             </button>
 
-            <h1 className="text-lg font-semibold text-gray-700 capitalize">{currentTitle}</h1>
+            <h1 className="text-lg font-semibold text-gray-700 dark:text-gray-100 capitalize drop-shadow-sm">
+              {currentTitle}
+            </h1>
           </div>
         </div>
 

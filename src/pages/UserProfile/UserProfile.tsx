@@ -31,6 +31,7 @@ import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
 import { getSelfUser, putSelfUser, changePassword } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 
 type PasswordFieldName = 'oldPassword' | 'newPassword' | 'confirmPassword';
 
@@ -40,6 +41,7 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const userFromRedux = useAppSelector((state) => state.user.user);
   const navigate = useNavigate();
 
   const [profileData, setProfileData] = useState<User>({
@@ -49,7 +51,9 @@ const UserProfile = () => {
     address: '',
     gender: '',
     avatar: '',
+    role: 'User',
   });
+
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -147,6 +151,7 @@ const UserProfile = () => {
   const fetchUserInfo = async (): Promise<void> => {
     try {
       const response = await getSelfUser();
+      console.log(response.data);
       setProfileData(response.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error!';
@@ -246,7 +251,9 @@ const UserProfile = () => {
               </div>
 
               <h3 className="font-semibold text-gray-900 mt-4 text-base">{profileData.userName}</h3>
-              <p className="text-xs text-gray-500 mb-2 tracking-wide">Project Manager</p>
+              <p className="text-xs text-gray-500 mb-2 tracking-wide">
+                {userFromRedux ? userFromRedux.role : 'User'}
+              </p>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-[11px] font-medium">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
@@ -413,12 +420,16 @@ const UserProfile = () => {
                       <UserIcon className="w-4 h-4" />
                       Gender
                     </label>
+
                     {isEditing ? (
                       <select
-                        value={profileData.gender}
+                        value={profileData.gender || ''}
                         onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                       >
+                        <option value="" disabled>
+                          -- Select Gender --
+                        </option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
@@ -426,14 +437,16 @@ const UserProfile = () => {
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
                         <UserIcon className="w-5 h-5 text-pink-600" />
-                        <p className="text-sm font-medium text-gray-900">{profileData.gender}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {profileData.gender || 'Not specified'}
+                        </p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              {/* <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-blue-600" />
                   Project statistics
@@ -566,7 +579,7 @@ const UserProfile = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div> */}
             </div>
           )}
 

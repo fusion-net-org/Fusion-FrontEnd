@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -13,26 +13,122 @@ import {
   MoreHorizontal,
   ListChecks,
 } from 'lucide-react';
-import { demoEventsFor } from './event-utils';
-import { TaskList } from './TaskList';
+import { mapTasksToEvents } from './event-utils';
+import TaskPage from './TaskManagement/TaskPage';
+import { toast } from 'react-toastify';
+import TaskFormModal from './TaskManagement/TaskFormModal';
+import { getAllTask, postTask, putTask, getTaskById } from '@/services/taskService.js';
+import TaskDetailModal from './TaskManagement/TaskDetailModal';
+import '@/pages/calendar/css/calendar.css';
 
 const menuItems = [
-  { id: 'list' as const, label: 'List', icon: ListChecks },
   { id: 'calendar' as const, label: 'Calendar', icon: CalendarDays },
+  { id: 'list' as const, label: 'List', icon: ListChecks },
 ];
 
 const Calendar: React.FC = () => {
   const calendarRef = useRef<FullCalendar | null>(null);
   const [title, setTitle] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'list' | 'calendar'>('calendar');
+  const [openModal, setOpenModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
-  const monthStart = new Date(2024, 9, 1);
-  const events = useMemo(() => demoEventsFor(monthStart), [monthStart]);
+  // Task detail modal states
+  const [openDetailModal, setOpenDetailModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [loadingTaskDetail, setLoadingTaskDetail] = useState(false);
+
+  // Task edit
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [formInitialValues, setFormInitialValues] = useState<any>(null);
+
+  // Load tasks from API
+  const fetchTasks = async () => {
+    try {
+      setLoadingTasks(true);
+      const res = await getAllTask();
+
+      if (res?.succeeded) {
+        let taskData = [];
+
+        if (Array.isArray(res.data)) {
+          taskData = res.data;
+        } else if (res.data?.items && Array.isArray(res.data.items)) {
+          taskData = res.data.items;
+        } else if (res.data?.tasks && Array.isArray(res.data.tasks)) {
+          taskData = res.data.tasks;
+        } else {
+        }
+
+        setTasks(taskData);
+      } else {
+        toast.error('Failed to load tasks');
+        setTasks([]);
+      }
+    } catch (err) {
+      toast.error('An error occurred while loading tasks');
+      setTasks([]);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const events = useMemo(() => {
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return [];
+    }
+
+    try {
+      const mappedEvents = mapTasksToEvents(tasks);
+      return mappedEvents;
+    } catch (error) {
+      return [];
+    }
+  }, [tasks]);
 
   const api = () => calendarRef.current?.getApi();
   const gotoPrev = () => api()?.prev();
   const gotoNext = () => api()?.next();
   const gotoToday = () => api()?.today();
+
+  // Handle add/update
+  const handleAddOrUpdateTask = async (values: any) => {
+    setLoading(true);
+    try {
+      if (isEditMode && values?.id) {
+        const res = await putTask(values.id, values);
+        if (res?.succeeded) {
+          toast.success('Task updated successfully!');
+        } else {
+          toast.error('Failed to update task');
+        }
+      } else {
+        // create new task
+        const res = await postTask(values);
+        if (res?.succeeded) {
+          toast.success('Task created successfully!');
+        } else {
+          toast.error('Failed to create task');
+        }
+      }
+
+      // refresh and close
+      await fetchTasks();
+      setOpenModal(false);
+      setIsEditMode(false);
+      setFormInitialValues(null);
+    } catch (err) {
+      toast.error('An error occurred while saving the task.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="w-full">
@@ -66,7 +162,7 @@ const Calendar: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <div className="inline-flex overflow-hidden rounded-md border border-gray-300 bg-white">
                 <button
-                  onClick={() => alert('Hook this to your create-task flow')}
+                  onClick={() => setOpenModal(true)}
                   className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   + Add task
@@ -81,6 +177,7 @@ const Calendar: React.FC = () => {
               </div>
 
               <div className="h-5 w-px bg-gray-300" />
+
               <button
                 onClick={gotoPrev}
                 className="rounded-md p-1 text-gray-600 hover:bg-gray-100"
@@ -101,6 +198,7 @@ const Calendar: React.FC = () => {
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
+
               <div className="ml-1 text-sm font-semibold text-gray-900">{title}</div>
             </div>
 
@@ -125,28 +223,55 @@ const Calendar: React.FC = () => {
 
           {/* Calendar */}
           <div className="p-3">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              initialDate={monthStart}
-              headerToolbar={false}
-              height="auto"
-              editable={false}
-              selectable={false}
-              eventStartEditable={false}
-              eventDurationEditable={false}
-              droppable={false}
-              weekends
-              displayEventTime
-              eventDisplay="block"
-              eventColor="transparent"
-              eventBorderColor="transparent"
-              dayMaxEventRows={3}
-              events={events}
-              eventContent={EventPill}
-              datesSet={(arg) => setTitle(arg.view.title)}
-            />
+            {loadingTasks ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-sm text-gray-500">Loading tasks...</div>
+              </div>
+            ) : (
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={false}
+                height="auto"
+                editable={false}
+                selectable={false}
+                eventStartEditable={false}
+                eventDurationEditable={false}
+                droppable={false}
+                weekends
+                displayEventTime
+                eventDisplay="block"
+                eventColor="transparent"
+                eventBorderColor="transparent"
+                dayMaxEventRows={3}
+                events={events}
+                eventContent={EventPill}
+                datesSet={(arg) => setTitle(arg.view.title)}
+                eventDidMount={(info) => {}}
+                eventClick={async (info) => {
+                  const taskId = info.event.id;
+
+                  setSelectedTask(null);
+                  setLoadingTaskDetail(true);
+                  setOpenDetailModal(true);
+
+                  try {
+                    const res = await getTaskById(taskId);
+
+                    if (res?.succeeded && res.data) {
+                      setSelectedTask(res.data);
+                    } else {
+                      toast.error('Failed to load task details');
+                    }
+                  } catch (err) {
+                    toast.error('An error occurred while loading task details');
+                  } finally {
+                    setLoadingTaskDetail(false);
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
       )}
@@ -154,9 +279,33 @@ const Calendar: React.FC = () => {
       {/* === LIST VIEW === */}
       {activeTab === 'list' && (
         <div className="rounded-xl bg-white ring-1 ring-gray-200 p-6 text-gray-600">
-          <TaskList />
+          <TaskPage />
         </div>
       )}
+
+      <TaskFormModal
+        open={openModal}
+        onCancel={() => {
+          setOpenModal(false);
+          setIsEditMode(false);
+          setFormInitialValues(null);
+        }}
+        onSubmit={handleAddOrUpdateTask}
+        task={formInitialValues}
+      />
+
+      <TaskDetailModal
+        open={openDetailModal}
+        loading={loadingTaskDetail}
+        task={selectedTask}
+        onClose={() => setOpenDetailModal(false)}
+        onEdit={(task) => {
+          setFormInitialValues(task);
+          setIsEditMode(true);
+          setOpenDetailModal(false);
+          setOpenModal(true);
+        }}
+      />
     </div>
   );
 };
@@ -164,7 +313,7 @@ const Calendar: React.FC = () => {
 function EventPill(arg: EventContentArg) {
   const { event, timeText } = arg;
   const ex: any = event.extendedProps || {};
-  const pill = ex.pill || 'bg-slate-300';
+  const pill = ex.pill || 'bg-slate-100';
   const owner = ex.owner || '';
   const ownerColor = ex.ownerColor || 'bg-slate-600';
   const tags: string[] = ex.tags || [];
@@ -179,10 +328,8 @@ function EventPill(arg: EventContentArg) {
           {owner}
         </span>
       ) : null}
-
       {timeText ? <b className="mr-1 hidden sm:inline">{timeText}</b> : null}
       <span className="min-w-0 truncate">{event.title}</span>
-
       <span className="ml-auto flex gap-1">
         {tags.map((c, i) => (
           <span key={i} className={`h-3 w-3 rounded-sm ${c}`} />

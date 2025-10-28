@@ -10,6 +10,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import logo_fusion from '@/assets/logo_fusion.png';
+import { useTranslation } from 'react-i18next';
 
 type NavLeftProps = {
   isCollapsed: boolean;
@@ -27,6 +28,7 @@ type MenuItem = {
 const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -35,13 +37,13 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   };
 
   const menuItems: MenuItem[] = [
-    { name: 'Company', icon: LayoutDashboard, path: '/company' },
-    { name: 'Analytics', icon: BarChart2, path: '/analytics' },
-    { name: 'Invoice', icon: Ticket, path: '/invoice' },
-    { name: 'Schedule', icon: FileText, path: '/schedule' },
-    { name: 'Calendar', icon: CalendarDays, path: '/calendar' },
-    { name: 'Setting', icon: Settings, path: '/setting' },
-    { name: 'Logout', icon: LogOut, onClick: handleLogout, danger: true },
+    { name: t('menu_item.company'), icon: LayoutDashboard, path: '/company' },
+    { name: t('menu_item.analytics'), icon: BarChart2, path: '/analytics' },
+    { name: t('menu_item.invoice'), icon: Ticket, path: '/invoice' },
+    { name: t('menu_item.schedule'), icon: FileText, path: '/schedule' },
+    { name: t('menu_item.calendar'), icon: CalendarDays, path: '/calendar' },
+    { name: t('menu_item.setting'), icon: Settings, path: '/setting' },
+    { name: t('menu_item.logout'), icon: LogOut, onClick: handleLogout, danger: true },
   ];
 
   const isActivePath = (path?: string) =>
@@ -49,12 +51,12 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
 
   return (
     <aside
-      className={`flex flex-col justify-between bg-white transition-all duration-300 h-screen ${
+      className={`flex flex-col justify-between bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 h-screen ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
       <div className="p-4">
-        {/* Logo + Toggle */}
+        {/* Logo */}
         <div
           className={`flex items-center justify-between mb-6 ${
             isCollapsed ? 'flex-col space-y-3' : ''
@@ -68,7 +70,9 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
             <div className="bg-blue-600 p-2 rounded-full flex items-center justify-center">
               <img src={logo_fusion} alt="Fusion logo" className="w-6 h-6" />
             </div>
-            {!isCollapsed && <span className="text-lg font-semibold">Fusion</span>}
+            {!isCollapsed && (
+              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">Fusion</span>
+            )}
           </div>
         </div>
 
@@ -82,9 +86,12 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
             const base =
               'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-colors';
             const layout = isCollapsed ? 'justify-center' : 'justify-start';
-            const normal = 'text-gray-600 hover:bg-gray-200 hover:text-gray-800';
-            const activeCls = 'bg-blue-100 text-blue-700 font-medium';
-            const dangerCls = 'text-red-600 hover:bg-red-100 hover:text-red-700';
+            const normal =
+              'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100';
+            const activeCls =
+              'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium';
+            const dangerCls =
+              'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-700 dark:hover:text-red-300';
 
             const className = [base, layout, danger ? dangerCls : active ? activeCls : normal].join(
               ' ',

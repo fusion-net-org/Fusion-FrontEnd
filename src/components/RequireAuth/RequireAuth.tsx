@@ -13,7 +13,7 @@ export default function RequireAuth({ children }: Props) {
   );
 
   if (isChecking) return <div className="p-4 text-gray-600">Checking session…</div>;
-  if (!user) return <Navigate to="/auth/login" state={{ from: location }} replace />;
+  if (!user) return <Navigate to="/" state={{ from: location }} replace />;
 
   return <>{children}</>;
 }
