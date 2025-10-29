@@ -1,89 +1,108 @@
+// src/services/workflowService.js
 import { axiosInstance } from '../apiConfig';
 
-/**
- * ---- Types (JSDoc) ----------------------------------------------------------
- * @typedef {{ id:string, name:string }} WorkflowVm
- * @typedef {'success'|'failure'|'optional'} TransitionType
- * @typedef {{
- *   id?: number,
- *   fromStatusId: string,
- *   toStatusId: string,
- *   type: TransitionType,
- *   label?: string,
- *   rule?: string,
- *   roleNames?: string[]
- * }} TransitionVm
- * @typedef {{
- *   id: string, name: string, isStart: boolean, isEnd: boolean,
- *   x: number, y: number, roles: string[], color?: string
- * }} StatusVm
- * @typedef {{
- *   workflow: WorkflowVm,
- *   statuses: StatusVm[],
- *   transitions: TransitionVm[]
- * }} DesignerDto
- * -----------------------------------------------------------------------------
- */
+const url = {
+  list: (companyId) => `/companies/${companyId}/workflows`,
+  create: (companyId) => `/companies/${companyId}/workflows`,
+  remove: (companyId, workflowId) => `/companies/${companyId}/workflows/${workflowId}`,
+  designerGet: (workflowId) => `/workflows/${workflowId}/designer`,
+  designerPut: (companyId, workflowId) => `/workflows/${workflowId}/designer?companyId=${encodeURIComponent(companyId)}`,
+    designerPost: (companyId) => `/companies/${companyId}/workflows/designer`, // NEW
+  previews: (companyId) => `/companies/${companyId}/workflows/previews`,
 
-const base = (companyId) => `/companies/${companyId}/workflows`;
+};
 
-// unwrap ResponseModel { data, message } hoặc trả thẳng nếu không bọc
-const unwrap = (res) => (res?.data?.data ?? res?.data);
+const getErr = (error, fallback = 'Fail!') =>
+  error?.response?.data?.message || error?.message || fallback;
 
-const toErr = (error, fallback) =>
-  new Error(error?.response?.data?.message || fallback);
-
-/** Lấy danh sách workflow của company */
+/** Danh sách workflow của 1 công ty */
 export const getWorkflows = async (companyId) => {
   try {
-    const res = await axiosInstance.get(base(companyId));
-    return unwrap(res); // WorkflowVm[]
+    const res = await axiosInstance.get(url.list(companyId));
+    // BE của bạn trả về dạng { data: [...] } hay [...] ?
+    // Nếu là { data: [...] } thì đổi thành res.data.data
+    return res.data;
   } catch (error) {
-    throw toErr(error, 'Get workflows failed!');
+    throw new Error(getErr(error, 'Cannot load workflows'));
   }
 };
 
-/** Tạo workflow mới, trả về id (hoặc object tuỳ backend) */
+export const getWorkflowPreviews = async (companyId) => {
+  try {
+    const res = await axiosInstance.get(url.previews(companyId));
+    return res.data?.data ?? res.data; // List<WorkflowPreviewVm>
+  } catch (error) {
+    throw new Error(getErr(error, 'Cannot load workflow previews'));
+  }
+};
+/** Tạo workflow mới: trả về { id, ... } (tuỳ BE) */
 export const postWorkflow = async (companyId, name) => {
   try {
-    const res = await axiosInstance.post(base(companyId), { name });
-    return unwrap(res); // string | { id:string, ... }
+    const res = await axiosInstance.post(
+      url.create(companyId),
+      { name },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return res.data; // ví dụ: { id: "..." }
   } catch (error) {
-    throw toErr(error, 'Create workflow failed!');
+    throw new Error(getErr(error, 'Cannot create workflow'));
   }
 };
 
 /** Xoá workflow */
 export const deleteWorkflow = async (companyId, workflowId) => {
   try {
-    await axiosInstance.delete(`${base(companyId)}/${workflowId}`);
+    await axiosInstance.delete(url.remove(companyId, workflowId));
     return true;
   } catch (error) {
-    throw toErr(error, 'Delete workflow failed!');
+    throw new Error(getErr(error, 'Cannot delete workflow'));
+  }
+};
+// src/services/workflowService.js
+export const postWorkflowWithDesigner = async (companyId, payload) => {
+  try {
+    const res = await axiosInstance.post(
+      url.designerPost(companyId),
+      payload,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return res.data;
+  } catch (error) {
+    throw new Error(getErr(error, 'Cannot create workflow (designer)'));
   }
 };
 
-/** Lấy dữ liệu Designer (statuses + transitions) */
-export const getWorkflowDesigner = async (companyId, workflowId) => {
+
+/** Lấy dữ liệu designer (statuses + transitions) */
+export const getWorkflowDesigner = async (workflowId) => {
   try {
-    const res = await axiosInstance.get(
-      `${base(companyId)}/${workflowId}/designer`
-    );
-    return unwrap(res); // DesignerDto
+    const res = await axiosInstance.get(url.designerGet(workflowId));
+    console.log(res.data)
+    return res.data.data; // DesignerDto
   } catch (error) {
-    throw toErr(error, 'Get designer failed!');
+    throw new Error(getErr(error, 'Cannot load workflow designer'));
   }
 };
 
-/** Lưu Designer */
-export const putWorkflowDesigner = async (companyId, workflowId, payload /*: DesignerDto */) => {
+/** Lưu designer */
+export const putWorkflowDesigner = async (companyId, workflowId, payload) => {
   try {
-    const res = await axiosInstance.put(
-      `${base(companyId)}/${workflowId}/designer`,
-      payload
+    await axiosInstance.put(
+      url.designerPut(companyId, workflowId),
+      payload,
+      { headers: { 'Content-Type': 'application/json' } }
     );
-    return unwrap(res); // void | anything backend returns
+    return true;
   } catch (error) {
-    throw toErr(error, 'Save designer failed!');
+    throw new Error(getErr(error, 'Cannot save workflow designer'));
   }
+};
+
+export default {
+    getWorkflowPreviews,
+  getWorkflows,
+  postWorkflow,
+  deleteWorkflow,
+  getWorkflowDesigner,
+  putWorkflowDesigner,
 };

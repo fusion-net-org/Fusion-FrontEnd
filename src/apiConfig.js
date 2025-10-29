@@ -9,11 +9,9 @@ export const setCurrentCompanyId = (companyId) => {
   else sessionStorage.removeItem(COMPANY_KEY);
 };
 
-export const getCurrentCompanyId = () =>
-  sessionStorage.getItem(COMPANY_KEY) || '';
+export const getCurrentCompanyId = () => sessionStorage.getItem(COMPANY_KEY) || '';
 
-export const clearCurrentCompanyId = () =>
-  sessionStorage.removeItem(COMPANY_KEY);
+export const clearCurrentCompanyId = () => sessionStorage.removeItem(COMPANY_KEY);
 
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -32,10 +30,10 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-      console.log('FormData detected: Content-Type header removed to let axios handle it');
-    }
+    // if (config.data instanceof FormData) {
+    //   delete config.headers['Content-Type'];
+    //   console.log('FormData detected: Content-Type header removed to let axios handle it');
+    // }
 
     return config;
   },
@@ -92,7 +90,6 @@ axiosInstance.interceptors.response.use(
 
       try {
         const data = await refreshToken(refreshTokenValue);
-        console.log('refreshToken data:', data);
 
         const newAccessToken = data.accessToken;
         const newRefreshToken = data.refreshToken;
@@ -140,10 +137,10 @@ axiosInstance.interceptors.request.use(
       config.headers['X-Company-Id'] = cid;
     }
 
-    if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-      console.log('FormData detected: Content-Type header removed to let axios handle it');
-    }
+    // if (config.data instanceof FormData) {
+    //   delete config.headers['Content-Type'];
+    //   console.log('FormData detected: Content-Type header removed to let axios handle it');
+    // }
 
     return config;
   },

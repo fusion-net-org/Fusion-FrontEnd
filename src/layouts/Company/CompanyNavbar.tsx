@@ -74,6 +74,13 @@ const defaultItems: Item[] = [
     icon: 'grid',
   },
   { key: 'projects', label: 'Projects', to: '/company/:companyId/project', icon: 'layers' },
+  {
+    key: 'project-request',
+    label: 'Project Request',
+    to: '/company/:companyId/project-request',
+    icon: 'layers',
+  },
+
   { key: 'partners', label: 'Partners', to: '/company/:companyId/partners', icon: 'partners' },
   {
     key: 'partner-detail',
@@ -82,6 +89,7 @@ const defaultItems: Item[] = [
     icon: 'partners',
   },
   { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
+  { key: 'member-detail', label: 'Member Detail', to: '/company/members/:Id', icon: 'users' },
 ];
 
 export default function CompanyNavbar({
@@ -92,7 +100,7 @@ export default function CompanyNavbar({
   ownerUserId?: string;
 }) {
   const { pathname } = useLocation();
-  const { companyId } = useParams();
+  const { companyId, id } = useParams();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIdLogin = user?.id;
@@ -100,13 +108,16 @@ export default function CompanyNavbar({
   const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
 
   const isPartnerDetailPage = /^\/company\/partners\/[^/]+$/.test(pathname);
+  const isMemberDetailPage = /^\/company\/members\/[^/]+$/.test(pathname);
 
   let visibleItems;
 
   if (isPartnerDetailPage) {
     visibleItems = items.filter((i) => i.key === 'partner-detail');
+  } else if (isMemberDetailPage) {
+    visibleItems = items.filter((i) => i.key === 'member-detail');
   } else if (isOwner) {
-    visibleItems = items.filter((i) => i.key !== 'partner-detail');
+    visibleItems = items.filter((i) => i.key !== 'partner-detail' && i.key !== 'member-detail');
   } else {
     visibleItems = items.filter((i) => i.key === 'company-detail');
   }
@@ -114,7 +125,10 @@ export default function CompanyNavbar({
   const activeIdx = Math.max(
     0,
     visibleItems.findIndex((i) => {
-      const routePath = i.to.replace(':companyId', companyId || '');
+      let routePath = i.to;
+      if (i.key === 'partner-detail') routePath = routePath.replace(':id', id || '');
+      else if (i.key === 'member-detail') routePath = routePath.replace(':id', id || '');
+      else routePath = routePath.replace(':companyId', companyId || '');
       return matchPath({ path: routePath, end: true }, pathname) !== null;
     }),
   );
@@ -126,7 +140,11 @@ export default function CompanyNavbar({
         <div className="cmp-nav__items" style={{ ['--active-index' as any]: activeIdx }}>
           <div className="cmp-nav__indicator" />
           {visibleItems.map((it) => {
-            const routePath = it.to.replace(':companyId', companyId || '');
+            let routePath = it.to;
+            if (it.key === 'partner-detail') routePath = routePath.replace(':id', id || '');
+            else if (it.key === 'member-detail') routePath = routePath.replace(':id', id || '');
+            else if (companyId) routePath = routePath.replace(':companyId', companyId);
+
             return (
               <NavLink
                 key={it.key}

@@ -1,11 +1,12 @@
 export interface User {
-  id: string;
+  id?: string;
   userName: string;
   email: string;
   phone: string;
   address: string;
   gender: string;
   avatar: string;
+  role?: string;
 }
 
 export interface UserResponse {

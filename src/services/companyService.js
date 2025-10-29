@@ -112,7 +112,6 @@ export const filterAndSortCompanies = async (
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
-
 export const getCompanyById = async (id) => {
   try {
     const { data } = await axiosInstance.get(`/company/${id}`);

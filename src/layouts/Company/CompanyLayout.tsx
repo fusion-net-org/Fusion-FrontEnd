@@ -30,7 +30,7 @@ export default function CompanyLayout({ children, initialTall = true }: Props) {
         if (!userId) return;
         const response = await getOwnerUser(companyId);
         const data: User = response?.data || null;
-        setOwnerUserId(data.id);
+        setOwnerUserId(data.id || null);
       } catch (err) {
         console.error('Error fetching owner user:', err);
       }
@@ -49,21 +49,24 @@ export default function CompanyLayout({ children, initialTall = true }: Props) {
   }, [companyId]);
 
   return (
-    <div className="cmp-theme cmp-shell">
+    <>
       <CompanyHeader />
-      <div className="cmp-content">
-        <CompanyNavbar ownerUserId={ownerUserId ?? ''} />
 
-        <PermissionProvider key={permKey} userId={userId ?? ''} companyId={companyId as string}>
-          <main
-            key={fadeKey}
-            className={`cmp-main cmp-pagefade ${initialTall ? 'is-initialTall' : ''}`}
-          >
-            {children ?? <Outlet />}
-          </main>
-        </PermissionProvider>
+      <div className="cmp-theme cmp-shell">
+        <div className="cmp-content">
+          <CompanyNavbar ownerUserId={ownerUserId ?? ''} />
+
+          <PermissionProvider key={permKey} userId={userId ?? ''} companyId={companyId as string}>
+            <main
+              key={fadeKey}
+              className={`cmp-main cmp-pagefade ${initialTall ? 'is-initialTall' : ''}`}
+            >
+              {children ?? <Outlet />}
+            </main>
+          </PermissionProvider>
+        </div>
+        <CompanyFooter />
       </div>
-      <CompanyFooter />
-    </div>
+    </>
   );
 }

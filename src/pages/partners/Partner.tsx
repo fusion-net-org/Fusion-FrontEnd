@@ -268,29 +268,15 @@ const Partners: React.FC = () => {
   return (
     <>
       <LoadingOverlay loading={loading} message="Loading Partners" />
-      <div className="px-8 py-6 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
         {/* Header */}
-        <div className="relative bg-gradient-to-r from-blue-600 to-blue-400 rounded-2xl p-6 mb-8 text-white shadow-md">
+        <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold">Partners</h1>
               <p className="text-blue-100 text-sm">
                 Connect businesses to open project rights and share personnel
               </p>
-              <div className="mt-3 flex gap-2">
-                <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-100">
-                  <span className="font-bold">Active:</span> {summaryStatusPartner?.active ?? 0}
-                </span>
-                <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium border border-yellow-100">
-                  <span className="font-bold">Pending:</span> {summaryStatusPartner?.pending ?? 0}
-                </span>
-                <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium border border-red-100">
-                  <span className="font-bold">Inactive:</span> {summaryStatusPartner?.inactive ?? 0}
-                </span>
-                <span className="px-3 py-1 bg-white/30 text-gray-700 rounded-full text-xs font-medium border border-white/40">
-                  <span className="font-bold">Total:</span> {summaryStatusPartner?.total ?? 0}
-                </span>
-              </div>
             </div>
             <button
               onClick={() => setIsInviteOpen(true)}
@@ -301,8 +287,24 @@ const Partners: React.FC = () => {
           </div>
         </div>
 
+        {/* STATUS SUMMARY */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+            Active: {summaryStatusPartner?.active ?? 0}
+          </span>
+          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+            Pending: {summaryStatusPartner?.pending ?? 0}
+          </span>
+          <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
+            Inactive: {summaryStatusPartner?.inactive ?? 0}
+          </span>
+          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+            Total:{summaryStatusPartner?.total ?? 0}
+          </span>
+        </div>
+
         {/* Search & filters */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white p-4 rounded-xl shadow-sm mb-6 gap-3">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white p-4 rounded-xl shadow-md mb-6 gap-3 border border-gray-200">
           <input
             type="text"
             placeholder="Search Company/Owner/Status..."
@@ -311,7 +313,7 @@ const Partners: React.FC = () => {
               setSearchTerm(value);
               handleSearch(value);
             }}
-            className="w-full sm:w-1/3 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+            className="w-full sm:w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
           />
 
           <div className="flex items-center gap-3">
@@ -333,7 +335,7 @@ const Partners: React.FC = () => {
             </div>
 
             <select
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               value={filterStatus}
               onChange={(e) => {
                 const value = e.target.value;
@@ -353,21 +355,21 @@ const Partners: React.FC = () => {
         {/* Table (member style) */}
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <table className="w-full text-sm text-gray-700">
-            <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
-              <tr>
-                <th className="px-6 py-3 text-left">Company</th>
-                <th className="px-6 py-3 text-left">Owner</th>
-                <th className="px-6 py-3 text-left">Status</th>
-                <th className="px-6 py-3 text-left">Since</th>
-                <th className="px-6 py-3 text-left">Projects</th>
-                <th className="px-6 py-3 text-left">Members</th>
-                <th className="px-6 py-3 text-center">Option</th>
-                <th className="px-6 py-3 text-center">Details</th>
+            <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
+              <tr className="hover:bg-blue-100/70 transition">
+                <th className="px-6 py-3 text-left w-[30%]">Company</th>
+                <th className="px-6 py-3 text-center w-[15%]">Owner</th>
+                <th className="px-6 py-3 text-center w-[10%]">Status</th>
+                <th className="px-6 py-3 text-center w-[10%]">Since</th>
+                <th className="px-6 py-3 text-center w-[5%]">Projects</th>
+                <th className="px-6 py-3 text-center w-[5%]">Members</th>
+                <th className="px-6 py-3 text-center w-[20%]">Action</th>
+                <th className="px-6 py-3 text-center w-[5%]">Details</th>
               </tr>
             </thead>
             <tbody>
               {partners.length === 0 ? (
-                <tr>
+                <tr className="border-b border-gray-200 hover:bg-blue-50 transition duration-200">
                   <td colSpan={8} className="text-center py-10 text-gray-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Ban className="w-6 h-6 text-gray-400" />
@@ -381,10 +383,15 @@ const Partners: React.FC = () => {
                 partners.map((p, i) => (
                   <tr
                     key={i}
-                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150"
+                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center cursor-pointer"
+                    onClick={() =>
+                      navigate(`/company/partners/${p.companyInfo?.id}`, {
+                        state: { companyId, partnerId: p.id },
+                      })
+                    }
                   >
-                    <td className="px-6 py-4 flex items-center gap-3">
-                      {/* company logo fallback to avatar placeholder */}
+                    {/* Cột Company vẫn giữ text-left để hình và tên công ty hiển thị đẹp */}
+                    <td className="px-6 py-4 flex items-center gap-3 text-left">
                       <img
                         src={
                           p.companyInfo?.avatar ||
@@ -426,16 +433,13 @@ const Partners: React.FC = () => {
 
                     <td className="px-6 py-4">
                       <span className="font-semibold text-gray-800">{p.totalProject ?? 0}</span>{' '}
-                      Projects
                     </td>
 
                     <td className="px-6 py-4">
                       <span className="font-semibold text-gray-800">{p.totalMember ?? 0}</span>{' '}
-                      Members
                     </td>
 
-                    <td className="px-6 py-4 text-center">
-                      {/* Options kept as original logic */}
+                    <td className="px-6 py-4">
                       {p.status === 'Pending' && userIdFromLogin !== p.requesterId ? (
                         <div className="flex justify-center gap-2">
                           <button
@@ -470,9 +474,9 @@ const Partners: React.FC = () => {
                       )}
                     </td>
 
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4">
                       <Eye
-                        className="w-5 h-5 mx-auto text-gray-600 hover:text-blue-600 cursor-pointer transition"
+                        className="w-5 h-5 mx-auto text-gray-500 hover:text-blue-600 cursor-pointer transition-transform hover:scale-110"
                         onClick={() =>
                           navigate(`/company/partners/${p.companyInfo?.id}`, {
                             state: { companyId, partnerId: p.id },
@@ -489,7 +493,7 @@ const Partners: React.FC = () => {
 
         {/* Pagination */}
         <div className="flex justify-end mt-6">
-          <Stack spacing={2}>
+          <Stack spacing={2} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
             <Pagination
               count={Math.ceil(pagination.totalCount / pagination.pageSize) || 1}
               page={currentPage}

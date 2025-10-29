@@ -25,11 +25,15 @@ import {
   LockKeyhole,
   RotateCcwKey,
   Menu,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
-import { getSelfUser, putSelfUser } from '@/services/userService.js';
+import { getSelfUser, putSelfUser, changePassword } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector, useAppDispatch } from '@/redux/hooks';
+
+type PasswordFieldName = 'oldPassword' | 'newPassword' | 'confirmPassword';
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -37,6 +41,7 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const userFromRedux = useAppSelector((state) => state.user.user);
   const navigate = useNavigate();
 
   const [profileData, setProfileData] = useState<User>({
@@ -46,6 +51,13 @@ const UserProfile = () => {
     address: '',
     gender: '',
     avatar: '',
+    role: 'User',
+  });
+
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   const [tempData, setTempData] = useState<User>(profileData);
@@ -96,9 +108,10 @@ const UserProfile = () => {
     setIsLoading(true);
     try {
       const formData = new FormData();
-      formData.append('Phone', profileData.phone);
-      formData.append('Address', profileData.address);
-      formData.append('Gender', profileData.gender);
+      formData.append('Phone', profileData.phone || '');
+      formData.append('Address', profileData.address || '');
+      formData.append('Gender', profileData.gender || '');
+
       if (selectedAvatarFile) {
         formData.append('Avatar', selectedAvatarFile);
       }
@@ -138,6 +151,7 @@ const UserProfile = () => {
   const fetchUserInfo = async (): Promise<void> => {
     try {
       const response = await getSelfUser();
+      console.log(response.data);
       setProfileData(response.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error!';
@@ -148,6 +162,30 @@ const UserProfile = () => {
   useEffect(() => {
     fetchUserInfo();
   }, []);
+
+  //Handle Change Password
+  const handleChangePassword = async () => {
+    if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New password and confirmation do not match');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await changePassword(passwordForm);
+      toast.success('Password changed successfully!');
+      setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Change password failed';
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-50">
@@ -213,7 +251,9 @@ const UserProfile = () => {
               </div>
 
               <h3 className="font-semibold text-gray-900 mt-4 text-base">{profileData.userName}</h3>
-              <p className="text-xs text-gray-500 mb-2 tracking-wide">Project Manager</p>
+              <p className="text-xs text-gray-500 mb-2 tracking-wide">
+                {userFromRedux ? userFromRedux.role : 'User'}
+              </p>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-[11px] font-medium">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
@@ -254,6 +294,13 @@ const UserProfile = () => {
             </div>
 
             <div className="border-t border-gray-200 mt-4 pt-4">
+              <button
+                onClick={() => navigate('/company')}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium text-blue-600 hover:bg-blue-50 active:bg-blue-100"
+              >
+                <ArrowLeft className="w-5 h-5 flex-shrink-0" />
+                <span>Exit</span>
+              </button>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100"
@@ -373,12 +420,16 @@ const UserProfile = () => {
                       <UserIcon className="w-4 h-4" />
                       Gender
                     </label>
+
                     {isEditing ? (
                       <select
-                        value={profileData.gender}
+                        value={profileData.gender || ''}
                         onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                       >
+                        <option value="" disabled>
+                          -- Select Gender --
+                        </option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
@@ -386,14 +437,16 @@ const UserProfile = () => {
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
                         <UserIcon className="w-5 h-5 text-pink-600" />
-                        <p className="text-sm font-medium text-gray-900">{profileData.gender}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {profileData.gender || 'Not specified'}
+                        </p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              {/* <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-blue-600" />
                   Project statistics
@@ -526,7 +579,7 @@ const UserProfile = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div> */}
             </div>
           )}
 
@@ -540,23 +593,28 @@ const UserProfile = () => {
               </div>
 
               <div className="space-y-4">
-                {[
-                  {
-                    label: 'Current password',
-                    icon: <KeyRound className="inline w-4 h-4 mr-2 text-gray-500" />,
-                    placeholder: 'Enter current password',
-                  },
-                  {
-                    label: 'New password',
-                    icon: <LockKeyhole className="inline w-4 h-4 mr-2 text-gray-500" />,
-                    placeholder: 'Enter a new password',
-                  },
-                  {
-                    label: 'Confirm new password',
-                    icon: <RotateCcwKey className="inline w-4 h-4 mr-2 text-gray-500" />,
-                    placeholder: 'Re-enter new password',
-                  },
-                ].map((field, i) => (
+                {(
+                  [
+                    {
+                      label: 'Current password',
+                      icon: <KeyRound className="inline w-4 h-4 mr-2 text-gray-500" />,
+                      placeholder: 'Enter current password',
+                      name: 'oldPassword' as PasswordFieldName,
+                    },
+                    {
+                      label: 'New password',
+                      icon: <LockKeyhole className="inline w-4 h-4 mr-2 text-gray-500" />,
+                      placeholder: 'Enter a new password',
+                      name: 'newPassword' as PasswordFieldName,
+                    },
+                    {
+                      label: 'Confirm new password',
+                      icon: <RotateCcwKey className="inline w-4 h-4 mr-2 text-gray-500" />,
+                      placeholder: 'Re-enter new password',
+                      name: 'confirmPassword' as PasswordFieldName,
+                    },
+                  ] as const
+                ).map((field, i) => (
                   <div
                     key={i}
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
@@ -567,17 +625,30 @@ const UserProfile = () => {
                     </label>
                     <input
                       type="password"
+                      name={field.name}
                       placeholder={field.placeholder}
+                      value={passwordForm[field.name]}
+                      onChange={(e) =>
+                        setPasswordForm((prev) => ({
+                          ...prev,
+                          [field.name]: e.target.value,
+                        }))
+                      }
                       className="w-full sm:w-2/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 ))}
 
-                {/* Update button align right */}
                 <div className="flex justify-end pt-4">
-                  <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center">
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={isLoading}
+                    className={`px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center ${
+                      isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Update Password
+                    {isLoading ? 'Updating...' : 'Update Password'}
                   </button>
                 </div>
               </div>
