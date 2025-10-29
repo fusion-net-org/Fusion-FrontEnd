@@ -26,7 +26,7 @@ import LoadingOverlay from '@/common/LoadingOverlay';
 import UnfriendPartner from '@/components/Partner/UnfriendPartner';
 import { GetPartnerBetweenTwoCompanies } from '@/services/partnerService.js';
 import type { Partner } from '@/interfaces/Partner/partner';
-import type { ILogActivity, LogActivityResponse } from '@/interfaces/LogActivity/LogActivity';
+import type { ILogActivity } from '@/interfaces/LogActivity/LogActivity';
 import { AllActivityLogCompanyById } from '@/services/companyLogActivity.js';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
@@ -34,10 +34,7 @@ import type {
   IProjectRequset,
   ProjectRequestResponse,
 } from '@/interfaces/ProjectRequest/projectRequest';
-import {
-  GetProjectRequestByCompanyId,
-  GetProjectRequestByCompanyIdAndPartnerId,
-} from '@/services/projectRequest.js';
+import { GetProjectRequestByCompanyIdAndPartnerId } from '@/services/projectRequest.js';
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 
 const PartnerDetails: React.FC = () => {

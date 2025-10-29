@@ -297,7 +297,9 @@ const CompanyMember: React.FC = () => {
                 members.map((m, i) => (
                   <tr
                     key={i}
-                    className="border-b text-center border-gray-100 hover:bg-blue-50/60 transition-all duration-150"
+                    className={`border-b text-center border-gray-100 hover:bg-blue-50/60 transition-all duration-150 ${
+                      m.status === 'Active' ? 'cursor-pointer' : 'cursor-not-allowed text-gray-300'
+                    }`}
                   >
                     <td className="px-6 py-4 flex items-center gap-3 text-left">
                       <img
@@ -319,8 +321,16 @@ const CompanyMember: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <Eye
-                        className="w-5 h-5 mx-auto text-gray-500 hover:text-blue-600 cursor-pointer transition-transform hover:scale-110"
-                        onClick={() => navigate(`/company/members/${m.memberId}`)}
+                        className={`w-5 h-5 mx-auto transition-transform hover:scale-110 ${
+                          m.status === 'Active'
+                            ? 'text-gray-500 hover:text-blue-600 cursor-pointer'
+                            : 'text-gray-300 cursor-not-allowed'
+                        }`}
+                        onClick={() => {
+                          if (m.status === 'Active') {
+                            navigate(`/company/members/${m.memberId}`, { state: { companyId } });
+                          }
+                        }}
                       />
                     </td>
                   </tr>
