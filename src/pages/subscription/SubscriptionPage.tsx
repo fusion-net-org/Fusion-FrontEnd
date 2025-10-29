@@ -87,16 +87,6 @@ export default function SubscriptionPage() {
   //  Main render
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white text-gray-800 font-[Inter] flex flex-col items-center">
-      {/* HERO */}
-      <section className="relative w-full text-center py-24 overflow-hidden">
-        <div className="absolute inset-0 flex justify-center items-center -z-10">
-          <div className="w-[800px] h-[800px] bg-gradient-to-r from-blue-200/20 via-purple-300/20 to-indigo-200/10 blur-3xl rounded-full"></div>
-        </div>
-        <h1 className="text-5xl md:text-6xl lg:text-7xl font-black bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 bg-clip-text text-transparent tracking-tight drop-shadow-sm mb-6 px-6">
-          Empower Your Next Digital Era
-        </h1>
-        <div className="w-24 h-[3px] mx-auto mt-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full opacity-80"></div>
-      </section>
 
       {/* TABLE */}
       <section className="w-full max-w-7xl px-6 md:px-10 mb-24">

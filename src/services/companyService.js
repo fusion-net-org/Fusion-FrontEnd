@@ -131,3 +131,24 @@ export const deleteCompany = async (companyId) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+export const updateCompanyByAdmin = async (id, data) => {
+  try {
+    const response = await axiosInstance.put(`/company/admin/${id}`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Update fail!');
+  }
+};
+
+export const deleteCompanyByAdmn = async (companyId) => {
+  try {
+    const response = await axiosInstance.delete(`/company/admin/${companyId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
