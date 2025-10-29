@@ -72,3 +72,35 @@ export const InviteMemberToCompany = async (inviteeMemberMail, companyId) => {
     throw new Error(error.response?.data?.message || 'Failed to invite member');
   }
 };
+
+//https://localhost:7160/api/companymember/member/DE562EA1-F67A-45CB-92A1-1199C1BC09E6/FA5AA664-0D66-4620-8FD1-4B42BFC18578
+export const GetCompanyMemberByCompanyIdAndUserId = async (companyId, userId) => {
+  try {
+    const response = await axiosInstance.get(`/companymember/member/${companyId}/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error inviting member:', error);
+    throw new Error(error.response?.data?.message || 'Failed to invite member');
+  }
+};
+
+//https://localhost:7160/api/companymember/fired
+export const FireMemberFromCompany = async (firedMemberMail, reason, companyId) => {
+  try {
+    const response = await axiosInstance.put(
+      '/companymember/fired',
+      {
+        firedMemberMail,
+        reason,
+        companyId,
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error firing member:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Failed to fire member');
+  }
+};
