@@ -274,7 +274,7 @@ const CompanyMember: React.FC = () => {
           <table className="w-full text-sm text-gray-700">
             <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left">Member</th>
+                <th className="px-6 py-3 text-center w-[15%]">Member</th>
                 <th className="px-6 py-3 text-center">Role</th>
                 <th className="px-6 py-3 text-center">Phone</th>
                 <th className="px-6 py-3 text-center">Gender</th>
@@ -301,7 +301,7 @@ const CompanyMember: React.FC = () => {
                       m.status === 'Active' ? 'cursor-pointer' : 'cursor-not-allowed text-gray-300'
                     }`}
                   >
-                    <td className="px-6 py-4 flex items-center gap-3 text-left">
+                    <td className="px-4 py-4 flex items-center gap-3 text-left">
                       <img
                         src={m.memberAvatar || 'https://via.placeholder.com/48?text=U'}
                         alt={m.memberName}

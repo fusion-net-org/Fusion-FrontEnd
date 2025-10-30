@@ -17,10 +17,11 @@ import { toast } from 'react-toastify';
 import { AcceptProjectRequest, RejectProjectRequest } from '@/services/projectRequest.js';
 import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
-
+import { useNavigate } from 'react-router-dom';
 const { RangePicker } = DatePicker;
 
 const ProjectRequestPage: React.FC = () => {
+  const navigate = useNavigate();
   const { companyId } = useParams();
   const [loading, setLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -283,7 +284,7 @@ const ProjectRequestPage: React.FC = () => {
                 return (
                   <tr
                     key={item.id}
-                    className="border-t hover:bg-gray-50 transition-all duration-150"
+                    className="border-t hover:bg-gray-50 transition-all duration-150 cursor-pointer"
                   >
                     <td className="px-4 py-3 text-gray-800 font-medium">{item.code}</td>
                     <td className="px-4 py-3 text-gray-800 text-center">{item.projectName}</td>
@@ -413,7 +414,14 @@ const ProjectRequestPage: React.FC = () => {
                     )}
 
                     <td className="px-4 py-3 text-center">
-                      <Eye className="w-5 h-5 text-gray-500 hover:text-blue-600 cursor-pointer" />
+                      <Eye
+                        className="w-5 h-5 text-gray-500 hover:text-blue-600 cursor-pointer"
+                        onClick={() =>
+                          navigate(`/company/${companyId}/project-request/${item.id}`, {
+                            state: { viewMode },
+                          })
+                        }
+                      />
                     </td>
                   </tr>
                 );

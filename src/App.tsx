@@ -32,6 +32,7 @@ import WorkflowListPage from './pages/home/WorkflowListPage';
 import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
+import ProjectRequestDetail from './pages/home/ProjectRequestDetail';
 function App() {
   return (
     <>
@@ -66,10 +67,17 @@ function App() {
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/company/:companyId/project" element={<ProjectsPage />} />
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
+          <Route
+            path="/company/:companyId/project-request/:id"
+            element={<ProjectRequestDetail />}
+          />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
-<Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
+          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
+          <Route
+            path="/companies/:companyId/workflows/:workflowId"
+            element={<WorkflowDesignerPage />}
+          />
+          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
