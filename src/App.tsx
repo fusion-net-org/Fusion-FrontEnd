@@ -16,7 +16,7 @@ import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/UserProfile/UserProfile';
+import UserProfile from './pages/userProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
@@ -66,14 +66,14 @@ function App() {
         </Route>
 
         {/* Route admin layout */}
-        
-       <Route path="/admin" element={<AdminLayout />}>
-       <Route index element={<AdminDashboardPage />} />
-       <Route path="users" element={<AdminUsersPage />} />
-       <Route path="companies" element={<AdminCompaniesPage />} />
-       <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
-  {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
-       </Route>
+
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="companies" element={<AdminCompaniesPage />} />
+          <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+          {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
+        </Route>
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
@@ -86,16 +86,13 @@ function App() {
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-          <Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
-          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
+          <Route
+            path="/companies/:companyId/workflows/:workflowId"
+            element={<WorkflowDesignerPage />}
+          />
+          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
 
-
-        {/* No layout */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/my-profile" element={<UserProfile />} />
-
-        {/* Payment result */}
+          {/* Payment result */}
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
@@ -117,6 +114,7 @@ function App() {
             </RequireAuth>
           }
         />
+
         <Route path="*" element={<NotFound />} />
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />

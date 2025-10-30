@@ -1,284 +1,325 @@
-import React, { useEffect, useRef } from "react";
-import { Globe, Download, ShoppingCart, TrendingUp, Users2, Undo2 } from "lucide-react";
-import Chart from "chart.js/auto";
+import React from 'react';
+import { Line, Bar, Doughnut, PolarArea, Radar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  LineElement,
+  PointElement,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler,
+  RadialLinearScale,
+} from 'chart.js';
 
-/* ---------- Small KPI card ---------- */
-function KPI({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: any;
-  value: string;
-  label: string;
-}) {
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  LineElement,
+  PointElement,
+  BarElement,
+  ArcElement,
+  RadialLinearScale,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Tooltip,
+  Legend,
+  Filler,
+);
+
+// ---------- COMPONENT: OVERVIEW CARD ----------
+const StatCard = ({ title, value, data, color, trend }: any) => {
+  const chartData = {
+    labels: Array(data.length).fill(''),
+    datasets: [
+      {
+        data,
+        borderColor: color,
+        backgroundColor: `${color}20`,
+        tension: 0.4,
+        fill: true,
+        borderWidth: 2,
+        pointRadius: 0,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    scales: { x: { display: false }, y: { display: false } },
+  };
+
   return (
-    <div className="kpi">
-      <div className="ico">
-        <Icon className="h-5 w-5" />
-      </div>
+    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 p-5 flex flex-col justify-between">
       <div>
-        <div className="text-xl font-semibold text-slate-900">{value}</div>
-        <div className="text-xs text-slate-500">{label}</div>
+        <p className="text-gray-500 text-sm mb-1">{title}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-2xl font-semibold text-gray-800">{value}</p>
+          <div className="h-10 w-24">
+            <Line data={chartData} options={options} />
+          </div>
+        </div>
       </div>
+      <p className={`text-sm mt-2 ${color === '#ef4444' ? 'text-red-500' : 'text-green-500'}`}>
+        {trend}
+      </p>
     </div>
   );
-}
+};
 
-/* ---------- Helper to make gradient fill ---------- */
-function makeVioletGradient(ctx: CanvasRenderingContext2D) {
-  const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
-  g.addColorStop(0, "rgba(124, 58, 237, 0.45)"); // #7c3aed
-  g.addColorStop(1, "rgba(255, 255, 255, 1)");
-  return g;
-}
+// ---------- DASHBOARD MAIN ----------
+export default function Dashboard() {
+  // Fake data
+  const monthlyRevenue = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+    datasets: [
+      {
+        label: 'Revenue',
+        data: [12000, 15000, 13000, 17000, 21000, 19000, 25000, 23000, 26000],
+        backgroundColor: '#3b82f6',
+        borderRadius: 8,
+      },
+    ],
+  };
 
-export default function AdminDashboardPage() {
-  // Refs cho 3 chart
-  const conversionRef = useRef<HTMLCanvasElement | null>(null);
-  const ordersRef = useRef<HTMLCanvasElement | null>(null);
-  const bigRef = useRef<HTMLCanvasElement | null>(null);
+  const subscriptionRatio = {
+    labels: ['Basic', 'Standard', 'Premium'],
+    datasets: [
+      {
+        data: [40, 35, 25],
+        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
+        borderWidth: 2,
+      },
+    ],
+  };
 
-  // Instances để destroy an toàn
-  const chartsRef = useRef<{ conversion?: Chart; orders?: Chart; big?: Chart }>({});
+  const companyStatus = {
+    labels: ['Active', 'Inactive', 'Waiting'],
+    datasets: [
+      {
+        data: [60, 25, 15],
+        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+      },
+    ],
+  };
 
-  useEffect(() => {
-    // ===== Conversion (Line + area fill) =====
-    if (conversionRef.current) {
-      const ctx = conversionRef.current.getContext("2d")!;
-      const gradient = makeVioletGradient(ctx);
-
-      chartsRef.current.conversion = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: ["2016", "2017", "2018"],
-          datasets: [
-            {
-              label: "Conversion",
-              data: [41.2, 46.8, 53.94],
-              fill: true,
-              backgroundColor: gradient,
-              borderColor: "#7c3aed",
-              borderWidth: 2,
-              pointRadius: 3,
-              pointHoverRadius: 4,
-              tension: 0.35,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label(ctx) {
-                  const v = ctx.parsed.y;
-                  return ` ${v?.toFixed(2)}%`;
-                },
-              },
-            },
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { color: "#6b7280" },
-            },
-            y: {
-              grid: { color: "rgba(124,58,237,0.08)" },
-              ticks: {
-                color: "#6b7280",
-                callback: (v) => `${v}%`,
-              },
-              beginAtZero: true,
-              suggestedMax: 60,
-            },
-          },
-          elements: { line: { borderJoinStyle: "round" } },
-        },
-      });
-    }
-
-    // ===== Orders (Spark bars) =====
-    if (ordersRef.current) {
-      const ctx = ordersRef.current.getContext("2d")!;
-      // 28 bars (giữ logic biến thiên nhẹ như bản cũ)
-      const bars = Array.from({ length: 28 }).map((_, i) => 22 + ((i * 7) % 60));
-      chartsRef.current.orders = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: bars.map((_, i) => `D${i + 1}`),
-          datasets: [
-            {
-              label: "Orders",
-              data: bars,
-              backgroundColor: "rgba(124, 58, 237, 0.8)",
-              borderRadius: 6,
-              barPercentage: 0.55,
-              categoryPercentage: 0.9,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { enabled: true } },
-          scales: {
-            x: { display: false, grid: { display: false } },
-            y: { display: false, grid: { display: false }, beginAtZero: true },
-          },
-        },
-      });
-    }
-
-    // ===== Big Chart (Combo: Bars + Line) =====
-    if (bigRef.current) {
-      const ctx = bigRef.current.getContext("2d")!;
-      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      const barData = [24, 28, 32, 36, 30, 26, 62, 38, 34, 29, 33, 28]; // giữ “đột biến” tại Jul như UI cũ
-      const lineData = [20, 24, 29, 33, 28, 25, 40, 35, 30, 27, 31, 26];
-
-      chartsRef.current.big = new Chart(ctx, {
-        data: {
-          labels: months,
-          datasets: [
-            {
-              type: "bar",
-              label: "Monthly Sales (Bar)",
-              data: barData,
-              backgroundColor: "rgba(124, 58, 237, 0.80)",
-              borderRadius: 10,
-              barPercentage: 0.55,
-              categoryPercentage: 0.8,
-            },
-            {
-              type: "line",
-              label: "Trend (Line)",
-              data: lineData,
-              borderColor: "#7c3aed",
-              borderWidth: 2,
-              pointRadius: 3,
-              pointHoverRadius: 4,
-              tension: 0.35,
-              fill: false,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              mode: "index",
-              intersect: false,
-              callbacks: {
-                label(ctx) {
-                  const v = ctx.parsed.y;
-                  return ` ${ctx.dataset.type === "bar" ? "Sales" : "Trend"}: $${(v * 1000).toFixed(0)}`;
-                },
-              },
-            },
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { color: "#6b7280" },
-            },
-            y: {
-              grid: { color: "rgba(124,58,237,0.08)" },
-              ticks: {
-                color: "#6b7280",
-                callback: (v) => `$${Number(v) * 1000}`,
-              },
-              beginAtZero: true,
-              suggestedMax: 70,
-            },
-          },
-        },
-      });
-    }
-
-    // Cleanup
-    return () => {
-      chartsRef.current.conversion?.destroy();
-      chartsRef.current.orders?.destroy();
-      chartsRef.current.big?.destroy();
-    };
-  }, []);
+  const transactionSuccess = {
+    labels: ['Success', 'Failed'],
+    datasets: [
+      {
+        data: [85, 15],
+        backgroundColor: ['#10b981', '#ef4444'],
+      },
+    ],
+  };
 
   return (
-    <div className="space-y-6">
-      {/* KPIs: sm=2, lg=3, xl=6 */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KPI icon={Users2} value="1000" label="Customers" />
-        <KPI icon={Globe} value="1252" label="Revenue" />
-        <KPI icon={TrendingUp} value="600" label="Growth" />
-        <KPI icon={Undo2} value="3550" label="Returns" />
-        <KPI icon={Download} value="3550" label="Downloads" />
-        <KPI icon={ShoppingCart} value="100%" label="Order" />
+    <div className="p-6 space-y-8 bg-gray-50 min-h-screen">
+      {/* ========== OVERVIEW ========== */}
+      <div className="flex flex-wrap gap-6 justify-between">
+        <div className="flex-1 min-w-[220px]">
+          <StatCard
+            title="Job View"
+            value="14,487"
+            data={[3, 5, 4, 6, 8, 7, 9]}
+            color="#10b981"
+            trend="Increase last month"
+          />
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <StatCard
+            title="New Application"
+            value="7,402"
+            data={[4, 6, 5, 7, 8, 9, 10]}
+            color="#10b981"
+            trend="Increase last month"
+          />
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <StatCard
+            title="Total Approved"
+            value="12,487"
+            data={[5, 7, 6, 8, 9, 10, 11]}
+            color="#10b981"
+            trend="Increase last month"
+          />
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <StatCard
+            title="Total Rejected"
+            value="12,487"
+            data={[6, 5, 7, 6, 5, 4, 5]}
+            color="#ef4444"
+            trend="Decrease last month"
+          />
+        </div>
       </div>
 
-      {/* Conversion + Orders + Big Chart */}
-      <div className="grid gap-4 xl:grid-cols-[1fr_1fr_1.4fr]">
-        {/* Conversion */}
-        <div className="admin-card p-4">
-          <div className="text-violet-600 text-2xl font-semibold">53.94%</div>
-          <div className="text-slate-600 text-sm">Conversion Rate</div>
-          <p className="mt-1 text-slate-500 text-sm">
-            Number of conversions divided by the total visitors.
-          </p>
-          <div
-            className="mt-4 h-28 rounded-xl relative overflow-hidden"
-            style={{ background: "linear-gradient(180deg,var(--violet-100),#fff)" }}
-          >
-            <canvas ref={conversionRef} className="absolute inset-0" />
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-violet-700">
-            <span>2016</span>
-            <span>2017</span>
-            <span>2018</span>
+      {/* ========== CHARTS GRID ========== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <h2 className="text-gray-700 font-semibold mb-3">Revenue by Month</h2>
+          <div className="h-72">
+            <Line
+              data={{
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+                datasets: [
+                  {
+                    label: 'Revenue',
+                    data: [12000, 15000, 13000, 17000, 21000, 19000, 25000, 23000],
+                    borderColor: '#3b82f6',
+                    backgroundColor: '#3b82f620',
+                    fill: true,
+                    tension: 0.4,
+                  },
+                ],
+              }}
+              options={{
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: (context) => `$${context.parsed?.y?.toLocaleString() ?? ''}`,
+                    },
+                  },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false } },
+                  y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b' } },
+                },
+              }}
+            />
           </div>
         </div>
 
-        {/* Orders */}
-        <div className="admin-card p-4">
-          <div className="text-2xl font-semibold">1432</div>
-          <div className="text-violet-600 text-sm">Order Delivered</div>
-          <p className="mt-1 text-slate-500 text-sm">
-            Number of conversions divided by the total visitors.
-          </p>
-          <div className="mt-4 h-28 relative">
-            <canvas ref={ordersRef} className="absolute inset-0" />
+        {/* Subscription Ratio (Polar Area Chart) */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <h2 className="text-gray-700 font-semibold mb-3">Subscription Ratio</h2>
+          <div className="h-72 flex items-center justify-center">
+            <PolarArea
+              data={{
+                labels: ['Basic', 'Standard', 'Premium'],
+                datasets: [
+                  {
+                    label: 'Plan Distribution',
+                    data: [40, 35, 25],
+                    backgroundColor: ['#10b98190', '#3b82f690', '#f59e0b90'],
+                    borderColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                    borderWidth: 2,
+                  },
+                ],
+              }}
+              options={{
+                plugins: { legend: { position: 'bottom' } },
+                scales: { r: { ticks: { display: false }, grid: { color: '#e5e7eb' } } },
+                responsive: true,
+                maintainAspectRatio: false,
+              }}
+            />
           </div>
-          <div className="mt-2 flex justify-between text-xs text-slate-500">
-            <span>May</span>
-            <span>June</span>
-            <span>July</span>
+        </div>
+      </div>
+
+      {/* ========== COMPANY & PROJECT STATUS ========== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Company Status (Bar Chart) */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
+          <h2 className="text-gray-700 font-semibold mb-3 text-center">Company Status</h2>
+          <div className="flex-1">
+            <Bar
+              data={{
+                labels: ['Active', 'Inactive', 'Waiting'],
+                datasets: [
+                  {
+                    label: 'Companies',
+                    data: [45, 25, 10],
+                    backgroundColor: ['#10b981aa', '#f87171aa', '#fbbf24aa'],
+                    borderColor: ['#10b981', '#f87171', '#fbbf24'],
+                    borderWidth: 2,
+                    borderRadius: 6,
+                  },
+                ],
+              }}
+              options={{
+                indexAxis: 'y',
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.x} Companies` } },
+                },
+                scales: {
+                  x: { grid: { color: '#f1f5f9' } },
+                  y: { grid: { display: false } },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+              }}
+            />
           </div>
         </div>
 
-        {/* Big Chart */}
-        <div className="admin-card p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-slate-900 font-medium">
-                Department wise monthly sales report
-              </div>
-              <div className="mt-2 text-2xl font-semibold">$21,356.46</div>
-              <div className="text-slate-500 text-sm">
-                Total Sales · <span className="font-medium">$1935.6</span> Average
-              </div>
-            </div>
-            <div className="text-slate-400 text-sm hidden md:block">Jan → Dec</div>
+        {/* Transaction Status (Radar Chart) */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
+          <h2 className="text-gray-700 font-semibold mb-3 text-center">Transaction Status</h2>
+          <div className="flex-1 flex items-center justify-center">
+            <Radar
+              data={{
+                labels: ['Success', 'Fail', 'Pending'],
+                datasets: [
+                  {
+                    label: 'Transactions',
+                    data: [85, 10, 5],
+                    backgroundColor: '#3b82f640',
+                    borderColor: '#3b82f6',
+                    pointBackgroundColor: '#3b82f6',
+                    borderWidth: 2,
+                  },
+                ],
+              }}
+              options={{
+                plugins: {
+                  legend: { position: 'bottom' },
+                },
+                scales: {
+                  r: {
+                    angleLines: { color: '#e5e7eb' },
+                    grid: { color: '#f1f5f9' },
+                    pointLabels: { color: '#475569', font: { size: 13 } },
+                    ticks: { display: false },
+                  },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+              }}
+            />
           </div>
-          <div
-            className="mt-4 h-48 relative rounded-xl overflow-hidden"
-            style={{ background: "linear-gradient(180deg,var(--violet-50),#fff)" }}
-          >
-            <canvas ref={bigRef} className="absolute inset-0" />
-          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-center">
+          <h2 className="text-gray-700 font-semibold mb-3">Summary</h2>
+          <ul className="space-y-2 text-gray-600 text-sm">
+            <li>
+              • Total Companies waiting approval:{' '}
+              <span className="font-semibold text-gray-800">12</span>
+            </li>
+            <li>
+              • Active Subscriptions: <span className="font-semibold text-gray-800">56</span>
+            </li>
+            <li>
+              • Projects Completed: <span className="font-semibold text-gray-800">32</span>
+            </li>
+            <li>
+              • Ongoing Projects: <span className="font-semibold text-gray-800">14</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>

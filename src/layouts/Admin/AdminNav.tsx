@@ -1,90 +1,75 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard, Building2, Users2, ShieldCheck, CreditCard, ReceiptText, Settings,
-  ChevronDown, ChevronRight
-} from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Users, Building2, BadgeDollarSign, ListChecks } from 'lucide-react';
 import logo_fusion from '@/assets/logo_fusion.png';
 
-export default function AdminNav() {
-  const nav = useNavigate();
-  const { pathname } = useLocation();
-  const [openDash, setOpenDash] = useState(true);
+type Item = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  end?: boolean;
+};
 
-  const isActive = (p: string) => pathname === p || pathname.startsWith(p + '/');
+type AdminNavProps = {
+  collapsed: boolean;
+};
+
+export default function AdminNav({ collapsed }: AdminNavProps) {
+  const items: Item[] = [
+    { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/companies', label: 'Companies', icon: Building2 },
+    { to: '/admin/subscriptions', label: 'Subscriptions', icon: BadgeDollarSign },
+    { to: '/admin/transactions', label: 'Transactions', icon: ListChecks },
+  ];
 
   return (
-    <aside className="h-screen sticky top-0 flex flex-col text-white bg-gradient-to-b from-slate-900 to-slate-950">
-      {/* Brand */}
-      <div className="flex items-center gap-3 px-4 h-[64px] border-b border-white/10">
-        <div className="p-2 rounded-full bg-violet-600">
+    <aside
+      className={`${
+        collapsed ? '' : ''
+      } h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-800 transition-all duration-300`}
+    >
+      <div className="flex items-center gap-3 px-4 h-[64px] border-b border-gray-800">
+        <div className="p-2 rounded-lg bg-blue-600/20">
           <img src={logo_fusion} className="h-5 w-5" alt="Fusion" />
         </div>
-        <span className="font-semibold tracking-wide">Fusion — Admin</span>
-        <span className="ml-auto text-[11px] px-2 py-0.5 rounded-lg bg-violet-700/40">Level</span>
+        {!collapsed && (
+          <span className="font-semibold text-lg text-white tracking-wide">Fusion Admin</span>
+        )}
       </div>
 
-      <nav className="px-3 py-4 space-y-6 overflow-y-auto">
-        {/* Dashboard group */}
-        <div>
-          <button
-            onClick={() => setOpenDash(v=>!v)}
-            className="w-full flex items-center justify-between text-slate-300 hover:text-white px-2"
-          >
-            <div className="flex items-center gap-3">
-              <LayoutDashboard className="h-5 w-5" />
-              <span className="text-sm font-medium">Dashboard</span>
-            </div>
-            {openDash ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4" />}
-          </button>
-
-          {openDash && (
-            <div className="mt-2 space-y-1">
-              <button
-                onClick={()=>nav('/admin')}
-                className={`relative w-full text-left pl-10 pr-3 py-2 rounded-lg text-sm transition
-                  ${pathname==='/admin'
-                    ? 'bg-violet-600/15 text-white ring-1 ring-violet-500'
-                    : 'text-slate-300 hover:bg-white/10'}`}
-              >
-                {/* vạch tím trái khi active */}
-                {pathname==='/admin' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-violet-500 rounded-r-full" />}
-                Sales
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Main items */}
-        <div className="space-y-1">
-          {[
-            {name:'Companies', icon:Building2, path:'/admin/companies'},
-            {name:'Users', icon:Users2, path:'/admin/users'},
-            {name:'Roles', icon:ShieldCheck, path:'/admin/roles'},
-            {name:'Subscriptions', icon:CreditCard, path:'/admin/subscriptions'},
-            {name:'Transactions', icon:ReceiptText, path:'/admin/transactions'},
-            {name:'Settings', icon:Settings, path:'/admin/settings'},
-          ].map(it=>{
-            const Active = isActive(it.path);
-            const Icon = it.icon;
-            return (
-              <button
-                key={it.path}
-                onClick={()=>nav(it.path)}
-                className={`relative w-full flex items-center gap-3 pl-10 pr-3 py-2 rounded-lg text-sm transition
-                  ${Active ? 'bg-violet-600/15 text-white ring-1 ring-violet-500' : 'text-slate-300 hover:bg-white/10'}`}
-              >
-                {Active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-violet-500 rounded-r-full" />}
-                <Icon className="h-5 w-5 opacity-90" />
-                <span>{it.name}</span>
-              </button>
-            );
-          })}
-        </div>
+      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700/50">
+        {items.map((i) => {
+          const Icon = i.icon;
+          return (
+            <NavLink
+              key={i.to}
+              to={i.to}
+              end={i.end}
+              className={({ isActive }) =>
+                `relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                ${
+                  isActive
+                    ? 'bg-blue-600/20 text-white ring-1 ring-blue-500'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-blue-500 rounded-r-full" />
+                  )}
+                  <Icon className="w-5 h-5 shrink-0" />
+                  {!collapsed && <span>{i.label}</span>}
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
-      <div className="mt-auto p-4 text-center text-slate-400 text-xs border-t border-white/10">
-        © {new Date().getFullYear()} Fusion
+      <div className="border-t border-gray-800 p-4 text-center text-xs text-gray-500">
+        {!collapsed && <>© {new Date().getFullYear()} Fusion</>}
       </div>
     </aside>
   );
