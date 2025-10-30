@@ -154,3 +154,19 @@ export const CreateProjectRequest = async (data) => {
     );
   }
 };
+
+//https://localhost:7160/api/projectrequest/752bd235-4246-4990-aefd-48f58ddf8711
+export const GetProjectRequestById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/projectrequest/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error:', error);
+    return (
+      error.response?.data || {
+        succeeded: false,
+        message: 'Unexpected error occurred',
+      }
+    );
+  }
+};

@@ -252,7 +252,10 @@ const PartnerDetails: React.FC = () => {
             </div>
 
             {/* Company header (avatar + name) */}
-            <div className="absolute -bottom-14 left-8 flex items-center gap-4">
+            <div
+              className="absolute -bottom-16 left-8 flex items-center gap-4"
+              style={{ bottom: '-75px', left: '2rem' }}
+            >
               <div className="relative">
                 <img
                   src={partner?.avatarCompany}
