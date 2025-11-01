@@ -9,6 +9,7 @@ import EditUserModal from './EditUserModal';
 import ViewUserModal from './ViewUserModal';
 import { Modal } from 'antd';
 import { toast } from 'react-toastify';
+import UserOverviewCharts from './UserOverviewCharts';
 
 /* ---------- Helpers ---------- */
 type StatusFilter = 'All' | 'Active' | 'Inactive';
@@ -113,9 +114,12 @@ export default function AdminUsersPage() {
     patchParams({ q: undefined, status: 'All', sort: 'CreateAt', dir: 'desc', page: 1 });
 
   return (
-    <div className="space-y-5">
-      {/* Header / Filters */}
-      <div className="flex flex-wrap items-center gap-2 justify-between">
+    <div className="space-y-6">
+      {/* Chart */}
+      <UserOverviewCharts items={items} />
+
+      {/* Filters & Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         {/* Search */}
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
@@ -124,15 +128,11 @@ export default function AdminUsersPage() {
             placeholder="Search by email…"
             value={q}
             onChange={(e) => patchParams({ q: e.target.value, page: 1 })}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') patchParams({ q: undefined, page: 1 });
-            }}
           />
           {q && (
             <button
               className="absolute right-2 top-2.5 p-1 rounded hover:bg-gray-100"
               onClick={() => patchParams({ q: undefined, page: 1 })}
-              aria-label="Clear search"
             >
               <X className="w-4 h-4 text-gray-500" />
             </button>
@@ -142,10 +142,9 @@ export default function AdminUsersPage() {
         {/* Sort controls */}
         <div className="flex items-center gap-2">
           <select
-            className="px-3 py-2 rounded-lg border border-gray-300"
+            className="px-3 py-2 rounded-lg border border-gray-300 focus:ring focus:ring-blue-500"
             value={sort}
             onChange={(e) => patchParams({ sort: e.target.value, page: 1 })}
-            title="Sort by"
           >
             <option value="CreateAt">Created At</option>
             <option value="Email">Email</option>
@@ -153,31 +152,28 @@ export default function AdminUsersPage() {
             <option value="Status">Status</option>
           </select>
           <button
-            className="px-2 py-2 rounded-lg border border-gray-300 hover:bg-gray-100"
+            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-100"
             onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
-            title={dirDesc ? 'Descending' : 'Ascending'}
           >
             {dirDesc ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
           </button>
-
           <button
-            className="px-3 py-2 rounded-lg border hover:bg-gray-50"
+            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
             onClick={handleReset}
-            title="Reset filters"
           >
             Reset
           </button>
         </div>
 
-        {/* Status tabs */}
-        <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden w-fit">
+        {/* Status Tabs */}
+        <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
           {STATUS.map((s) => {
             const active = status === s;
             return (
               <button
                 key={s}
-                className={`px-3 py-1.5 text-sm border-r last:border-r-0 ${
-                  active ? 'bg-blue-50 text-blue-700' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-4 py-1.5 text-sm transition-colors ${
+                  active ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
                 onClick={() => patchParams({ status: s, page: 1 })}
               >
@@ -189,20 +185,20 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border rounded-xl overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
-              <th className="px-3 py-2 text-left">User name</th>
-              <th className="px-3 py-2 text-left">Email</th>
-              <th className="px-3 py-2 text-left">Phone</th>
-              <th className="px-3 py-2 text-left">Address</th>
-              <th className="px-3 py-2 text-center">Status</th>
-              <th className="px-3 py-2 text-center">Created</th>
-              <th className="px-3 py-2 text-right">Action</th>
+              {['User Name', 'Email', 'Phone', 'Address', 'Status', 'Created', 'Action'].map(
+                (h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
@@ -210,47 +206,43 @@ export default function AdminUsersPage() {
                 </td>
               </tr>
             )}
+
             {!loading &&
               items.map((u) => (
-                <tr key={u.id} className="border-t">
-                  <td className="px-3 py-2">{u.userName}</td>
-                  <td className="px-3 py-2">{u.email}</td>
-                  <td className="px-3 py-2">{u.phone ?? '-'}</td>
-                  <td className="px-3 py-2">{u.address ?? '-'}</td>
-                  <td className="px-3 py-2 text-center">
+                <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-gray-800">{u.userName}</td>
+                  <td className="px-4 py-3">{u.email}</td>
+                  <td className="px-4 py-3">{u.phone ?? '-'}</td>
+                  <td className="px-4 py-3">{u.address ?? '-'}</td>
+                  <td className="px-4 py-3 text-center">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
-                        u.status
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-gray-50 text-gray-600 border-gray-200'
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        u.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}
                     >
                       {u.status ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-4 py-3 text-center text-gray-500">
                     {u.createAt ? new Date(u.createAt).toLocaleDateString() : '-'}
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-4 py-3 text-right flex justify-end gap-2">
                     <button
-                      className="p-2 rounded hover:bg-gray-100"
+                      className="p-2 rounded hover:bg-blue-50"
                       onClick={() => setModal({ open: true, user: u, mode: 'view' })}
-                      title="View details"
                     >
-                      <Eye className="w-4 h-4 text-blue-500" />
+                      <Eye className="w-4 h-4 text-blue-600" />
                     </button>
                     <button
-                      className="p-2 rounded hover:bg-gray-100"
+                      className="p-2 rounded hover:bg-yellow-50"
                       onClick={() => setModal({ open: true, user: u, mode: 'edit' })}
-                      title="Edit user"
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="w-4 h-4 text-yellow-600" />
                     </button>
                     <button
-                      className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
+                      className="p-2 rounded hover:bg-gray-50 disabled:opacity-50"
                       onClick={() => handleToggleStatus(u)}
-                      disabled={busyId === u.id}
-                      title={u.status ? 'Deactivate' : 'Activate'}
+                      disabled={busyId === u.id || !u.status}
                     >
                       {u.status ? (
                         <ToggleRight className="w-5 h-5 text-green-600" />
@@ -261,10 +253,11 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ))}
+
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
-                  {err ?? 'No users'}
+                  {err ?? 'No users found'}
                 </td>
               </tr>
             )}
@@ -276,7 +269,7 @@ export default function AdminUsersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <span>Total:</span>
-          <span className="font-medium">{total.toLocaleString()}</span>
+          <span className="font-semibold">{total.toLocaleString()}</span>
           <span className="ml-3">Rows per page</span>
           <select
             className="px-2 py-1 rounded border border-gray-300"
