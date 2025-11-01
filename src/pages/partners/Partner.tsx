@@ -28,7 +28,6 @@ const Partners: React.FC = () => {
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
   const [loading, setLoading] = useState(false);
-
   //#region State
   const [partners, setPartners] = useState<any[]>([]);
   const [pagination, setPagination] = useState<

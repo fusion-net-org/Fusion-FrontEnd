@@ -111,9 +111,6 @@ export default function CompanyNavbar({
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIdLogin = user?.id;
-  console.log('CompanyId', companyId);
-  console.log('userIdLogin', userIdLogin);
-  console.log('ownerUserId', ownerUserId);
 
   useEffect(() => {
     const fetchOwnerUser = async () => {
