@@ -36,6 +36,10 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
     startDate: null as dayjs.Dayjs | null,
     endDate: null as dayjs.Dayjs | null,
   });
+
+  console.log('requesterCompanyId', requesterCompanyId);
+  console.log('executorCompanyId', executorCompanyId);
+
   //state executor company
   const [executorSearch, setExecutorSearch] = useState('');
   const [executorOptions, setExecutorOptions] = useState<{ label: string; value: string }[]>([]);
@@ -47,6 +51,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
   const [company, setCompany] = useState<CompanyRequest | null>(null);
 
   const [executorValue, setExecutorValue] = useState('');
+  const [executorCompany, setExecutorCompany] = useState<CompanyRequest | null>(null);
 
   // fetch company by id
   const fetchCompanyById = async () => {
@@ -63,12 +68,32 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       setLoading(false);
     }
   };
+  const fetchExecutorCompany = async () => {
+    if (!executorCompanyId) return;
+
+    try {
+      setLoading(true);
+      const response = await getCompanyById(executorCompanyId);
+      setExecutorCompany(response.data);
+      setExecutorValue(response.data.name);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error fetching executor company details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
       fetchCompanyById();
     }
   }, [open, requesterCompanyId]);
+
+  useEffect(() => {
+    if (open && executorCompanyId) {
+      fetchExecutorCompany();
+    }
+  }, [open, executorCompanyId]);
 
   useEffect(() => {
     setFormData((prev) => ({
@@ -188,19 +213,27 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
           <label className="text-sm font-medium text-gray-700 pb-1 inline-block">
             Execute Company
           </label>
-          <AutoComplete
-            className="w-full"
-            placeholder="Search Executor Company"
-            options={executorOptions}
-            value={executorValue}
-            onSearch={searchExecutorCompany}
-            onSelect={(value, option) => {
-              handleChange('executorCompanyId', value);
-              setExecutorValue(option.label);
-            }}
-            filterOption={false}
-            allowClear
-          />
+          {executorCompanyId ? (
+            <Input
+              value={executorCompany?.name}
+              readOnly
+              className="bg-gray-100 cursor-not-allowed"
+            />
+          ) : (
+            <AutoComplete
+              className="w-full"
+              placeholder="Search Executor Company"
+              options={executorOptions}
+              value={executorValue}
+              onSearch={searchExecutorCompany}
+              onSelect={(value, option) => {
+                handleChange('executorCompanyId', value);
+                setExecutorValue(option.label);
+              }}
+              filterOption={false}
+              allowClear
+            />
+          )}
         </div>
 
         {/* Project Name */}

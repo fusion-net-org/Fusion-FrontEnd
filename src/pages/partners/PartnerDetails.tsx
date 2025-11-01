@@ -35,13 +35,14 @@ import type {
   ProjectRequestResponse,
 } from '@/interfaces/ProjectRequest/projectRequest';
 import { GetProjectRequestByCompanyIdAndPartnerId } from '@/services/projectRequest.js';
+import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
+
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 
 const PartnerDetails: React.FC = () => {
   const { state } = useLocation();
   const myCompanyId = state?.companyId;
   const partnerId = state?.partnerId;
-
   const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'activity'>('overview');
   const [partner, setPartner] = useState<CompanyRequest>();
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,9 @@ const PartnerDetails: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
 
+  //open popup invite project request
+  const [openInviteProject, setOpenInviteProject] = useState(false);
+  console.log(openInviteProject);
   //loading tab state
   const [tabLoading, setTabLoading] = useState(false);
   const handleTabChange = (tab: typeof activeTab) => {
@@ -71,54 +75,53 @@ const PartnerDetails: React.FC = () => {
   };
   //loading project
   const [loadingProject, setLoadingProject] = useState(false);
-  console.log(id);
   //call api get company by id
-  useEffect(() => {
-    const fetchAllData = async () => {
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      const [companyRes, partnerRes, projectRequestRes] = await Promise.all([
+        getCompanyById(id),
+        GetPartnerBetweenTwoCompanies(myCompanyId, id),
+        GetProjectRequestByCompanyIdAndPartnerId(myCompanyId, id),
+      ]);
+
+      const dataProjectRequest: ProjectRequestResponse = projectRequestRes;
+
+      console.log(dataProjectRequest.items);
+
+      setPartner(companyRes?.data ?? null);
+      setPartnerV2(partnerRes?.data ?? null);
+      setProjectRequest(dataProjectRequest.items ?? []);
+
+      let logActivityRes;
+
       try {
-        setLoading(true);
-        const [companyRes, partnerRes, projectRequestRes] = await Promise.all([
-          getCompanyById(id),
-          GetPartnerBetweenTwoCompanies(myCompanyId, id),
-          GetProjectRequestByCompanyIdAndPartnerId(myCompanyId, id),
-        ]);
+        logActivityRes = await AllActivityLogCompanyById(id);
 
-        const dataProjectRequest: ProjectRequestResponse = projectRequestRes;
-
-        console.log(dataProjectRequest.items);
-
-        setPartner(companyRes?.data ?? null);
-        setPartnerV2(partnerRes?.data ?? null);
-        setProjectRequest(dataProjectRequest.items ?? []);
-
-        let logActivityRes;
-
-        try {
-          logActivityRes = await AllActivityLogCompanyById(id);
-
-          if (logActivityRes?.succeeded && Array.isArray(logActivityRes?.data?.items)) {
-            setLogActivity(logActivityRes.data.items);
-          } else {
-            setLogActivity([]);
-          }
-        } catch (error: any) {
-          if (error.response?.status === 403) {
-            console.log('activityForbidden', error.response?.status);
-
-            setActivityForbidden(true);
-            setLogActivity([]);
-          } else {
-            console.error('Error fetching activity logs:', error);
-            setLogActivity([]);
-          }
+        if (logActivityRes?.succeeded && Array.isArray(logActivityRes?.data?.items)) {
+          setLogActivity(logActivityRes.data.items);
+        } else {
+          setLogActivity([]);
         }
       } catch (error: any) {
-        console.error('error', error.message);
-      } finally {
-        setTimeout(() => setLoading(false), 200);
-      }
-    };
+        if (error.response?.status === 403) {
+          console.log('activityForbidden', error.response?.status);
 
+          setActivityForbidden(true);
+          setLogActivity([]);
+        } else {
+          console.error('Error fetching activity logs:', error);
+          setLogActivity([]);
+        }
+      }
+    } catch (error: any) {
+      console.error('error', error.message);
+    } finally {
+      setTimeout(() => setLoading(false), 200);
+    }
+  };
+
+  useEffect(() => {
     fetchAllData();
   }, [id, myCompanyId]);
 
@@ -253,7 +256,7 @@ const PartnerDetails: React.FC = () => {
 
             {/* Company header (avatar + name) */}
             <div
-              className="absolute -bottom-16 left-8 flex items-center gap-4"
+              className="absolute -bottom-16 left-8 flex items-center gap-4 w-full pr-10"
               style={{ bottom: '-75px', left: '2rem' }}
             >
               <div className="relative">
@@ -266,6 +269,7 @@ const PartnerDetails: React.FC = () => {
                   <span className="h-5 w-5 rounded-full bg-emerald-500 ml-1" />
                 </span>
               </div>
+
               <div className="pt-10">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
@@ -288,6 +292,15 @@ const PartnerDetails: React.FC = () => {
                   {partner?.createAt ? new Date(partner.createAt).toLocaleDateString('vi-VN') : '—'}
                 </p>
               </div>
+
+              {partner?.isDeleted === false && partnerV2?.status === 'Active' ? (
+                <button
+                  className="ml-auto mt-5 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                  onClick={() => setOpenInviteProject(true)}
+                >
+                  Invite Project Request
+                </button>
+              ) : null}
             </div>
 
             {/* Actions */}
@@ -684,6 +697,15 @@ const PartnerDetails: React.FC = () => {
           }}
         />
       )}{' '}
+      <InviteProjectRequestModal
+        open={openInviteProject}
+        onClose={() => setOpenInviteProject(false)}
+        requesterCompanyId={myCompanyId}
+        executorCompanyId={id}
+        onSuccess={() => {
+          fetchAllData();
+        }}
+      />
     </>
   );
 };
