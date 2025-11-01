@@ -31,6 +31,7 @@ export interface AdminUser {
    status: boolean; 
    createAt: string;  
    updateAt?: string | null; 
+   avatar: string;
 }
 /** PagedResult<T> */ 
 export interface PagedResult<T> {

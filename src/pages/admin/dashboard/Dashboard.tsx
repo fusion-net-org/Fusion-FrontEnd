@@ -124,38 +124,38 @@ export default function Dashboard() {
       <div className="flex flex-wrap gap-6 justify-between">
         <div className="flex-1 min-w-[220px]">
           <StatCard
-            title="Job View"
-            value="14,487"
-            data={[3, 5, 4, 6, 8, 7, 9]}
+            title="Total Account (Registered)"
+            value="48,725"
+            data={[30, 45, 50, 55, 60, 70, 80]}
             color="#10b981"
             trend="Increase last month"
           />
         </div>
         <div className="flex-1 min-w-[220px]">
           <StatCard
-            title="New Application"
-            value="7,402"
-            data={[4, 6, 5, 7, 8, 9, 10]}
+            title="Total Company"
+            value="7,340"
+            data={[20, 25, 30, 28, 35, 40, 45]}
             color="#10b981"
             trend="Increase last month"
           />
         </div>
         <div className="flex-1 min-w-[220px]">
           <StatCard
-            title="Total Approved"
-            value="12,487"
-            data={[5, 7, 6, 8, 9, 10, 11]}
+            title="Total Project"
+            value="15,982"
+            data={[40, 50, 55, 60, 62, 70, 75]}
             color="#10b981"
             trend="Increase last month"
           />
         </div>
         <div className="flex-1 min-w-[220px]">
           <StatCard
-            title="Total Rejected"
-            value="12,487"
-            data={[6, 5, 7, 6, 5, 4, 5]}
+            title="Total Revenue"
+            value="$1.24M"
+            data={[65, 62, 68, 66, 64, 70, 72]}
             color="#ef4444"
-            trend="Decrease last month"
+            trend="Slight decrease last month"
           />
         </div>
       </div>
@@ -209,7 +209,7 @@ export default function Dashboard() {
                 labels: ['Basic', 'Standard', 'Premium'],
                 datasets: [
                   {
-                    label: 'Plan Distribution',
+                    label: 'Active',
                     data: [40, 35, 25],
                     backgroundColor: ['#10b98190', '#3b82f690', '#f59e0b90'],
                     borderColor: ['#10b981', '#3b82f6', '#f59e0b'],

@@ -26,12 +26,12 @@ export const putSelfUser = async (formData) => {
 
 export const putSelfUserByAdmin = async (id, formData) => {
   try {
-    
-    const res = await axiosInstance.put(
-      `/User/${id}/self-user-admin`,   
-      formData
-    );
-    return res.data; 
+    const res = await axiosInstance.put(`/User/${id}/self-user-admin`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return res.data;
   } catch (error) {
     const resp = error?.response;
     const msg =
@@ -44,7 +44,8 @@ export const putSelfUserByAdmin = async (id, formData) => {
     throw new Error(msg);
   }
 };
-export const putStatusByAdmin = async (id, status)  => {
+
+export const putStatusByAdmin = async (id, status) => {
   try {
     const form = new FormData();
     form.append('status', String(!!status));
@@ -79,7 +80,7 @@ export async function getAdminUsersPaged(q = {}) {
     });
 
     const res = await axiosInstance.get('/User/paged-admin', { params });
-    return res.data?.data; 
+    return res.data?.data;
   } catch (error) {
     throw new Error(error?.response?.data?.message || error?.message || 'Get paged users failed!');
   }
