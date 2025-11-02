@@ -1,5 +1,5 @@
-import React from 'react';
-import { Line, Bar, Doughnut, PolarArea, Radar } from 'react-chartjs-2';
+import React, { useEffect, useState } from 'react';
+import { Line, PolarArea } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,6 +13,12 @@ import {
   Filler,
   RadialLinearScale,
 } from 'chart.js';
+import {
+  overviewDashboard,
+  getRevenueMonthlyByYear,
+  getStatusPackage,
+  getCompaniesCreatedByMonth,
+} from '@/services/adminDashboardService.js';
 
 ChartJS.register(
   CategoryScale,
@@ -22,9 +28,6 @@ ChartJS.register(
   BarElement,
   ArcElement,
   RadialLinearScale,
-  ArcElement,
-  Tooltip,
-  Legend,
   Tooltip,
   Legend,
   Filler,
@@ -59,7 +62,7 @@ const StatCard = ({ title, value, data, color, trend }: any) => {
       <div>
         <p className="text-gray-500 text-sm mb-1">{title}</p>
         <div className="flex items-center justify-between">
-          <p className="text-2xl font-semibold text-gray-800">{value}</p>
+          <p className="text-2xl font-semibold text-gray-800 truncate max-w-[160px]">{value}</p>
           <div className="h-10 w-24">
             <Line data={chartData} options={options} />
           </div>
@@ -74,58 +77,188 @@ const StatCard = ({ title, value, data, color, trend }: any) => {
 
 // ---------- DASHBOARD MAIN ----------
 export default function Dashboard() {
-  // Fake data
-  const monthlyRevenue = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+  interface RevenueMonth {
+    month: number;
+    revenue: number;
+  }
+
+  const [dataOverview, setDataOverview] = useState({
+    userCount: 0,
+    companyCount: 0,
+    projectCount: 0,
+    revenueSum: 0,
+  });
+
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const [revenueData, setRevenueData] = useState<RevenueMonth[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [packageStats, setPackageStats] = useState<{
+    labels: string[];
+    orders: number[];
+  }>({ labels: [], orders: [] });
+
+  const yearOptions = [currentYear - 2, currentYear - 1, currentYear];
+  const [companyByMonth, setCompanyByMonth] = useState<number[]>([]);
+
+  // ---------- Fetch Overview ----------
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        const res = await overviewDashboard();
+        if (res?.succeeded && res.data) {
+          setDataOverview(res.data);
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard overview:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverview();
+  }, []);
+
+  // ---------- Fetch Revenue ----------
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      try {
+        setLoading(true);
+        const res = await getRevenueMonthlyByYear(year);
+        if (res?.succeeded && res.data?.months) {
+          const months = res.data.months as RevenueMonth[];
+          const now = new Date();
+          const filteredMonths =
+            year === currentYear ? months.filter((m) => m.month <= now.getMonth() + 1) : months;
+          setRevenueData(filteredMonths);
+        } else {
+          setRevenueData([]);
+        }
+      } catch (error) {
+        console.error('Error fetching revenue data:', error);
+        setRevenueData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRevenue();
+  }, [year]);
+
+  // ---------- Fetch Subscription Packages ----------
+  useEffect(() => {
+    const fetchPackageStats = async () => {
+      try {
+        const res = await getStatusPackage();
+        if (res?.succeeded && res.data?.items?.length) {
+          const labels = res.data.items.map((i: any) => i.packageName);
+          const orders = res.data.items.map((i: any) => i.orders);
+          setPackageStats({ labels, orders });
+        } else {
+          setPackageStats({ labels: [], orders: [] });
+        }
+      } catch (error) {
+        console.error('Error fetching package stats:', error);
+        setPackageStats({ labels: [], orders: [] });
+      }
+    };
+
+    fetchPackageStats();
+  }, []);
+
+  // ---------- Line Chart Config ----------
+  const labels = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  const chartData = {
+    labels: revenueData.map((m) => labels[m.month - 1]),
     datasets: [
       {
-        label: 'Revenue',
-        data: [12000, 15000, 13000, 17000, 21000, 19000, 25000, 23000, 26000],
-        backgroundColor: '#3b82f6',
-        borderRadius: 8,
+        label: `Revenue ${year}`,
+        data: revenueData.map((m) => m.revenue),
+        borderColor: '#3b82f6',
+        backgroundColor: '#3b82f620',
+        fill: true,
+        tension: 0.4,
       },
     ],
   };
 
-  const subscriptionRatio = {
-    labels: ['Basic', 'Standard', 'Premium'],
-    datasets: [
-      {
-        data: [40, 35, 25],
-        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
-        borderWidth: 2,
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1f2937',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        padding: 10,
+        displayColors: false,
+        callbacks: {
+          label: (context: any) => `VND ${context.parsed?.y?.toLocaleString('vi-VN') ?? 0}`,
+        },
       },
-    ],
+    },
+    scales: {
+      x: {
+        grid: { color: '#f1f5f9' },
+        ticks: { color: '#64748b', font: { size: 12 } },
+      },
+      y: {
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          color: '#64748b',
+          callback: (value: number) => `${(value / 1_000_000).toFixed(1)}đ`,
+        },
+      },
+    },
   };
 
-  const companyStatus = {
-    labels: ['Active', 'Inactive', 'Waiting'],
-    datasets: [
-      {
-        data: [60, 25, 15],
-        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-      },
-    ],
-  };
-
-  const transactionSuccess = {
-    labels: ['Success', 'Failed'],
-    datasets: [
-      {
-        data: [85, 15],
-        backgroundColor: ['#10b981', '#ef4444'],
-      },
-    ],
-  };
+  // ----- Company Status -----
+  useEffect(() => {
+    const fetchCompanyStats = async () => {
+      try {
+        const res = await getCompaniesCreatedByMonth(year);
+        if (res?.succeeded && res.data?.monthlyCounts) {
+          const counts = res.data.monthlyCounts;
+          const now = new Date();
+          const filtered = year === currentYear ? counts.slice(0, now.getMonth() + 1) : counts;
+          setCompanyByMonth(filtered);
+        } else {
+          setCompanyByMonth([]);
+        }
+      } catch (error) {
+        console.error('Error fetching company stats:', error);
+        setCompanyByMonth([]);
+      }
+    };
+    fetchCompanyStats();
+  }, [year]);
 
   return (
     <div className="p-6 space-y-8 bg-gray-50 min-h-screen">
-      {/* ========== OVERVIEW ========== */}
-      <div className="flex flex-wrap gap-6 justify-between">
+      {/* OVERVIEW */}
+      <div className="flex flex-wrap gap-6 justify-between items-stretch">
         <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Account (Registered)"
-            value="48,725"
+            value={dataOverview.userCount.toLocaleString()}
             data={[30, 45, 50, 55, 60, 70, 80]}
             color="#10b981"
             trend="Increase last month"
@@ -134,7 +267,7 @@ export default function Dashboard() {
         <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Company"
-            value="7,340"
+            value={dataOverview.companyCount.toLocaleString()}
             data={[20, 25, 30, 28, 35, 40, 45]}
             color="#10b981"
             trend="Increase last month"
@@ -143,7 +276,7 @@ export default function Dashboard() {
         <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Project"
-            value="15,982"
+            value={dataOverview.projectCount.toLocaleString()}
             data={[40, 50, 55, 60, 62, 70, 75]}
             color="#10b981"
             trend="Increase last month"
@@ -152,7 +285,7 @@ export default function Dashboard() {
         <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Revenue"
-            value="$1.24M"
+            value={`VND ${dataOverview.revenueSum.toLocaleString()}`}
             data={[65, 62, 68, 66, 64, 70, 72]}
             color="#ef4444"
             trend="Slight decrease last month"
@@ -160,43 +293,33 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ========== CHARTS GRID ========== */}
+      {/* CHARTS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <h2 className="text-gray-700 font-semibold mb-3">Revenue by Month</h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-gray-700 font-semibold">Revenue by Month</h2>
+            <select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="border border-gray-300 rounded-md text-sm px-2 py-1"
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="h-72">
-            <Line
-              data={{
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-                datasets: [
-                  {
-                    label: 'Revenue',
-                    data: [12000, 15000, 13000, 17000, 21000, 19000, 25000, 23000],
-                    borderColor: '#3b82f6',
-                    backgroundColor: '#3b82f620',
-                    fill: true,
-                    tension: 0.4,
-                  },
-                ],
-              }}
-              options={{
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: (context) => `$${context.parsed?.y?.toLocaleString() ?? ''}`,
-                    },
-                  },
-                },
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                  x: { grid: { display: false } },
-                  y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b' } },
-                },
-              }}
-            />
+            {loading ? (
+              <div className="flex justify-center items-center h-full text-gray-500">
+                Loading...
+              </div>
+            ) : (
+              <Line data={chartData} options={chartOptions as any} />
+            )}
           </div>
         </div>
 
@@ -204,122 +327,101 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <h2 className="text-gray-700 font-semibold mb-3">Subscription Ratio</h2>
           <div className="h-72 flex items-center justify-center">
-            <PolarArea
-              data={{
-                labels: ['Basic', 'Standard', 'Premium'],
-                datasets: [
-                  {
-                    label: 'Active',
-                    data: [40, 35, 25],
-                    backgroundColor: ['#10b98190', '#3b82f690', '#f59e0b90'],
-                    borderColor: ['#10b981', '#3b82f6', '#f59e0b'],
-                    borderWidth: 2,
-                  },
-                ],
-              }}
-              options={{
-                plugins: { legend: { position: 'bottom' } },
-                scales: { r: { ticks: { display: false }, grid: { color: '#e5e7eb' } } },
-                responsive: true,
-                maintainAspectRatio: false,
-              }}
-            />
+            {packageStats.labels.length ? (
+              <PolarArea
+                data={{
+                  labels: packageStats.labels,
+                  datasets: [
+                    {
+                      label: 'Orders',
+                      data: packageStats.orders,
+                      backgroundColor: ['#10b98190', '#3b82f690', '#f59e0b90', '#ef444490'],
+                      borderColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                      borderWidth: 2,
+                    },
+                  ],
+                }}
+                options={{
+                  plugins: { legend: { position: 'bottom' } },
+                  scales: { r: { ticks: { display: false }, grid: { color: '#e5e7eb' } } },
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            ) : (
+              <div className="text-gray-400">No data available</div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ========== COMPANY & PROJECT STATUS ========== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Company Status (Bar Chart) */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
-          <h2 className="text-gray-700 font-semibold mb-3 text-center">Company Status</h2>
-          <div className="flex-1">
-            <Bar
+      {/* Companies Created by Month */}
+      <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-gray-700 font-semibold">Companies Created by Month</h2>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="border border-gray-300 rounded-md text-sm px-2 py-1"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="h-72">
+          {loading ? (
+            <div className="flex justify-center items-center h-full text-gray-500">Loading...</div>
+          ) : (
+            <Line
               data={{
-                labels: ['Active', 'Inactive', 'Waiting'],
+                labels: labels.slice(0, companyByMonth.length),
                 datasets: [
                   {
-                    label: 'Companies',
-                    data: [45, 25, 10],
-                    backgroundColor: ['#10b981aa', '#f87171aa', '#fbbf24aa'],
-                    borderColor: ['#10b981', '#f87171', '#fbbf24'],
-                    borderWidth: 2,
-                    borderRadius: 6,
+                    label: `Companies ${year}`,
+                    data: companyByMonth,
+                    borderColor: '#f59e0b',
+                    backgroundColor: '#f59e0b20',
+                    fill: true,
+                    tension: 0.4,
                   },
                 ],
               }}
               options={{
-                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                   legend: { display: false },
-                  tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.x} Companies` } },
-                },
-                scales: {
-                  x: { grid: { color: '#f1f5f9' } },
-                  y: { grid: { display: false } },
-                },
-                responsive: true,
-                maintainAspectRatio: false,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Transaction Status (Radar Chart) */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
-          <h2 className="text-gray-700 font-semibold mb-3 text-center">Transaction Status</h2>
-          <div className="flex-1 flex items-center justify-center">
-            <Radar
-              data={{
-                labels: ['Success', 'Fail', 'Pending'],
-                datasets: [
-                  {
-                    label: 'Transactions',
-                    data: [85, 10, 5],
-                    backgroundColor: '#3b82f640',
-                    borderColor: '#3b82f6',
-                    pointBackgroundColor: '#3b82f6',
-                    borderWidth: 2,
+                  tooltip: {
+                    backgroundColor: '#1f2937',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#f59e0b',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
                   },
-                ],
-              }}
-              options={{
-                plugins: {
-                  legend: { position: 'bottom' },
                 },
                 scales: {
-                  r: {
-                    angleLines: { color: '#e5e7eb' },
+                  x: {
                     grid: { color: '#f1f5f9' },
-                    pointLabels: { color: '#475569', font: { size: 13 } },
-                    ticks: { display: false },
+                    ticks: { color: '#64748b', font: { size: 12 } },
+                  },
+                  y: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                      color: '#64748b',
+                      stepSize: 1,
+                      callback: (value) => `${value}`,
+                    },
                   },
                 },
-                responsive: true,
-                maintainAspectRatio: false,
               }}
             />
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-center">
-          <h2 className="text-gray-700 font-semibold mb-3">Summary</h2>
-          <ul className="space-y-2 text-gray-600 text-sm">
-            <li>
-              • Total Companies waiting approval:{' '}
-              <span className="font-semibold text-gray-800">12</span>
-            </li>
-            <li>
-              • Active Subscriptions: <span className="font-semibold text-gray-800">56</span>
-            </li>
-            <li>
-              • Projects Completed: <span className="font-semibold text-gray-800">32</span>
-            </li>
-            <li>
-              • Ongoing Projects: <span className="font-semibold text-gray-800">14</span>
-            </li>
-          </ul>
+          )}
         </div>
       </div>
     </div>
