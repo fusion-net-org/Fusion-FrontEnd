@@ -17,6 +17,7 @@ export interface IProjectRequset {
   createAt: string;
   updateAt: string;
   isDeleted: boolean;
+  isHaveProject: boolean;
   convertedProjectId: string;
 }
 

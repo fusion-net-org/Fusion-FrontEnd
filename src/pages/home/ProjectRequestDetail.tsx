@@ -12,6 +12,7 @@ import {
   Layers,
   CheckCircle2,
   XCircle,
+  Navigation,
 } from 'lucide-react';
 import { useParams, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { GetProjectRequestById } from '@/services/projectRequest.js';
@@ -185,7 +186,7 @@ export default function ProjectRequestDetail() {
               </div>
 
               {/* ACTIONS */}
-              {viewMode === 'AsExecutor' ? (
+              {viewMode === 'AsExecutor' && projectRequest?.status === 'Pending' ? (
                 <div className="flex justify-end gap-4 pt-6 border-t">
                   <ActionButton
                     color="green"
@@ -203,11 +204,27 @@ export default function ProjectRequestDetail() {
                   />
                 </div>
               ) : (
-                <p className="text-gray-500 italic text-end border-t pt-6">
-                  {viewMode === 'AsExecutor'
-                    ? 'Request already processed — actions disabled'
-                    : 'Viewing as requester — no actions available'}
-                </p>
+                <></>
+              )}
+
+              {projectRequest?.status === 'Accepted' && (
+                <div className="flex justify-end gap-4 pt-6 border-t">
+                  {projectRequest?.isHaveProject ? (
+                    <ActionButton
+                      color="green"
+                      label="Navigate To Project"
+                      icon={<Navigation />}
+                      onClick={() => toast.success('Navigation To Project Successfully')}
+                    />
+                  ) : (
+                    <ActionButton
+                      color="green"
+                      label="Create New Project Now"
+                      icon={<CheckCircle2 />}
+                      onClick={() => toast.success('Create Project Successfully')}
+                    />
+                  )}
+                </div>
               )}
             </div>
           </div>

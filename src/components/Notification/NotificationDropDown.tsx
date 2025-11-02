@@ -1,49 +1,64 @@
-import React, { useState } from 'react';
-import userImg from '../../assets/user/male_user.png';
+import React, { useState, useEffect } from 'react';
+import { GetNotificationsByUser, MarkNotificationAsRead } from '@/services/notification.js';
 import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { ChevronRight, X } from 'lucide-react';
+dayjs.extend(relativeTime);
 
 interface Notification {
-  id: number;
-  name: string;
-  message: string;
-  project: string;
-  time: string;
-  image: string;
-  status: 'success' | 'error';
+  id: string;
+  event: string;
+  title: string;
+  body: string;
+  context: string;
+  linkUrl: string | null;
+  linkUrlWeb: string | null;
+  isRead: boolean;
+  createAt: string;
+  readAt: string | null;
 }
 
 const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const { t } = useTranslation();
 
-  const notifications: Notification[] = [
-    {
-      id: 1,
-      name: 'KienMinh',
-      message: 'requests permission to change',
-      project: 'Project - Fusion App',
-      time: '5 min ago',
-      image: userImg,
-      status: 'success',
-    },
-    {
-      id: 2,
-      name: 'CongBang',
-      message: 'requested an update for',
-      project: 'Project - Dashboard UI',
-      time: '8 min ago',
-      image: userImg,
-      status: 'error',
-    },
-  ];
+  const fetchNotifications = async () => {
+    try {
+      const res = await GetNotificationsByUser();
+      setNotifications(res.data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
-  const toggleDropdown = () => {
+  const handleNotificationClick = async (item: Notification) => {
+    if (!item.isRead) {
+      await MarkNotificationAsRead(item.id);
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
+    }
+
+    if (item.linkUrlWeb) {
+      const baseUrl = window.location.origin;
+      const url = item.linkUrlWeb.startsWith('http')
+        ? item.linkUrlWeb
+        : `${baseUrl}${item.linkUrlWeb}`;
+      window.location.href = url;
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const toggleDropdown = async () => {
     setIsOpen(!isOpen);
-    setNotifying(false);
   };
 
   const closeDropdown = () => setIsOpen(false);
+
+  const hasUnread = notifications.some((n) => !n.isRead);
 
   return (
     <div className="relative inline-block">
@@ -51,23 +66,30 @@ const NotificationDropdown: React.FC = () => {
         onClick={toggleDropdown}
         className="relative flex items-center justify-center h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 transition-colors"
       >
-        {notifying && (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-orange-400">
-            <span className="absolute inline-flex w-full h-full rounded-full bg-orange-400 opacity-75 animate-ping"></span>
+        {hasUnread && (
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-400">
+            <span className="absolute inline-flex w-full h-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
           </span>
         )}
-        {/* Bell icon */}
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M10.75 2.29248C10.75 1.87827 10.4143 1.54248 10 1.54248C9.58583 1.54248 9.25004 1.87827 9.25004 2.29248V2.83613C6.08266 3.20733 3.62504 5.9004 3.62504 9.16748V14.4591H3.33337C2.91916 14.4591 2.58337 14.7949 2.58337 15.2091C2.58337 15.6234 2.91916 15.9591 3.33337 15.9591H16.6667C17.0809 15.9591 17.4167 15.6234 17.4167 15.2091C17.4167 14.7949 17.0809 14.4591 16.6667 14.4591H16.375V9.16748C16.375 5.9004 13.9174 3.20733 10.75 2.83613V2.29248ZM8 17.7085C8 18.1228 8.33583 18.4585 8.75004 18.4585H11.25C11.6643 18.4585 12 18.1228 12 17.7085C12 17.2943 11.6643 16.9585 11.25 16.9585H8.75004C8.33583 16.9585 8 17.2943 8 17.7085Z"
-          />
+
+        {/* Bell */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-6 h-6"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M14 21a2 2 0 0 1-4 0" />
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
         </svg>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-gray-200 bg-white shadow-lg p-3 z-50">
+        <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-gray-200 shadow-xl bg-white p-3 z-50 ring-1 ring-gray-100">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
             <h5 className="text-lg font-semibold text-gray-800">
@@ -77,49 +99,51 @@ const NotificationDropdown: React.FC = () => {
               onClick={closeDropdown}
               className="text-gray-400 hover:text-gray-700 transition"
             >
-              ✕
+              <X />
             </button>
           </div>
-
           {/* Notification List */}
-          <ul className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+          <ul className="flex flex-col max-h-80 overflow-y-auto custom-scrollbar">
             {notifications.map((item) => (
               <li
                 key={item.id}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-100 transition"
+                onClick={() => handleNotificationClick(item)}
+                className={`group flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all
+              ${item.isRead ? 'bg-white hover:bg-gray-50' : 'bg-orange-50 hover:bg-orange-100'}
+               `}
               >
-                {/* Avatar */}
-                <div className="relative w-10 h-10">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <span
-                    className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
-                      item.status === 'success' ? 'bg-green-500' : 'bg-red-500'
-                    }`}
-                  ></span>
-                </div>
+                {/* Dot */}
+                <span
+                  className={`h-2 w-2 rounded-full mt-2
+                ${item.isRead ? 'bg-gray-300' : 'bg-red-500 animate-pulse'}
+               `}
+                ></span>
 
                 {/* Text */}
-                <div className="flex-1">
-                  <p className="text-sm text-gray-700">
-                    <span className="font-bold text-gray-900">{item.name}</span> {item.message}{' '}
-                    <span className="font-medium text-gray-900">{item.project}</span>
+                <div className="flex-1 pr-3">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight group-hover:text-gray-900">
+                    {item.title}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">{item.time}</p>
+
+                  <p className="text-xs text-gray-500">{item.body}</p>
+
+                  <p className="text-[11px] text-gray-400 mt-1">{dayjs(item.createAt).fromNow()}</p>
+                </div>
+
+                {/* Action Arrow */}
+                <div className="opacity-0 group-hover:opacity-100 transition">
+                  <ChevronRight className="w-5 h-5" />
                 </div>
               </li>
             ))}
           </ul>
-
           {/* Footer */}
           <button
             onClick={closeDropdown}
-            className="block w-full text-center text-sm font-medium mt-3 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+            className="block w-full text-center text-sm font-medium mt-3 px-4 py-2 rounded-lg 
+  border border-gray-200 text-gray-700 hover:bg-gray-100 transition"
           >
-            View All Notifications
+            View all notifications
           </button>
         </div>
       )}
