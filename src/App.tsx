@@ -32,6 +32,8 @@ import WorkflowListPage from './pages/home/WorkflowListPage';
 import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
+import ProjectDetailPage from './pages/project/ProjectDetailPage';
+import ProjectBoardPage from './pages/project/ProjectBoardPage';
 function App() {
   return (
     <>
@@ -64,13 +66,13 @@ function App() {
           <Route path="/company/partners/:id" element={<PartnerDetails />} />
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
-          <Route path="/company/:companyId/project" element={<ProjectsPage />} />
+          <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
 <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
-
+<Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
           {/* CREATE */}

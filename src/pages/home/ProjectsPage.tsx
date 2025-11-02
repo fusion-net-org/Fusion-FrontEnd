@@ -5,8 +5,8 @@ import { Plus, Search, X, LayoutGrid, Table2, KanbanSquare } from "lucide-react"
 import ProjectCard from "@/components/Company/Projects/ProjectCard";
 import type { Project, ProjectStatus } from "@/components/Company/Projects/ProjectCard";
 import KanbanColumn from "@/components/Company/Projects/KanbanColumn";
-import CreateProjectModal from "@/components/Company/Projects/CreateProjectModal";
-import type { ProjectCreatePayload } from "@/components/Company/Projects/CreateProjectModal";
+import CreateProjectModal from "@/components/Company/ProjectCreate/CreateProjectModal";
+import type { ProjectCreatePayload } from "@/components/Company/ProjectCreate/CreateProjectModal";
 
 /* Mock – replace with service */
 async function loadProjects(): Promise<Project[]> {
@@ -162,11 +162,11 @@ export default function ProjectsPage() {
     return filtered.slice(start, start + pageSize);
   }, [filtered, page, mode]);
 
- const [openCreate, setOpenCreate] = React.useState(false);
+  const [openCreate, setOpenCreate] = React.useState(false);
 
-// thay createProject:
-const createProject = () => setOpenCreate(true);
- const openProject = (p: Project) => {
+  // thay createProject:
+  const createProject = () => setOpenCreate(true);
+  const openProject = (p: Project) => {
     setSelectedId(p.id);
     // Navigate directly to project (adjust route to your app)
     nav(`/companies/${encodeURIComponent(p.ownerCompany)}/projects/${p.id}/overview`);
@@ -457,6 +457,6 @@ const createProject = () => setOpenCreate(true);
         }}
       />
     </div>
-    
+
   );
 }
