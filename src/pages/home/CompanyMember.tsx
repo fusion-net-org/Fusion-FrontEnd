@@ -212,16 +212,16 @@ const CompanyMember: React.FC = () => {
         </div>
         {/* STATUS SUMMARY */}
         <div className="flex flex-wrap gap-3 mb-6">
-          <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-green-200 text-green-700 text-sm font-medium rounded-full">
             Active: {statusCounts.Active}
           </span>
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-yellow-200 text-yellow-700 text-sm font-medium rounded-full">
             Pending: {statusCounts.Pending}
           </span>
-          <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-red-200 text-red-700 text-sm font-medium rounded-full">
             Inactive: {statusCounts.Inactive}
           </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-blue-200 text-blue-700 text-sm font-medium rounded-full">
             Total: {pagination.totalCount}
           </span>
         </div>

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Check, CheckCircle, Eye, Search, UserPlus, X, XCircle } from 'lucide-react';
+import { Check, CheckCircle, Eye, Inbox, Search, Send, UserPlus, X, XCircle } from 'lucide-react';
 import { DatePicker } from 'antd';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import Pagination from '@mui/material/Pagination';
@@ -34,7 +34,7 @@ const ProjectRequestPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [viewMode, setViewMode] = useState<'AsRequester' | 'AsExecutor'>('AsRequester');
-
+  console.log(data);
   //open popup
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -207,6 +207,55 @@ const ProjectRequestPage: React.FC = () => {
         </span>
       </div>
 
+      {/* VIEW MODE TABS */}
+      <div className="flex items-center justify-start mb-5">
+        <div className="flex bg-white/70 backdrop-blur-md border border-gray-200 rounded-full shadow-md overflow-hidden p-1 gap-1">
+          {/* My Requests */}
+          <button
+            onClick={() => {
+              setViewMode('AsRequester');
+              setPageNumber(1);
+            }}
+            className={`
+        relative flex items-center gap-2 px-6 py-2 text-sm font-medium rounded-full transition-all duration-300
+        ${
+          viewMode === 'AsRequester'
+            ? 'text-white bg-gradient-to-r from-blue-600 to-indigo-500 shadow-lg scale-105'
+            : 'text-gray-600 hover:bg-gray-100'
+        }
+      `}
+          >
+            <Send className="w-4 h-4" />
+            My Requests
+            {viewMode === 'AsRequester' && (
+              <span className="absolute inset-0 rounded-full bg-white/10 pointer-events-none"></span>
+            )}
+          </button>
+
+          {/* Requests To Me */}
+          <button
+            onClick={() => {
+              setViewMode('AsExecutor');
+              setPageNumber(1);
+            }}
+            className={`
+        relative flex items-center gap-2 px-6 py-2 text-sm font-medium rounded-full transition-all duration-300
+        ${
+          viewMode === 'AsExecutor'
+            ? 'text-white bg-gradient-to-r from-purple-600 to-fuchsia-500 shadow-lg scale-105'
+            : 'text-gray-600 hover:bg-gray-100'
+        }
+      `}
+          >
+            <Inbox className="w-4 h-4" />
+            Requests To Me
+            {viewMode === 'AsExecutor' && (
+              <span className="absolute inset-0 rounded-full bg-white/10 pointer-events-none"></span>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* FILTER SECTION */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -242,7 +291,7 @@ const ProjectRequestPage: React.FC = () => {
             <option value="Finished">Finished</option>
           </select>
 
-          <select
+          {/* <select
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
             value={viewMode}
             onChange={(e) => {
@@ -254,7 +303,7 @@ const ProjectRequestPage: React.FC = () => {
           >
             <option value="AsRequester">My Requests</option>
             <option value="AsExecutor">Requests To Me</option>
-          </select>
+          </select> */}
 
           <span className="text-sm text-gray-500">{data.length} results</span>
         </div>
@@ -265,13 +314,14 @@ const ProjectRequestPage: React.FC = () => {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 text-left">
             <tr>
-              <th className="px-4 py-3 font-medium">Code</th>
+              {/* <th className="px-4 py-3 font-medium">Code</th> */}
               <th className="px-4 py-3 font-medium text-center">Name</th>
               <th className="px-4 py-3 font-medium text-center">Request Company</th>
               <th className="px-4 py-3 font-medium text-center">Executor Company</th>
               <th className="px-4 py-3 font-medium text-center">Status</th>
               <th className="px-4 py-3 font-medium text-center">Start Date</th>
               <th className="px-4 py-3 font-medium text-center">End Date</th>
+              <th className="px-4 py-3 font-medium text-center">Have Project</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
               {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
               <th className="px-4 py-3 font-medium text-left">Detail</th>
@@ -286,12 +336,12 @@ const ProjectRequestPage: React.FC = () => {
                     key={item.id}
                     className="border-t hover:bg-gray-50 transition-all duration-150 cursor-pointer"
                   >
-                    <td className="px-4 py-3 text-gray-800 font-medium">{item.code}</td>
+                    {/* <td className="px-4 py-3 text-gray-800 font-medium">{item.code}</td> */}
                     <td className="px-4 py-3 text-gray-800 text-center">{item.projectName}</td>
                     {/* Requester Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {item.requesterCompanyLogoUrl ? (
+                        {/* {item.requesterCompanyLogoUrl ? (
                           <img
                             src={item.requesterCompanyLogoUrl}
                             alt="Requester Logo"
@@ -301,7 +351,7 @@ const ProjectRequestPage: React.FC = () => {
                           <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
                             N
                           </div>
-                        )}
+                        )} */}
                         <span>{item.requesterCompanyName}</span>
                       </div>
                     </td>
@@ -309,7 +359,7 @@ const ProjectRequestPage: React.FC = () => {
                     {/* Executor Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {item.executorCompanyLogoUrl ? (
+                        {/* {item.executorCompanyLogoUrl ? (
                           <img
                             src={item.executorCompanyLogoUrl}
                             alt="Executor Logo"
@@ -319,7 +369,7 @@ const ProjectRequestPage: React.FC = () => {
                           <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
                             N
                           </div>
-                        )}
+                        )} */}
                         <span>{item.executorCompanyName}</span>
                       </div>
                     </td>
@@ -330,6 +380,14 @@ const ProjectRequestPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.endDate).toLocaleDateString('vi-VN')}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      {item.isHaveProject ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-gray-400 mx-auto" />
+                      )}
                     </td>
 
                     {showActionColumn && item.executorCompanyId === companyId && (
