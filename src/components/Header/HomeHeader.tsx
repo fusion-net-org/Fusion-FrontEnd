@@ -42,7 +42,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ toggleSidebar }) => {
             <button
               onClick={handleToggle}
               aria-label="Toggle Sidebar"
-              className="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 transition"
+              className="flex items-center mb-2.5 justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 transition"
             >
               {isMobileOpen ? (
                 <ArrowRight className="w-6 h-6" />
