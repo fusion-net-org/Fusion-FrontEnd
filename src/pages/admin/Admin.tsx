@@ -1,49 +1,55 @@
 // src/pages/admin/Dashboard.tsx
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Users, Building2, BadgeDollarSign, Receipt, ChevronRight, ShieldCheck, Activity
-} from "lucide-react";
+  Users,
+  Building2,
+  BadgeDollarSign,
+  Receipt,
+  ChevronRight,
+  ShieldCheck,
+  Activity,
+} from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const nav = useNavigate();
 
   const cards = [
     {
-      key: "users",
-      title: "Users",
-      desc: "Create, edit, lock & manage all users.",
-      to: "/admin/users",
+      key: 'users',
+      title: 'Users',
+      desc: 'Create, edit, lock & manage all users.',
+      to: '/admin/users',
       icon: Users,
-      kpi: "1,284", // mock
-      badge: "Manage",
+      kpi: '1,284',
+      badge: 'Manage',
     },
     {
-      key: "companies",
-      title: "Companies",
-      desc: "View & edit every company on the platform.",
-      to: "/admin/companies",
+      key: 'companies',
+      title: 'Companies',
+      desc: 'View & edit every company on the platform.',
+      to: '/admin/companies',
       icon: Building2,
-      kpi: "237",
-      badge: "Manage",
+      kpi: '237',
+      badge: 'Manage',
     },
     {
-      key: "subscriptions",
-      title: "Subscriptions",
-      desc: "Plans & quotas (package catalog).",
-      to: "/admin/subscriptions",
+      key: 'subscriptions',
+      title: 'Subscriptions',
+      desc: 'Plans & quotas (package catalog).',
+      to: '/admin/subscriptions',
       icon: BadgeDollarSign,
-      kpi: "4",
-      badge: "Packages",
+      kpi: '4',
+      badge: 'Packages',
     },
     {
-      key: "transactions",
-      title: "Transactions",
-      desc: "Payment history & receipts.",
-      to: "/admin/transactions",
+      key: 'transactions',
+      title: 'Transactions',
+      desc: 'Payment history & receipts.',
+      to: '/admin/transactions',
       icon: Receipt,
-      kpi: "1,129",
-      badge: "Billing",
+      kpi: '1,129',
+      badge: 'Billing',
     },
   ];
 
@@ -100,9 +106,15 @@ export default function AdminDashboardPage() {
           <div className="font-medium">Recent admin activity (mock)</div>
         </div>
         <ul className="text-sm text-gray-600 space-y-2">
-          <li>• Updated subscription <span className="font-medium">Pro</span></li>
-          <li>• Locked user <span className="font-medium">duy@fusion.dev</span></li>
-          <li>• Restored company <span className="font-medium">Alpha Software</span></li>
+          <li>
+            • Updated subscription <span className="font-medium">Pro</span>
+          </li>
+          <li>
+            • Locked user <span className="font-medium">duy@fusion.dev</span>
+          </li>
+          <li>
+            • Restored company <span className="font-medium">Alpha Software</span>
+          </li>
         </ul>
       </section>
     </div>

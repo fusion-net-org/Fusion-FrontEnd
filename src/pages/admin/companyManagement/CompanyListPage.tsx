@@ -22,7 +22,6 @@ import {
   updateCompanyByAdmin,
   deleteCompanyByAdmin,
 } from '@/services/companyService.js';
-import CompanyOverviewChart from './CompanyOverviewChart';
 import { Modal } from 'antd';
 import { toast } from 'react-toastify';
 
@@ -96,7 +95,7 @@ function mapCompanyToRow(c: any): Row {
 
 const fmtDate = (d?: any) => (d ? new Date(d).toLocaleString() : '-');
 
-export default function AdminCompaniesPage() {
+export default function CompanyListPage() {
   const [params, setParams] = useSearchParams();
 
   // URL params
@@ -276,11 +275,6 @@ export default function AdminCompaniesPage() {
   return (
     <>
       <div className="space-y-6">
-        {/* Overview Chart */}
-        <CompanyOverviewChart />
-
-        <div className="border-t-2 border-gray-500/50 my-5" />
-
         {/* Main Content Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           {/* Header Section */}

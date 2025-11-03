@@ -39,6 +39,11 @@ import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
 import ResetPassword from './pages/resetPassword/ResetPassword';
+import OverviewUserPage from './pages/admin/userManagement/OverviewUserPage';
+import UserListPage from './pages/admin/userManagement/UserListPage';
+import OverviewCompanyPage from './pages/admin/companyManagement/OverviewCompanyPage';
+import CompanyListPage from './pages/admin/companyManagement/CompanyListPage';
+import UserDetailPage from './pages/admin/userManagement/UserDetailPage';
 function App() {
   return (
     <>
@@ -70,7 +75,12 @@ function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/overview" element={<OverviewUserPage />} />
+          <Route path="users/list" element={<UserListPage />} />
+          <Route path="/admin/users/detail/:id" element={<UserDetailPage />} />
           <Route path="companies" element={<AdminCompaniesPage />} />
+          <Route path="companies/overview" element={<OverviewCompanyPage />} />
+          <Route path="companies/list" element={<CompanyListPage />} />
           <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
           {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>

@@ -28,8 +28,9 @@ export default function CompanyStatsModal({ tab, row, onClose }: CompanyStatsMod
         {tab === 'projects' && <CompanyProjectsTable rows={row.listProjects ?? []} />}
         {tab === 'partners' && (
           <div className="text-sm text-gray-700">
-            API hiện chưa trả danh sách đối tác. Tổng số: <b>{row.totalPartners ?? 0}</b>. Vui lòng
-            bổ sung <code>listPartners</code> vào response để hiển thị chi tiết.
+            {/* API hiện chưa trả danh sách đối tác. Tổng số: <b>{row.totalPartners ?? 0}</b>. Vui lòng
+            bổ sung <code>listPartners</code> vào response để hiển thị chi tiết. */}
+            No partner
           </div>
         )}
       </div>
