@@ -34,7 +34,6 @@ ChartJS.register(
   Filler,
 );
 
-// ---------- COMPONENT: OVERVIEW CARD ----------
 const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-col justify-between min-w-[230px] flex-1 hover:shadow-md transition-all duration-200">
@@ -55,7 +54,7 @@ const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => {
   );
 };
 
-// ---------- DASHBOARD MAIN ----------
+// DASHBOARD
 export default function Dashboard() {
   interface RevenueMonth {
     month: number;
@@ -69,20 +68,15 @@ export default function Dashboard() {
     revenueSum: 0,
   });
 
-  const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
   const [revenueData, setRevenueData] = useState<RevenueMonth[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [packageStats, setPackageStats] = useState<{
-    labels: string[];
-    orders: number[];
-  }>({ labels: [], orders: [] });
-
-  const yearOptions = [currentYear - 2, currentYear - 1, currentYear];
+  const [packageStats, setPackageStats] = useState<{ labels: string[]; orders: number[] }>({
+    labels: [],
+    orders: [],
+  });
   const [companyByMonth, setCompanyByMonth] = useState<number[]>([]);
 
-  // ---------- Fetch Overview ----------
+  // Fetch Overview
   useEffect(() => {
     const fetchOverview = async () => {
       try {
@@ -92,26 +86,19 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error('Failed to load dashboard overview:', error);
-      } finally {
-        setLoading(false);
       }
     };
-
     fetchOverview();
   }, []);
 
-  // ---------- Fetch Revenue ----------
+  // Fetch Revenue
   useEffect(() => {
     const fetchRevenue = async () => {
       try {
         setLoading(true);
-        const res = await getRevenueMonthlyByYear(year);
+        const res = await getRevenueMonthlyByYear();
         if (res?.succeeded && res.data?.months) {
-          const months = res.data.months as RevenueMonth[];
-          const now = new Date();
-          const filteredMonths =
-            year === currentYear ? months.filter((m) => m.month <= now.getMonth() + 1) : months;
-          setRevenueData(filteredMonths);
+          setRevenueData(res.data.months);
         } else {
           setRevenueData([]);
         }
@@ -122,11 +109,10 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-
     fetchRevenue();
-  }, [year]);
+  }, []);
 
-  // ---------- Fetch Subscription Packages ----------
+  // Fetch Subscription Packages
   useEffect(() => {
     const fetchPackageStats = async () => {
       try {
@@ -143,12 +129,28 @@ export default function Dashboard() {
         setPackageStats({ labels: [], orders: [] });
       }
     };
-
     fetchPackageStats();
   }, []);
 
-  // ---------- Line Chart ----------
-  const labels = [
+  // Fetch Companies by Month
+  useEffect(() => {
+    const fetchCompanyStats = async () => {
+      try {
+        const res = await getCompaniesCreatedByMonth();
+        if (res?.succeeded && res.data?.monthlyCounts) {
+          setCompanyByMonth(res.data.monthlyCounts);
+        } else {
+          setCompanyByMonth([]);
+        }
+      } catch (error) {
+        console.error('Error fetching company stats:', error);
+        setCompanyByMonth([]);
+      }
+    };
+    fetchCompanyStats();
+  }, []);
+
+  const monthLabels = [
     'Jan',
     'Feb',
     'Mar',
@@ -163,11 +165,11 @@ export default function Dashboard() {
     'Dec',
   ];
 
-  const chartData = {
-    labels: revenueData.map((m) => labels[m.month - 1]),
+  const chartRevenueData = {
+    labels: revenueData.map((m) => monthLabels[m.month - 1]),
     datasets: [
       {
-        label: `Revenue ${year}`,
+        label: 'Revenue',
         data: revenueData.map((m) => m.revenue),
         borderColor: '#3b82f6',
         backgroundColor: '#3b82f620',
@@ -177,7 +179,7 @@ export default function Dashboard() {
     ],
   };
 
-  const chartOptions = {
+  const chartRevenueOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -196,10 +198,7 @@ export default function Dashboard() {
       },
     },
     scales: {
-      x: {
-        grid: { color: '#f1f5f9' },
-        ticks: { color: '#64748b', font: { size: 12 } },
-      },
+      x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 12 } } },
       y: {
         grid: { color: '#f1f5f9' },
         ticks: {
@@ -210,94 +209,57 @@ export default function Dashboard() {
     },
   };
 
-  // ----- Company Status -----
-  useEffect(() => {
-    const fetchCompanyStats = async () => {
-      try {
-        const res = await getCompaniesCreatedByMonth(year);
-        if (res?.succeeded && res.data?.monthlyCounts) {
-          const counts = res.data.monthlyCounts;
-          const now = new Date();
-          const filtered = year === currentYear ? counts.slice(0, now.getMonth() + 1) : counts;
-          setCompanyByMonth(filtered);
-        } else {
-          setCompanyByMonth([]);
-        }
-      } catch (error) {
-        console.error('Error fetching company stats:', error);
-        setCompanyByMonth([]);
-      }
-    };
-    fetchCompanyStats();
-  }, [year]);
-
   return (
     <div className="p-6 space-y-8 bg-gray-50 min-h-screen">
       {/* OVERVIEW */}
       <div className="flex flex-wrap justify-between items-stretch gap-6">
-        <div className="flex flex-wrap gap-6 w-full">
-          <StatCard
-            title="Total Account"
-            value={dataOverview.userCount.toLocaleString()}
-            icon={Users}
-            color="text-blue-600"
-            bgColor="bg-blue-100"
-          />
-          <StatCard
-            title="Total Company"
-            value={dataOverview.companyCount.toLocaleString()}
-            icon={Building2}
-            color="text-emerald-600"
-            bgColor="bg-emerald-100"
-          />
-          <StatCard
-            title="Total Project"
-            value={dataOverview.projectCount.toLocaleString()}
-            icon={FolderKanban}
-            color="text-indigo-600"
-            bgColor="bg-indigo-100"
-          />
-          <StatCard
-            title="Total Revenue"
-            value={`VND ${dataOverview.revenueSum.toLocaleString()}`}
-            icon={DollarSign}
-            color="text-orange-600"
-            bgColor="bg-orange-100"
-          />
-        </div>
+        <StatCard
+          title="Total Account"
+          value={dataOverview.userCount.toLocaleString()}
+          icon={Users}
+          color="text-blue-600"
+          bgColor="bg-blue-100"
+        />
+        <StatCard
+          title="Total Company"
+          value={dataOverview.companyCount.toLocaleString()}
+          icon={Building2}
+          color="text-emerald-600"
+          bgColor="bg-emerald-100"
+        />
+        <StatCard
+          title="Total Project"
+          value={dataOverview.projectCount.toLocaleString()}
+          icon={FolderKanban}
+          color="text-indigo-600"
+          bgColor="bg-indigo-100"
+        />
+        <StatCard
+          title="Total Revenue"
+          value={`VND ${dataOverview.revenueSum.toLocaleString()}`}
+          icon={DollarSign}
+          color="text-orange-600"
+          bgColor="bg-orange-100"
+        />
       </div>
 
       {/* CHARTS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-gray-700 font-semibold">Revenue by Month</h2>
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="border border-gray-300 rounded-md text-sm px-2 py-1"
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          <h2 className="text-gray-700 font-semibold mb-3">Revenue by Month</h2>
           <div className="h-72">
             {loading ? (
               <div className="flex justify-center items-center h-full text-gray-500">
                 Loading...
               </div>
             ) : (
-              <Line data={chartData} options={chartOptions as any} />
+              <Line data={chartRevenueData} options={chartRevenueOptions as any} />
             )}
           </div>
         </div>
 
-        {/* Subscription Ratio (Polar Area Chart) */}
+        {/* Subscription Ratio */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <h2 className="text-gray-700 font-semibold mb-3">Subscription Ratio</h2>
           <div className="h-72 flex items-center justify-center">
@@ -331,31 +293,17 @@ export default function Dashboard() {
 
       {/* Companies Created by Month */}
       <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-gray-700 font-semibold">Companies Created by Month</h2>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="border border-gray-300 rounded-md text-sm px-2 py-1"
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-
+        <h2 className="text-gray-700 font-semibold mb-3">Companies Created by Month</h2>
         <div className="h-72">
           {loading ? (
             <div className="flex justify-center items-center h-full text-gray-500">Loading...</div>
           ) : (
             <Line
               data={{
-                labels: labels.slice(0, companyByMonth.length),
+                labels: monthLabels.slice(0, companyByMonth.length),
                 datasets: [
                   {
-                    label: `Companies ${year}`,
+                    label: 'Companies',
                     data: companyByMonth,
                     borderColor: '#f59e0b',
                     backgroundColor: '#f59e0b20',

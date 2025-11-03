@@ -143,7 +143,7 @@ export const updateCompanyByAdmin = async (id, data) => {
   }
 };
 
-export const deleteCompanyByAdmn = async (companyId) => {
+export const deleteCompanyByAdmin = async (companyId) => {
   try {
     const response = await axiosInstance.delete(`/company/admin/${companyId}`);
     return response.data;

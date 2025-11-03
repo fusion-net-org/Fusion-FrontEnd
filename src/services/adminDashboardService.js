@@ -10,11 +10,9 @@ export const overviewDashboard = async () => {
   }
 };
 
-export const getRevenueMonthlyByYear = async (year) => {
+export const getRevenueMonthlyByYear = async () => {
   try {
-    const response = await axiosInstance.get(
-      `/TransactionPayment/stats/revenue-monthly?year=${year}`,
-    );
+    const response = await axiosInstance.get(`/TransactionPayment/stats/revenue-monthly`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error fetching revenue data!';
@@ -32,9 +30,19 @@ export const getStatusPackage = async () => {
   }
 };
 
-export const getCompaniesCreatedByMonth = async (year) => {
+export const getCompaniesCreatedByMonth = async () => {
   try {
-    const response = await axiosInstance.get(`/company/stats/created-by-month?year=${year}`);
+    const response = await axiosInstance.get(`/company/stats/created-by-month`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
+
+export const getCompanyStatusCounts = async () => {
+  try {
+    const response = await axiosInstance.delete(`/company/getCompanyStatusCounts`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';

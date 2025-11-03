@@ -11,20 +11,22 @@ import {
   ArrowDown as ArrowDownIcon,
   Eye,
   X,
+  Building2,
+  RefreshCw,
 } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import EditCompanyModal from './EditCompanyModal';
 import CompanyDetailDrawer from './CompanyDetailDrawer';
-
-// Services (nhớ chỉnh path đúng dự án của bạn)
 import {
   getAllCompanies,
   getCompanyById,
   updateCompanyByAdmin,
-  // file service đang export deleteCompanyByAdmn (typo) => alias lại cho an toàn
-  deleteCompanyByAdmn as deleteCompanyByAdmin,
+  deleteCompanyByAdmin,
 } from '@/services/companyService.js';
+import CompanyOverviewChart from './CompanyOverviewChart';
+import { Modal } from 'antd';
+import { toast } from 'react-toastify';
 
 type Row = {
   id: string;
@@ -34,8 +36,8 @@ type Row = {
   taxCode?: string | null;
   email?: string | null;
   detail?: string | null;
-  imageCompany?: string | null; // cover/banner
-  avatarCompany?: string | null; // avatar
+  imageCompany?: string | null;
+  avatarCompany?: string | null;
   address?: string | null;
   phoneNumber?: string | null;
   website?: string | null;
@@ -54,7 +56,7 @@ type Row = {
 
 type SortKey = 'CreatedAt' | 'UpdatedAt' | 'Name' | 'Email' | 'TaxCode' | 'IsDeleted';
 type StatusFilter = 'All' | 'Active' | 'Deleted';
-const STATUS: StatusFilter[] = ['All', 'Active', 'Deleted']; // vẫn hỗ trợ qua URL nếu cần
+const STATUS: StatusFilter[] = ['All', 'Active', 'Deleted'];
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 /* ---------- Helpers ---------- */
@@ -102,7 +104,7 @@ export default function AdminCompaniesPage() {
 
   // URL params
   const q = params.get('q') ?? '';
-  const status = (params.get('status') as StatusFilter) || 'All'; // không hiển thị nút filter nhưng vẫn tôn trọng param
+  const status = (params.get('status') as StatusFilter) || 'All';
   const sort = (params.get('sort') as SortKey) || 'CreatedAt';
   const dirDesc = (params.get('dir') || 'desc') !== 'asc';
   const page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1);
@@ -132,7 +134,7 @@ export default function AdminCompaniesPage() {
       sort: 'CreatedAt',
       dir: 'desc',
       page: 1,
-      pageSize, // giữ nguyên pageSize hiện tại
+      pageSize,
     });
   };
 
@@ -141,6 +143,7 @@ export default function AdminCompaniesPage() {
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [err, setErr] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -216,7 +219,6 @@ export default function AdminCompaniesPage() {
   /* -------- Edit modal state -------- */
   const [modal, setModal] = useState<{ open: false } | { open: true; data: Row }>({ open: false });
 
-  /* helper: build FormData text-only (admin fields) */
   const buildAdminUpdateForm = (p: {
     name?: string;
     taxCode?: string;
@@ -237,221 +239,341 @@ export default function AdminCompaniesPage() {
     return fd;
   };
 
+  /* -------- Delete/Deactivate Handler -------- */
+  const handleDeactivateCompany = (c: Row) => {
+    Modal.confirm({
+      title: 'Deactivate Company',
+      content: (
+        <div className="space-y-2">
+          <p>Are you sure you want to deactivate this company?</p>
+          <div className="bg-gray-50 p-3 rounded-lg mt-3">
+            <p className="font-semibold text-gray-900">{c.name}</p>
+            {c.taxCode && <p className="text-sm text-gray-600">Tax Code: {c.taxCode}</p>}
+          </div>
+          <p className="text-sm text-red-600 mt-2">This action will mark the company as deleted.</p>
+        </div>
+      ),
+      okText: 'Deactivate',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      centered: true,
+      onOk: async () => {
+        try {
+          setBusyId(c.id);
+          await deleteCompanyByAdmin(c.id);
+
+          // Đồng bộ UI
+          setRows((prev) => prev.map((x) => (x.id === c.id ? { ...x, isDeleted: true } : x)));
+          setSelected((sel) => (sel && sel.id === c.id ? { ...sel, isDeleted: true } : sel));
+
+          toast.success(`Company "${c.name}" has been deactivated successfully.`);
+        } catch (e: any) {
+          console.error(e);
+          toast.error(e?.message || 'Failed to deactivate company.');
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
+  };
+
   return (
-    <div className="space-y-5">
-      {/* Header - styled like screenshot */}
-      <div className="flex items-center justify-between gap-3">
-        {/* Left group (search + sort controls) */}
-        <div className="flex-1 flex items-center gap-3">
-          {/* Search by email */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              className="w-full pl-10 pr-3 h-11 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500"
-              placeholder="Search by name or tax..."
-              value={q}
-              onChange={(e) => patchParams({ q: e.target.value, page: 1 })}
-            />
+    <>
+      <div className="space-y-6">
+        {/* Overview Chart */}
+        <CompanyOverviewChart />
+
+        <div className="border-t-2 border-gray-500/50 my-5" />
+
+        {/* Main Content Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          {/* Header Section */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900">Company Management</h1>
+                  <p className="text-sm text-gray-500">Manage and monitor all companies</p>
+                </div>
+              </div>
+              <button
+                className="h-10 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2 transition-colors font-medium"
+                onClick={() => alert('TODO: Wire create to API')}
+              >
+                <Plus className="w-4 h-4" />
+                New Company
+              </button>
+            </div>
+
+            {/* Filters Row */}
+            <div className="flex items-center gap-3">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  className="w-full pl-10 pr-3 h-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  placeholder="Search by name or tax code..."
+                  value={q}
+                  onChange={(e) => patchParams({ q: e.target.value, page: 1 })}
+                />
+              </div>
+
+              {/* Sort column */}
+              <select
+                className="h-10 px-3 pr-8 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                value={sort}
+                onChange={(e) => patchParams({ sort: e.target.value, page: 1 })}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Sort direction */}
+              <button
+                className="w-10 h-10 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center justify-center transition-colors"
+                onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
+                aria-label="Toggle sort direction"
+                title={dirDesc ? 'Descending' : 'Ascending'}
+              >
+                {dirDesc ? (
+                  <ArrowDownIcon className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <ArrowUp className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+
+              {/* Reset */}
+              <button
+                className="h-10 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors"
+                onClick={resetFilters}
+                title="Reset filters"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset
+              </button>
+            </div>
           </div>
 
-          {/* Sort column */}
-          <select
-            className="h-11 px-3 pr-8 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500"
-            value={sort}
-            onChange={(e) => patchParams({ sort: e.target.value, page: 1 })}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Sort direction */}
-          <button
-            className="w-11 h-11 rounded-xl border border-gray-300 hover:bg-gray-50 flex items-center justify-center"
-            onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
-            aria-label="Toggle sort direction"
-            title={dirDesc ? 'Descending' : 'Ascending'}
-          >
-            {dirDesc ? <ArrowDownIcon className="w-5 h-5" /> : <ArrowUp className="w-5 h-5" />}
-          </button>
-
-          {/* Reset */}
-          <button
-            className="h-11 px-4 rounded-xl border border-gray-300 bg-white hover:bg-gray-50"
-            onClick={resetFilters}
-            title="Reset filters"
-          >
-            Reset
-          </button>
-        </div>
-
-        {/* Right: New */}
-        <button
-          className="h-11 px-4 rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200 flex items-center gap-2"
-          onClick={() => alert('TODO: Wire create to API')}
-        >
-          <Plus className="w-4 h-4" />
-          New
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="px-3 py-2 text-left">Company</th>
-              <th className="px-3 py-2">Tax</th>
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2 hidden md:table-cell">Phone</th>
-              <th className="px-3 py-2 text-center hidden lg:table-cell">Updated</th>
-              <th className="px-3 py-2 text-center">Status</th>
-              <th className="px-3 py-2 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!loading && err && (
-              <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-red-600">
-                  {err}
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              !err &&
-              visibleRows.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="px-3 py-2">
-                    <button
-                      className="flex items-center gap-2 hover:underline"
-                      onClick={() => setSelected(c)}
-                      title="View details"
-                    >
-                      {c.avatarCompany && (
-                        <img src={c.avatarCompany} className="w-6 h-6 rounded" alt="logo" />
-                      )}
-                      <div className="font-medium text-left">{c.name}</div>
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 text-center">{c.taxCode ?? '-'}</td>
-                  <td className="px-3 py-2 max-w-[220px] truncate" title={c.email ?? undefined}>
-                    {c.email ?? '-'}
-                  </td>
-                  <td className="px-3 py-2 hidden md:table-cell">{c.phoneNumber ?? '-'}</td>
-                  <td className="px-3 py-2 text-center hidden lg:table-cell">
-                    {new Date(c.updatedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        c.isDeleted ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-                      }`}
-                    >
-                      {c.isDeleted ? 'Deleted' : 'Active'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right space-x-1">
-                    <button
-                      className="p-2 rounded hover:bg-gray-100"
-                      title="View"
-                      onClick={() => setSelected(c)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="p-2 rounded hover:bg-gray-100"
-                      title="Edit"
-                      onClick={() => setModal({ open: true, data: c })}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-
-                    {!c.isDeleted && (
-                      <button
-                        className="p-2 rounded hover:bg-red-50 text-red-600"
-                        title="Deactivate"
-                        onClick={async () => {
-                          if (!confirm('Deactivate this company?')) return;
-                          try {
-                            await deleteCompanyByAdmin(c.id);
-                            // đồng bộ UI
-                            setRows((prev) =>
-                              prev.map((x) => (x.id === c.id ? { ...x, isDeleted: true } : x)),
-                            );
-                            setSelected((sel) =>
-                              sel && sel.id === c.id ? { ...sel, isDeleted: true } : sel,
-                            );
-                          } catch (e: any) {
-                            alert(e?.message || 'Deactivate failed');
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </td>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Company
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Tax Code
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden md:table-cell">
+                    Phone
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">
+                    Updated
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            {!loading && !err && visibleRows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
-                  No companies
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loading && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                        <span className="text-sm text-gray-500">Loading companies...</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!loading && err && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                          <X className="w-6 h-6 text-red-600" />
+                        </div>
+                        <p className="text-sm font-medium text-red-600">{err}</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  !err &&
+                  visibleRows.map((c) => (
+                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <button
+                          className="flex items-center gap-3 hover:text-blue-600 transition-colors"
+                          onClick={() => setSelected(c)}
+                          title="View details"
+                        >
+                          {c.avatarCompany ? (
+                            <img
+                              src={c.avatarCompany}
+                              className="w-10 h-10 rounded-lg object-cover border border-gray-200"
+                              alt={c.name}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                              <Building2 className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="text-left">
+                            <div className="font-medium text-gray-900">{c.name}</div>
+                            {c.ownerUserName && (
+                              <div className="text-xs text-gray-500">Owner: {c.ownerUserName}</div>
+                            )}
+                          </div>
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-sm text-gray-900 font-mono">{c.taxCode ?? '-'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className="text-sm text-gray-600 block max-w-[220px] truncate"
+                          title={c.email ?? undefined}
+                        >
+                          {c.email ?? '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 hidden md:table-cell">
+                        <span className="text-sm text-gray-600">{c.phoneNumber ?? '-'}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center hidden lg:table-cell">
+                        <span className="text-sm text-gray-600">
+                          {new Date(c.updatedAt).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            c.isDeleted ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              c.isDeleted ? 'bg-red-500' : 'bg-green-500'
+                            }`}
+                          />
+                          {c.isDeleted ? 'Deleted' : 'Active'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            className="p-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors"
+                            title="View"
+                            onClick={() => setSelected(c)}
+                          >
+                            <Eye className="w-4 h-4 text-blue-600" />
+                          </button>
+                          <button
+                            className="p-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors"
+                            title="Edit"
+                            onClick={() => setModal({ open: true, data: c })}
+                          >
+                            <Pencil className="w-4 h-4 text-yellow-600" />
+                          </button>
+                          {!c.isDeleted && (
+                            <button
+                              className="p-2 rounded-lg hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors disabled:opacity-50"
+                              title="Deactivate"
+                              onClick={() => handleDeactivateCompany(c)}
+                              disabled={busyId === c.id}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                {!loading && !err && visibleRows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Building2 className="w-8 h-8 text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">No companies found</p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Try adjusting your search or filter criteria
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      {/* Pagination (giống ảnh) */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-gray-600">
-            Total:&nbsp;<b>{total.toLocaleString()}</b>
-          </span>
-          <label className="inline-flex items-center gap-2">
-            <span className="text-gray-600">Rows per page</span>
-            <select
-              className="px-2 py-1.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500"
-              value={pageSize}
-              onChange={(e) => {
-                const size = Math.max(1, parseInt(e.target.value || '10', 10));
-                patchParams({ pageSize: size, page: 1 }); // reset về trang 1
-              }}
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* Pagination Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-gray-600">
+                  Showing <span className="font-semibold text-gray-900">{visibleRows.length}</span>{' '}
+                  of <span className="font-semibold text-gray-900">{total.toLocaleString()}</span>{' '}
+                  companies
+                </span>
+                <label className="inline-flex items-center gap-2">
+                  <span className="text-gray-600">Rows per page:</span>
+                  <select
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                    value={pageSize}
+                    onChange={(e) => {
+                      const size = Math.max(1, parseInt(e.target.value || '10', 10));
+                      patchParams({ pageSize: size, page: 1 });
+                    }}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <Stack spacing={2}>
+                <Pagination
+                  count={Math.max(1, Math.ceil(total / pageSize))}
+                  page={page}
+                  onChange={(_, p) => patchParams({ page: p })}
+                  color="primary"
+                  variant="outlined"
+                  shape="rounded"
+                  showFirstButton
+                  showLastButton
+                />
+              </Stack>
+            </div>
+          </div>
         </div>
-        <Stack spacing={2}>
-          <Pagination
-            count={Math.max(1, Math.ceil(total / pageSize))}
-            page={page}
-            onChange={(_, p) => patchParams({ page: p })}
-            color="primary"
-            variant="outlined"
-            shape="rounded"
-            showFirstButton
-            showLastButton
-          />
-        </Stack>
       </div>
 
       {/* Detail Drawer */}
-      <CompanyDetailDrawer row={selected} loading={loading} onClose={() => setSelected(null)} />
+      <CompanyDetailDrawer
+        row={selected}
+        loading={detailLoading}
+        onClose={() => setSelected(null)}
+      />
 
       {/* Edit Modal */}
       {modal.open && (
@@ -485,6 +607,6 @@ export default function AdminCompaniesPage() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }
