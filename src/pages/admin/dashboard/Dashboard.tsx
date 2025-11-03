@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Line, PolarArea } from 'react-chartjs-2';
+import { Users, Building2, FolderKanban, DollarSign } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,43 +35,22 @@ ChartJS.register(
 );
 
 // ---------- COMPONENT: OVERVIEW CARD ----------
-const StatCard = ({ title, value, data, color, trend }: any) => {
-  const chartData = {
-    labels: Array(data.length).fill(''),
-    datasets: [
-      {
-        data,
-        borderColor: color,
-        backgroundColor: `${color}20`,
-        tension: 0.4,
-        fill: true,
-        borderWidth: 2,
-        pointRadius: 0,
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { enabled: false } },
-    scales: { x: { display: false }, y: { display: false } },
-  };
-
+const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 p-5 flex flex-col justify-between">
-      <div>
-        <p className="text-gray-500 text-sm mb-1">{title}</p>
-        <div className="flex items-center justify-between">
-          <p className="text-2xl font-semibold text-gray-800 truncate max-w-[160px]">{value}</p>
-          <div className="h-10 w-24">
-            <Line data={chartData} options={options} />
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-col justify-between min-w-[230px] flex-1 hover:shadow-md transition-all duration-200">
+      <div className="flex items-center gap-2 mb-3">
+        {Icon && (
+          <div
+            className={`${
+              bgColor ?? 'bg-gray-100'
+            } p-2.5 rounded-lg flex items-center justify-center`}
+          >
+            <Icon className={`${color ?? 'text-gray-600'} w-5 h-5`} />
           </div>
-        </div>
+        )}
+        <p className="text-sm font-medium text-gray-600">{title}</p>
       </div>
-      <p className={`text-sm mt-2 ${color === '#ef4444' ? 'text-red-500' : 'text-green-500'}`}>
-        {trend}
-      </p>
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );
 };
@@ -167,7 +147,7 @@ export default function Dashboard() {
     fetchPackageStats();
   }, []);
 
-  // ---------- Line Chart Config ----------
+  // ---------- Line Chart ----------
   const labels = [
     'Jan',
     'Feb',
@@ -254,41 +234,35 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-8 bg-gray-50 min-h-screen">
       {/* OVERVIEW */}
-      <div className="flex flex-wrap gap-6 justify-between items-stretch">
-        <div className="flex-1 min-w-[220px]">
+      <div className="flex flex-wrap justify-between items-stretch gap-6">
+        <div className="flex flex-wrap gap-6 w-full">
           <StatCard
-            title="Total Account (Registered)"
+            title="Total Account"
             value={dataOverview.userCount.toLocaleString()}
-            data={[30, 45, 50, 55, 60, 70, 80]}
-            color="#10b981"
-            trend="Increase last month"
+            icon={Users}
+            color="text-blue-600"
+            bgColor="bg-blue-100"
           />
-        </div>
-        <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Company"
             value={dataOverview.companyCount.toLocaleString()}
-            data={[20, 25, 30, 28, 35, 40, 45]}
-            color="#10b981"
-            trend="Increase last month"
+            icon={Building2}
+            color="text-emerald-600"
+            bgColor="bg-emerald-100"
           />
-        </div>
-        <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Project"
             value={dataOverview.projectCount.toLocaleString()}
-            data={[40, 50, 55, 60, 62, 70, 75]}
-            color="#10b981"
-            trend="Increase last month"
+            icon={FolderKanban}
+            color="text-indigo-600"
+            bgColor="bg-indigo-100"
           />
-        </div>
-        <div className="flex-1 min-w-[220px]">
           <StatCard
             title="Total Revenue"
             value={`VND ${dataOverview.revenueSum.toLocaleString()}`}
-            data={[65, 62, 68, 66, 64, 70, 72]}
-            color="#ef4444"
-            trend="Slight decrease last month"
+            icon={DollarSign}
+            color="text-orange-600"
+            bgColor="bg-orange-100"
           />
         </div>
       </div>

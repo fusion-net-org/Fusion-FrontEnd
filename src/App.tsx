@@ -26,7 +26,7 @@ import AdminLayout from './layouts/Admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/dashboard/Dashboard';
 import AdminUsersPage from './pages/admin/userManagement/Users';
 import AdminSubscriptionsPage from './pages/admin/Subscriptions';
-import AdminCompaniesPage from './pages/admin/Companies';
+import AdminCompaniesPage from './pages/admin/companyManagement/Companies';
 import SubscriptionPag from './pages/subscription/SubscriptionPage';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';

@@ -118,6 +118,8 @@ export default function AdminUsersPage() {
       {/* Chart */}
       <UserOverviewCharts items={items} />
 
+      <div className="border-t-2 border-gray-500/50 my-5" />
+
       {/* Filters & Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         {/* Search */}
