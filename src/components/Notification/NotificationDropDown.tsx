@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GetNotificationsByUser, MarkNotificationAsRead } from '@/services/notification.js';
-import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { ChevronRight, X } from 'lucide-react';
+import { MoreVertical, Check, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import NotificationItem from '@/components/Notification/NotificationItem';
+
 dayjs.extend(relativeTime);
 
 interface Notification {
@@ -20,9 +22,14 @@ interface Notification {
 }
 
 const NotificationDropdown: React.FC = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [onlyUnread, setOnlyUnread] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const { t } = useTranslation();
+  const [isActionOpen, setIsActionOpen] = useState(false);
+  const actionRef = useRef<HTMLDivElement>(null);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = async () => {
     try {
@@ -52,19 +59,51 @@ const NotificationDropdown: React.FC = () => {
     fetchNotifications();
   }, []);
 
-  const toggleDropdown = async () => {
-    setIsOpen(!isOpen);
-  };
-
-  const closeDropdown = () => setIsOpen(false);
+  const filteredNotifications = useMemo(
+    () => (onlyUnread ? notifications.filter((x) => !x.isRead) : notifications),
+    [onlyUnread, notifications],
+  );
 
   const hasUnread = notifications.some((n) => !n.isRead);
 
+  const toggleDropdown = () => {
+    setIsOpen((prev) => !prev);
+    setIsActionOpen(false);
+  };
+
+  // mark all
+  const markAllAsRead = async () => {
+    const unread = notifications.filter((n) => !n.isRead);
+    for (const item of unread) {
+      await MarkNotificationAsRead(item.id);
+    }
+    setNotifications((prev) => prev.map((x) => ({ ...x, isRead: true })));
+    setIsActionOpen(false);
+  };
+
+  // click outside to close
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setIsOpen(false);
+      }
+
+      if (actionRef.current && !actionRef.current.contains(target)) {
+        setIsActionOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className="relative flex items-center justify-center h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 transition-colors"
+        className="relative flex items-center justify-center h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 transition-colors -mr-[18px]"
       >
         {hasUnread && (
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-400">
@@ -89,59 +128,105 @@ const NotificationDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-gray-200 shadow-xl bg-white p-3 z-50 ring-1 ring-gray-100">
+        <div className="absolute right-0 mt-3 w-[380px] rounded-2xl border border-gray-200 shadow-2xl bg-white p-4 z-50 ring-1 ring-gray-100">
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
-            <h5 className="text-lg font-semibold text-gray-800">
-              {t('settings.notification_title')}
-            </h5>
+          <div className="flex items-center justify-between pb-4 mb-3 border-b border-gray-100">
+            <h5 className="text-xl font-semibold text-gray-900">Notifications</h5>
+
             <button
-              onClick={closeDropdown}
-              className="text-gray-400 hover:text-gray-700 transition"
+              onClick={() => setIsActionOpen((prev) => !prev)}
+              className="text-gray-500 hover:text-gray-700"
             >
-              <X />
+              <MoreVertical size={20} />
             </button>
-          </div>
-          {/* Notification List */}
-          <ul className="flex flex-col max-h-80 overflow-y-auto custom-scrollbar">
-            {notifications.map((item) => (
-              <li
-                key={item.id}
-                onClick={() => handleNotificationClick(item)}
-                className={`group flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all
-              ${item.isRead ? 'bg-white hover:bg-gray-50' : 'bg-orange-50 hover:bg-orange-100'}
-               `}
+
+            {isActionOpen && (
+              <div
+                ref={actionRef}
+                className="absolute right-4 top-12 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50"
               >
-                {/* Dot */}
-                <span
-                  className={`h-2 w-2 rounded-full mt-2
-                ${item.isRead ? 'bg-gray-300' : 'bg-red-500 animate-pulse'}
-               `}
-                ></span>
+                <button
+                  onClick={markAllAsRead}
+                  className="flex w-full items-center px-4 py-2 text-sm hover:bg-gray-100 text-gray-800"
+                >
+                  <Check className="w-4 h-4 mr-2 text-gray-500" />
+                  Mark all as read
+                </button>
 
-                {/* Text */}
-                <div className="flex-1 pr-3">
-                  <p className="text-sm font-semibold text-gray-800 leading-tight group-hover:text-gray-900">
-                    {item.title}
-                  </p>
+                <button
+                  onClick={() => navigate('/settings/notifications')}
+                  className="flex w-full items-center px-4 py-2 text-sm hover:bg-gray-100 text-gray-800"
+                >
+                  <Settings className="w-4 h-4 mr-2 text-gray-500" />
+                  Notification settings
+                </button>
+              </div>
+            )}
+          </div>
 
-                  <p className="text-xs text-gray-500">{item.body}</p>
+          {/* Toggle unread */}
+          <div className="flex items-center justify-end gap-2 mb-2 text-sm text-gray-600">
+            <span>Only unread</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={onlyUnread}
+                onChange={() => setOnlyUnread(!onlyUnread)}
+              />
+              <div className="w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-green-500 peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:h-4 after:w-4 after:rounded-full after:transition-all"></div>
+            </label>
+          </div>
 
-                  <p className="text-[11px] text-gray-400 mt-1">{dayjs(item.createAt).fromNow()}</p>
-                </div>
+          {/* List */}
+          {filteredNotifications.length > 0 ? (
+            <ul className="flex flex-col max-h-96 overflow-y-auto custom-scrollbar ">
+              {filteredNotifications.map((item) => (
+                <NotificationItem
+                  key={item.id}
+                  item={item}
+                  onMarkRead={() => handleNotificationClick(item)}
+                  onDelete={() => console.log('Delete')}
+                  onTurnOff={() => console.log('Turn Off')}
+                >
+                  <div
+                    onClick={() => handleNotificationClick(item)}
+                    className="flex items-start gap-3 rounded-lg cursor-pointer px-0 py-0 "
+                  >
+                    {/* Unread dot */}
+                    <span
+                      className={`h-2 w-2 rounded-full mt-2 ${
+                        item.isRead ? 'bg-gray-300' : 'bg-red-500 animate-pulse'
+                      }`}
+                    ></span>
 
-                {/* Action Arrow */}
-                <div className="opacity-0 group-hover:opacity-100 transition">
-                  <ChevronRight className="w-5 h-5" />
-                </div>
-              </li>
-            ))}
-          </ul>
-          {/* Footer */}
+                    {/* Content */}
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900 leading-snug">
+                        {item.title}
+                      </p>
+                      <p className="text-[13px] text-gray-600 mt-1 leading-snug">{item.body}</p>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        {dayjs(item.createAt).fromNow()}
+                      </p>
+                    </div>
+                  </div>
+                </NotificationItem>
+              ))}
+            </ul>
+          ) : (
+            <div className="py-10 text-center text-gray-500 text-sm">
+              <p>No unread notifications</p>
+            </div>
+          )}
+
           <button
-            onClick={closeDropdown}
-            className="block w-full text-center text-sm font-medium mt-3 px-4 py-2 rounded-lg 
-  border border-gray-200 text-gray-700 hover:bg-gray-100 transition"
+            onClick={() => {
+              setIsOpen(false);
+              navigate('/notifications');
+            }}
+            className="block w-full text-center text-sm font-medium mt-4 px-4 py-2 rounded-lg 
+            border border-gray-200 text-gray-700 hover:bg-gray-100 transition"
           >
             View all notifications
           </button>

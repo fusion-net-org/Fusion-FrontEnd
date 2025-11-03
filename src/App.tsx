@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Routes, Route } from 'react-router-dom';
 import Login from './pages/login/Login';
 import { ToastContainer } from 'react-toastify';
@@ -17,7 +19,7 @@ import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/userProfile/UserProfile';
+import UserProfile from './pages/UserProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
@@ -33,6 +35,9 @@ import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
 import ProjectRequestDetail from './pages/home/ProjectRequestDetail';
+import NotificationPage from './pages/notification/NotificationPage';
+import CompanyHeader from './layouts/Company/CompanyHeader';
+import CompanyShell from './layouts/Company/CompanyShell';
 function App() {
   return (
     <>
@@ -103,6 +108,11 @@ function App() {
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-failed" element={<PaymentFailed />} />
+
+        {/* Notification */}
+        <Route element={<CompanyShell />}>
+          <Route path="/notifications" element={<NotificationPage />} />
+        </Route>
       </Routes>
     </>
   );
