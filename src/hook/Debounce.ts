@@ -1,5 +1,7 @@
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+import { useState, useEffect } from 'react';
+
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedValue(value), delay);
@@ -8,4 +10,3 @@ function useDebounce(value, delay) {
 
   return debouncedValue;
 }
-const debouncedSearch = useDebounce(searchProjectName, 300);

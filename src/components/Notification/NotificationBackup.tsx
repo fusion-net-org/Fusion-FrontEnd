@@ -5,15 +5,27 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { MoreVertical, Check, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import NotificationItem from '@/components/Notification/NotificationItem';
-import { useFCMListener } from '@/hook/useFCM';
-import type { INotification } from '@/interfaces/Notification/Notification';
 
 dayjs.extend(relativeTime);
+
+interface Notification {
+  id: string;
+  event: string;
+  title: string;
+  body: string;
+  context: string;
+  linkUrl: string | null;
+  linkUrlWeb: string | null;
+  isRead: boolean;
+  createAt: string;
+  readAt: string | null;
+}
+
 const NotificationDropdown: React.FC = () => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [onlyUnread, setOnlyUnread] = useState(false);
-  const [notifications, setNotifications] = useState<INotification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isActionOpen, setIsActionOpen] = useState(false);
   const actionRef = useRef<HTMLDivElement>(null);
 
@@ -27,16 +39,8 @@ const NotificationDropdown: React.FC = () => {
       console.log(err);
     }
   };
-  useFCMListener(() => {
-    fetchNotifications();
-  });
 
-  const markAsReadOnly = async (id: string) => {
-    await MarkNotificationAsRead(id);
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-  };
-
-  const handleNotificationClick = async (item: INotification) => {
+  const handleNotificationClick = async (item: Notification) => {
     if (!item.isRead) {
       await MarkNotificationAsRead(item.id);
       setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
@@ -124,7 +128,7 @@ const NotificationDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-[-16px] mt-3 w-[380px] rounded-2xl border border-gray-200 shadow-2xl bg-white p-4 z-50 ring-1 ring-gray-100">
+        <div className="absolute right-0 mt-3 w-[380px] rounded-2xl border border-gray-200 shadow-2xl bg-white p-4 z-50 ring-1 ring-gray-100">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 mb-3 border-b border-gray-100">
             <h5 className="text-xl font-semibold text-gray-900">Notifications</h5>
@@ -181,7 +185,7 @@ const NotificationDropdown: React.FC = () => {
                 <NotificationItem
                   key={item.id}
                   item={item}
-                  onMarkRead={() => markAsReadOnly(item.id)}
+                  onMarkRead={() => handleNotificationClick(item)}
                   onDelete={() => console.log('Delete')}
                   onTurnOff={() => console.log('Turn Off')}
                 >
@@ -222,7 +226,7 @@ const NotificationDropdown: React.FC = () => {
               navigate('/notifications');
             }}
             className="block w-full text-center text-sm font-medium mt-4 px-4 py-2 rounded-lg 
-  border border-gray-200 text-gray-700 bg-gray-200 hover:bg-gray-200 transition"
+            border border-gray-200 text-gray-700 hover:bg-gray-100 transition"
           >
             View all notifications
           </button>

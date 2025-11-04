@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Routes, Route } from 'react-router-dom';
 import Login from './pages/login/Login';
-import { ToastContainer } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ScrollToTop from './utils/ScrollToTop';
 import NotFound from './pages/notfound/NotFound';
@@ -17,7 +19,7 @@ import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/userProfile/UserProfile';
+import UserProfile from './pages/UserProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
@@ -32,9 +34,21 @@ import WorkflowListPage from './pages/home/WorkflowListPage';
 import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
+<<<<<<< HEAD
 import ProjectDetailPage from './pages/project/ProjectDetailPage';
 import ProjectBoardPage from './pages/project/ProjectBoardPage';
+=======
+import ProjectRequestDetail from './pages/home/ProjectRequestDetail';
+import NotificationPage from './pages/notification/NotificationPage';
+import CompanyHeader from './layouts/Company/CompanyHeader';
+import CompanyShell from './layouts/Company/CompanyShell';
+import { useFCMListener } from './hook/useFCM';
+
+>>>>>>> 6042eaed227f723f5bda009e17ff0a1a8990fc69
 function App() {
+  useFCMListener((notif: any) => {
+    console.log('Realtime FCM Notification:', notif);
+  });
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />
@@ -68,11 +82,25 @@ function App() {
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
+          <Route
+            path="/company/:companyId/project-request/:id"
+            element={<ProjectRequestDetail />}
+          />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
+<<<<<<< HEAD
 <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
 <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
+=======
+          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
+          <Route
+            path="/companies/:companyId/workflows/:workflowId"
+            element={<WorkflowDesignerPage />}
+          />
+          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
+
+>>>>>>> 6042eaed227f723f5bda009e17ff0a1a8990fc69
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
           {/* CREATE */}
@@ -97,6 +125,11 @@ function App() {
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-failed" element={<PaymentFailed />} />
+
+        {/* Notification */}
+        <Route element={<CompanyShell />}>
+          <Route path="/notifications" element={<NotificationPage />} />
+        </Route>
       </Routes>
     </>
   );

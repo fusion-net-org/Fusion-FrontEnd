@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useParams, matchPath } from 'react-router-dom';
+import { getOwnerUser } from '@/services/userService.js';
+import type { User } from '@/interfaces/User/User';
 
 type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners';
 type Item = { key: string; label: string; to: string; icon?: PresetIcon | React.ReactNode };
@@ -80,7 +82,12 @@ const defaultItems: Item[] = [
     to: '/company/:companyId/project-request',
     icon: 'layers',
   },
-
+  {
+    key: 'project-request-detail',
+    label: 'Request Detail',
+    to: '/company/:companyId/project-request/:id',
+    icon: 'layers',
+  },
   { key: 'partners', label: 'Partners', to: '/company/:companyId/partners', icon: 'partners' },
   {
     key: 'partner-detail',
@@ -94,21 +101,36 @@ const defaultItems: Item[] = [
 
 export default function CompanyNavbar({
   items = defaultItems,
-  ownerUserId,
 }: {
   items?: Item[];
   ownerUserId?: string;
 }) {
   const { pathname } = useLocation();
   const { companyId, id } = useParams();
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIdLogin = user?.id;
+
+  useEffect(() => {
+    const fetchOwnerUser = async () => {
+      try {
+        if (!userIdLogin) return;
+        const response = await getOwnerUser(companyId);
+        const data: User = response?.data || null;
+        setOwnerUserId(data.id || null);
+      } catch (err) {
+        console.error('Error fetching owner user:', err);
+      }
+    };
+    fetchOwnerUser();
+  }, [userIdLogin, companyId]);
 
   const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
 
   const isPartnerDetailPage = /^\/company\/partners\/[^/]+$/.test(pathname);
   const isMemberDetailPage = /^\/company\/members\/[^/]+$/.test(pathname);
+  const isProjectRequestDetailPage = /^\/company\/[^/]+\/project-request\/[^/]+$/.test(pathname);
 
   let visibleItems;
 
@@ -116,8 +138,15 @@ export default function CompanyNavbar({
     visibleItems = items.filter((i) => i.key === 'partner-detail');
   } else if (isMemberDetailPage) {
     visibleItems = items.filter((i) => i.key === 'member-detail');
+  } else if (isProjectRequestDetailPage) {
+    visibleItems = items.filter((i) => i.key === 'project-request-detail');
   } else if (isOwner) {
-    visibleItems = items.filter((i) => i.key !== 'partner-detail' && i.key !== 'member-detail');
+    visibleItems = items.filter(
+      (i) =>
+        i.key !== 'partner-detail' &&
+        i.key !== 'member-detail' &&
+        i.key !== 'project-request-detail',
+    );
   } else {
     visibleItems = items.filter((i) => i.key === 'company-detail');
   }
@@ -126,9 +155,17 @@ export default function CompanyNavbar({
     0,
     visibleItems.findIndex((i) => {
       let routePath = i.to;
-      if (i.key === 'partner-detail') routePath = routePath.replace(':id', id || '');
-      else if (i.key === 'member-detail') routePath = routePath.replace(':id', id || '');
-      else routePath = routePath.replace(':companyId', companyId || '');
+
+      if (
+        i.key === 'partner-detail' ||
+        i.key === 'member-detail' ||
+        i.key === 'project-request-detail'
+      ) {
+        routePath = routePath.replace(':id', id || '');
+      } else {
+        routePath = routePath.replace(':companyId', companyId || '');
+      }
+
       return matchPath({ path: routePath, end: true }, pathname) !== null;
     }),
   );
@@ -141,9 +178,16 @@ export default function CompanyNavbar({
           <div className="cmp-nav__indicator" />
           {visibleItems.map((it) => {
             let routePath = it.to;
-            if (it.key === 'partner-detail') routePath = routePath.replace(':id', id || '');
-            else if (it.key === 'member-detail') routePath = routePath.replace(':id', id || '');
-            else if (companyId) routePath = routePath.replace(':companyId', companyId);
+
+            if (
+              it.key === 'partner-detail' ||
+              it.key === 'member-detail' ||
+              it.key === 'project-request-detail'
+            ) {
+              routePath = routePath.replace(':id', id || '');
+            } else if (companyId) {
+              routePath = routePath.replace(':companyId', companyId);
+            }
 
             return (
               <NavLink

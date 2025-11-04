@@ -28,7 +28,6 @@ const Partners: React.FC = () => {
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
   const [loading, setLoading] = useState(false);
-
   //#region State
   const [partners, setPartners] = useState<any[]>([]);
   const [pagination, setPagination] = useState<
@@ -289,16 +288,16 @@ const Partners: React.FC = () => {
 
         {/* STATUS SUMMARY */}
         <div className="flex flex-wrap gap-3 mb-6">
-          <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-green-200 text-green-700 text-sm font-medium rounded-full">
             Active: {summaryStatusPartner?.active ?? 0}
           </span>
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-yellow-200 text-yellow-700 text-sm font-medium rounded-full">
             Pending: {summaryStatusPartner?.pending ?? 0}
           </span>
-          <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-red-200 text-red-700 text-sm font-medium rounded-full">
             Inactive: {summaryStatusPartner?.inactive ?? 0}
           </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-blue-200 text-blue-700 text-sm font-medium rounded-full">
             Total:{summaryStatusPartner?.total ?? 0}
           </span>
         </div>
@@ -357,7 +356,7 @@ const Partners: React.FC = () => {
           <table className="w-full text-sm text-gray-700">
             <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
               <tr className="hover:bg-blue-100/70 transition">
-                <th className="px-6 py-3 text-left w-[30%]">Company</th>
+                <th className="px-6 py-3 text-center w-[20%]">Company</th>
                 <th className="px-6 py-3 text-center w-[15%]">Owner</th>
                 <th className="px-6 py-3 text-center w-[10%]">Status</th>
                 <th className="px-6 py-3 text-center w-[10%]">Since</th>

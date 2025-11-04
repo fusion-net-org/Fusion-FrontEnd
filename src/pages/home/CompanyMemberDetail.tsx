@@ -33,6 +33,7 @@ import type { IProjectMember } from '@/interfaces/ProjectMember/projectMember';
 import DeleteProjectMember from '@/components/ProjectMember/DeleteProjectMember';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useDebounce } from '@/hook/Debounce';
 
 const data = [
   { name: 'Productivity', value: 75 },
@@ -77,6 +78,8 @@ export default function CompanyMemberDetail() {
 
   //get userId from url
   const { Id } = useParams<{ Id: string }>();
+  const debouncedSearch = useDebounce(searchProjectName, 300);
+  const debouncedFilter = useDebounce(statusFilter, 300);
 
   //handle remove member
   const handleRemoveMember = async (memberId: string, reason: string) => {
@@ -125,7 +128,6 @@ export default function CompanyMemberDetail() {
         null,
         null,
       );
-      console.log(response.data.items[0]);
       setListProjectMember(response.data.items[0]);
 
       setTotalProjectCount(response.data.totalCount ?? 0);
@@ -168,13 +170,8 @@ export default function CompanyMemberDetail() {
 
   // debounce
   useEffect(() => {
-    setPageNumber(1);
-    const delayDebounce = setTimeout(() => {
-      fetchGetProjectMemberByCompanyIdAndUserId();
-    }, 300);
-
-    return () => clearTimeout(delayDebounce);
-  }, [searchProjectName, statusFilter]);
+    fetchGetProjectMemberByCompanyIdAndUserId();
+  }, [debouncedSearch, debouncedFilter]);
 
   //paging
   useEffect(() => {
