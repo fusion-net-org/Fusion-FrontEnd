@@ -44,7 +44,7 @@ export default function CompanyLayout({ children, initialTall = true }: Props) {
           <PermissionProvider key={permKey} userId={userId ?? ''} companyId={companyId as string}>
             <main
               key={fadeKey}
-              className={`cmp-main cmp-pagefade ${initialTall ? 'is-initialTall' : ''}`}
+              className={`cmp-main cmp-pagefade overflow-x-auto ${initialTall ? 'is-initialTall' : ''}` }
             >
               {children ?? <Outlet />}
             </main>

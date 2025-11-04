@@ -1,79 +1,110 @@
-import React from 'react';
-import '@/layouts/Company/css/project/projects.css';
-import type { Project } from '@/interfaces/Project/project';
+import React from "react";
+import { Building2, Calendar, Workflow, ArrowRight } from "lucide-react";
 
-function statusClasses(status: Project['status']) {
-  switch (status) {
-    case 'To do':       return { card: 'todo', dot: 'todo' };
-    case 'Done':        return { card: 'done', dot: 'done' };
-    case 'In review':   return { card: 'inreview', dot: 'inreview' };
-    case 'In progress': return { card: 'inprogress', dot: 'inprogress' };
-  }
-}
+export type ProjectStatus = "Planned" | "InProgress" | "OnHold" | "Completed";
+export type ProjectType = "Internal" | "Outsourced";
+export type Project = {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  ownerCompany: string;
+  hiredCompany?: string | null;
+  workflow: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  status: ProjectStatus;
+  ptype: ProjectType;
+};
 
-export default function ProjectCard({ item }: { item: Project }) {
-  const pct = item.progress.total > 0
-    ? Math.min(100, Math.round((item.progress.done / item.progress.total) * 100))
-    : 0;
+const StatusDot = ({ color }: { color: string }) => (
+  <span className="inline-block size-2 rounded-full mr-1.5" style={{ backgroundColor: color }} />
+);
 
-  const sc = statusClasses(item.status);
-
+const StatusBadge: React.FC<{ status: ProjectStatus }> = ({ status }) => {
+  const map: Record<ProjectStatus, { color: string; cls: string; text: string }> = {
+    Planned:    { color: "#f59e0b", cls: "bg-amber-50 text-amber-700 border-amber-100", text: "Planned" },
+    InProgress: { color: "#3b82f6", cls: "bg-blue-50 text-blue-700 border-blue-100", text: "InProgress" },
+    OnHold:     { color: "#8b5cf6", cls: "bg-violet-50 text-violet-700 border-violet-100", text: "OnHold" },
+    Completed:  { color: "#22c55e", cls: "bg-green-50 text-green-700 border-green-100", text: "Completed" },
+  };
+  const v = map[status];
   return (
-    <article className={`card ${sc.card}`}>
-      <div className="head">
-        <div className="code">{item.code}</div>
-        <div className="menu" aria-label="More">⋯</div>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${v.cls}`}>
+      <StatusDot color={v.color} /> {v.text}
+    </span>
+  );
+};
+
+const TypeBadge: React.FC<{ type: ProjectType }> = ({ type }) => (
+  <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${
+    type === "Internal" ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-slate-50 text-slate-700 border-slate-200"
+  }`}>
+    {type}
+  </span>
+);
+
+export default function ProjectCard({
+  data, selected, onOpen, onManage
+}: {
+  data: Project; selected?: boolean;
+  onOpen?: (p: Project) => void; onManage?: (p: Project) => void;
+}) {
+  const open = () => onOpen?.(data);
+  return (
+    <div
+      role="button"
+      onClick={open}
+      className={[
+        "group relative flex cursor-pointer flex-col rounded-2xl p-5",
+        "border border-slate-200 bg-white/90 backdrop-blur-sm",
+        "shadow-[0_1px_1px_rgba(17,24,39,0.06),0_10px_22px_-12px_rgba(30,64,175,0.30)]",
+        "transition hover:shadow-[0_2px_6px_rgba(17,24,39,0.08),0_24px_32px_-12px_rgba(30,64,175,0.38)]"
+      ].join(" ")}
+      style={{
+        backgroundImage:
+          "radial-gradient(1200px 140px at 50% -50px, rgba(59,130,246,.12), transparent 60%)"
+      }}
+    >
+      <div className="flex items-start justify-between">
+        <div className="text-[11px] font-semibold tracking-wide text-blue-600">{data.code}</div>
+        {selected && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white">Selected</span>}
       </div>
 
-      <div className="status">
-        <span className={`dot ${sc.dot}`} />
-        {item.status}
-      </div>
+      <div className="mt-1 text-base font-semibold text-slate-800">{data.name}</div>
 
-      <h3 className="name">Projects Name</h3>
-
-      <div className="badges">
-        <span className="pill">{item.hireLabel}</span>
-        {item.convertedFrom && (
-          <span className="pill pillGray">🔗 Converted from {item.convertedFrom}</span>
+      <div className="mt-3 space-y-1.5 text-xs text-slate-600">
+        <div className="flex items-center gap-2">
+          <Building2 className="size-4 text-slate-400" />
+          <span>{data.ownerCompany}</span>
+          {data.hiredCompany && (<><span className="mx-1 text-slate-400">•</span><span>{data.hiredCompany}</span></>)}
+        </div>
+        <div className="flex items-center gap-2">
+          <Workflow className="size-4 text-slate-400" />
+          <span>{data.workflow}</span>
+        </div>
+        {data.startDate && (
+          <div className="flex items-center gap-2">
+            <Calendar className="size-4 text-slate-400" />
+            <span>{data.startDate}{data.endDate ? ` — ${data.endDate}` : ""}</span>
+          </div>
         )}
       </div>
 
-      <p className="desc">{item.description}</p>
-
-      <div className="progressRow">
-        <span className="progressLabel">Progress</span>
-        <span className="progressValue">
-          {item.progress.done}/{item.progress.total} ({pct}%)
-        </span>
-      </div>
-      <div className="progressBar">
-        <div
-          className="progressFill"
-          style={{ width: `${pct}%`, background: item.overdueTasks ? 'var(--rose-500)' : undefined }}
-        />
-      </div>
-      {!!item.overdueTasks && (
-        <div className="warn">⚠ {item.overdueTasks} {item.overdueTasks > 1 ? 'tasks' : 'task'} overdue</div>
-      )}
-
-      <div className="meta">
-        <i>📅 {item.startDate} — {item.endDate}</i>
-        <i>⟳ Update {item.lastUpdatedAgo}</i>
-        <i>👥 {item.membersCount} members</i>
+      <div className="mt-3 flex items-center gap-2">
+        <StatusBadge status={data.status} />
+        <TypeBadge type={data.ptype} />
       </div>
 
-      <div className="ownerRow">
-        <span className="avatar" />
-        <span className="ownerName">{item.owner.name}</span>
+      <div className="mt-4 flex items-center justify-between">
+        <p className="line-clamp-2 text-sm text-slate-600">{data.description || "—"}</p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onManage?.(data); }}
+          className="ml-3 inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+        >
+          Open <ArrowRight className="size-4" />
+        </button>
       </div>
-
-      <div className="tags">
-        <span className="tag tagBoard">Board</span>
-        <span className="tag tagTicket">Ticket</span>
-        <span className="tag tagRequest">Request</span>
-        <span className="tag tagMembers">Members</span>
-      </div>
-    </article>
+    </div>
   );
 }
