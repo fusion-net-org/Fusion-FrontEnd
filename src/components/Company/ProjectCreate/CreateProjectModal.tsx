@@ -6,7 +6,7 @@ import {
   Workflow as WorkflowIcon, Plus, Eye
 } from "lucide-react";
 import { getCompanyById } from "@/services/companyService.js"; // chỉnh path đúng nơi bạn đặt file
-import { getCompanyMembersPaged, getCompanyMemberOptions } from "@/services/projectService.js";
+import { getCompanyMembersPaged, getCompanyMemberOptions, createProject } from "@/services/projectService.js";
 /* === Workflow preview/designer === */
 import WorkflowMini from "@/components/Workflow/WorkflowMini";
 import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
@@ -563,7 +563,28 @@ export default function CreateProjectModal({
     if (step === 2 && !validate2()) return;
     if (step < 3) setStep((s) => (s + 1) as any);
     else {
-      // CHƯA gọi createProject ở bước này theo yêu cầu
+      try {
+    setSaving(true);
+
+    const payloadToPost: any = {
+      ...form,
+      workflowId: form.workflowId!, 
+    };
+    delete payloadToPost.workflowMode;
+    delete payloadToPost.workflowName;
+
+    // Nếu cha truyền onSubmit thì ưu tiên dùng callback
+   
+      await createProject(payloadToPost);
+
+    onClose(); // đóng modal sau khi tạo thành công
+  } catch (err: any) {
+    console.error("Create project failed:", err);
+    // TODO: gắn toast ở đây nếu bạn đang dùng thư viện toast
+    // toast.error(err?.response?.data?.message || err.message || "Create project failed");
+  } finally {
+    setSaving(false);
+  }
       onClose();
     }
   };

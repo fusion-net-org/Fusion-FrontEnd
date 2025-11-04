@@ -1,44 +1,16 @@
 // src/pages/home/ProjectsPage.tsx
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, X, LayoutGrid, Table2, KanbanSquare } from "lucide-react";
 import ProjectCard from "@/components/Company/Projects/ProjectCard";
 import type { Project, ProjectStatus } from "@/components/Company/Projects/ProjectCard";
 import KanbanColumn from "@/components/Company/Projects/KanbanColumn";
 import CreateProjectModal from "@/components/Company/ProjectCreate/CreateProjectModal";
 import type { ProjectCreatePayload } from "@/components/Company/ProjectCreate/CreateProjectModal";
+import { loadProjects as fetchProjects } from "@/services/projectService.js";
 
 /* Mock – replace with service */
-async function loadProjects(): Promise<Project[]> {
-  return [
-    {
-      id: "1",
-      code: "APP-MVP",
-      name: "Mobile App MVP",
-      description: "Outsourced build for partner",
-      ownerCompany: "Fusion Lab",
-      hiredCompany: "FPT Software",
-      workflow: "Fusion Lab — BugFix",
-      startDate: "2025-08-15",
-      endDate: null,
-      status: "Planned",
-      ptype: "Outsourced",
-    },
-    {
-      id: "2",
-      code: "FUS-PMS",
-      name: "Fusion PMS",
-      description: "Internal project management system",
-      ownerCompany: "FPT Software",
-      hiredCompany: null,
-      workflow: "FPT Software — Default",
-      startDate: "2025-09-01",
-      endDate: null,
-      status: "InProgress",
-      ptype: "Internal",
-    },
-  ];
-}
+
 
 /* Small inline atoms (keep page self-contained) */
 const Chip: React.FC<React.ComponentProps<"button"> & { active?: boolean }> = ({ active, className = "", ...rest }) => (
@@ -106,34 +78,51 @@ const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: num
 };
 
 export default function ProjectsPage() {
-  const nav = useNavigate();
+   const nav = useNavigate();
 
   const [all, setAll] = React.useState<Project[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // filters (no <select>)
-  const [filters, setFilters] = React.useState({ q: "", companies: [] as string[], statuses: [] as string[], types: [] as string[] });
+  const [filters, setFilters] = React.useState({
+    q: "",
+    companies: [] as string[],
+    statuses: [] as string[],
+    types: [] as string[],
+  });
   const [applied, setApplied] = React.useState(filters);
 
-  // sort segmented (no select)
   const [sort, setSort] = React.useState<"recent" | "start" | "name">("recent");
-
   const [mode, setMode] = React.useState<ViewMode>("cards");
   const [page, setPage] = React.useState(1);
   const pageSize = 8;
-
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const { companyId: routeCompanyId } = useParams();               
+  const companyId = routeCompanyId || localStorage.getItem("currentCompanyId"); // ✅
 
-  React.useEffect(() => {
+   React.useEffect(() => {
+    let alive = true;
     (async () => {
-      setLoading(true);
-      const data = await loadProjects();
-      setAll(data);
-      setLoading(false);
+      try {
+        setLoading(true);
+        if (!companyId) throw new Error("Missing companyId");       // ✅ tránh gọi sai route
+        const res = await fetchProjects({
+          companyId,                                                // ✅ dùng đúng route
+          pageSize: 200,                                            // lấy rộng để đủ filter client
+        });
+        if (!alive) return;
+        setAll(res.items);                                          // ✅ đã map đúng shape Project
+      } catch (err) {
+        console.error("[Projects] load error:", err);
+        setAll([]);                                                 // tránh crash UI
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
-  }, []);
+    return () => { alive = false; };
+  }, [companyId]);             
+  const uniq = <K extends keyof Project>(k: K) =>
+    Array.from(new Set(all.map((p) => (p[k] ?? "") as string))).filter(Boolean);
 
-  const uniq = <K extends keyof Project>(k: K) => Array.from(new Set(all.map((p) => (p[k] ?? "") as string))).filter(Boolean);
 
   // filter + sort
   const filtered = React.useMemo(() => {
