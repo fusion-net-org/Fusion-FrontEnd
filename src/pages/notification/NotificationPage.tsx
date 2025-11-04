@@ -5,6 +5,7 @@ import { Loader2, MoreVertical, Check, Settings } from 'lucide-react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import NotificationItem from '@/components/Notification/NotificationItem';
+import { useFCMListener } from '@/hook/useFCM';
 
 dayjs.extend(relativeTime);
 
@@ -57,7 +58,6 @@ const NotificationPage: React.FC = () => {
     }
   };
 
-  // ✅ MARK ALL AS READ
   const handleMarkAllAsRead = async () => {
     const unread = notifications.filter((x) => !x.isRead);
 
@@ -86,6 +86,10 @@ const NotificationPage: React.FC = () => {
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  useFCMListener(() => {
+    fetchNotifications();
+  });
 
   const filtered = useMemo(() => {
     return activeTab === 'unread' ? notifications.filter((x) => !x.isRead) : notifications;
@@ -206,7 +210,7 @@ const NotificationPage: React.FC = () => {
                   key={item.id}
                   onClick={() => handleNotificationClick(item)}
                   className={`flex items-start gap-3 px-6 py-4 cursor-pointer transition ${
-                    item.isRead ? 'hover:bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'
+                    item.isRead ? 'hover:bg-gray-50' : 'hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex-shrink-0">
