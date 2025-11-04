@@ -67,3 +67,13 @@ export const loginGG = async (data) => {
     throw new Error(message);
   }
 };
+
+export const confirmAccount = async (token) => {
+  try {
+    const response = await axiosInstance.put('/Authen/confirm-account', token);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
