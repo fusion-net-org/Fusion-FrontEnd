@@ -45,6 +45,7 @@ import OverviewCompanyPage from './pages/admin/companyManagement/OverviewCompany
 import CompanyListPage from './pages/admin/companyManagement/CompanyListPage';
 import UserDetailPage from './pages/admin/userManagement/UserDetailPage';
 import CompanyDetailPage from './pages/admin/companyManagement/CompanyDetailPage';
+import SubcriptionListPage from './pages/admin/subcriptionManagement/SubcriptionListPage';
 function App() {
   return (
     <>
@@ -85,7 +86,7 @@ function App() {
           <Route path="/admin/companies/list" element={<CompanyListPage />} />
           <Route path="/admin/companies/detail/:id" element={<CompanyDetailPage />} />
           <Route path="/admin/companies/detail" element={<CompanyDetailPage />} />
-          <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+          <Route path="/admin/subscriptions/list" element={<SubcriptionListPage />} />
           {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>
         {/* route company layout */}

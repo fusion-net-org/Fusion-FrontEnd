@@ -42,7 +42,7 @@ export const getCompaniesCreatedByMonth = async () => {
 
 export const getCompanyStatusCounts = async () => {
   try {
-    const response = await axiosInstance.delete(`/company/getCompanyStatusCounts`);
+    const response = await axiosInstance.get(`/company/getCompanyStatusCounts`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';
