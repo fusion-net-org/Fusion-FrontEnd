@@ -1,19 +1,27 @@
 // src/pages/admin/UserDetailPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin } from 'antd';
-import { getUserById } from '@/services/userService.js';
+import { getUserFullInfo } from '@/services/userService.js';
 
 export default function UserDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: paramId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
 
+  const id = paramId || localStorage.getItem('userDetailId');
+
   useEffect(() => {
+    if (!id) {
+      navigate('/admin/users/list');
+      return;
+    }
+
     const fetchUser = async () => {
       setLoading(true);
       try {
-        const res = await getUserById(id);
+        const res = await getUserFullInfo(id);
         if (res?.succeeded) setUser(res.data);
       } catch (err) {
         console.error(err);
@@ -21,8 +29,9 @@ export default function UserDetailPage() {
         setLoading(false);
       }
     };
-    if (id) fetchUser();
-  }, [id]);
+
+    fetchUser();
+  }, [id, navigate]);
 
   if (loading)
     return (
@@ -30,7 +39,8 @@ export default function UserDetailPage() {
         <Spin />
       </div>
     );
-  if (!user) return <div className="text-center text-gray-500">User not found.</div>;
+
+  if (!user) return <div className="text-center text-gray-500 mt-10">User not found.</div>;
 
   return (
     <div className="p-6 space-y-6">
@@ -42,7 +52,7 @@ export default function UserDetailPage() {
           <b>Status:</b> {user.status ? 'Active' : 'Inactive'}
         </p>
         <p>
-          <b>Created At:</b> {user.createdAt}
+          <b>Phone:</b> {user.phone}
         </p>
       </Card>
     </div>

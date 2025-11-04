@@ -28,11 +28,18 @@ type AdminNavProps = {
 export default function AdminNav({ collapsed }: AdminNavProps) {
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
   const [userDetailEnabled, setUserDetailEnabled] = useState(false);
+  const [companyDetailEnabled, setCompanyDetailEnabled] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    const enabled = localStorage.getItem('userDetailEnabled') === 'true';
-    setUserDetailEnabled(enabled);
+    const updateStates = () => {
+      setUserDetailEnabled(localStorage.getItem('userDetailEnabled') === 'true');
+      setCompanyDetailEnabled(localStorage.getItem('companyDetailEnabled') === 'true');
+    };
+
+    updateStates();
+    window.addEventListener('storage', updateStates);
+    return () => window.removeEventListener('storage', updateStates);
   }, [location.pathname]);
 
   const items: Item[] = [
@@ -58,9 +65,14 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       children: [
         { to: '/admin/companies/overview', label: 'Overview' },
         { to: '/admin/companies/list', label: 'Company list' },
-        { to: '/admin/companies/detail', label: 'Company detail' },
+        {
+          to: '/admin/companies/detail',
+          label: 'Company detail',
+          enabled: companyDetailEnabled,
+        },
       ],
     },
+
     {
       to: '/admin/projects',
       label: 'Project management',

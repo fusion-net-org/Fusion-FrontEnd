@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -140,6 +140,7 @@ export default function CompanyListPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [err, setErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -270,6 +271,13 @@ export default function CompanyListPage() {
         }
       },
     });
+  };
+
+  // handele view company detail
+  const handleView = (c: any) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', c.id);
+    navigate(`/admin/companies/detail/${c.id}`);
   };
 
   return (
@@ -468,7 +476,7 @@ export default function CompanyListPage() {
                           <button
                             className="p-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors"
                             title="View"
-                            onClick={() => setSelected(c)}
+                            onClick={() => handleView(c)}
                           >
                             <Eye className="w-4 h-4 text-blue-600" />
                           </button>

@@ -145,6 +145,7 @@ export default function UserListPage() {
   // handele view user detail
   const handleView = (u: AdminUser) => {
     localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', u.id);
     navigate(`/admin/users/detail/${u.id}`);
   };
 

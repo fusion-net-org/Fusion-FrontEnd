@@ -95,3 +95,12 @@ export const changePassword = async (data) => {
     throw new Error(message);
   }
 };
+
+export const getUserFullInfo = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/User/fullInfor/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};

@@ -27,6 +27,10 @@ const userSlice = createSlice({
     logoutUser: (state) => {
       state.user = null;
       localStorage.removeItem('user');
+      localStorage.removeItem('userDetailEnabled');
+      localStorage.removeItem('companyDetailEnabled');
+      localStorage.removeItem('userDetailId');
+      localStorage.removeItem('companyDetailId');
     },
     updateUserRedux: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
