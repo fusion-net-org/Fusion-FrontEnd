@@ -60,7 +60,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ toggleSidebar }) => {
         <div
           className={`${
             isApplicationMenuOpen ? 'flex' : 'hidden'
-          } w-full items-center justify-between gap-4 border-t border-gray-200 px-5 py-2 shadow-md lg:flex lg:justify-end lg:border-t-0 lg:px-0 lg:shadow-none`}
+          } w-full items-center justify-between gap-5 border-t border-gray-200 px-5 py-2 shadow-md lg:flex lg:justify-end lg:border-t-0 lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationDropdown />

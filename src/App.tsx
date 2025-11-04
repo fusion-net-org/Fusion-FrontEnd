@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Routes, Route } from 'react-router-dom';
 import Login from './pages/login/Login';
-import { ToastContainer } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ScrollToTop from './utils/ScrollToTop';
 import NotFound from './pages/notfound/NotFound';
@@ -38,7 +38,12 @@ import ProjectRequestDetail from './pages/home/ProjectRequestDetail';
 import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
+import { useFCMListener } from './hook/useFCM';
+
 function App() {
+  useFCMListener((notif: any) => {
+    console.log('Realtime FCM Notification:', notif);
+  });
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />
