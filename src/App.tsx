@@ -34,17 +34,14 @@ import WorkflowListPage from './pages/home/WorkflowListPage';
 import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
-<<<<<<< HEAD
 import ProjectDetailPage from './pages/project/ProjectDetailPage';
 import ProjectBoardPage from './pages/project/ProjectBoardPage';
-=======
 import ProjectRequestDetail from './pages/home/ProjectRequestDetail';
 import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
 
->>>>>>> 6042eaed227f723f5bda009e17ff0a1a8990fc69
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -87,20 +84,11 @@ function App() {
             element={<ProjectRequestDetail />}
           />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
-<<<<<<< HEAD
 <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
 <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
-=======
-          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-          <Route
-            path="/companies/:companyId/workflows/:workflowId"
-            element={<WorkflowDesignerPage />}
-          />
-          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
 
->>>>>>> 6042eaed227f723f5bda009e17ff0a1a8990fc69
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
           {/* CREATE */}
