@@ -15,6 +15,7 @@ import { DatePicker } from 'antd';
 import { toast } from 'react-toastify';
 import { getAllTransactionForAdmin } from '@/services/transactionService.js';
 import dayjs from 'dayjs';
+import { Modal, Descriptions } from 'antd';
 
 const { RangePicker } = DatePicker;
 
@@ -58,6 +59,9 @@ export default function TransactionListPage() {
   const dateTo = params.get('dateTo') || '';
   const amountMin = params.get('amountMin') || '';
   const amountMax = params.get('amountMax') || '';
+
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const patchParams = (patch: Record<string, string | number | undefined>) => {
     const next = new URLSearchParams(params);
@@ -315,7 +319,14 @@ export default function TransactionListPage() {
                 {!loading &&
                   !err &&
                   items.map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={t.id}
+                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        setSelectedTransaction(t);
+                        setIsModalOpen(true);
+                      }}
+                    >
                       <td className="px-6 py-4">
                         <div className="font-mono text-sm font-medium text-gray-900">
                           {t.transactionCode}
@@ -431,6 +442,94 @@ export default function TransactionListPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        title={
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800">Transaction Details</h2>
+          </div>
+        }
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        footer={null}
+        width={650}
+        className="transaction-modal"
+      >
+        {selectedTransaction ? (
+          <div className="p-2">
+            <Descriptions
+              bordered
+              column={1}
+              size="small"
+              labelStyle={{
+                width: 180,
+                backgroundColor: '#fafafa',
+                fontWeight: 500,
+              }}
+              contentStyle={{
+                backgroundColor: '#fff',
+              }}
+            >
+              <Descriptions.Item label="Transaction Code">
+                <span className="font-medium text-gray-800">
+                  {selectedTransaction.transactionCode}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="User Name">
+                <span className="font-medium text-gray-800">{selectedTransaction.userName}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="User ID">
+                <span className="text-gray-500">{selectedTransaction.userId}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Package Name">
+                <span className="font-medium text-gray-700">
+                  {selectedTransaction.packageName || '-'}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Amount">
+                <span className="text-green-600 font-semibold">
+                  $
+                  {selectedTransaction.amount.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Payment Method">
+                <span className="uppercase text-gray-600">
+                  {selectedTransaction.paymentMethod || '—'}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                    selectedTransaction.status,
+                  )}`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${getStatusDot(
+                      selectedTransaction.status,
+                    )}`}
+                  />
+                  {selectedTransaction.status}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Created At">
+                <span className="text-gray-700">
+                  {new Date(selectedTransaction.createdAt).toLocaleString()}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Updated At">
+                <span className="text-gray-700">
+                  {new Date(selectedTransaction.updatedAt).toLocaleString()}
+                </span>
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 py-4">No data available</p>
+        )}
+      </Modal>
     </>
   );
 }
