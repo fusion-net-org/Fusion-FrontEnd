@@ -254,50 +254,6 @@ export default function TransactionListPage() {
                 Reset
               </button>
             </div>
-
-            {/* Filters Row 2 - Date and Amount */}
-            {/* <div className="flex items-center gap-3">
-             
-              <div className="flex items-center gap-2 flex-1">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <RangePicker
-                  className="h-10 rounded-lg"
-                  value={[dateFrom ? dayjs(dateFrom) : null, dateTo ? dayjs(dateTo) : null]}
-                  onChange={(dates) => {
-                    patchParams({
-                      dateFrom: dates?.[0] ? dates[0].format('YYYY-MM-DD') : '',
-                      dateTo: dates?.[1] ? dates[1].format('YYYY-MM-DD') : '',
-                      page: 1,
-                    });
-                  }}
-                  placeholder={['From Date', 'To Date']}
-                />
-              </div>
-
-        
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-gray-400" />
-                <input
-                  type="number"
-                  className="w-32 h-10 px-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  placeholder="Min amount"
-                  value={amountMin}
-                  onChange={(e) => patchParams({ amountMin: e.target.value, page: 1 })}
-                  min="0"
-                  step="0.01"
-                />
-                <span className="text-gray-400">-</span>
-                <input
-                  type="number"
-                  className="w-32 h-10 px-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  placeholder="Max amount"
-                  value={amountMax}
-                  onChange={(e) => patchParams({ amountMax: e.target.value, page: 1 })}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            </div> */}
           </div>
 
           {/* Table */}

@@ -104,3 +104,34 @@ export const getUserFullInfo = async (id) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+export const getUserLogsByUser = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/UserLog/by-user/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const getAllOwnerCompanyByUser = async (userId) => {
+  try {
+    const res = await axiosInstance.get(`/company/owner/all-company`, {
+      params: { userId },
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error fetching owner companies!');
+  }
+};
+
+export const getAllMemberCompanyByUser = async (userId) => {
+  try {
+    const response = await axiosInstance.get('/company/member/all-company', {
+      params: { userId },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error fetching member companies!');
+  }
+};

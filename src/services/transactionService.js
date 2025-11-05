@@ -47,3 +47,12 @@ export const getAllTransactionForAdmin = async (filters = {}) => {
     throw new Error(error.response?.data?.message || 'Failed to get transaction list!');
   }
 };
+
+export const getTransactionByCode = async (code) => {
+  try {
+    const response = await axiosInstance.get(`/TransactionPayment/${code}`);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to get detail transaction!');
+  }
+};
