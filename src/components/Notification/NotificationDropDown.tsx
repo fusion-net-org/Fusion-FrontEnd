@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { GetNotificationsByUser, MarkNotificationAsRead } from '@/services/notification.js';
+import {
+  GetNotificationsByUser,
+  MarkNotificationAsRead,
+  DeleteNotification,
+} from '@/services/notification.js';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { MoreVertical, Check, Settings } from 'lucide-react';
@@ -48,6 +52,14 @@ const NotificationDropdown: React.FC = () => {
         ? item.linkUrlWeb
         : `${baseUrl}${item.linkUrlWeb}`;
       window.location.href = url;
+    }
+  };
+  const handleDelete = async (id: string) => {
+    try {
+      await DeleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      console.log(err);
     }
   };
 
@@ -182,7 +194,7 @@ const NotificationDropdown: React.FC = () => {
                   key={item.id}
                   item={item}
                   onMarkRead={() => markAsReadOnly(item.id)}
-                  onDelete={() => console.log('Delete')}
+                  onDelete={() => handleDelete(item.id)}
                   onTurnOff={() => console.log('Turn Off')}
                 >
                   <div
