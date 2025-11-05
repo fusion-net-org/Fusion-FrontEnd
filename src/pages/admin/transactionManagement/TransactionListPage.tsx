@@ -80,7 +80,7 @@ export default function TransactionListPage() {
     patchParams({
       q: '',
       status: 'All',
-      sort: 'PaymentDate',
+      sort: 'TransactionCode',
       dir: 'desc',
       page: 1,
       pageSize,
