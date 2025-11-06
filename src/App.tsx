@@ -41,7 +41,7 @@ import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
-
+import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -78,16 +78,23 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
+          <Route
+            path="/companies/:companyId/project-company-request"
+            element={<ProjectsCompanyRequest />}
+          />
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route
             path="/company/:companyId/project-request/:id"
             element={<ProjectRequestDetail />}
           />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
-<Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
-<Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
+          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
+          <Route
+            path="/companies/:companyId/workflows/:workflowId"
+            element={<WorkflowDesignerPage />}
+          />
+          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
+          <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
