@@ -17,6 +17,7 @@ import {
   Contact,
   ClipboardList,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import { getCompanyById } from '@/services/companyService.js';
 import { getOwnerUser } from '@/services/userService.js';
@@ -104,7 +105,7 @@ const CompanyDetails: React.FC = () => {
               alt="avatar"
               className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg object-cover"
             />
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-2">
               <h1 className="text-3xl font-bold text-gray-800">{company?.name}</h1>
 
               <p className="text-gray-500">
@@ -256,26 +257,37 @@ const CompanyDetails: React.FC = () => {
                 >
                   <Edit className="w-4 h-4" /> Edit
                 </button>
-              ) : (
-                <></>
-              )}
+              ) : null}
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2 text-gray-700">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span>{company?.email}</span>
+
+            {/* Contact Info - 4 dòng dọc */}
+            <div className="space-y-5">
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" /> Email
+                </p>
+                <p className="font-medium text-gray-800 break-all">{company?.email || '—'}</p>
               </div>
-              <div className="flex items-center space-x-2 text-gray-700">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span>{company?.phoneNumber}</span>
+
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" /> Phone Number
+                </p>
+                <p className="font-medium text-gray-800">{company?.phoneNumber || '—'}</p>
               </div>
-              <div className="flex items-center space-x-2 text-gray-700">
-                <Globe className="w-4 h-4 text-gray-400" />
-                <span>{company?.website}</span>
+
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-gray-400" /> Website
+                </p>
+                <p className="font-medium text-gray-800 break-all">{company?.website || '—'}</p>
               </div>
-              <div className="flex items-center space-x-2 text-gray-700">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span>{company?.address}</span>
+
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-400" /> Address
+                </p>
+                <p className="font-medium text-gray-800">{company?.address || '—'}</p>
               </div>
             </div>
           </div>
@@ -304,6 +316,101 @@ const CompanyDetails: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* === Biểu đồ Dashboard === */}
+          <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Biểu đồ 1: Project Performance Overview */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                {company?.name} Project Performance Overview
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={[
+                    { name: 'On-Time Release', value: 85 },
+                    { name: 'Completed Projects', value: company?.totalApproved ?? 40 },
+                    { name: 'Inprogress Projects', value: 20 },
+                    { name: 'Close Projects', value: 5 },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#6366F1" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Biểu đồ 2: Thành viên theo vai trò */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                Company Members by Role
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={[
+                    { role: 'Developer', count: 10 },
+                    { role: 'Manager', count: 3 },
+                    { role: 'QA', count: 2 },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="role" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10B981" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Biểu đồ 3: Dự án tự tạo vs được thuê */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                Projects Created vs Hired
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={[
+                    { type: 'Created', count: 5 },
+                    { type: 'Hired', count: 8 },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Biểu đồ 4: Yêu cầu dự án gửi đi / nhận về */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                Project Requests Sent vs Received
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={[
+                    { type: 'Sent', count: 4 },
+                    { type: 'Received', count: 6 },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           {/* Google Map Section */}
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6 col-span-1 lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">
