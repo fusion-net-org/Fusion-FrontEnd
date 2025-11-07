@@ -16,6 +16,9 @@ import {
   Image,
   Contact,
   ClipboardList,
+  Check,
+  XCircle,
+  Clock,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { CompanyRequest } from '@/interfaces/Company/company';
@@ -27,6 +30,7 @@ import UpdateCompany from '@/components/Company/UpdateCompany';
 import InvitePartner from '@/components/Partner/InvitePartner';
 import DeleteCompany from '@/components/Company/DeleteCompany';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import type { CompanyRole } from '@/interfaces/Company/company';
 
 const CompanyDetails: React.FC = () => {
   const [company, setCompany] = useState<CompanyRequest>();
@@ -37,6 +41,7 @@ const CompanyDetails: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<'overview' | 'image' | 'contact' | null>(
     null,
   );
+
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [openInviteModal, setOpenInviteModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -58,6 +63,7 @@ const CompanyDetails: React.FC = () => {
 
       const response = await getCompanyById(companyId);
       const data: CompanyRequest = response.data;
+      console.log('Data', data);
       setCompany(data);
     } catch (error: any) {
       console.log(error.message);
@@ -144,7 +150,7 @@ const CompanyDetails: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 mb-4">
                 <UserIcon className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-800">Overview</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-auto">Overview</h2>
               </div>
               {company?.ownerUserId == userId ? (
                 <button
@@ -194,7 +200,7 @@ const CompanyDetails: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 mb-4">
                 <Image className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-800">Image Company</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-auto">Image Company</h2>
               </div>
               {company?.ownerUserId == userId ? (
                 <button
@@ -241,7 +247,7 @@ const CompanyDetails: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 mb-4">
                 <ClipboardList className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-800">Information Contact</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-auto">Information Contact</h2>
               </div>
               {company?.ownerUserId == userId ? (
                 <button
@@ -296,7 +302,7 @@ const CompanyDetails: React.FC = () => {
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6">
             <div className="flex items-center gap-2 mb-4">
               <Contact className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-800">Projects Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-auto">Projects Information</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
@@ -317,22 +323,23 @@ const CompanyDetails: React.FC = () => {
             </div>
           </div>
 
-          {/* === Biểu đồ Dashboard === */}
+          {/* ===Dashboard === */}
           <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Biểu đồ 1: Project Performance Overview */}
+            {/* Chart 1 Performance project */}
             <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
               <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
                 {company?.name} Project Performance Overview
               </h3>
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={[
-                    { name: 'On-Time Release', value: 85 },
-                    { name: 'Completed Projects', value: company?.totalApproved ?? 40 },
-                    { name: 'Inprogress Projects', value: 20 },
-                    { name: 'Close Projects', value: 5 },
+                    { name: 'On-Time', value: company?.onTimeRelease ?? 0 },
+                    { name: 'Ongoing', value: company?.totalOngoingProjects ?? 0 },
+                    { name: 'Completed', value: company?.totalCompletedProjects ?? 0 },
+                    { name: 'Closed', value: company?.totalClosedProjects ?? 0 },
+                    { name: 'Late', value: company?.totalLateProjects ?? 0 },
                   ]}
-                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 20 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -343,18 +350,18 @@ const CompanyDetails: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Biểu đồ 2: Thành viên theo vai trò */}
             <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
               <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
                 Company Members by Role
               </h3>
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  data={[
-                    { role: 'Developer', count: 10 },
-                    { role: 'Manager', count: 3 },
-                    { role: 'QA', count: 2 },
-                  ]}
+                  data={
+                    company?.companyRoles?.map((role: any) => ({
+                      role: role.roleName,
+                      count: role.totalMembers,
+                    })) ?? []
+                  }
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -366,7 +373,7 @@ const CompanyDetails: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Biểu đồ 3: Dự án tự tạo vs được thuê */}
+            {/* Chart 3 project create and hired */}
             <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
               <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
                 Projects Created vs Hired
@@ -374,8 +381,8 @@ const CompanyDetails: React.FC = () => {
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart
                   data={[
-                    { type: 'Created', count: 5 },
-                    { type: 'Hired', count: 8 },
+                    { type: 'Created', count: company?.totalProjectCreated ?? 0 },
+                    { type: 'Hired', count: company?.totalProjectHired ?? 0 },
                   ]}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
@@ -388,7 +395,7 @@ const CompanyDetails: React.FC = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Biểu đồ 4: Yêu cầu dự án gửi đi / nhận về */}
+            {/* Chart 4 project request send and receive */}
             <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
               <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
                 Project Requests Sent vs Received
@@ -396,15 +403,27 @@ const CompanyDetails: React.FC = () => {
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart
                   data={[
-                    { type: 'Sent', count: 4 },
-                    { type: 'Received', count: 6 },
+                    {
+                      type: 'Sent',
+                      count: company?.totalProjectRequestSent ?? 0,
+                      accepted: company?.totalProjectRequestAcceptSent ?? 0,
+                      rejected: company?.totalProjectRequestRejectSent ?? 0,
+                      pending: company?.totalProjectRequestPendingSent ?? 0,
+                    },
+                    {
+                      type: 'Received',
+                      count: company?.totalProjectRequestReceive ?? 0,
+                      accepted: company?.totalProjectRequestAcceptReceive ?? 0,
+                      rejected: company?.totalProjectRequestRejectReceive ?? 0,
+                      pending: company?.totalProjectRequestPendingReceive ?? 0,
+                    },
                   ]}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="type" tick={{ fontSize: 12 }} />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -462,6 +481,39 @@ const CompanyDetails: React.FC = () => {
       </div>
     </>
   );
+};
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length > 0) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-3 rounded-lg shadow text-sm border border-gray-100 space-y-1">
+        <p className="font-semibold text-gray-700">{label}</p>
+
+        <p>
+          Total: <span className="font-medium">{data.count}</span>
+        </p>
+
+        <div className="flex items-center gap-1 text-green-600">
+          <CheckCircle className="h-4 w-4" />
+          <span>Accepted:</span>
+          <span className="font-medium">{data.accepted}</span>
+        </div>
+
+        <div className="flex items-center gap-1 text-red-600">
+          <XCircle className="h-4 w-4" />
+          <span>Rejected:</span>
+          <span className="font-medium">{data.rejected}</span>
+        </div>
+
+        <div className="flex items-center gap-1 text-yellow-600">
+          <Clock className="h-4 w-4" />
+          <span>Pending:</span>
+          <span className="font-medium">{data.pending}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
 };
 
 export default CompanyDetails;
