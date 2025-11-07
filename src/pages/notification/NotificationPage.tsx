@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { GetNotificationsByUser, MarkNotificationAsRead } from '@/services/notification.js';
+import {
+  GetNotificationsByUser,
+  MarkNotificationAsRead,
+  DeleteNotification,
+} from '@/services/notification.js';
 import { Loader2, MoreVertical, Check, Settings } from 'lucide-react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -48,7 +52,14 @@ const NotificationPage: React.FC = () => {
       setLoading(false);
     }
   };
-
+  const handleDelete = async (id: string) => {
+    try {
+      await DeleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      console.log(err);
+    }
+  };
   const handleMarkAsRead = async (id: string) => {
     try {
       await MarkNotificationAsRead(id);
@@ -203,7 +214,7 @@ const NotificationPage: React.FC = () => {
                 key={item.id}
                 item={item}
                 onMarkRead={handleMarkAsRead}
-                onDelete={() => console.log('Delete')}
+                onDelete={() => handleDelete(item.id)}
                 onTurnOff={() => console.log('TurnOFF')}
               >
                 <div

@@ -26,3 +26,12 @@ export const SendNotification = async (data) => {
     throw error;
   }
 };
+//https://localhost:7160/api/notifications/53412F32-E7E4-4906-93F5-21E12208CE4A
+export const DeleteNotification = async (notificationId) => {
+  try {
+    const res = await axiosInstance.delete(`/notifications/${notificationId}`);
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};
