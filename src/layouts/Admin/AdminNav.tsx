@@ -87,10 +87,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       to: '/admin/notifications',
       label: 'Notification management',
       icon: Bell,
-      children: [
-        { to: '/admin/notifications/overview', label: 'Overview' },
-        { to: '/admin/notifications/list', label: 'Notification list' },
-      ],
+      children: [{ to: '/admin/notifications/list', label: 'Notification list' }],
     },
     {
       to: '/admin/subscriptions',
@@ -138,7 +135,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700/50">
+      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto no-scrollbar">
         {items.map((item) => {
           const Icon = item.icon;
           const hasChildren = !!item.children?.length;
@@ -151,7 +148,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
                 {/* Menu cha */}
                 <button
                   onClick={() => toggleMenu(item.to)}
-                  className={`relative flex items-center w-full gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                  className={`relative flex items-center w-full gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
                     ${
                       isParentActive
                         ? 'bg-blue-600/20 text-white ring-1 ring-blue-500'
@@ -183,7 +180,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
                         key={sub.to}
                         to={sub.enabled === false ? '#' : sub.to}
                         className={({ isActive }) =>
-                          `block px-3 py-1.5 rounded-md text-sm transition-colors w-[140px] ${
+                          `block px-3 py-1.5 rounded-md text-xs transition-colors w-[140px] ${
                             sub.enabled === false
                               ? 'text-gray-600 cursor-not-allowed'
                               : isActive
@@ -210,7 +207,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                `relative flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
                   ${
                     isActive
                       ? 'bg-blue-600/20 text-white ring-1 ring-blue-500'
