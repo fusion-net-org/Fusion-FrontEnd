@@ -50,7 +50,6 @@ const EditProjectRequestModal: React.FC<EditProjectRequestModalProps> = ({
   });
 
   const [loading, setLoading] = useState(false);
-  console.log(project);
   useEffect(() => {
     if (project) {
       setForm({

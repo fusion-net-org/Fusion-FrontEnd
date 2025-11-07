@@ -25,13 +25,16 @@ import type { IProjectRequset } from '@/interfaces/ProjectRequest/projectRequest
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import EditProjectRequestModal from '@/components/ProjectRequest/EditProjectRequestModal';
+import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProjectModal';
+import { createProject } from '@/services/projectService.js';
 
 export default function ProjectRequestDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const viewMode = (location.state as { viewMode?: string })?.viewMode ?? 'AsRequester';
-  const { id } = useParams<{ companyId: string; id: string }>();
+  const { companyId, id } = useParams<{ companyId: string; id: string }>();
 
+  const [projectCreateModalOpen, setProjectCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [projectRequest, setProjectRequest] = useState<IProjectRequset>();
   const [companyRequest, setCompanyRequest] = useState<CompanyRequest>();
@@ -257,9 +260,7 @@ export default function ProjectRequestDetail() {
                       color="green"
                       label="Create New Project Now"
                       icon={<CheckCircle2 />}
-                      onClick={() => {
-                        toast.success('Create Project Successfully');
-                      }}
+                      onClick={() => setProjectCreateModalOpen(true)}
                     />
                   )}
                 </div>
@@ -279,6 +280,31 @@ export default function ProjectRequestDetail() {
             onClose={() => setEditModalOpen(false)}
             project={projectRequest ?? null}
             onSuccess={() => fetchData()}
+          />
+          <CreateProjectModal
+            open={projectCreateModalOpen}
+            onClose={() => setProjectCreateModalOpen(false)}
+            companyName={companyExecutor?.name}
+            defaultValues={{
+              code: projectRequest?.code,
+              name: projectRequest?.projectName,
+              description: projectRequest?.description,
+              startDate: projectRequest?.startDate,
+              endDate: projectRequest?.endDate,
+              companyHiredId: companyExecutor?.id,
+              companyId: companyRequest?.id,
+            }}
+            onSubmit={async (payload) => {
+              try {
+                const createdProject = await createProject(payload);
+                toast.success('Project created successfully!');
+                setProjectCreateModalOpen(false);
+                navigate(`/companies/${companyId}/project/${createdProject.id}`);
+              } catch (err: any) {
+                console.error('Create project failed:', err);
+                toast.error(err?.response?.data?.message || 'Failed to create project');
+              }
+            }}
           />
         </div>
       )}
