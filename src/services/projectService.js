@@ -1,13 +1,10 @@
 // src/services/companyMemberService.js
-import { axiosInstance } from "@/apiConfig";
+import { axiosInstance } from '@/apiConfig';
 
 const isGuid = (s) =>
   !!s && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
 export async function getCompanyMembersPaged(companyId, params = {}) {
-  const { data } = await axiosInstance.get(
-    `/companymember/paged/${companyId}`,
-    { params }
-  );
+  const { data } = await axiosInstance.get(`/companymember/paged/${companyId}`, { params });
 
   const payload = data?.data ?? data ?? {};
   const items = Array.isArray(payload.items) ? payload.items : [];
@@ -18,13 +15,13 @@ export async function getCompanyMembersPaged(companyId, params = {}) {
     companyId: r.companyId,
     companyName: r.companyName,
     memberId: r.memberId,
-    memberName: r.memberName || r.email || "Unknown",
+    memberName: r.memberName || r.email || 'Unknown',
     memberAvatar: r.memberAvatar || null,
-    email: r.email || "",
-    phone: r.phone || r.memberPhoneNumber || "",
-    gender: r.gender || "",
-    roleName: r.roleName || "",
-    status: r.status || (r.isDeleted ? "Inactive" : "Active"),
+    email: r.email || '',
+    phone: r.phone || r.memberPhoneNumber || '',
+    gender: r.gender || '',
+    roleName: r.roleName || '',
+    status: r.status || (r.isDeleted ? 'Inactive' : 'Active'),
     joinedAt: r.joinedAt,
   }));
 
@@ -36,32 +33,36 @@ export async function getCompanyMembersPaged(companyId, params = {}) {
   };
 }
 const normStatus = (s) => {
-  const v = String(s || "").toLowerCase();
-  if (["inprogress", "in_progress", "in-progress"].includes(v)) return "InProgress";
-  if (["onhold", "on_hold", "on-hold"].includes(v)) return "OnHold";
-  if (["completed", "done"].includes(v)) return "Completed";
-  return "Planned";
+  const v = String(s || '').toLowerCase();
+  if (['inprogress', 'in_progress', 'in-progress'].includes(v)) return 'InProgress';
+  if (['onhold', 'on_hold', 'on-hold'].includes(v)) return 'OnHold';
+  if (['completed', 'done'].includes(v)) return 'Completed';
+  return 'Planned';
 };
 
 /* Nhận đủ các kiểu date (DateOnly, string ISO, ticks…) => 'yyyy-MM-dd' */
 const toDateStr = (v) => {
   if (!v) return null;
-  if (typeof v === "string") return v.length >= 10 ? v.slice(0, 10) : v;
-  if (typeof v === "object" && "year" in v && "month" in v && "day" in v) {
-    const m = String(v.month).padStart(2, "0");
-    const d = String(v.day).padStart(2, "0");
+  if (typeof v === 'string') return v.length >= 10 ? v.slice(0, 10) : v;
+  if (typeof v === 'object' && 'year' in v && 'month' in v && 'day' in v) {
+    const m = String(v.month).padStart(2, '0');
+    const d = String(v.day).padStart(2, '0');
     return `${v.year}-${m}-${d}`;
   }
-  try { return new Date(v).toISOString().slice(0, 10); } catch { return null; }
+  try {
+    return new Date(v).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
 };
 
 /* Map bất chấp DTO backend khác tên */
 const mapItemToProject = (r) => ({
   id: String(r.id),
-  code: r.code || "",
-  name: r.name || "",
-  description: r.description || "",
-  ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || "",
+  code: r.code || '',
+  name: r.name || '',
+  description: r.description || '',
+  ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
   hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
   workflow:
     r.workflow ||
@@ -72,7 +73,7 @@ const mapItemToProject = (r) => ({
   startDate: toDateStr(r.startDate),
   endDate: toDateStr(r.endDate),
   status: normStatus(r.status),
-  ptype: r.isHired ? "Outsourced" : "Internal",
+  ptype: r.isHired ? 'Outsourced' : 'Internal',
 });
 
 /**
@@ -83,29 +84,29 @@ export async function loadProjects({
   companyId,
   q,
   statuses = [],
-  sort = "recent",
+  sort = 'recent',
   pageNumber = 1,
   pageSize = 50,
 } = {}) {
-  if (!companyId) throw new Error("companyId is required");
+  if (!companyId) throw new Error('companyId is required');
 
   const params = { q, sort, pageNumber, pageSize };
   // Đẩy mảng statuses dạng repeated key: ?statuses=A&statuses=B
   const paramsSerializer = (p) => {
     const usp = new URLSearchParams();
     Object.entries(p).forEach(([k, v]) => {
-      if (v == null || v === "") return;
-      if (Array.isArray(v)) v.forEach(x => usp.append(k, x));
+      if (v == null || v === '') return;
+      if (Array.isArray(v)) v.forEach((x) => usp.append(k, x));
       else usp.append(k, String(v));
     });
-    statuses.forEach(s => usp.append("statuses", s));
+    statuses.forEach((s) => usp.append('statuses', s));
     return usp.toString();
   };
 
-  const { data } = await axiosInstance.get(
-    `/companies/${companyId}/projects`,
-    { params, paramsSerializer }
-  );
+  const { data } = await axiosInstance.get(`/companies/${companyId}/projects`, {
+    params,
+    paramsSerializer,
+  });
 
   const payload = data?.data ?? data ?? {};
   const items = Array.isArray(payload.items)
@@ -126,38 +127,40 @@ export async function getCompanyMemberOptions(companyId, params = {}) {
   return res.items.map((m) => ({
     id: String(m.memberId),
     label: m.memberName,
-    sub: m.roleName || m.email || "",
+    sub: m.roleName || m.email || '',
   }));
 }
 export async function createProject(payload) {
   const {
     companyId,
     isHired,
-    companyHiredId,
+    companyRequestId,
+    projectRequestId,
     code,
     name,
     description,
     status,
-    startDate,          // 'yyyy-MM-dd'
-    endDate,            // 'yyyy-MM-dd'
-    sprintLengthWeeks,  // int >= 1 (bỏ nếu BE không dùng)
-    workflowId,         // GUID
+    startDate, // 'yyyy-MM-dd'
+    endDate, // 'yyyy-MM-dd'
+    sprintLengthWeeks, // int >= 1 (bỏ nếu BE không dùng)
+    workflowId, // GUID
     memberIds,
   } = payload;
 
-  if (!isGuid(companyId)) throw new Error("Invalid companyId");
-  if (!isGuid(workflowId)) throw new Error("Invalid workflowId");
+  if (!isGuid(companyId)) throw new Error('Invalid companyId');
+  if (!isGuid(workflowId)) throw new Error('Invalid workflowId');
 
   const dto = {
     companyId,
     isHired: !!isHired,
-    companyHiredId: isGuid(companyHiredId) ? companyHiredId : null,
+    companyRequestId: isGuid(companyRequestId) ? companyRequestId : null,
+    projectRequestId: isGuid(projectRequestId) ? projectRequestId : null,
     code: code?.trim(),
     name: name?.trim(),
     description: description?.trim() || null,
     status,
-    startDate,          // giữ nguyên yyyy-MM-dd
-    endDate,            // giữ nguyên yyyy-MM-dd
+    startDate, // giữ nguyên yyyy-MM-dd
+    endDate, // giữ nguyên yyyy-MM-dd
     sprintLengthWeeks,
     workflowId,
     memberIds: (memberIds || []).filter(isGuid),
