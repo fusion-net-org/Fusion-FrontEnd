@@ -35,7 +35,8 @@ type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
 export type ProjectCreatePayload = {
   companyId: Id | null;
   isHired: boolean;
-  companyHiredId: Id | null;
+  companyRequestId: Id | null;
+  projectRequestId: Id | null;
   code: string;
   name: string;
   description: string;
@@ -101,7 +102,6 @@ function OptionList({
           o.sub?.toLowerCase().includes(q.toLowerCase()),
       )
     : options;
-
   return (
     <div className="relative" ref={ref}>
       <button
@@ -560,6 +560,7 @@ export default function CreateProjectModal({
   const canUseCompany = isGuid(companyId);
   // Nhãn hiển thị ở ô Company (ưu tiên prop companyName, nếu không thì fetch theo companyId)
   const [companyLabel, setCompanyLabel] = React.useState(companyName ?? '');
+  console.log('DefaultValue', defaultValues);
 
   // Lấy tên company khi mở modal / đổi companyId
   React.useEffect(() => {
@@ -605,7 +606,9 @@ export default function CreateProjectModal({
       setForm((prev) => ({
         ...prev,
         companyId: defaultValues.companyId ?? prev.companyId,
-        companyHiredId: defaultValues.companyHiredId ?? prev.companyHiredId,
+        companyRequestId: defaultValues.companyRequestId ?? prev.companyRequestId,
+        projectRequestId: defaultValues.projectRequestId ?? prev.projectRequestId,
+        // companyHiredId: defaultValues.companyHiredId ?? prev.companyHiredId,
         code: defaultValues.code ?? prev.code,
         name: defaultValues.name ?? prev.name,
         description: defaultValues.description ?? prev.description,
@@ -668,8 +671,9 @@ export default function CreateProjectModal({
   const [workflowSelectedName, setWorkflowSelectedName] = React.useState<string>('');
   const [form, setForm] = React.useState<ProjectCreatePayload>({
     companyId: defaultValues?.companyId ?? companyId, // gán ngay từ URL
-    isHired: false,
-    companyHiredId: defaultValues?.companyHiredId ?? null,
+    isHired: defaultValues?.isHire ?? false,
+    companyRequestId: defaultValues?.companyRequestId ?? null,
+    projectRequestId: defaultValues?.projectRequestId ?? null,
     code: defaultValues?.code ?? '',
     name: defaultValues?.name ?? '',
     description: defaultValues?.description ?? '',
@@ -732,7 +736,7 @@ export default function CreateProjectModal({
     if (form.companyId && !isGuid(form.companyId)) e.companyId = 'Invalid company id.';
     if (!form.code.trim()) e.code = 'Project code is required.';
     if (!form.name.trim()) e.name = 'Project name is required.';
-    if (form.isHired && !form.companyHiredId) e.companyHiredId = 'Select hired company.';
+    // if (form.isHired && !form.companyHiredId) e.companyHiredId = 'Select hired company.';
     if (!form.startDate) e.startDate = 'Start date is required.';
     if (!form.endDate) e.endDate = 'End date is required.';
     if (form.startDate && form.endDate && form.endDate < form.startDate)
@@ -943,8 +947,8 @@ export default function CreateProjectModal({
                 {form.isHired && (
                   <Field label="Hired company" required>
                     <OptionList
-                      value={form.companyHiredId}
-                      onChange={(v) => set('companyHiredId', v)}
+                      value={form.companyRequestId}
+                      onChange={(v) => set('companyRequestId', v)}
                       options={[
                         { id: 'p1', label: 'Partner A' },
                         { id: 'p2', label: 'Partner B' },
@@ -952,8 +956,8 @@ export default function CreateProjectModal({
                       ]}
                       placeholder="Select partner company"
                     />
-                    {errors.companyHiredId && (
-                      <p className="mt-1 text-xs text-rose-500">{errors.companyHiredId}</p>
+                    {errors.companyRequestId && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.companyRequestId}</p>
                     )}
                   </Field>
                 )}

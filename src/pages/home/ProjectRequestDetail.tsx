@@ -64,7 +64,6 @@ export default function ProjectRequestDetail() {
       setAccepting(false);
     }
   };
-
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -291,8 +290,10 @@ export default function ProjectRequestDetail() {
               description: projectRequest?.description,
               startDate: projectRequest?.startDate,
               endDate: projectRequest?.endDate,
-              companyHiredId: companyExecutor?.id,
-              companyId: companyRequest?.id,
+              companyRequestId: companyRequest?.id,
+              companyId: companyExecutor?.id,
+              isHire: true,
+              projectRequestId: id,
             }}
             onSubmit={async (payload) => {
               try {
