@@ -42,7 +42,6 @@ export const GetProjectRequestByCompanyId = async (
     return { data: { items: [], totalCount: 0, pageNumber: 1, pageSize: 10 } };
   }
 };
-//https://localhost:7160/api/projectrequest/companies/16AB11C0-D1CE-49F6-924B-B9235D5B9ACD/partners/DE562EA1-F67A-45CB-92A1-1199C1BC09E6
 
 export const GetProjectRequestByCompanyIdAndPartnerId = async (
   companyId,
@@ -91,7 +90,6 @@ export const GetProjectRequestByCompanyIdAndPartnerId = async (
   }
 };
 
-//https://localhost:7160/api/projectrequest/752BD235-4246-4990-AEFD-48F58DDF8711/accept
 export const AcceptProjectRequest = async (id) => {
   try {
     const response = await axiosInstance.post(`/projectrequest/${id}/accept`);
@@ -169,7 +167,6 @@ export const GetProjectRequestById = async (id) => {
   }
 };
 
-// https://localhost:7160/api/projectrequest/{id}
 export const EditProjectRequest = async (id, data) => {
   try {
     const params = new URLSearchParams();
@@ -187,6 +184,38 @@ export const EditProjectRequest = async (id, data) => {
     return response.data;
   } catch (error) {
     console.error('Error in EditProjectRequest:', error);
+    return (
+      error.response?.data || {
+        succeeded: false,
+        message: 'Unexpected error occurred',
+      }
+    );
+  }
+};
+
+export const DeleteProjectRequest = async (id, reason = '') => {
+  try {
+    const response = await axiosInstance.delete(`/projectrequest/${id}`, {
+      params: { reason },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error in DeleteProjectRequest:', error);
+    return (
+      error.response?.data || {
+        succeeded: false,
+        message: 'Unexpected error occurred',
+      }
+    );
+  }
+};
+
+export const RestoreProjectRequest = async (id) => {
+  try {
+    const response = await axiosInstance.post(`/projectrequest/${id}/restore`);
+    return response.data;
+  } catch (error) {
+    console.error('Error in RestoreProjectRequest:', error);
     return (
       error.response?.data || {
         succeeded: false,

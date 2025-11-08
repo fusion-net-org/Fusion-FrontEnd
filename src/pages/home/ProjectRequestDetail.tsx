@@ -27,13 +27,17 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import EditProjectRequestModal from '@/components/ProjectRequest/EditProjectRequestModal';
 import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProjectModal';
 import { createProject } from '@/services/projectService.js';
+import { DeleteProjectRequest, RestoreProjectRequest } from '@/services/projectRequest.js';
+import DeleteProjectRequestModal from '@/components/ProjectRequest/DeleteProjectRequestModal';
 
 export default function ProjectRequestDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const viewMode = (location.state as { viewMode?: string })?.viewMode ?? 'AsRequester';
   const { companyId, id } = useParams<{ companyId: string; id: string }>();
-
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedDeleteProjectId, setSelectedDeleteProjectId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [projectCreateModalOpen, setProjectCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [projectRequest, setProjectRequest] = useState<IProjectRequset>();
@@ -47,6 +51,7 @@ export default function ProjectRequestDetail() {
     setSelectedProjectId(id);
     setRejectModalOpen(true);
   };
+  const isDeleted = projectRequest?.isDeleted ?? false;
 
   const handleAccept = async () => {
     try {
@@ -64,6 +69,30 @@ export default function ProjectRequestDetail() {
       setAccepting(false);
     }
   };
+
+  const handleRestore = async () => {
+    try {
+      setDeleting(true);
+      const res = await RestoreProjectRequest(id);
+      if (res.succeeded) {
+        toast.success('Project request restored successfully!');
+        fetchData();
+      } else {
+        toast.error(res.message || 'Failed to restore project request');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || 'Failed to restore project request');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openDeleteModal = (id: string) => {
+    setSelectedDeleteProjectId(id);
+    setDeleteModalOpen(true);
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -215,27 +244,51 @@ export default function ProjectRequestDetail() {
                 {companyExecutor && <CompanyPerformanceChart companyName={companyExecutor.name} />}
               </div>
 
-              {/* ACTIONS */}
-              {viewMode === 'AsExecutor' && projectRequest?.status === 'Pending' && (
-                <div className="flex justify-end gap-4 pt-6 border-t">
-                  <ActionButton
-                    color="green"
-                    label="Accept Invitation"
-                    icon={<CheckCircle2 />}
-                    onClick={handleAccept}
-                  />
-                  <ActionButton
-                    color="red"
-                    label="Decline"
-                    icon={<XCircle />}
-                    onClick={openRejectModal}
-                  />
-                </div>
-              )}
-              {/* http://localhost:5173/companies/16ab11c0-d1ce-49f6-924b-b9235d5b9acd/project */}
-              {projectRequest?.status === 'Accepted' && (
-                <div className="flex justify-end gap-4 pt-6 border-t">
-                  {projectRequest?.isHaveProject ? (
+              <div className="flex justify-end gap-4 pt-6 border-t">
+                {/* Delete / Restore */}
+                {(viewMode === 'AsRequester' || viewMode === 'AsExecutor') &&
+                  projectRequest &&
+                  (!projectRequest.isDeleted ? (
+                    <ActionButton
+                      color="red"
+                      label={deleting ? 'Deleting...' : 'Delete'}
+                      icon={<XCircle />}
+                      onClick={() => openDeleteModal(projectRequest.id)}
+                      disabled={deleting}
+                    />
+                  ) : (
+                    <ActionButton
+                      color="green"
+                      label={deleting ? 'Restoring...' : 'Restore'}
+                      icon={<CheckCircle2 />}
+                      onClick={handleRestore}
+                      disabled={deleting}
+                    />
+                  ))}
+
+                {/* Accept / Decline */}
+                {viewMode === 'AsExecutor' && projectRequest?.status === 'Pending' && (
+                  <>
+                    <ActionButton
+                      color="green"
+                      label="Accept Invitation"
+                      icon={<CheckCircle2 />}
+                      onClick={handleAccept}
+                      disabled={isDeleted}
+                    />
+                    <ActionButton
+                      color="red"
+                      label="Decline"
+                      icon={<XCircle />}
+                      onClick={openRejectModal}
+                      disabled={isDeleted}
+                    />
+                  </>
+                )}
+
+                {/* Navigate / Create Project */}
+                {projectRequest?.status === 'Accepted' &&
+                  (projectRequest?.isHaveProject ? (
                     <ActionButton
                       color="green"
                       label="Navigate To Project"
@@ -253,20 +306,25 @@ export default function ProjectRequestDetail() {
 
                         navigate(url);
                       }}
+                      disabled={isDeleted}
                     />
                   ) : (
-                    <ActionButton
-                      color="green"
-                      label="Create New Project Now"
-                      icon={<CheckCircle2 />}
-                      onClick={() => setProjectCreateModalOpen(true)}
-                    />
-                  )}
-                </div>
-              )}
+                    <></>
+                  ))}
+
+                {/* Navigate / Create Project */}
+                {projectRequest?.status === 'Accepted' && !projectRequest?.isHaveProject && (
+                  <ActionButton
+                    color="green"
+                    label="Create New Project Now"
+                    icon={<CheckCircle2 />}
+                    onClick={() => setProjectCreateModalOpen(true)}
+                    disabled={isDeleted || viewMode === 'AsRequester'}
+                  />
+                )}
+              </div>
             </div>
           </div>
-
           {/* MODAL */}
           <RejectReasonModal
             open={rejectModalOpen}
@@ -283,7 +341,7 @@ export default function ProjectRequestDetail() {
           <CreateProjectModal
             open={projectCreateModalOpen}
             onClose={() => setProjectCreateModalOpen(false)}
-            companyName={companyExecutor?.name}
+            companyName={companyRequest?.name}
             defaultValues={{
               code: projectRequest?.code,
               name: projectRequest?.projectName,
@@ -300,12 +358,19 @@ export default function ProjectRequestDetail() {
                 const createdProject = await createProject(payload);
                 toast.success('Project created successfully!');
                 setProjectCreateModalOpen(false);
-                navigate(`/companies/${companyId}/project/${createdProject.id}`);
+                navigate(`/companies/${companyId}/project`);
               } catch (err: any) {
                 console.error('Create project failed:', err);
                 toast.error(err?.response?.data?.message || 'Failed to create project');
               }
             }}
+          />
+
+          <DeleteProjectRequestModal
+            open={deleteModalOpen}
+            onClose={() => setDeleteModalOpen(false)}
+            projectId={selectedDeleteProjectId}
+            onSuccess={() => fetchData()}
           />
         </div>
       )}

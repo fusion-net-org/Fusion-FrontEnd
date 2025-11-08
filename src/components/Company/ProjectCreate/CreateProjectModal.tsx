@@ -27,7 +27,6 @@ import WorkflowPreviewModal from '@/components/Workflow/WorkflowPreviewModal';
 import WorkflowDesigner from '@/components/Workflow/WorkflowDesigner';
 import { getWorkflowPreviews, postWorkflowWithDesigner } from '@/services/workflowService.js';
 import type { WorkflowPreviewVm, DesignerDto } from '@/types/workflow';
-
 /* ========= Types ========= */
 export type Id = string;
 type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
@@ -556,12 +555,22 @@ export default function CreateProjectModal({
   // LẤY companyId TỰ ĐỘNG TỪ URL /companies/:companyId/...
   const { companyId: routeCompanyId } = useParams<{ companyId: string }>();
   const companyId = defaultValues?.companyId ?? routeCompanyId ?? null;
-
   const canUseCompany = isGuid(companyId);
   // Nhãn hiển thị ở ô Company (ưu tiên prop companyName, nếu không thì fetch theo companyId)
   const [companyLabel, setCompanyLabel] = React.useState(companyName ?? '');
-  console.log('DefaultValue', defaultValues);
-
+  const [companyRequestProject, setCompanyRequestProject] = React.useState('');
+  const fetchGetCompanyByIdFromProjectRequest = async () => {
+    try {
+      const result = await getCompanyById(companyId);
+      setCompanyRequestProject(result?.data.name || '(Unknown Company)');
+    } catch (err: any) {
+      console.error('Error fetching company:', err);
+      setCompanyLabel('(Error loading company)');
+    }
+  };
+  React.useEffect(() => {
+    fetchGetCompanyByIdFromProjectRequest();
+  });
   // Lấy tên company khi mở modal / đổi companyId
   React.useEffect(() => {
     let alive = true;
@@ -593,13 +602,12 @@ export default function CreateProjectModal({
     };
   }, [companyId, canUseCompany, companyName]);
 
-  React.useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  // React.useEffect(() => {
+  //   document.body.style.overflow = open ? 'hidden' : '';
+  //   return () => {
+  //     document.body.style.overflow = '';
+  //   };
+  // }, [open]);
 
   React.useEffect(() => {
     if (defaultValues) {
@@ -932,7 +940,6 @@ export default function CreateProjectModal({
                     )}
                   </Field>
                 </div>
-
                 {/* type */}
                 <Field label="Type">
                   <div className="flex flex-wrap gap-2">
@@ -946,16 +953,27 @@ export default function CreateProjectModal({
                 </Field>
                 {form.isHired && (
                   <Field label="Hired company" required>
-                    <OptionList
-                      value={form.companyRequestId}
-                      onChange={(v) => set('companyRequestId', v)}
-                      options={[
-                        { id: 'p1', label: 'Partner A' },
-                        { id: 'p2', label: 'Partner B' },
-                        { id: 'p3', label: 'Partner C' },
-                      ]}
-                      placeholder="Select partner company"
-                    />
+                    {defaultValues?.companyId ? (
+                      <input
+                        type="text"
+                        disabled
+                        value={companyRequestProject ?? ''}
+                        onChange={() => {}}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 cursor-not-allowed"
+                      />
+                    ) : (
+                      <OptionList
+                        value={form.companyRequestId}
+                        onChange={(v) => set('companyRequestId', v)}
+                        options={[
+                          { id: 'p1', label: 'Partner A' },
+                          { id: 'p2', label: 'Partner B' },
+                          { id: 'p3', label: 'Partner C' },
+                        ]}
+                        placeholder="Select partner company"
+                      />
+                    )}
+
                     {errors.companyRequestId && (
                       <p className="mt-1 text-xs text-rose-500">{errors.companyRequestId}</p>
                     )}
