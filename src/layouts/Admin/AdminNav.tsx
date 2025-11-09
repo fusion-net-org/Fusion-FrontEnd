@@ -29,12 +29,14 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
   const [userDetailEnabled, setUserDetailEnabled] = useState(false);
   const [companyDetailEnabled, setCompanyDetailEnabled] = useState(false);
+  const [projectDetailEnabled, setProjectDetailEnabled] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     const updateStates = () => {
       setUserDetailEnabled(localStorage.getItem('userDetailEnabled') === 'true');
       setCompanyDetailEnabled(localStorage.getItem('companyDetailEnabled') === 'true');
+      setProjectDetailEnabled(localStorage.getItem('projectDetailEnabled') === 'true');
     };
 
     updateStates();
@@ -80,7 +82,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       children: [
         { to: '/admin/projects/overview', label: 'Overview' },
         { to: '/admin/projects/list', label: 'Project list' },
-        { to: '/admin/projects/detail', label: 'Project detail' },
+        { to: '/admin/projects/detail', label: 'Project detail', enabled: projectDetailEnabled },
       ],
     },
     {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
   ArrowUp,
@@ -68,6 +68,7 @@ const SORT_OPTIONS = [
 
 export default function ProjectListPage() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const q = params.get('q') ?? '';
   const sort = (params.get('sort') as SortKey) || 'Id';
@@ -126,6 +127,13 @@ export default function ProjectListPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // handele view project detail
+  const handleView = (p: any) => {
+    localStorage.setItem('projectDetailEnabled', 'true');
+    localStorage.setItem('projectDetailId', p.id);
+    navigate(`/admin/projects/detail/${p.id}`);
+  };
 
   return (
     <>
@@ -228,10 +236,11 @@ export default function ProjectListPage() {
                           type="link"
                           icon={<Edit size={16} />}
                           className="flex items-center justify-center gap-1 text-xs"
-                          onClick={() => {
-                            setSelectedProject(p);
-                            setIsModalOpen(true);
-                          }}
+                          //   onClick={() => {
+                          //     setSelectedProject(p);
+                          //     setIsModalOpen(true);
+                          //   }}
+                          onClick={() => handleView(p)}
                         >
                           View detail
                         </Button>
