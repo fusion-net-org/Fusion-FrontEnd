@@ -48,6 +48,7 @@ import CompanyDetailPage from './pages/admin/companyManagement/CompanyDetailPage
 import SubcriptionListPage from './pages/admin/subcriptionManagement/SubcriptionListPage';
 import TransactionListPage from './pages/admin/transactionManagement/TransactionListPage';
 import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
+import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';
 function App() {
   return (
     <>
@@ -91,6 +92,7 @@ function App() {
           <Route path="/admin/subscriptions/list" element={<SubcriptionListPage />} />
           <Route path="/admin/transactions/list" element={<TransactionListPage />} />
           <Route path="/admin/notifications/list" element={<NotificationListPage />} />
+          <Route path="/admin/projects/list" element={<ProjectListPage />} />
           {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>
         {/* route company layout */}

@@ -11,11 +11,11 @@ import {
 } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
-import { DatePicker } from 'antd';
 import { toast } from 'react-toastify';
 import { getAllTransactionForAdmin } from '@/services/transactionService.js';
 import dayjs from 'dayjs';
 import { Modal, Descriptions } from 'antd';
+import { Input, Select, Button, DatePicker } from 'antd';
 
 const { RangePicker } = DatePicker;
 
@@ -188,75 +188,66 @@ export default function TransactionListPage() {
               </div>
             </div>
 
-            {/* Filters Row 1 */}
-            <div className="flex items-center gap-3 mb-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  className="w-full pl-10 pr-3 h-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            {/* 🔹 Filter Section – identical to ProjectListPage */}
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search Input */}
+                <Input
                   placeholder="Search by transaction code or package name..."
+                  allowClear
+                  prefix={<Search size={16} className="text-gray-400" />}
                   value={q}
                   onChange={(e) => patchParams({ q: e.target.value, page: 1 })}
+                  style={{ width: 250 }}
                 />
+
+                {/* Sort Column */}
+                <Select
+                  value={sort}
+                  onChange={(val) => patchParams({ sort: val, page: 1 })}
+                  style={{ width: 180 }}
+                  placeholder="Sort by"
+                  options={SORT_OPTIONS.map((o) => ({
+                    label: o.label,
+                    value: o.key,
+                  }))}
+                />
+
+                {/* Sort Direction */}
+                <Button
+                  icon={dirDesc ? <ArrowDownIcon size={16} /> : <ArrowUp size={16} />}
+                  onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
+                >
+                  {dirDesc ? 'Descending' : 'Ascending'}
+                </Button>
+
+                {/* Status Filter */}
+                <Select
+                  value={status}
+                  onChange={(val) => patchParams({ status: val, page: 1 })}
+                  style={{ width: 160 }}
+                  options={STATUS_OPTIONS.map((s) => ({ label: s, value: s }))}
+                />
+                <RangePicker
+                  onChange={(dates, dateStrings) => {
+                    patchParams({
+                      dateFrom: dateStrings[0],
+                      dateTo: dateStrings[1],
+                      page: 1,
+                    });
+                  }}
+                  style={{ height: 38 }}
+                />
+
+                {/* Reset Button */}
+                <Button
+                  icon={<RefreshCw size={16} />}
+                  onClick={resetFilters}
+                  className="flex items-center"
+                >
+                  Reset
+                </Button>
               </div>
-
-              {/* Sort column */}
-              <select
-                className="h-10 px-3 pr-8 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
-                value={sort}
-                onChange={(e) => patchParams({ sort: e.target.value, page: 1 })}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-
-              {/* Sort direction */}
-              <button
-                className="w-10 h-10 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center justify-center transition-colors"
-                onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
-                aria-label="Toggle sort direction"
-                title={dirDesc ? 'Descending' : 'Ascending'}
-              >
-                {dirDesc ? (
-                  <ArrowDownIcon className="w-4 h-4 text-gray-600" />
-                ) : (
-                  <ArrowUp className="w-4 h-4 text-gray-600" />
-                )}
-              </button>
-
-              {/* Status Filter */}
-              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                {STATUS_OPTIONS.map((s) => {
-                  const active = status === s;
-                  return (
-                    <button
-                      key={s}
-                      className={`px-3 py-2 text-xs font-medium transition-colors ${
-                        active
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                      onClick={() => patchParams({ status: s, page: 1 })}
-                    >
-                      {s}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Reset */}
-              <button
-                className="h-10 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors"
-                onClick={resetFilters}
-                title="Reset filters"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Reset
-              </button>
             </div>
           </div>
 
