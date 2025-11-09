@@ -116,7 +116,8 @@ export default function ProjectsPage() {
   const pageSize = 8;
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const { companyId: routeCompanyId } = useParams();
-  const companyId = routeCompanyId || localStorage.getItem('currentCompanyId'); // ✅
+  const companyId = routeCompanyId || localStorage.getItem("currentCompanyId"); // ✅
+
 
   React.useEffect(() => {
     let alive = true;
@@ -137,9 +138,8 @@ export default function ProjectsPage() {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
+ 
   }, [companyId]);
   const uniq = <K extends keyof Project>(k: K) =>
     Array.from(new Set(all.map((p) => (p[k] ?? '') as string))).filter(Boolean);
@@ -443,7 +443,7 @@ export default function ProjectsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {current.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
+                    <tr key={p.id} className={["hover:bg-slate-50", p.isRequest ? "bg-amber-50/40" : ""].join(" ")}>
                       <td className="px-4">
                         <input
                           type="radio"
@@ -454,6 +454,11 @@ export default function ProjectsPage() {
                       </td>
                       <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
                         <button onClick={() => openProject(p)}>{p.code}</button>
+                        {p.isRequest && (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 align-middle">
+                            Project Request
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2">{p.name}</td>
                       <td className="px-4 py-2">{p.ownerCompany}</td>

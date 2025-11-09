@@ -41,6 +41,7 @@ import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
+
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
 function App() {
   useFCMListener((notif: any) => {
@@ -88,13 +89,12 @@ function App() {
             element={<ProjectRequestDetail />}
           />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
+<Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
+<Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
+<Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
+<Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-          <Route
-            path="/companies/:companyId/workflows/:workflowId"
-            element={<WorkflowDesignerPage />}
-          />
-          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
-          <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
+         
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
