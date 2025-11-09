@@ -147,9 +147,7 @@ export default function ProjectListPage() {
                   <FolderKanban className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-900 m-0">
-                    Admin Project Management
-                  </h1>
+                  <h1 className="text-xl font-semibold text-gray-900 m-0">Project Management</h1>
                   <p className="text-sm text-gray-500 m-0">
                     View and manage projects created by companies
                   </p>
@@ -261,9 +259,35 @@ export default function ProjectListPage() {
           {/* Pagination */}
           <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between gap-4">
-              <div className="text-sm text-gray-600">
-                Showing {items.length} of {total.toLocaleString()} projects
+              {/* Left side: summary + rows per page */}
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-gray-600">
+                  Showing <span className="font-semibold text-gray-900">{items.length}</span> of{' '}
+                  <span className="font-semibold text-gray-900">{total.toLocaleString()}</span>{' '}
+                  projects
+                </span>
+
+                {/* Rows per page selector */}
+                <label className="inline-flex items-center gap-2">
+                  <span className="text-gray-600">Rows per page:</span>
+                  <select
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                    value={pageSize}
+                    onChange={(e) => {
+                      const size = Math.max(1, parseInt(e.target.value || '10', 10));
+                      patchParams({ pageSize: size, page: 1 });
+                    }}
+                  >
+                    {[5, 10, 20, 50].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
+
+              {/* Right side: pagination */}
               <Stack spacing={2}>
                 <Pagination
                   count={Math.max(1, Math.ceil(total / pageSize))}

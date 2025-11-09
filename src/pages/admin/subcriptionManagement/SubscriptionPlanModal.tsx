@@ -187,9 +187,7 @@ export default function SubscriptionPlanModal({
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-xl z-10">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-gray-800 mb-0">
-              Subscription Plan Configuration
-            </h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-0">Subscription Plan</h2>
           </div>
           <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,7 +358,7 @@ export default function SubscriptionPlanModal({
               onClick={handleSubmit}
               className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold shadow-md"
             >
-              {initialData ? 'Update Plan' : 'Create Plan'}
+              {initialData ? 'Update' : 'Create'}
             </button>
           </div>
         </div>

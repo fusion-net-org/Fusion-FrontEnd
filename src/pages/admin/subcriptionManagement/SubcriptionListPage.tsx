@@ -778,7 +778,7 @@ export default function SubscriptionListPage() {
           className="bg-indigo-600"
           onClick={openModal}
         >
-          Add
+          Add Subcription
         </Button>
       </div>
 
