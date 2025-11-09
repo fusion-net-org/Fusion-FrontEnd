@@ -19,7 +19,31 @@ export interface CompanyRequest {
   totalProject: number;
   totalPartners: number;
   totalApproved: number;
+  totalWaitForApprove: number;
+  totalOngoingProjects: number;
+  totalCompletedProjects: number;
+  totalClosedProjects: number;
+  totalLateProjects: number;
+  onTimeRelease: number;
+  totalProjectCreated: number;
+  totalProjectHired: number;
+  totalProjectRequestSent: number;
+  totalProjectRequestReceive: number;
+  totalProjectRequestAcceptSent: number;
+  totalProjectRequestRejectSent: number;
+  totalProjectRequestPendingSent: number;
+  totalProjectRequestAcceptReceive: number;
+  totalProjectRequestRejectReceive: number;
+  totalProjectRequestPendingReceive: number;
+  companyRoles: CompanyRole[];
 }
+
+export interface CompanyRole {
+  roleId: number;
+  roleName: string;
+  totalMembers: number;
+}
+
 export interface CompanyRequestV2 {
   id: string;
   name: string;

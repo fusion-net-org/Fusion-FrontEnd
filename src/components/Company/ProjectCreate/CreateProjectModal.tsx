@@ -1,35 +1,49 @@
-import React from "react";
-import { createPortal } from "react-dom";
-import { useParams } from "react-router-dom";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/rules-of-hooks */
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { useParams } from 'react-router-dom';
 import {
-  X, ChevronDown, Check, CalendarDays, Users2, Building2,
-  Workflow as WorkflowIcon, Plus, Eye
-} from "lucide-react";
-import { getCompanyById } from "@/services/companyService.js"; // chỉnh path đúng nơi bạn đặt file
-import { getCompanyMembersPaged, getCompanyMemberOptions, createProject } from "@/services/projectService.js";
+  X,
+  ChevronDown,
+  Check,
+  CalendarDays,
+  Users2,
+  Building2,
+  Workflow as WorkflowIcon,
+  Plus,
+  Eye,
+} from 'lucide-react';
+import { getCompanyById } from '@/services/companyService.js'; // chỉnh path đúng nơi bạn đặt file
+import {
+  getCompanyMembersPaged,
+  getCompanyMemberOptions,
+  createProject,
+} from '@/services/projectService.js';
 /* === Workflow preview/designer === */
-import WorkflowMini from "@/components/Workflow/WorkflowMini";
-import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
-import WorkflowDesigner from "@/components/Workflow/WorkflowDesigner";
-import { getWorkflowPreviews, postWorkflowWithDesigner } from "@/services/workflowService.js";
-import type { WorkflowPreviewVm, DesignerDto } from "@/types/workflow";
-
+import WorkflowMini from '@/components/Workflow/WorkflowMini';
+import WorkflowPreviewModal from '@/components/Workflow/WorkflowPreviewModal';
+import WorkflowDesigner from '@/components/Workflow/WorkflowDesigner';
+import { getWorkflowPreviews, postWorkflowWithDesigner } from '@/services/workflowService.js';
+import type { WorkflowPreviewVm, DesignerDto } from '@/types/workflow';
 /* ========= Types ========= */
 export type Id = string;
-type ProjectStatus = "Planned" | "InProgress" | "OnHold" | "Completed";
+type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
 
 export type ProjectCreatePayload = {
   companyId: Id | null;
   isHired: boolean;
-  companyHiredId: Id | null;
+  companyRequestId: Id | null;
+  projectRequestId: Id | null;
   code: string;
   name: string;
   description: string;
   status: ProjectStatus;
-  startDate: string | null;     // yyyy-MM-dd
-  endDate: string | null;       // yyyy-MM-dd
-  sprintLengthWeeks: number;    // >= 1
-  workflowMode: "existing" | "new";
+  startDate: string | null; // yyyy-MM-dd
+  endDate: string | null; // yyyy-MM-dd
+  sprintLengthWeeks: number; // >= 1
+  workflowMode: 'existing' | 'new';
   workflowId: Id | null;
   workflowName: string;
   memberIds: Id[];
@@ -38,7 +52,15 @@ export type ProjectCreatePayload = {
 type Option = { id: Id; label: string; sub?: string };
 
 /* ========= Small atoms ========= */
-const Field = ({ label, children, required = false }: { label: string; children: React.ReactNode; required?: boolean }) => (
+const Field = ({
+  label,
+  children,
+  required = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  required?: boolean;
+}) => (
   <label className="block">
     <div className="mb-1.5 text-sm font-medium text-slate-700">
       {label} {required && <span className="text-rose-500">*</span>}
@@ -48,27 +70,45 @@ const Field = ({ label, children, required = false }: { label: string; children:
 );
 
 /* ---- Lightweight picker (dùng cho members/partner) ---- */
-function OptionList({ value, onChange, options, placeholder = "Select...", search = true }: {
-  value: Id | null; onChange: (v: Id | null) => void; options: Option[]; placeholder?: string; search?: boolean;
+function OptionList({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select...',
+  search = true,
+}: {
+  value: Id | null;
+  onChange: (v: Id | null) => void;
+  options: Option[];
+  placeholder?: string;
+  search?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
-  const [q, setQ] = React.useState("");
+  const [q, setQ] = React.useState('');
   const ref = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    const onClick = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    const onClick = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', onClick);
+    return () => window.removeEventListener('mousedown', onClick);
   }, []);
-  const selected = options.find(o => o.id === value);
+  const selected = options.find((o) => o.id === value);
   const filtered = q
-    ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()) || o.sub?.toLowerCase().includes(q.toLowerCase()))
+    ? options.filter(
+        (o) =>
+          o.label.toLowerCase().includes(q.toLowerCase()) ||
+          o.sub?.toLowerCase().includes(q.toLowerCase()),
+      )
     : options;
-
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-800 hover:bg-slate-50 flex items-center justify-between">
-        <span className={selected ? "" : "text-slate-400"}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-800 hover:bg-slate-50 flex items-center justify-between"
+      >
+        <span className={selected ? '' : 'text-slate-400'}>
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown className="size-4 text-slate-400" />
@@ -77,17 +117,30 @@ function OptionList({ value, onChange, options, placeholder = "Select...", searc
         <div className="absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
           {search && (
             <div className="mb-2">
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search…"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
             </div>
           )}
           <div className="max-h-56 overflow-auto">
             {filtered.length === 0 && <div className="p-3 text-sm text-slate-400">No results</div>}
-            {filtered.map(o => {
+            {filtered.map((o) => {
               const active = o.id === value;
               return (
-                <button key={o.id} onClick={() => { onChange(o.id); setOpen(false); }}
-                  className={["w-full rounded-lg px-3 py-2 text-left text-sm", active ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"].join(" ")}>
+                <button
+                  key={o.id}
+                  onClick={() => {
+                    onChange(o.id);
+                    setOpen(false);
+                  }}
+                  className={[
+                    'w-full rounded-lg px-3 py-2 text-left text-sm',
+                    active ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50',
+                  ].join(' ')}
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{o.label}</div>
@@ -100,8 +153,14 @@ function OptionList({ value, onChange, options, placeholder = "Select...", searc
             })}
           </div>
           <div className="mt-2 border-t border-slate-100 pt-2">
-            <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-              className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50">
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+            >
               Clear selection
             </button>
           </div>
@@ -110,30 +169,74 @@ function OptionList({ value, onChange, options, placeholder = "Select...", searc
     </div>
   );
 }
-const Chip = ({ active, children, onClick }: { active?: boolean; children: React.ReactNode; onClick?: () => void }) => (
-  <button onClick={onClick}
-    className={["inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition",
-      active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"].join(" ")}>
+const Chip = ({
+  active,
+  children,
+  onClick,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={[
+      'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition',
+      active
+        ? 'bg-blue-600 text-white border-blue-600'
+        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50',
+    ].join(' ')}
+  >
     {children}
   </button>
 );
 
 /* ========= Helpers ========= */
-const isGuid = (s?: string | null) => !!s && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
+const isGuid = (s?: string | null) =>
+  !!s && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
 
-const makeInitialDto = (name = "New Workflow"): DesignerDto => {
-  const uid = () => (typeof crypto !== "undefined" && (crypto as any).randomUUID
-    ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2));
-  const s1 = { id: uid(), name: "Start", isStart: true, isEnd: false, x: 200, y: 350, roles: ["Reporter"], color: "#10b981" };
-  const s2 = { id: uid(), name: "Work", isStart: false, isEnd: false, x: 520, y: 350, roles: ["Developer"], color: "#4f46e5" };
-  const s3 = { id: uid(), name: "Done", isStart: false, isEnd: true, x: 840, y: 350, roles: ["Reviewer", "QA"], color: "#111827" };
+const makeInitialDto = (name = 'New Workflow'): DesignerDto => {
+  const uid = () =>
+    typeof crypto !== 'undefined' && (crypto as any).randomUUID
+      ? (crypto as any).randomUUID()
+      : Math.random().toString(36).slice(2);
+  const s1 = {
+    id: uid(),
+    name: 'Start',
+    isStart: true,
+    isEnd: false,
+    x: 200,
+    y: 350,
+    roles: ['Reporter'],
+    color: '#10b981',
+  };
+  const s2 = {
+    id: uid(),
+    name: 'Work',
+    isStart: false,
+    isEnd: false,
+    x: 520,
+    y: 350,
+    roles: ['Developer'],
+    color: '#4f46e5',
+  };
+  const s3 = {
+    id: uid(),
+    name: 'Done',
+    isStart: false,
+    isEnd: true,
+    x: 840,
+    y: 350,
+    roles: ['Reviewer', 'QA'],
+    color: '#111827',
+  };
   return {
     workflow: { id: uid(), name },
     statuses: [s1, s2, s3],
     transitions: [
-      { fromStatusId: s1.id, toStatusId: s2.id, type: "success", label: "Go" },
-      { fromStatusId: s2.id, toStatusId: s3.id, type: "success", label: "Complete" },
-      { fromStatusId: s3.id, toStatusId: s2.id, type: "failure", label: "Rework" },
+      { fromStatusId: s1.id, toStatusId: s2.id, type: 'success', label: 'Go' },
+      { fromStatusId: s2.id, toStatusId: s3.id, type: 'success', label: 'Complete' },
+      { fromStatusId: s3.id, toStatusId: s2.id, type: 'failure', label: 'Rework' },
     ],
   };
 };
@@ -159,7 +262,10 @@ function SelectedWorkflowPreview({
       setLoading(true);
       try {
         // lấy list preview rồi find theo id (không đổi service hiện tại)
-        const list = (await getWorkflowPreviews(companyId)) as WorkflowPreviewVm[] | null | undefined;
+        const list = (await getWorkflowPreviews(companyId)) as
+          | WorkflowPreviewVm[]
+          | null
+          | undefined;
         const found = (list ?? []).find((x: WorkflowPreviewVm) => x.id === workflowId) ?? null;
         setMini(found);
       } catch {
@@ -168,14 +274,16 @@ function SelectedWorkflowPreview({
         if (!stop) setLoading(false);
       }
     })();
-    return () => { stop = true; };
+    return () => {
+      stop = true;
+    };
   }, [companyId, workflowId]);
 
   return (
     <div className="mt-3 rounded-xl border border-slate-200 bg-white overflow-hidden">
       {/* header */}
       <div className="px-3 py-2 flex items-center justify-between border-b">
-        <div className="font-medium truncate">{name || "Workflow"}</div>
+        <div className="font-medium truncate">{name || 'Workflow'}</div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setOpenPreview(true)}
@@ -208,13 +316,13 @@ function SelectedWorkflowPreview({
       {/* legend (giống list page, nhưng không có Edit/Delete) */}
       <div className="px-3 pb-2 flex items-center gap-4 text-xs text-gray-600">
         <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full" style={{ background: "#10b981" }} /> Success
+          <span className="w-3 h-3 rounded-full" style={{ background: '#10b981' }} /> Success
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full" style={{ background: "#ef4444" }} /> Fail
+          <span className="w-3 h-3 rounded-full" style={{ background: '#ef4444' }} /> Fail
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full" style={{ background: "#111827" }} /> Optional
+          <span className="w-3 h-3 rounded-full" style={{ background: '#111827' }} /> Optional
         </span>
       </div>
 
@@ -232,7 +340,10 @@ function SelectedWorkflowPreview({
 
 /* ========= MODAL: Workflow Picker ========= */
 function WorkflowPickerModal({
-  open, companyId, onClose, onSelect,
+  open,
+  companyId,
+  onClose,
+  onSelect,
 }: {
   open: boolean;
   companyId: string | null;
@@ -240,14 +351,18 @@ function WorkflowPickerModal({
   onSelect: (wf: { id: string; name: string }) => void;
 }) {
   const [items, setItems] = React.useState<WorkflowPreviewVm[]>([]);
-  const [q, setQ] = React.useState("");
+  const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [previewId, setPreviewId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     // CHẶN gọi API nếu companyId chưa phải GUID hợp lệ
-    if (!isGuid(companyId)) { setItems([]); setLoading(false); return; }
+    if (!isGuid(companyId)) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
 
     (async () => {
       setLoading(true);
@@ -255,7 +370,7 @@ function WorkflowPickerModal({
         const data = await getWorkflowPreviews(companyId as string);
         setItems(data || []);
       } catch {
-        setItems([]);        // tránh throw gây Unhandled
+        setItems([]); // tránh throw gây Unhandled
       } finally {
         setLoading(false);
       }
@@ -265,7 +380,7 @@ function WorkflowPickerModal({
   const filtered = React.useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return items;
-    return items.filter(i => i.name.toLowerCase().includes(t));
+    return items.filter((i) => i.name.toLowerCase().includes(t));
   }, [items, q]);
 
   if (!open) return null;
@@ -274,10 +389,15 @@ function WorkflowPickerModal({
     <div className="fixed inset-0 z-[1100]">
       <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-[1000px] rounded-2xl bg-white border shadow-xl h-[-webkit-fill-available] overflow-auto max-h-[86vh]" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="w-full max-w-[1000px] rounded-2xl bg-white border shadow-xl h-[-webkit-fill-available] overflow-auto max-h-[86vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="p-4 flex items-center justify-between border-b">
             <div className="font-semibold">Select a Workflow</div>
-            <button onClick={onClose} className="p-1 rounded hover:bg-slate-100"><X className="size-5" /></button>
+            <button onClick={onClose} className="p-1 rounded hover:bg-slate-100">
+              <X className="size-5" />
+            </button>
           </div>
 
           <div className="p-4">
@@ -297,30 +417,38 @@ function WorkflowPickerModal({
 
             {loading ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Array.from({ length: 6 }).map((_, i) =>
+                {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="rounded-lg border p-3 animate-pulse bg-white">
                     <div className="h-5 w-2/3 bg-gray-200 rounded mb-3" />
                     <div className="h-[160px] bg-gray-100 rounded" />
                   </div>
-                )}
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-gray-500 text-sm">No workflows found.</div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filtered.map(w => (
+                {filtered.map((w) => (
                   <div key={w.id} className="rounded-lg border bg-white overflow-hidden">
                     <div className="px-3 py-2 flex items-center justify-between border-b">
                       <div className="font-medium truncate">{w.name}</div>
-                      <button onClick={() => setPreviewId(w.id)} className="p-1 rounded hover:bg-gray-100" title="Preview">
+                      <button
+                        onClick={() => setPreviewId(w.id)}
+                        className="p-1 rounded hover:bg-gray-100"
+                        title="Preview"
+                      >
                         <Eye size={16} />
                       </button>
                     </div>
                     <WorkflowMini data={w} />
                     <div className="px-3 py-2 border-t flex items-center justify-end">
                       <button
-                        onClick={() => { onSelect({ id: w.id, name: w.name }); onClose(); }}
-                        className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                        onClick={() => {
+                          onSelect({ id: w.id, name: w.name });
+                          onClose();
+                        }}
+                        className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      >
                         Select
                       </button>
                     </div>
@@ -331,18 +459,25 @@ function WorkflowPickerModal({
           </div>
 
           {previewId && (
-            <WorkflowPreviewModal open={!!previewId} workflowId={previewId} onClose={() => setPreviewId(null)} />
+            <WorkflowPreviewModal
+              open={!!previewId}
+              workflowId={previewId}
+              onClose={() => setPreviewId(null)}
+            />
           )}
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
 /* ========= MODAL: Create Workflow (giữ nguyên; sẽ disable nếu companyId invalid) ========= */
 function CreateWorkflowModal({
-  open, companyId, onClose, onCreated,
+  open,
+  companyId,
+  onClose,
+  onCreated,
 }: {
   open: boolean;
   companyId: string | null;
@@ -353,19 +488,21 @@ function CreateWorkflowModal({
 
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
   if (!open) return null;
 
   const handleSave = async (payload: DesignerDto) => {
-    if (!isGuid(companyId)) throw new Error("Invalid companyId — cannot create workflow.");
+    if (!isGuid(companyId)) throw new Error('Invalid companyId — cannot create workflow.');
     // CHƯA cần tạo thật thì có thể return sớm tại đây.
     const result = await postWorkflowWithDesigner(companyId as string, payload);
-    const wfId = typeof result === "string" ? result : (result as any)?.id;
-    if (!wfId) throw new Error("Cannot get workflowId from POST response");
+    const wfId = typeof result === 'string' ? result : (result as any)?.id;
+    if (!wfId) throw new Error('Cannot get workflowId from POST response');
     onCreated({ id: wfId, name: payload.workflow.name });
     onClose();
   };
@@ -380,7 +517,12 @@ function CreateWorkflowModal({
         >
           <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 border-b bg-white/85 backdrop-blur">
             <div className="font-semibold">Create workflow</div>
-            <button type="button" aria-label="Close" onClick={onClose} className="p-2 rounded-full text-slate-500 hover:bg-slate-100">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="p-2 rounded-full text-slate-500 hover:bg-slate-100"
+            >
               <X className="size-5" />
             </button>
           </div>
@@ -391,56 +533,98 @@ function CreateWorkflowModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
 /* ========= MAIN MODAL: Create Project ========= */
 export default function CreateProjectModal({
-  open, onClose, onSubmit, companyName,
+  open,
+  onClose,
+  onSubmit,
+  companyName,
+  defaultValues,
 }: {
   open: boolean;
   onClose: () => void;
   onSubmit?: (payload: ProjectCreatePayload) => Promise<void> | void; // chưa dùng tới cũng OK
   companyName?: string; // truyền từ trang CompanyDetails nếu bạn có
+  defaultValues?: any;
 }) {
   if (!open) return null;
-
   // LẤY companyId TỰ ĐỘNG TỪ URL /companies/:companyId/...
   const { companyId: routeCompanyId } = useParams<{ companyId: string }>();
-  const companyId = routeCompanyId ?? null;
+  const companyId = defaultValues?.companyId ?? routeCompanyId ?? null;
   const canUseCompany = isGuid(companyId);
   // Nhãn hiển thị ở ô Company (ưu tiên prop companyName, nếu không thì fetch theo companyId)
-  const [companyLabel, setCompanyLabel] = React.useState(companyName ?? "");
-
+  const [companyLabel, setCompanyLabel] = React.useState(companyName ?? '');
+  const [companyRequestProject, setCompanyRequestProject] = React.useState('');
+  const fetchGetCompanyByIdFromProjectRequest = async () => {
+    try {
+      const result = await getCompanyById(companyId);
+      setCompanyRequestProject(result?.data.name || '(Unknown Company)');
+    } catch (err: any) {
+      console.error('Error fetching company:', err);
+      setCompanyLabel('(Error loading company)');
+    }
+  };
+  React.useEffect(() => {
+    fetchGetCompanyByIdFromProjectRequest();
+  });
   // Lấy tên company khi mở modal / đổi companyId
   React.useEffect(() => {
     let alive = true;
 
     // nếu cha đã truyền companyName thì dùng luôn, không gọi API
-    if (companyName) { setCompanyLabel(companyName); return; }
+    if (companyName) {
+      setCompanyLabel(companyName);
+      return;
+    }
 
     (async () => {
-      if (!canUseCompany) { setCompanyLabel(""); return; }
+      if (!canUseCompany) {
+        setCompanyLabel('');
+        return;
+      }
       try {
         const res = await getCompanyById(companyId as string);
         // BE có thể trả { data: {...} } hoặc trực tiếp {...}
         const payload = res?.data ?? res;
-        const name = payload?.name ?? payload?.data?.name ?? "";
-        if (alive) setCompanyLabel(name || "");
+        const name = payload?.name ?? payload?.data?.name ?? '';
+        if (alive) setCompanyLabel(name || '');
       } catch {
-        if (alive) setCompanyLabel("");
+        if (alive) setCompanyLabel('');
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [companyId, canUseCompany, companyName]);
 
+  // React.useEffect(() => {
+  //   document.body.style.overflow = open ? 'hidden' : '';
+  //   return () => {
+  //     document.body.style.overflow = '';
+  //   };
+  // }, [open]);
+
   React.useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+    if (defaultValues) {
+      setForm((prev) => ({
+        ...prev,
+        companyId: defaultValues.companyId ?? prev.companyId,
+        companyRequestId: defaultValues.companyRequestId ?? prev.companyRequestId,
+        projectRequestId: defaultValues.projectRequestId ?? prev.projectRequestId,
+        // companyHiredId: defaultValues.companyHiredId ?? prev.companyHiredId,
+        code: defaultValues.code ?? prev.code,
+        name: defaultValues.name ?? prev.name,
+        description: defaultValues.description ?? prev.description,
+        startDate: defaultValues.startDate ?? prev.startDate,
+        endDate: defaultValues.endDate ?? prev.endDate,
+      }));
+    }
+  }, [defaultValues]);
 
   // mock people
   const [people, setPeople] = React.useState<Option[]>([]);
@@ -450,79 +634,100 @@ export default function CreateProjectModal({
   React.useEffect(() => {
     let alive = true;
     (async () => {
-      if (!companyId) { setPeople([]); setMembers([]); return; }
+      if (!routeCompanyId) {
+        setPeople([]);
+        setMembers([]);
+        return;
+      }
       setLoadingMembers(true);
-      try {        // lấy 1 trang đầu (tăng pageSize nếu muốn nhiều hơn)
-        const res = await getCompanyMembersPaged(companyId, { pageNumber: 1, pageSize: 50 });
+      try {
+        // lấy 1 trang đầu (tăng pageSize nếu muốn nhiều hơn)
+        const res = await getCompanyMembersPaged(routeCompanyId, { pageNumber: 1, pageSize: 50 });
         if (!alive) return;
         setMembers(res.items);
         // cho dropdown chọn nhanh
         const opts: Option[] = res.items.map(
-          (m: { memberId: string | number; memberName?: string | null; roleName?: string | null; email?: string | null }) => ({
+          (m: {
+            memberId: string | number;
+            memberName?: string | null;
+            roleName?: string | null;
+            email?: string | null;
+          }) => ({
             id: String(m.memberId),
-            label: m.memberName ?? m.email ?? "",
-            sub: m.roleName ?? m.email ?? "",
-          })
+            label: m.memberName ?? m.email ?? '',
+            sub: m.roleName ?? m.email ?? '',
+          }),
         );
 
         setPeople(opts);
       } catch {
-        if (alive) { setPeople([]); setMembers([]); }
+        if (alive) {
+          setPeople([]);
+          setMembers([]);
+        }
       } finally {
         if (alive) setLoadingMembers(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [companyId]);
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const [workflowSelectedName, setWorkflowSelectedName] = React.useState<string>("");
-
+  const [workflowSelectedName, setWorkflowSelectedName] = React.useState<string>('');
   const [form, setForm] = React.useState<ProjectCreatePayload>({
-    companyId, // gán ngay từ URL
-    isHired: false,
-    companyHiredId: null,
-    code: "",
-    name: "",
-    description: "",
-    status: "Planned",
-    startDate: null,
-    endDate: null,
+    companyId: defaultValues?.companyId ?? companyId, // gán ngay từ URL
+    isHired: defaultValues?.isHire ?? false,
+    companyRequestId: defaultValues?.companyRequestId ?? null,
+    projectRequestId: defaultValues?.projectRequestId ?? null,
+    code: defaultValues?.code ?? '',
+    name: defaultValues?.name ?? '',
+    description: defaultValues?.description ?? '',
+    status: 'Planned',
+    startDate: defaultValues?.startDate ?? null,
+    endDate: defaultValues?.endDate ?? null,
     sprintLengthWeeks: 1,
-    workflowMode: "existing",
+    workflowMode: 'existing',
     workflowId: null,
-    workflowName: "",
+    workflowName: '',
     memberIds: [],
   });
 
   // đồng bộ khi URL đổi công ty
   React.useEffect(() => {
-    setForm(prev => ({ ...prev, companyId }));
+    setForm((prev) => ({ ...prev, companyId }));
   }, [companyId]);
 
   // sprint number input
   const [weeksRaw, setWeeksRaw] = React.useState(String(1));
   const blockNonNumericKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const bad = ["-", "+", "e", "E", "."];
+    const bad = ['-', '+', 'e', 'E', '.'];
     if (bad.includes(e.key)) e.preventDefault();
   };
   const handleWeeksChange = (v: string) => {
     setWeeksRaw(v);
     const n = Math.floor(Number(v));
     if (Number.isFinite(n) && n >= 1) {
-      setForm(prev => ({ ...prev, sprintLengthWeeks: n }));
-      setErrors(prev => { const { sprintLengthWeeks, ...rest } = prev; return rest; });
+      setForm((prev) => ({ ...prev, sprintLengthWeeks: n }));
+      setErrors((prev) => {
+        const { sprintLengthWeeks, ...rest } = prev;
+        return rest;
+      });
     } else {
-      setErrors(prev => ({ ...prev, sprintLengthWeeks: "Enter a whole number ≥ 1." }));
+      setErrors((prev) => ({ ...prev, sprintLengthWeeks: 'Enter a whole number ≥ 1.' }));
     }
   };
   const handleWeeksBlur = () => {
     const n = Math.floor(Number(weeksRaw));
     const fixed = Number.isFinite(n) && n >= 1 ? n : 1;
     setWeeksRaw(String(fixed));
-    setForm(prev => ({ ...prev, sprintLengthWeeks: fixed }));
-    setErrors(prev => { const { sprintLengthWeeks, ...rest } = prev; return rest; });
+    setForm((prev) => ({ ...prev, sprintLengthWeeks: fixed }));
+    setErrors((prev) => {
+      const { sprintLengthWeeks, ...rest } = prev;
+      return rest;
+    });
   };
 
   // picker & creator modal flags
@@ -530,29 +735,31 @@ export default function CreateProjectModal({
   const [openCreateWf, setOpenCreateWf] = React.useState(false);
 
   const set = <K extends keyof ProjectCreatePayload>(k: K, v: ProjectCreatePayload[K]) =>
-    setForm(prev => ({ ...prev, [k]: v }));
+    setForm((prev) => ({ ...prev, [k]: v }));
 
   /* ===== Validate per step (giữ nguyên) ===== */
   const validate1 = () => {
     const e: Record<string, string> = {};
-    if (!form.companyId) e.companyId = "Company is required.";
-    if (form.companyId && !isGuid(form.companyId)) e.companyId = "Invalid company id.";
-    if (!form.code.trim()) e.code = "Project code is required.";
-    if (!form.name.trim()) e.name = "Project name is required.";
-    if (form.isHired && !form.companyHiredId) e.companyHiredId = "Select hired company.";
-    if (!form.startDate) e.startDate = "Start date is required.";
-    if (!form.endDate) e.endDate = "End date is required.";
-    if (form.startDate && form.endDate && form.endDate < form.startDate) e.endDate = "End date must be after start date.";
+    if (!form.companyId) e.companyId = 'Company is required.';
+    if (form.companyId && !isGuid(form.companyId)) e.companyId = 'Invalid company id.';
+    if (!form.code.trim()) e.code = 'Project code is required.';
+    if (!form.name.trim()) e.name = 'Project name is required.';
+    // if (form.isHired && !form.companyHiredId) e.companyHiredId = 'Select hired company.';
+    if (!form.startDate) e.startDate = 'Start date is required.';
+    if (!form.endDate) e.endDate = 'End date is required.';
+    if (form.startDate && form.endDate && form.endDate < form.startDate)
+      e.endDate = 'End date must be after start date.';
     if (!Number.isInteger(form.sprintLengthWeeks) || form.sprintLengthWeeks < 1) {
-      e.sprintLengthWeeks = "Sprint length must be an integer ≥ 1.";
+      e.sprintLengthWeeks = 'Sprint length must be an integer ≥ 1.';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
   const validate2 = () => {
     const e: Record<string, string> = {};
-    if (form.workflowMode === "existing" && !form.workflowId) e.workflowId = "Choose a workflow.";
-    if (form.workflowMode === "new" && !form.workflowName.trim()) e.workflowName = "Enter new workflow name.";
+    if (form.workflowMode === 'existing' && !form.workflowId) e.workflowId = 'Choose a workflow.';
+    if (form.workflowMode === 'new' && !form.workflowName.trim())
+      e.workflowName = 'Enter new workflow name.';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -564,37 +771,45 @@ export default function CreateProjectModal({
     if (step < 3) setStep((s) => (s + 1) as any);
     else {
       try {
-    setSaving(true);
+        setSaving(true);
 
-    const payloadToPost: any = {
-      ...form,
-      workflowId: form.workflowId!, 
-    };
-    delete payloadToPost.workflowMode;
-    delete payloadToPost.workflowName;
+        const payloadToPost: any = {
+          ...form,
+          workflowId: form.workflowId!,
+        };
+        delete payloadToPost.workflowMode;
+        delete payloadToPost.workflowName;
 
-    // Nếu cha truyền onSubmit thì ưu tiên dùng callback
-   
-      await createProject(payloadToPost);
+        // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-    onClose(); // đóng modal sau khi tạo thành công
-  } catch (err: any) {
-    console.error("Create project failed:", err);
-    // TODO: gắn toast ở đây nếu bạn đang dùng thư viện toast
-    // toast.error(err?.response?.data?.message || err.message || "Create project failed");
-  } finally {
-    setSaving(false);
-  }
+        if (onSubmit) {
+          await onSubmit(payloadToPost);
+        } else {
+          await createProject(payloadToPost);
+        }
+
+        onClose(); // đóng modal sau khi tạo thành công
+      } catch (err: any) {
+        console.error('Create project failed:', err);
+        // TODO: gắn toast ở đây nếu bạn đang dùng thư viện toast
+        // toast.error(err?.response?.data?.message || err.message || "Create project failed");
+      } finally {
+        setSaving(false);
+      }
       onClose();
     }
   };
-  const back = () => setStep((s) => Math.max(1, (s - 1)) as any);
+  const back = () => setStep((s) => Math.max(1, s - 1) as any);
 
   const StepDot = ({ n, active }: { n: number; active: boolean }) => (
-    <div className={[
-      "size-8 rounded-full flex items-center justify-center text-sm font-semibold",
-      active ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200" : "bg-slate-100 text-slate-400"
-    ].join(" ")}>{n}</div>
+    <div
+      className={[
+        'size-8 rounded-full flex items-center justify-center text-sm font-semibold',
+        active ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-200' : 'bg-slate-100 text-slate-400',
+      ].join(' ')}
+    >
+      {n}
+    </div>
   );
 
   return createPortal(
@@ -603,16 +818,25 @@ export default function CreateProjectModal({
       <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
         <div
           className="w-full sm:max-w-[920px] lg:max-w-[1080px] rounded-2xl border border-slate-200 bg-white shadow-[0_10px_40px_-15px_rgba(30,64,175,0.35)] flex flex-col sm:min-h-[60vh] max-h-[90vh]"
-          style={{ backgroundImage: "radial-gradient(1000px 200px at 50% -80px, rgba(59,130,246,.08), transparent 60%)" }}
+          style={{
+            backgroundImage:
+              'radial-gradient(1000px 200px at 50% -80px, rgba(59,130,246,.08), transparent 60%)',
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* header */}
           <div className="p-6 pb-3 flex items-start justify-between">
             <div>
               <div className="text-xl font-semibold text-slate-800">Create New Project</div>
-              <div className="text-sm text-slate-500">Fill details • Choose workflow • (Optional) Assign members</div>
+              <div className="text-sm text-slate-500">
+                Fill details • Choose workflow • (Optional) Assign members
+              </div>
             </div>
-            <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100" aria-label="Close">
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-slate-400 hover:bg-slate-100"
+              aria-label="Close"
+            >
               <X className="size-5" />
             </button>
           </div>
@@ -654,7 +878,7 @@ export default function CreateProjectModal({
                   <Field label="Project code" required>
                     <input
                       value={form.code}
-                      onChange={(e) => set("code", e.target.value)}
+                      onChange={(e) => set('code', e.target.value)}
                       placeholder="e.g. FUS-PMS"
                       className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     />
@@ -663,7 +887,7 @@ export default function CreateProjectModal({
                   <Field label="Project name" required>
                     <input
                       value={form.name}
-                      onChange={(e) => set("name", e.target.value)}
+                      onChange={(e) => set('name', e.target.value)}
                       placeholder="e.g. Fusion PMS"
                       className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     />
@@ -674,7 +898,7 @@ export default function CreateProjectModal({
                 <Field label="Description">
                   <textarea
                     value={form.description}
-                    onChange={(e) => set("description", e.target.value)}
+                    onChange={(e) => set('description', e.target.value)}
                     rows={3}
                     placeholder="Short description…"
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -685,65 +909,101 @@ export default function CreateProjectModal({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Field label="Start date" required>
                     <div className="relative">
-                      <div className="pointer-events-none absolute left-3 top-2.5 text-slate-400"><CalendarDays className="size-4" /></div>
+                      <div className="pointer-events-none absolute left-3 top-2.5 text-slate-400">
+                        <CalendarDays className="size-4" />
+                      </div>
                       <input
                         type="date"
-                        value={form.startDate ?? ""}
-                        onChange={(e) => set("startDate", e.target.value || null)}
+                        value={form.startDate ?? ''}
+                        onChange={(e) => set('startDate', e.target.value || null)}
                         className="w-full rounded-xl border border-slate-200 px-9 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                       />
                     </div>
-                    {errors.startDate && <p className="mt-1 text-xs text-rose-500">{errors.startDate}</p>}
+                    {errors.startDate && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.startDate}</p>
+                    )}
                   </Field>
                   <Field label="End date" required>
                     <div className="relative">
-                      <div className="pointer-events-none absolute left-3 top-2.5 text-slate-400"><CalendarDays className="size-4" /></div>
+                      <div className="pointer-events-none absolute left-3 top-2.5 text-slate-400">
+                        <CalendarDays className="size-4" />
+                      </div>
                       <input
                         type="date"
-                        value={form.endDate ?? ""}
-                        onChange={(e) => set("endDate", e.target.value || null)}
+                        value={form.endDate ?? ''}
+                        onChange={(e) => set('endDate', e.target.value || null)}
                         className="w-full rounded-xl border border-slate-200 px-9 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                       />
                     </div>
-                    {errors.endDate && <p className="mt-1 text-xs text-rose-500">{errors.endDate}</p>}
+                    {errors.endDate && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.endDate}</p>
+                    )}
                   </Field>
                 </div>
-
                 {/* type */}
                 <Field label="Type">
                   <div className="flex flex-wrap gap-2">
-                    <Chip active={!form.isHired} onClick={() => set("isHired", false)}>Internal</Chip>
-                    <Chip active={form.isHired} onClick={() => set("isHired", true)}>Outsourced</Chip>
+                    <Chip active={!form.isHired} onClick={() => set('isHired', false)}>
+                      Internal
+                    </Chip>
+                    <Chip active={form.isHired} onClick={() => set('isHired', true)}>
+                      Outsourced
+                    </Chip>
                   </div>
                 </Field>
                 {form.isHired && (
                   <Field label="Hired company" required>
-                    <OptionList
-                      value={form.companyHiredId}
-                      onChange={(v) => set("companyHiredId", v)}
-                      options={[
-                        { id: "p1", label: "Partner A" },
-                        { id: "p2", label: "Partner B" },
-                        { id: "p3", label: "Partner C" },
-                      ]}
-                      placeholder="Select partner company"
-                    />
-                    {errors.companyHiredId && <p className="mt-1 text-xs text-rose-500">{errors.companyHiredId}</p>}
+                    {defaultValues?.companyId ? (
+                      <input
+                        type="text"
+                        disabled
+                        value={companyRequestProject ?? ''}
+                        onChange={() => {}}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 cursor-not-allowed"
+                      />
+                    ) : (
+                      <OptionList
+                        value={form.companyRequestId}
+                        onChange={(v) => set('companyRequestId', v)}
+                        options={[
+                          { id: 'p1', label: 'Partner A' },
+                          { id: 'p2', label: 'Partner B' },
+                          { id: 'p3', label: 'Partner C' },
+                        ]}
+                        placeholder="Select partner company"
+                      />
+                    )}
+
+                    {errors.companyRequestId && (
+                      <p className="mt-1 text-xs text-rose-500">{errors.companyRequestId}</p>
+                    )}
                   </Field>
                 )}
 
                 {/* sprint length */}
                 <Field label="Sprint length (weeks)" required>
                   <input
-                    type="number" inputMode="numeric" pattern="[0-9]*" min={1} step={1}
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    step={1}
                     value={weeksRaw}
                     onChange={(e) => handleWeeksChange(e.target.value)}
                     onBlur={handleWeeksBlur}
-                    onKeyDown={(e) => { blockNonNumericKeys(e); if (e.key === "Enter") next(); }}
-                    onPaste={(e) => { const text = e.clipboardData.getData("text"); if (!/^\d+$/.test(text)) e.preventDefault(); }}
+                    onKeyDown={(e) => {
+                      blockNonNumericKeys(e);
+                      if (e.key === 'Enter') next();
+                    }}
+                    onPaste={(e) => {
+                      const text = e.clipboardData.getData('text');
+                      if (!/^\d+$/.test(text)) e.preventDefault();
+                    }}
                     className="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   />
-                  {errors.sprintLengthWeeks && <p className="mt-1 text-xs text-rose-500">{errors.sprintLengthWeeks}</p>}
+                  {errors.sprintLengthWeeks && (
+                    <p className="mt-1 text-xs text-rose-500">{errors.sprintLengthWeeks}</p>
+                  )}
                 </Field>
               </div>
             )}
@@ -758,13 +1018,13 @@ export default function CreateProjectModal({
                     type="radio"
                     name="wf"
                     className="size-4 accent-blue-600"
-                    checked={form.workflowMode === "existing"}
-                    onChange={() => set("workflowMode", "existing")}
+                    checked={form.workflowMode === 'existing'}
+                    onChange={() => set('workflowMode', 'existing')}
                   />
                   <span className="text-slate-800">Use existing workflow</span>
                 </label>
 
-                {form.workflowMode === "existing" && (
+                {form.workflowMode === 'existing' && (
                   <div className="space-y-2">
                     <div className="flow flex-wrap items-center gap-2">
                       <button
@@ -779,17 +1039,19 @@ export default function CreateProjectModal({
                         <SelectedWorkflowPreview
                           companyId={companyId}
                           workflowId={form.workflowId}
-                          name={workflowSelectedName || "Workflow"}
+                          name={workflowSelectedName || 'Workflow'}
                           onClear={() => {
-                            set("workflowId", null);
-                            setWorkflowSelectedName("");
+                            set('workflowId', null);
+                            setWorkflowSelectedName('');
                           }}
                         />
                       ) : (
                         <div className="text-xs text-slate-500">No workflow selected.</div>
                       )}
                     </div>
-                    {errors.workflowId && <p className="text-xs text-rose-500">{errors.workflowId}</p>}
+                    {errors.workflowId && (
+                      <p className="text-xs text-rose-500">{errors.workflowId}</p>
+                    )}
                   </div>
                 )}
 
@@ -799,16 +1061,15 @@ export default function CreateProjectModal({
                     type="radio"
                     name="wf"
                     className="size-4 accent-blue-600"
-                    checked={form.workflowMode === "new"}
-                    onChange={() => set("workflowMode", "new")}
+                    checked={form.workflowMode === 'new'}
+                    onChange={() => set('workflowMode', 'new')}
                   />
                   <span className="text-slate-800">Create new workflow</span>
                 </label>
 
-                {form.workflowMode === "new" && (
+                {form.workflowMode === 'new' && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
-
                       <button
                         type="button"
                         onClick={() => setOpenCreateWf(true)}
@@ -818,9 +1079,12 @@ export default function CreateProjectModal({
                         <WorkflowIcon className="size-4" /> Create in Designer
                       </button>
                     </div>
-                    {errors.workflowName && <p className="-mt-2 text-xs text-rose-500">{errors.workflowName}</p>}
+                    {errors.workflowName && (
+                      <p className="-mt-2 text-xs text-rose-500">{errors.workflowName}</p>
+                    )}
                     <div className="text-xs text-slate-500">
-                      Tip: điền tên rồi mở Designer để chỉnh sửa status/transition. Save xong sẽ tự gán.
+                      Tip: điền tên rồi mở Designer để chỉnh sửa status/transition. Save xong sẽ tự
+                      gán.
                     </div>
                   </div>
                 )}
@@ -834,25 +1098,51 @@ export default function CreateProjectModal({
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Field label="Add people">
-                    <OptionList value={null} onChange={(id) => {
-                      if (!id) return;
-                      set("memberIds", Array.from(new Set([...form.memberIds, id])));
-                    }} options={people} placeholder="Search and select people" />
+                    <OptionList
+                      value={null}
+                      onChange={(id) => {
+                        if (!id) return;
+                        set('memberIds', Array.from(new Set([...form.memberIds, id])));
+                      }}
+                      options={people}
+                      placeholder="Search and select people"
+                    />
                   </Field>
                   <Field label="Selected">
                     {form.memberIds.length === 0 ? (
-                      <div className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-400">No members</div>
+                      <div className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-400">
+                        No members
+                      </div>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {form.memberIds.map(id => {
-                          const p = people.find(x => x.id === id) || { id, label: String(id), sub: "" };
+                        {form.memberIds.map((id) => {
+                          const p = people.find((x) => x.id === id) || {
+                            id,
+                            label: String(id),
+                            sub: '',
+                          };
                           return (
-                            <span key={id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs">
+                            <span
+                              key={id}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs"
+                            >
                               <span className="inline-flex size-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-semibold text-white">
-                                {p.label.split(" ").map(s => s[0]).slice(0, 2).join("")}
+                                {p.label
+                                  .split(' ')
+                                  .map((s) => s[0])
+                                  .slice(0, 2)
+                                  .join('')}
                               </span>
                               {p.label}
-                              <button onClick={() => set("memberIds", form.memberIds.filter(m => m !== id))} className="rounded p-1 text-slate-400 hover:bg-slate-100">
+                              <button
+                                onClick={() =>
+                                  set(
+                                    'memberIds',
+                                    form.memberIds.filter((m) => m !== id),
+                                  )
+                                }
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100"
+                              >
                                 <X className="size-3.5" />
                               </button>
                             </span>
@@ -914,7 +1204,8 @@ export default function CreateProjectModal({
                   )}
                 </div> */}
                 <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
-                  You can skip assignment now and invite people later from the Project → Members tab.
+                  You can skip assignment now and invite people later from the Project → Members
+                  tab.
                 </div>
               </div>
             )}
@@ -922,17 +1213,32 @@ export default function CreateProjectModal({
 
           {/* footer */}
           <div className="p-6 pt-3 flex items-center justify-between border-t border-slate-100">
-            <button onClick={back} disabled={step === 1}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <button
+              onClick={back}
+              disabled={step === 1}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
               Back
             </button>
             <div className="flex items-center gap-2">
-              <button onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              <button
+                onClick={onClose}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
                 Cancel
               </button>
-              <button onClick={next} disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
-                {step < 3 ? "Next" : (<><Plus className="size-4" /> Done</>)}
+              <button
+                onClick={next}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {step < 3 ? (
+                  'Next'
+                ) : (
+                  <>
+                    <Plus className="size-4" /> Done
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -943,11 +1249,11 @@ export default function CreateProjectModal({
       {openPicker && (
         <WorkflowPickerModal
           open={openPicker}
-          companyId={companyId}
+          companyId={routeCompanyId ?? null}
           onClose={() => setOpenPicker(false)}
           onSelect={(wf) => {
-            set("workflowMode", "existing");
-            set("workflowId", wf.id);
+            set('workflowMode', 'existing');
+            set('workflowId', wf.id);
             setWorkflowSelectedName(wf.name);
           }}
         />
@@ -955,18 +1261,18 @@ export default function CreateProjectModal({
       {openCreateWf && (
         <CreateWorkflowModal
           open={openCreateWf}
-          companyId={companyId}
+          companyId={routeCompanyId ?? null}
           onClose={() => setOpenCreateWf(false)}
           onCreated={(wf) => {
-            set("workflowMode", "existing");
-            set("workflowId", wf.id);
+            set('workflowMode', 'existing');
+            set('workflowId', wf.id);
             setWorkflowSelectedName(wf.name);
-            set("workflowName", "");
+            set('workflowName', '');
             setOpenCreateWf(false);
           }}
         />
       )}
     </div>,
-    document.body
+    document.body,
   );
 }

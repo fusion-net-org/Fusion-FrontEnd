@@ -75,7 +75,7 @@ const defaultItems: Item[] = [
     to: '/companies/:companyId/access-role',
     icon: 'grid',
   },
-  { key: 'projects', label: 'Projects', to: '/company/:companyId/project', icon: 'layers' },
+  { key: 'projects', label: 'Projects', to: '/companies/:companyId/project', icon: 'layers' },
   {
     key: 'project-request',
     label: 'Project Request',

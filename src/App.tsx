@@ -43,6 +43,7 @@ import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
 import TaskListPage from './pages/project/TaskListPage';
 
+import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -79,6 +80,10 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
+          <Route
+            path="/companies/:companyId/project-company-request"
+            element={<ProjectsCompanyRequest />}
+          />
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route
             path="/company/:companyId/project-request/:id"
@@ -90,6 +95,9 @@ function App() {
 <Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
 <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
 <Route path="/companies/:companyId/projectlist/:projectId" element={<TaskListPage/>} />
+          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
+         
+
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
           {/* CREATE */}

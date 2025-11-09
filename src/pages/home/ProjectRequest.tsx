@@ -322,6 +322,7 @@ const ProjectRequestPage: React.FC = () => {
               <th className="px-4 py-3 font-medium text-center">Start Date</th>
               <th className="px-4 py-3 font-medium text-center">End Date</th>
               <th className="px-4 py-3 font-medium text-center">Have Project</th>
+              <th className="px-4 py-3 font-medium text-center">Deleted</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
               {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
               <th className="px-4 py-3 font-medium text-left">Detail</th>
@@ -387,6 +388,15 @@ const ProjectRequestPage: React.FC = () => {
                         <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
                       ) : (
                         <XCircle className="w-5 h-5 text-gray-400 mx-auto" />
+                      )}
+                    </td>
+
+                    {/*  isDeleted */}
+                    <td className="px-4 py-3 text-center">
+                      {item.isDeleted ? (
+                        <span className="text-red-600 font-medium">Yes</span>
+                      ) : (
+                        <span className="text-green-600 font-medium">No</span>
                       )}
                     </td>
 

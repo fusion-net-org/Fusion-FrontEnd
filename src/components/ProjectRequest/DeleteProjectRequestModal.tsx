@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { Modal, Input, Select } from 'antd';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '@/common/LoadingOverlay';
-import { RejectProjectRequest } from '@/services/projectRequest.js';
+import { DeleteProjectRequest } from '@/services/projectRequest.js';
 
-interface RejectReasonModalProps {
+interface DeleteProjectModalProps {
   open: boolean;
   onClose: () => void;
   projectId: string | null;
@@ -13,15 +13,14 @@ interface RejectReasonModalProps {
 }
 
 const defaultReasons = [
-  'Out of contractual scope',
-  'Budget not available',
-  'Insufficient staffing resources',
-  'Failure to meet technical specifications',
-  'Infeasible schedule',
+  'Project completed',
+  'Duplicate request',
+  'Out of scope',
+  'Client request',
   'Other',
 ];
 
-const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
+const DeleteProjectRequestModal: React.FC<DeleteProjectModalProps> = ({
   open,
   onClose,
   projectId,
@@ -31,27 +30,32 @@ const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
   const [customReason, setCustomReason] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleReject = async () => {
+  const handleDelete = async () => {
     if (!projectId) return;
 
     const finalReason = reasons.includes('Other')
       ? [...reasons.filter((r) => r !== 'Other'), customReason].join(', ')
       : reasons.join(', ');
 
+    if (!finalReason) {
+      toast.info('Please select or enter a reason for deletion');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const res = await RejectProjectRequest(projectId, finalReason);
+      const res = await DeleteProjectRequest(projectId, finalReason);
 
       if (res.succeeded) {
-        toast.success(res.message || 'Request rejected successfully!');
+        toast.success(res.message || 'Project request deleted successfully!');
         onSuccess?.();
         onClose();
       } else {
-        toast.error(res.message || 'Failed to reject request');
+        toast.error(res.message || 'Failed to delete project request');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error rejecting request');
+      toast.error(error.response?.data?.message || 'Error deleting request');
     } finally {
       setLoading(false);
       setReasons([]);
@@ -69,8 +73,8 @@ const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
     <Modal
       title={
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">Reject Project Request</h2>
-          <p className="text-sm text-gray-500">Select one or more reasons for rejection</p>
+          <h2 className="text-lg font-semibold text-gray-800">Delete Project Request</h2>
+          <p className="text-sm text-gray-500">Select one or more reasons for deletion</p>
         </div>
       }
       open={open}
@@ -79,7 +83,7 @@ const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
       centered
       width={480}
     >
-      <LoadingOverlay loading={loading} message="Processing rejection..." />
+      <LoadingOverlay loading={loading} message="Processing deletion..." />
 
       <div className="flex flex-col gap-4">
         {/* Reason Select */}
@@ -87,7 +91,7 @@ const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
           <label className="text-sm font-medium text-gray-700">Reason(s)</label>
           <Select
             mode="multiple"
-            placeholder="Select rejection reasons"
+            placeholder="Select deletion reasons"
             value={reasons}
             onChange={setReasons}
             className="mt-1 w-full"
@@ -119,11 +123,11 @@ const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
             Cancel
           </button>
           <button
-            onClick={handleReject}
+            onClick={handleDelete}
             disabled={loading}
             className="px-4 py-2 text-sm bg-red-600 text-white rounded-full hover:bg-red-700 transition"
           >
-            Reject
+            Delete
           </button>
         </div>
       </div>
@@ -131,4 +135,4 @@ const RejectReasonModal: React.FC<RejectReasonModalProps> = ({
   );
 };
 
-export default RejectReasonModal;
+export default DeleteProjectRequestModal;
