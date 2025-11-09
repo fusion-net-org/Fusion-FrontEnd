@@ -129,6 +129,68 @@ export async function getCompanyMemberOptions(companyId, params = {}) {
     sub: m.roleName || m.email || "",
   }));
 }
+const toDDMMYYYY = (v) => {
+  if (!v) return undefined;
+  const d = new Date(v);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+export const mapSprintDto = (r) => ({
+  id: String(r.id),
+  name: r.name || "",
+  startDate: toDDMMYYYY(r.startDate),
+  endDate: toDDMMYYYY(r.endDate),
+});
+
+// ---- ONLY: get sprints by project (giữ các hàm khác nguyên)
+export async function getSprintsByProject(
+  projectId,
+  {
+    statuses = [],
+    dateFrom,
+    dateTo,
+    q,
+    sortColumn = "start_date",
+    sortDescending = false,
+    pageNumber = 1,
+    pageSize = 200,
+  } = {}
+) {
+  const params = {
+    Q: q,
+    "DateRange.From": dateFrom,
+    "DateRange.To": dateTo,
+    SortColumn: sortColumn,
+    SortDescending: sortDescending,
+    PageNumber: pageNumber,
+    PageSize: pageSize,
+  };
+  const paramsSerializer = (p) => {
+    const usp = new URLSearchParams();
+    Object.entries(p).forEach(([k, v]) => {
+      if (v != null && v !== "") usp.append(k, String(v));
+    });
+    (statuses || []).forEach((s) => usp.append("Statuses", s));
+    return usp.toString();
+  };
+
+  // ✅ đúng route mới
+  const { data } = await axiosInstance.get(`/sprints/projects/${projectId}`, {
+    params,
+    paramsSerializer,
+  });
+
+  const payload = data?.data ?? data ?? {};
+  const items = Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray(payload)
+    ? payload
+    : [];
+
+  return items.map(mapSprintDto); // ⬅️ KHÔNG còn ReferenceError
+}
 export async function createProject(payload) {
   const {
     companyId,

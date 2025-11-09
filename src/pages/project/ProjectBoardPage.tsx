@@ -1,30 +1,23 @@
+// src/pages/project/ProjectBoardPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
-import { Search, SlidersHorizontal, Calendar } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import BoardNav from "@/components/Company/Projects/BoardNav";
 import SprintBoard from "@/components/Company/Projects/SprintBoard";
 import KanbanBySprintBoard from "@/components/Company/Projects/KanbanBySprintBoard";
 
-/* ====== Types + helpers + mock API (giữ gọn trong Page) ====== */
+// === Types: dùng StatusKey local + TaskVm từ TaskCard để khỏi lệch schema
 export type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-export type Priority = "Urgent" | "High" | "Medium" | "Low";
-
-export type TaskVm = {
-  id: string;
-  code: string;
-  title: string;
-  priority: Priority;
-  type: string;
-  memberCount: number;
-  dueDate?: string;       // dd-mm-yyyy
-  assigneeName?: string;
-};
+import type { TaskVm as CardTaskVm, MemberRef as CardMemberRef } from "@/components/Company/Projects/TaskCard";
+import ProjectTaskList from "@/components/Company/Projects/ProjectTaskList";
+type TaskVm = CardTaskVm;
+type MemberRef = CardMemberRef;
 
 export type SprintVm = {
   id: string;
   name: string;
-  startDate?: string;     // dd-mm-yyyy
-  endDate?: string;       // dd-mm-yyyy
+  startDate?: string; // dd-mm-yyyy (để Dashboard dùng parseDDMMYYYY)
+  endDate?: string;   // dd-mm-yyyy
   columns: Record<StatusKey, TaskVm[]>;
 };
 
@@ -71,9 +64,45 @@ function humanDaysRemaining(end?: string) {
   return `${Math.abs(diff)} days past`;
 }
 
-// API – thay bằng axios/fetch thật khi nối BE
+// === Mock API: trả về TaskVm đầy đủ (ISO date cho SLA/format)
 const projectApi = {
   async getSprints(projectId: string): Promise<SprintVm[]> {
+    const now = new Date();
+    const isoIn = (hours: number) => new Date(now.getTime() + hours * 3600 * 1000).toISOString();
+    const isoAgo = (hours: number) => new Date(now.getTime() - hours * 3600 * 1000).toISOString();
+    const avatar = (i: number) => `https://i.pravatar.cc/100?img=${(i % 60) + 1}`;
+
+    const m = (id: string, name: string, i = 1): MemberRef => ({
+      id, name, avatarUrl: avatar(i),
+    });
+
+    const mk = (o: Partial<TaskVm>): TaskVm => ({
+      id: "t-x",
+      code: "PRJ-000",
+      title: "Untitled",
+      type: "Feature",
+      priority: "Low",
+      severity: "Low",
+      tags: [],
+      storyPoints: 3,
+      estimateHours: 8,
+      remainingHours: 8,
+      dueDate: isoIn(72),
+      openedAt: isoAgo(24),
+      updatedAt: isoAgo(2),
+      createdAt: isoAgo(48),
+      sprintId: "s1",
+      status: "todo",
+      stage: "IN_PROGRESS",
+      assignees: [m("u1", "Nguyen Duy", 11)],
+      dependsOn: [],
+      parentTaskId: null,
+      carryOverCount: 0,
+      sourceTicketId: null,
+      sourceTicketCode: null,
+      ...o,
+    });
+
     return [
       {
         id: "s1",
@@ -82,98 +111,99 @@ const projectApi = {
         endDate: "30-10-2025",
         columns: {
           todo: [
-            {
+            mk({
               id: "t1",
               code: "PRJ-123",
               title: "Projects Name",
               priority: "Urgent",
               type: "Feature",
-              memberCount: 6,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
+              storyPoints: 5,
+              estimateHours: 20,
+              remainingHours: 16,
+              dueDate: isoIn(24),
+              assignees: [m("u1","Nguyen Duy",11), m("u2","Cao Van Dung",22)],
+              sourceTicketId: "TK-1001",
+              sourceTicketCode: "TK-1001",
+            }),
           ],
           inprogress: [
-            {
+            mk({
               id: "t2",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-124",
+              title: "Fix webhook signature",
               priority: "High",
               type: "Bug",
-              memberCount: 6,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-            {
+              severity: "Critical",
+              status: "inprogress",
+              remainingHours: 3,
+              dueDate: isoIn(12),
+              assignees: [m("u1","Nguyen Duy",11)],
+              sourceTicketId: "TK-1001",
+              sourceTicketCode: "TK-1001",
+            }),
+            mk({
               id: "t3",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-125",
+              title: "Implement pricing cards",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-           {
+              status: "inprogress",
+              remainingHours: 5,
+              assignees: [m("u3","Nguyen Kien Minh",33)],
+              sourceTicketId: "TK-1002",
+              sourceTicketCode: "TK-1002",
+            }),
+            mk({
               id: "t4",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-126",
+              title: "Add audit trail",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-               {
+              status: "inprogress",
+              assignees: [m("u4","Luong Cong Bang",44)],
+            }),
+            mk({
               id: "t5",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-127",
+              title: "Optimize EF Core queries",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-               {
+              status: "inprogress",
+              assignees: [],
+            }),
+            mk({
               id: "t6",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-128",
+              title: "Finalize workflow designer",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-               {
+              status: "inprogress",
+              assignees: [m("u1","Nguyen Duy",11), m("u5","Nguyen Tan Tuong",55)],
+            }),
+            mk({
               id: "t7",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-129",
+              title: "Admin dashboard polish",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-               {
+              status: "inprogress",
+            }),
+            mk({
               id: "t8",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-130",
+              title: "Notification center",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-               {
+              status: "inprogress",
+            }),
+            mk({
               id: "t9",
-              code: "PRJ-123",
-              title: "Projects Name",
+              code: "PRJ-131",
+              title: "CSV export for tickets",
               priority: "Medium",
               type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
+              status: "inprogress",
+            }),
           ],
           inreview: [],
           done: [],
@@ -193,7 +223,7 @@ const projectApi = {
   }) {}
 };
 
-/* ====== Dashboard (giữ nguyên như bạn) ====== */
+/* ====== Dashboard (y như cũ, dùng dd-mm-yyyy cho sprint range) ====== */
 function SprintDashboard({ sprint }: { sprint: SprintVm }) {
   const brand = "#2E8BFF";
   const { total, done, pct } = computeSprintStats(sprint);
@@ -237,6 +267,7 @@ function SprintDashboard({ sprint }: { sprint: SprintVm }) {
         <span className="text-xs text-gray-400">↗</span>
       </div>
       <div className="mt-2">
+        {/* placeholder chart svg */}
         <svg viewBox="0 0 680 240" className="w-full h-[180px] sm:h-[200px] md:h-[240px] lg:h-[260px]">
           <rect x="0"   y="0" width="90"  height="240" fill={brand} opacity="0.08" />
           <rect x="590" y="0" width="90"  height="240" fill="#22c55e" opacity="0.08" />
@@ -260,11 +291,6 @@ function SprintDashboard({ sprint }: { sprint: SprintVm }) {
                 fill="url(#greenFill)" />
           <path d="M20 140 C 110 210, 160 105, 240 125 C 300 140, 350 85, 420 150 C 470 180, 550 200, 660 120"
                 fill="none" stroke="#22c55e" strokeWidth="3" />
-          {[{x:40,y:140},{x:120,y:210},{x:240,y:125},{x:350,y:85},{x:420,y:150},{x:520,y:190},{x:660,y:120}]
-            .map((p,i)=>(<circle key={`g${i}`} cx={p.x} cy={p.y} r="4" fill="#22c55e"/>))}
-          {["Mon","Tues","Wed","Thur","Fri","Sat"].map((d,i)=>(
-            <text key={d} x={40 + i*120} y="230" textAnchor="middle" fontSize="11" fill="#6b7280">{d}</text>
-          ))}
         </svg>
       </div>
     </div>
@@ -309,7 +335,7 @@ function BottomControls() {
 
 /* ===================== PAGE ===================== */
 export default function ProjectBoardPage() {
-  const [view, setView] = useState<"Kanban" | "Sprint">("Kanban");
+const [view, setView] = useState<"Kanban" | "Sprint" | "List">("Kanban");
   const [sprints, setSprints] = useState<SprintVm[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [kanbanFilter, setKanbanFilter] = useState<StatusKey | "all">("all");
@@ -327,6 +353,7 @@ export default function ProjectBoardPage() {
     [sprints, activeId]
   );
 
+  // Drag trong 1 sprint (đổi cột/status)
   const onDragEndSprint = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
@@ -355,6 +382,7 @@ export default function ProjectBoardPage() {
     });
   };
 
+  // Drag giữa các sprint (Kanban by sprint)
   const onDragEndKanban = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
@@ -382,7 +410,10 @@ export default function ProjectBoardPage() {
       toSprintId,
     });
   };
-
+const allTasks = useMemo<TaskVm[]>(
+  () => sprints.flatMap(s => flattenSprintTasks(s, "all")),
+  [sprints]
+);
   return (
     <div className="w-full min-w-0 max-w-[100vw] min-h-screen bg-[#F7F8FA] overflow-x-auto">
       <div className="sticky top-0 z-30 bg-[#F7F8FA] border-b border-gray-100 pb-2 min-w-0">
@@ -395,11 +426,9 @@ export default function ProjectBoardPage() {
           onActiveChange={setActiveId}
         />
       </div>
+      
+      {/* {view === "Sprint" && <BottomControls />} */}
 
-      {view === "Sprint" && activeSprint && <SprintDashboard sprint={activeSprint} />}
-      {view === "Sprint" && <BottomControls />}
-
-      {/* CHANGED: wrapper cho boards để không “đẩy” width vượt viewport */}
       <div className="min-w-0 max-w-[100vw]">
         {view === "Sprint" && activeSprint && (
           <SprintBoard sprint={activeSprint} onDragEnd={onDragEndSprint} />
@@ -409,8 +438,24 @@ export default function ProjectBoardPage() {
             sprints={sprints}
             filter={kanbanFilter}
             onDragEnd={onDragEndKanban}
+            // các action là optional; nếu muốn show behavior có thể truyền thêm:
+            // onMarkDone={(t)=>{}}
+            // onNext={(t)=>{}}
+            // onSplit={(t)=>{}}
+            // onMoveNext={(t)=>{}}
+            // onOpenTicket={(ticketId)=>{}}
           />
         )}
+          {view === "List" && (
+        <ProjectTaskList
+          tasks={allTasks}
+          // các action có thể map sang API thật khi bạn nối:
+          // onMarkDone={(t)=> ... }
+          // onNext={(t)=> ... }
+          // onSplit={(t)=> ... }
+          // onMoveNext={(t)=> ... }
+        />
+      )}
       </div>
     </div>
   );

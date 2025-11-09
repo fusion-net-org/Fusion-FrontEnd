@@ -1,80 +1,292 @@
+// src/components/TaskCard.tsx
 import React from "react";
-import { Calendar, MoreHorizontal, Users } from "lucide-react";
+import {
+  Check,
+  TimerReset,
+  Clock,
+  Flag,
+  CalendarDays,
+  MoveRight,
+  MoveDown,
+  SplitSquareHorizontal,
+  AlertTriangle,
+  Link as LinkIcon,
+} from "lucide-react";
+
+/** ==== Shared types ==== */
+export type Id = string;
 
 export type Priority = "Urgent" | "High" | "Medium" | "Low";
-export type TaskVm = {
-  id: string; code: string; title: string; priority: Priority;
-  type: string; memberCount: number; dueDate?: string; assigneeName?: string;
+export type StatusKey = "todo" | "inprogress" | "inreview" | "done";
+export type Severity = "Critical" | "High" | "Medium" | "Low";
+
+export type MemberRef = {
+  id: Id;
+  name: string;
+  avatarUrl?: string | null;
 };
 
-const priorityBarColor: Record<Priority, string> = {
-  Urgent:"#EF4444", High:"#F59E0B", Medium:"#3B82F6", Low:"#9CA3AF"
+export type TaskType = "Feature" | "Bug" | "Chore";
+
+export type TaskVm = {
+  id: Id;
+  code: string;
+  title: string;
+  type: TaskType;
+  priority: Priority;
+  severity?: Severity;
+  tags?: string[];
+  storyPoints: number;
+  estimateHours: number;
+  remainingHours: number;
+  dueDate?: string;
+  openedAt: string;
+  updatedAt: string;
+  sprintId: Id | null;
+  status: StatusKey;
+  stage:
+    | "IN_PROGRESS"
+    | "WAITING_FOR_DEPLOY"
+    | "CHECK_AGAIN"
+    | "DEV_DONE"
+    | "READY_ON_PRODUCTION"
+    | "CLOSED";
+  assignees: MemberRef[];
+  dependsOn: Id[];
+  parentTaskId?: Id | null;
+  carryOverCount: number;
+  createdAt: string;
+
+  /** Ticket linkage (task được tạo từ ticket) */
+  sourceTicketId?: Id | null;
+  sourceTicketCode?: string | null;
+};
+
+/** ==== SLA rules ==== */
+const SLA_POLICIES: Array<{ type: TaskType; priority: Priority; targetHours: number }> = [
+  { type: "Bug",     priority: "Urgent", targetHours: 24 },
+  { type: "Bug",     priority: "High",   targetHours: 48 },
+  { type: "Bug",     priority: "Medium", targetHours: 72 },
+  { type: "Feature", priority: "Urgent", targetHours: 72 },
+  { type: "Feature", priority: "High",   targetHours: 120 },
+  { type: "Feature", priority: "Medium", targetHours: 168 },
+  { type: "Feature", priority: "Low",    targetHours: 336 },
+  { type: "Chore",   priority: "Low",    targetHours: 336 },
+];
+
+function getSlaTarget(type: TaskType, priority: Priority): number | null {
+  const p = SLA_POLICIES.find((x) => x.type === type && x.priority === priority);
+  return p?.targetHours ?? null;
+}
+
+function hoursBetween(aIso: string, bIso: string): number {
+  return (new Date(bIso).getTime() - new Date(aIso).getTime()) / 36e5;
+}
+
+function fmtDate(d?: string) {
+  if (!d) return "N/A";
+  const x = new Date(d);
+  return x.toLocaleDateString();
+}
+
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
+/** ==== Assignee avatars ==== */
+function Initials({ name }: { name: string }) {
+  const parts = name.trim().split(/\s+/);
+  const initials = ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+  return <span>{initials || "?"}</span>;
+}
+
+function Avatar({ m }: { m: MemberRef }) {
+  return (
+    <div className="w-6 h-6 rounded-full ring-2 ring-white overflow-hidden bg-slate-200 flex items-center justify-center text-[10px] font-semibold text-slate-700">
+      {m.avatarUrl ? <img alt={m.name} src={m.avatarUrl} className="w-full h-full object-cover" /> : <Initials name={m.name} />}
+    </div>
+  );
+}
+
+function AvatarGroup({ members }: { members: MemberRef[] }) {
+  const shown = members.slice(0, 3);
+  const more = members.length - shown.length;
+  return (
+    <div className="flex items-center">
+      {shown.map((m, i) => (
+        <div key={m.id} className={cn(i > 0 && "-ml-2")}>
+          <Avatar m={m} />
+        </div>
+      ))}
+      {more > 0 && (
+        <div className="-ml-2 w-6 h-6 rounded-full ring-2 ring-white bg-slate-300 text-[10px] flex items-center justify-center font-semibold text-slate-700">
+          +{more}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** ==== Props ==== */
+type Props = {
+  t: TaskVm;
+  ticketSiblingsCount?: number; // số task khác cùng ticket (không tính bản thân)
+  onMarkDone: (t: TaskVm) => void;
+  onNext: (t: TaskVm) => void;
+  onSplit: (t: TaskVm) => void;
+  onMoveNext: (t: TaskVm) => void;
+  onOpenTicket?: (ticketId: Id) => void;
 };
 
 export default function TaskCard({
-  task,
-  dragHandleProps,          // để parent truyền vào (nếu muốn chỉ kéo ở header)
-  compact = false,          // nếu cần chế độ gọn
-}: {
-  task: TaskVm;
-  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
-  compact?: boolean;
-}) {
+  t,
+  ticketSiblingsCount = 0,
+  onMarkDone,
+  onNext,
+  onSplit,
+  onMoveNext,
+  onOpenTicket,
+}: Props) {
+  const nowIso = new Date().toISOString();
+  const slaTarget = getSlaTarget(t.type, t.priority);
+  const elapsed = Math.max(0, hoursBetween(t.openedAt, nowIso));
+  const remaining = slaTarget != null ? Math.ceil(slaTarget - elapsed) : null;
+  const overdue = remaining != null && remaining < 0;
+  const urgent = t.priority === "Urgent";
+  const blocked = (t.dependsOn || []).length > 0; // demo: chưa check trạng thái done thực sự
+
+  const slaTone =
+    overdue ? "text-rose-700 bg-rose-50 border-rose-200" :
+    remaining != null && remaining <= 4 ? "text-rose-700 bg-rose-50 border-rose-200" :
+    remaining != null && remaining <= 12 ? "text-amber-700 bg-amber-50 border-amber-200" :
+    "text-slate-600 bg-slate-50 border-slate-200";
+
   return (
-    <div className="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow transition-shadow">
-      {/* priority bar trái */}
-      <div
-        className="absolute left-0 top-0 h-full w-[6px] rounded-l-2xl"
-        style={{ backgroundColor: priorityBarColor[task.priority], opacity: task.priority === "Low" ? 0.25 : 1 }}
-      />
+    <div
+      className={cn(
+        "rounded-xl border border-slate-200 bg-white shadow-sm p-3 hover:shadow-md transition relative",
+        urgent && "ring-1 ring-rose-200",
+      )}
+      style={urgent ? { boxShadow: "0 1px 2px rgba(190,18,60,0.10)" } : undefined}
+    >
+      {/* Urgent strip + pulse dot */}
+      {urgent && (
+        <>
+          <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-rose-600" />
+          <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
+        </>
+      )}
 
-      {/* Header (đặt drag handle ở đây nếu truyền vào) */}
-      <div className="relative">
-        <div className="flex items-center justify-between">
-          <div
-            {...dragHandleProps}
-            className={dragHandleProps ? "cursor-grab active:cursor-grabbing select-none" : ""}
-            title={task.code}
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs text-slate-500 leading-5">{t.code}</div>
+        <div className="flex items-center gap-1 flex-wrap justify-end">
+          {blocked && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-rose-300 text-rose-700">Blocked</span>
+          )}
+          <span
+            className={cn(
+              "text-[10px] px-2 py-0.5 rounded-full border",
+              urgent
+                ? "border-rose-300 text-rose-700 bg-rose-50"
+                : t.priority === "High"
+                ? "border-amber-300 text-amber-700 bg-amber-50"
+                : "border-slate-200 text-slate-600 bg-slate-50"
+            )}
           >
-            <span className="text-gray-400 text-[12px] tracking-wide">{task.code}</span>
-          </div>
-          <button className="p-1 rounded hover:bg-gray-100" aria-label="Task menu">
-            <MoreHorizontal className="w-4 h-4 text-gray-500" />
+            {t.priority}
+          </span>
+          {t.carryOverCount > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-200 text-blue-700 bg-blue-50">
+              Spillover ×{t.carryOverCount}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-1 font-medium leading-6">{t.title}</div>
+
+      {/* Ticket pill & siblings */}
+      {(t.sourceTicketId || t.sourceTicketCode) && (
+        <div className="mt-1 flex items-center gap-2">
+          <button
+            type="button"
+            className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+            onClick={() => t.sourceTicketId && onOpenTicket?.(t.sourceTicketId)}
+            title="Mở ticket gốc"
+          >
+            <LinkIcon className="w-3 h-3" />
+            {t.sourceTicketCode ?? "Ticket"}
           </button>
+          {ticketSiblingsCount > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-violet-200 bg-violet-50 text-violet-700">
+              {ticketSiblingsCount} task cùng ticket
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Meta rows */}
+      <div className="mt-2 text-xs text-slate-600 flex items-center flex-wrap gap-x-4 gap-y-1">
+        <div className="flex items-center gap-1"><Flag className="w-3 h-3" /> {t.type}</div>
+        <div className="flex items-center gap-1"><TimerReset className="w-3 h-3" /> {Math.max(0, t.storyPoints)} pts</div>
+        <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours)}/{t.estimateHours}h</div>
+        <div className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {fmtDate(t.dueDate)}</div>
+      </div>
+
+      {/* Assignees */}
+      <div className="mt-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <AvatarGroup members={t.assignees || []} />
+          <div className="text-xs text-slate-600 truncate max-w-[200px]">
+            {(t.assignees || []).map(a => a.name).join(", ") || "Unassigned"}
+          </div>
         </div>
 
-        <div className="mt-1 text-[15px] font-semibold text-gray-800">{task.title}</div>
-
-        {/* meta chips */}
-        <div className="mt-2 flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1 px-2 h-6 text-[12px] rounded-full border bg-white text-gray-700 border-gray-200">
-            {task.type}
+        {/* SLA badge */}
+        {slaTarget != null && t.status !== "done" && (
+          <span
+            className={cn(
+              "text-[11px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
+              slaTone
+            )}
+            title={`SLA ${slaTarget}h từ lúc mở (${new Date(t.openedAt).toLocaleString()})`}
+          >
+            <AlertTriangle className="w-3 h-3" />
+            {overdue ? `Quá hạn ${Math.abs(remaining!)}h` : `SLA còn ${remaining}h`}
           </span>
-          <span className="inline-flex items-center gap-1 px-2 h-6 text-[12px] rounded-full border bg-white text-gray-700 border-gray-200">
-            <Users className="w-3.5 h-3.5" /> {task.memberCount} members
-          </span>
-        </div>
-
-        {!compact && task.dueDate && (
-          <div className="mt-3 flex items-center gap-2 text-gray-600">
-            <Calendar className="w-4 h-4" />
-            <span className="text-[13px]">{task.dueDate}</span>
-          </div>
         )}
+      </div>
 
-        {!compact && (
-          <div className="mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-600 text-[12px]">
-              <div className="w-6 h-6 rounded-full bg-gray-200" />
-              {task.assigneeName && <span className="text-gray-700">{task.assigneeName}</span>}
-            </div>
-            <div className="flex -space-x-2">
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" />
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" />
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" />
-            </div>
-          </div>
+      {/* Actions */}
+      <div className="mt-3 flex items-center gap-2">
+        {t.status !== "done" && (
+          <button
+            className="text-xs px-2 py-1 rounded-lg border hover:bg-emerald-50 border-emerald-300 text-emerald-700 flex items-center gap-1"
+            onClick={() => onMarkDone(t)}
+          >
+            <Check className="w-3 h-3" /> Mark done
+          </button>
         )}
+        {t.status !== "done" && (
+          <button
+            className="text-xs px-2 py-1 rounded-lg border hover:bg-blue-50 border-blue-300 text-blue-700 flex items-center gap-1"
+            onClick={() => onNext(t)}
+          >
+            <MoveRight className="w-3 h-3" /> Next
+          </button>
+        )}
+        <button
+          className="text-xs px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
+          onClick={() => onSplit(t)}
+        >
+          <SplitSquareHorizontal className="w-3 h-3" /> Split
+        </button>
+        <button
+          className="text-xs px-2 py-1 rounded-lg border hover:bg-slate-50 border-slate-300 text-slate-600 flex items-center gap-1"
+          onClick={() => onMoveNext(t)}
+        >
+          <MoveDown className="w-3 h-3" /> Move next
+        </button>
       </div>
     </div>
   );
