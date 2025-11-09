@@ -1,5 +1,6 @@
 import React from "react";
-import type { SprintVm } from "@/pages/project/ProjectBoardPage";
+import type { SprintVm } from "@/types/projectBoard"; 
+
 
 const brand = "#2E8BFF";
 

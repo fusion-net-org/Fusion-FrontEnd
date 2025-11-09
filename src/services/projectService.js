@@ -57,24 +57,42 @@ const toDateStr = (v) => {
 };
 
 /* Map bất chấp DTO backend khác tên */
-const mapItemToProject = (r) => ({
-  id: String(r.id),
-  code: r.code || '',
-  name: r.name || '',
-  description: r.description || '',
-  ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
-  hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
-  workflow:
-    r.workflow ||
-    r.workflowName ||
-    (r.workflowCompanyName && r.workflowName
-      ? `${r.workflowCompanyName} — ${r.workflowName}`
-      : null),
-  startDate: toDateStr(r.startDate),
-  endDate: toDateStr(r.endDate),
-  status: normStatus(r.status),
-  ptype: r.isHired ? 'Outsourced' : 'Internal',
-});
+const mapItemToProject = (r, currentCompanyId) => {
+   const hasCompanyRequest =
+     !!(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID);
+   const ptype =
+     r.ptype /* BE đã trả sẵn nếu bạn đã map */
+       ?? (hasCompanyRequest ? 'Outsourced' : 'Internal')
+       ?? (r.isHired ? 'Outsourced' : 'Internal'); // fallback cũ
+
+   // Ưu tiên flag từ BE; fallback theo companyRequestId == currentCompanyId
+   const isRequest =
+     typeof r.isRequest === 'boolean'
+       ? r.isRequest
+       : (hasCompanyRequest &&
+          String(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID)
+            .toLowerCase() === String(currentCompanyId).toLowerCase());
+
+   return {
+     id: String(r.id),
+     code: r.code || '',
+     name: r.name || '',
+     description: r.description || '',
+     ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
+     hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
+     workflow:
+       r.workflow ||
+       r.workflowName ||
+       (r.workflowCompanyName && r.workflowName
+         ? `${r.workflowCompanyName} — ${r.workflowName}`
+         : null),
+     startDate: toDateStr(r.startDate),
+     endDate: toDateStr(r.endDate),
+     status: normStatus(r.status),
+     ptype,
+     isRequest: !!isRequest,
+   };
+ };
 
 /**
  * Lấy danh sách project (server có thể filter/sort/paging).
@@ -116,7 +134,7 @@ export async function loadProjects({
     : [];
 
   return {
-    items: items.map(mapItemToProject),
+   items: items.map((r) => mapItemToProject(r, companyId)),
     totalCount: payload.totalCount ?? items.length,
     pageNumber: payload.pageNumber ?? pageNumber,
     pageSize: payload.pageSize ?? pageSize,

@@ -78,7 +78,7 @@ const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: num
 };
 
 export default function ProjectsPage() {
-   const nav = useNavigate();
+  const nav = useNavigate();
 
   const [all, setAll] = React.useState<Project[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -96,10 +96,10 @@ export default function ProjectsPage() {
   const [page, setPage] = React.useState(1);
   const pageSize = 8;
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const { companyId: routeCompanyId } = useParams();               
+  const { companyId: routeCompanyId } = useParams();
   const companyId = routeCompanyId || localStorage.getItem("currentCompanyId"); // ✅
 
-   React.useEffect(() => {
+  React.useEffect(() => {
     let alive = true;
     (async () => {
       try {
@@ -119,7 +119,7 @@ export default function ProjectsPage() {
       }
     })();
     return () => { alive = false; };
-  }, [companyId]);             
+  }, [companyId]);
   const uniq = <K extends keyof Project>(k: K) =>
     Array.from(new Set(all.map((p) => (p[k] ?? "") as string))).filter(Boolean);
 
@@ -383,12 +383,17 @@ export default function ProjectsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {current.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
+                    <tr key={p.id} className={["hover:bg-slate-50", p.isRequest ? "bg-amber-50/40" : ""].join(" ")}>
                       <td className="px-4">
                         <input type="radio" readOnly checked={selectedId === p.id} className="size-4 accent-blue-600" />
                       </td>
                       <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
                         <button onClick={() => openProject(p)}>{p.code}</button>
+                        {p.isRequest && (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 align-middle">
+                            Project Request
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2">{p.name}</td>
                       <td className="px-4 py-2">{p.ownerCompany}</td>

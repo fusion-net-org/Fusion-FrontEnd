@@ -41,7 +41,6 @@ import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
-import TaskListPage from './pages/project/TaskListPage';
 
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
 function App() {
@@ -94,7 +93,6 @@ function App() {
 <Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
 <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
-<Route path="/companies/:companyId/projectlist/:projectId" element={<TaskListPage/>} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
          
 
