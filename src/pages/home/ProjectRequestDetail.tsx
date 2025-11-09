@@ -302,7 +302,8 @@ export default function ProjectRequestDetail() {
                         const url =
                           viewMode === 'AsExecutor'
                             ? `/companies/${companyId}/project`
-                            : `/companies/${companyId}/project-company-request`;
+                            : // : `/companies/${companyId}/project-company-request`;
+                              `/companies/${companyId}/project/${projectRequest.convertedProjectId}`;
 
                         navigate(url);
                       }}
