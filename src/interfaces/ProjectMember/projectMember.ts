@@ -14,3 +14,24 @@ export interface IProjectMember {
   totalProject: number;
   projects: IProject[];
 }
+
+export interface IProjectMemberItemV2 {
+  id: number;
+  userId: string;
+  userName: string;
+  email: string;
+  phone: string;
+  avatar: string;
+  status: string;
+  gender: string;
+  isPartner: boolean;
+  isViewAll: boolean;
+  joinedAt: string;
+}
+
+export interface IProjectMemberV2 {
+  items: IProjectMemberItemV2[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}

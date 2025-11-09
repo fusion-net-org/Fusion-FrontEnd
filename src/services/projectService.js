@@ -250,3 +250,13 @@ export async function createProject(payload) {
   const { data } = await axiosInstance.post(`/companies/${companyId}/projects`, dto);
   return data?.data ?? data;
 }
+
+// https://localhost:7160/api/projects/5E9AC255-E049-4106-85FB-43F0492D0637
+export const GetProjectByProjectId = async (projectId) => {
+  try {
+    const response = await axiosInstance.get(`/projects/${projectId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};

@@ -1,40 +1,54 @@
 // src/pages/home/ProjectsPage.tsx
-import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Search, X, LayoutGrid, Table2, KanbanSquare } from "lucide-react";
-import ProjectCard from "@/components/Company/Projects/ProjectCard";
-import type { Project, ProjectStatus } from "@/components/Company/Projects/ProjectCard";
-import KanbanColumn from "@/components/Company/Projects/KanbanColumn";
-import CreateProjectModal from "@/components/Company/ProjectCreate/CreateProjectModal";
-import type { ProjectCreatePayload } from "@/components/Company/ProjectCreate/CreateProjectModal";
-import { loadProjects as fetchProjects } from "@/services/projectService.js";
+import React from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Plus, Search, X, LayoutGrid, Table2, KanbanSquare } from 'lucide-react';
+import ProjectCard from '@/components/Company/Projects/ProjectCard';
+import type { Project, ProjectStatus } from '@/components/Company/Projects/ProjectCard';
+import KanbanColumn from '@/components/Company/Projects/KanbanColumn';
+import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProjectModal';
+import type { ProjectCreatePayload } from '@/components/Company/ProjectCreate/CreateProjectModal';
+import { loadProjects as fetchProjects } from '@/services/projectService.js';
 
 /* Mock – replace with service */
 
-
 /* Small inline atoms (keep page self-contained) */
-const Chip: React.FC<React.ComponentProps<"button"> & { active?: boolean }> = ({ active, className = "", ...rest }) => (
+const Chip: React.FC<React.ComponentProps<'button'> & { active?: boolean }> = ({
+  active,
+  className = '',
+  ...rest
+}) => (
   <button
     {...rest}
     className={[
-      "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition",
-      active ? "bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
+      'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition',
+      active
+        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50',
       className,
-    ].join(" ")}
+    ].join(' ')}
   />
 );
 
-type ViewMode = "cards" | "table" | "kanban";
-const ViewToggle: React.FC<{ mode: ViewMode; onChange: (m: ViewMode) => void }> = ({ mode, onChange }) => {
-  const Btn: React.FC<{ id: ViewMode; label: string; icon: React.ReactNode }> = ({ id, label, icon }) => {
+type ViewMode = 'cards' | 'table' | 'kanban';
+const ViewToggle: React.FC<{ mode: ViewMode; onChange: (m: ViewMode) => void }> = ({
+  mode,
+  onChange,
+}) => {
+  const Btn: React.FC<{ id: ViewMode; label: string; icon: React.ReactNode }> = ({
+    id,
+    label,
+    icon,
+  }) => {
     const active = mode === id;
     return (
       <button
         onClick={() => onChange(id)}
         className={[
-          "inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm transition",
-          active ? "bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50",
-        ].join(" ")}
+          'inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm transition',
+          active
+            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50',
+        ].join(' ')}
         aria-pressed={active}
       >
         {icon}
@@ -51,7 +65,11 @@ const ViewToggle: React.FC<{ mode: ViewMode; onChange: (m: ViewMode) => void }> 
   );
 };
 
-const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: number) => void }> = ({ page, totalPages, onChange }) => {
+const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: number) => void }> = ({
+  page,
+  totalPages,
+  onChange,
+}) => {
   if (totalPages <= 1) return null;
   const go = (p: number) => onChange(Math.max(1, Math.min(p, totalPages)));
   return (
@@ -64,7 +82,8 @@ const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: num
         Prev
       </button>
       <div className="text-sm text-slate-600">
-        Page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span>
+        Page <span className="font-semibold">{page}</span> of{' '}
+        <span className="font-semibold">{totalPages}</span>
       </div>
       <button
         className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-50"
@@ -84,45 +103,46 @@ export default function ProjectsPage() {
   const [loading, setLoading] = React.useState(true);
 
   const [filters, setFilters] = React.useState({
-    q: "",
+    q: '',
     companies: [] as string[],
     statuses: [] as string[],
     types: [] as string[],
   });
   const [applied, setApplied] = React.useState(filters);
 
-  const [sort, setSort] = React.useState<"recent" | "start" | "name">("recent");
-  const [mode, setMode] = React.useState<ViewMode>("cards");
+  const [sort, setSort] = React.useState<'recent' | 'start' | 'name'>('recent');
+  const [mode, setMode] = React.useState<ViewMode>('cards');
   const [page, setPage] = React.useState(1);
   const pageSize = 8;
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const { companyId: routeCompanyId } = useParams();
   const companyId = routeCompanyId || localStorage.getItem("currentCompanyId"); // ✅
 
+
   React.useEffect(() => {
     let alive = true;
     (async () => {
       try {
         setLoading(true);
-        if (!companyId) throw new Error("Missing companyId");       // ✅ tránh gọi sai route
+        if (!companyId) throw new Error('Missing companyId'); // ✅ tránh gọi sai route
         const res = await fetchProjects({
-          companyId,                                                // ✅ dùng đúng route
-          pageSize: 200,                                            // lấy rộng để đủ filter client
+          companyId, // ✅ dùng đúng route
+          pageSize: 200, // lấy rộng để đủ filter client
         });
         if (!alive) return;
-        setAll(res.items);                                          // ✅ đã map đúng shape Project
+        setAll(res.items); // ✅ đã map đúng shape Project
       } catch (err) {
-        console.error("[Projects] load error:", err);
-        setAll([]);                                                 // tránh crash UI
+        console.error('[Projects] load error:', err);
+        setAll([]); // tránh crash UI
       } finally {
         if (alive) setLoading(false);
       }
     })();
     return () => { alive = false; };
+ 
   }, [companyId]);
   const uniq = <K extends keyof Project>(k: K) =>
-    Array.from(new Set(all.map((p) => (p[k] ?? "") as string))).filter(Boolean);
-
+    Array.from(new Set(all.map((p) => (p[k] ?? '') as string))).filter(Boolean);
 
   // filter + sort
   const filtered = React.useMemo(() => {
@@ -135,8 +155,9 @@ export default function ProjectsPage() {
       const hitT = types.length === 0 || types.includes(p.ptype);
       return hitQ && hitC && hitS && hitT;
     });
-    if (sort === "name") list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === "start") list = list.slice().sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""));
+    if (sort === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === 'start')
+      list = list.slice().sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
     return list;
   }, [all, applied, sort]);
 
@@ -146,7 +167,7 @@ export default function ProjectsPage() {
   }, [totalPages]);
 
   const current = React.useMemo(() => {
-    if (mode === "kanban") return filtered;
+    if (mode === 'kanban') return filtered;
     const start = (page - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
   }, [filtered, page, mode]);
@@ -163,7 +184,12 @@ export default function ProjectsPage() {
 
   // Kanban groups
   const groups = React.useMemo(() => {
-    const map: Record<ProjectStatus, Project[]> = { Planned: [], InProgress: [], OnHold: [], Completed: [] };
+    const map: Record<ProjectStatus, Project[]> = {
+      Planned: [],
+      InProgress: [],
+      OnHold: [],
+      Completed: [],
+    };
     filtered.forEach((p) => map[p.status].push(p));
     return map;
   }, [filtered]);
@@ -173,16 +199,20 @@ export default function ProjectsPage() {
       className="mx-auto w-full max-w-[1240px] px-4 py-6"
       style={{
         backgroundImage:
-          "radial-gradient(900px 220px at 50% -70px, rgba(37,99,235,0.07), transparent 70%), radial-gradient(600px 180px at 95% 15%, rgba(14,165,233,0.05), transparent 60%)",
+          'radial-gradient(900px 220px at 50% -70px, rgba(37,99,235,0.07), transparent 70%), radial-gradient(600px 180px at 95% 15%, rgba(14,165,233,0.05), transparent 60%)',
       }}
     >
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md">✓</div>
+          <div className="flex size-9 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md">
+            ✓
+          </div>
           <div>
             <div className="text-xl font-semibold text-slate-800">Projects</div>
-            <div className="text-sm text-slate-500">Browse, filter, and jump back into your work.</div>
+            <div className="text-sm text-slate-500">
+              Browse, filter, and jump back into your work.
+            </div>
           </div>
         </div>
         <button
@@ -207,7 +237,7 @@ export default function ProjectsPage() {
             />
             {filters.q && (
               <button
-                onClick={() => setFilters({ ...filters, q: "" })}
+                onClick={() => setFilters({ ...filters, q: '' })}
                 className="absolute right-2 top-2.5 rounded-md p-1 text-slate-400 hover:bg-slate-100"
                 aria-label="Clear search"
               >
@@ -227,7 +257,12 @@ export default function ProjectsPage() {
           </button>
           <button
             onClick={() => {
-              const f = { q: "", companies: [] as string[], statuses: [] as string[], types: [] as string[] };
+              const f = {
+                q: '',
+                companies: [] as string[],
+                statuses: [] as string[],
+                types: [] as string[],
+              };
               setFilters(f);
               setApplied(f);
               setPage(1);
@@ -243,13 +278,13 @@ export default function ProjectsPage() {
           {/* Sort */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-medium text-slate-500">Sort:</span>
-            <Chip active={sort === "recent"} onClick={() => setSort("recent")}>
+            <Chip active={sort === 'recent'} onClick={() => setSort('recent')}>
               Recent
             </Chip>
-            <Chip active={sort === "start"} onClick={() => setSort("start")}>
+            <Chip active={sort === 'start'} onClick={() => setSort('start')}>
               Start date
             </Chip>
-            <Chip active={sort === "name"} onClick={() => setSort("name")}>
+            <Chip active={sort === 'name'} onClick={() => setSort('name')}>
               Name A–Z
             </Chip>
           </div>
@@ -257,10 +292,13 @@ export default function ProjectsPage() {
           {/* Companies */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-medium text-slate-500">Companies:</span>
-            <Chip active={filters.companies.length === 0} onClick={() => setFilters({ ...filters, companies: [] })}>
+            <Chip
+              active={filters.companies.length === 0}
+              onClick={() => setFilters({ ...filters, companies: [] })}
+            >
               All
             </Chip>
-            {uniq("ownerCompany").map((v) => {
+            {uniq('ownerCompany').map((v) => {
               const active = filters.companies.includes(v);
               return (
                 <Chip
@@ -281,7 +319,10 @@ export default function ProjectsPage() {
           {/* Status */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-medium text-slate-500">Status:</span>
-            <Chip active={filters.statuses.length === 0} onClick={() => setFilters({ ...filters, statuses: [] })}>
+            <Chip
+              active={filters.statuses.length === 0}
+              onClick={() => setFilters({ ...filters, statuses: [] })}
+            >
               All
             </Chip>
             {Array.from(new Set(all.map((p) => p.status))).map((v) => {
@@ -307,7 +348,10 @@ export default function ProjectsPage() {
         <div className="mt-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-medium text-slate-500">Types:</span>
-            <Chip active={filters.types.length === 0} onClick={() => setFilters({ ...filters, types: [] })}>
+            <Chip
+              active={filters.types.length === 0}
+              onClick={() => setFilters({ ...filters, types: [] })}
+            >
               All
             </Chip>
             {Array.from(new Set(all.map((p) => p.ptype))).map((v) => {
@@ -333,7 +377,9 @@ export default function ProjectsPage() {
       {/* Toolbar (like original) */}
       <div className="mt-4 flex items-center justify-between">
         <ViewToggle mode={mode} onChange={setMode} />
-        {mode !== "kanban" && <div className="text-sm text-slate-500">{filtered.length} result(s)</div>}
+        {mode !== 'kanban' && (
+          <div className="text-sm text-slate-500">{filtered.length} result(s)</div>
+        )}
       </div>
 
       {/* Content */}
@@ -341,29 +387,43 @@ export default function ProjectsPage() {
         {loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-44 animate-pulse rounded-2xl border border-slate-200 bg-white/70 shadow-sm" />
+              <div
+                key={i}
+                className="h-44 animate-pulse rounded-2xl border border-slate-200 bg-white/70 shadow-sm"
+              />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <div className="font-semibold text-slate-800">No projects found</div>
-            <div className="text-sm text-slate-500">Try adjusting filters or create a new project.</div>
+            <div className="text-sm text-slate-500">
+              Try adjusting filters or create a new project.
+            </div>
             <div className="mt-4">
-              <button onClick={createProject} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              <button
+                onClick={createProject}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
                 Create Project
               </button>
             </div>
           </div>
-        ) : mode === "cards" ? (
+        ) : mode === 'cards' ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {current.map((p) => (
-                <ProjectCard key={p.id} data={p} selected={selectedId === p.id} onOpen={openProject} onManage={openProject} />
+                <ProjectCard
+                  key={p.id}
+                  data={p}
+                  selected={selectedId === p.id}
+                  onOpen={openProject}
+                  onManage={openProject}
+                />
               ))}
             </div>
             <Pagination page={page} totalPages={totalPages} onChange={setPage} />
           </div>
-        ) : mode === "table" ? (
+        ) : mode === 'table' ? (
           <div className="space-y-4">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 backdrop-blur shadow-sm">
               <table className="min-w-full text-sm">
@@ -385,7 +445,12 @@ export default function ProjectsPage() {
                   {current.map((p) => (
                     <tr key={p.id} className={["hover:bg-slate-50", p.isRequest ? "bg-amber-50/40" : ""].join(" ")}>
                       <td className="px-4">
-                        <input type="radio" readOnly checked={selectedId === p.id} className="size-4 accent-blue-600" />
+                        <input
+                          type="radio"
+                          readOnly
+                          checked={selectedId === p.id}
+                          className="size-4 accent-blue-600"
+                        />
                       </td>
                       <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
                         <button onClick={() => openProject(p)}>{p.code}</button>
@@ -397,9 +462,9 @@ export default function ProjectsPage() {
                       </td>
                       <td className="px-4 py-2">{p.name}</td>
                       <td className="px-4 py-2">{p.ownerCompany}</td>
-                      <td className="px-4 py-2">{p.hiredCompany || "—"}</td>
+                      <td className="px-4 py-2">{p.hiredCompany || '—'}</td>
                       <td className="px-4 py-2">{p.workflow}</td>
-                      <td className="px-4 py-2">{p.startDate || "—"}</td>
+                      <td className="px-4 py-2">{p.startDate || '—'}</td>
                       <td className="px-4 py-2">
                         <span className="text-xs">{p.status}</span>
                       </td>
@@ -407,7 +472,10 @@ export default function ProjectsPage() {
                         <span className="text-xs">{p.ptype}</span>
                       </td>
                       <td className="px-4 py-2 pr-5 text-right">
-                        <button onClick={() => openProject(p)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700">
+                        <button
+                          onClick={() => openProject(p)}
+                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
+                        >
                           Manage
                         </button>
                       </td>
@@ -420,10 +488,34 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KanbanColumn title="Planned" color="#f59e0b" items={groups.Planned} selectedId={selectedId} onOpen={openProject} />
-            <KanbanColumn title="InProgress" color="#3b82f6" items={groups.InProgress} selectedId={selectedId} onOpen={openProject} />
-            <KanbanColumn title="OnHold" color="#8b5cf6" items={groups.OnHold} selectedId={selectedId} onOpen={openProject} />
-            <KanbanColumn title="Completed" color="#22c55e" items={groups.Completed} selectedId={selectedId} onOpen={openProject} />
+            <KanbanColumn
+              title="Planned"
+              color="#f59e0b"
+              items={groups.Planned}
+              selectedId={selectedId}
+              onOpen={openProject}
+            />
+            <KanbanColumn
+              title="InProgress"
+              color="#3b82f6"
+              items={groups.InProgress}
+              selectedId={selectedId}
+              onOpen={openProject}
+            />
+            <KanbanColumn
+              title="OnHold"
+              color="#8b5cf6"
+              items={groups.OnHold}
+              selectedId={selectedId}
+              onOpen={openProject}
+            />
+            <KanbanColumn
+              title="Completed"
+              color="#22c55e"
+              items={groups.Completed}
+              selectedId={selectedId}
+              onOpen={openProject}
+            />
           </div>
         )}
       </div>
@@ -432,9 +524,16 @@ export default function ProjectsPage() {
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600 backdrop-blur shadow-sm">
         <div className="mb-1 font-semibold text-slate-800">Integration Notes</div>
         <ul className="list-disc space-y-1 pl-5">
-          <li>Replace <code>loadProjects()</code> with your real <code>projectService</code> (fetch, pagination, filters).</li>
-          <li>Open project → <code>/companies/:companyId/projects/:projectId/overview</code>.</li>
-          <li>No <code>&lt;select&gt;</code> — filters use clickable pills.</li>
+          <li>
+            Replace <code>loadProjects()</code> with your real <code>projectService</code> (fetch,
+            pagination, filters).
+          </li>
+          <li>
+            Open project → <code>/companies/:companyId/projects/:projectId/overview</code>.
+          </li>
+          <li>
+            No <code>&lt;select&gt;</code> — filters use clickable pills.
+          </li>
         </ul>
       </div>
       <CreateProjectModal
@@ -443,7 +542,7 @@ export default function ProjectsPage() {
         onSubmit={async (payload: ProjectCreatePayload) => {
           // TODO: call your API here
           // await projectService.create(payload);
-          console.log("CREATE PROJECT", payload);
+          console.log('CREATE PROJECT', payload);
 
           // demo: close + optional navigate
           setOpenCreate(false);
@@ -451,6 +550,5 @@ export default function ProjectsPage() {
         }}
       />
     </div>
-
   );
 }
