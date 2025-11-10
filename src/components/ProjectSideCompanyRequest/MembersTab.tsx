@@ -97,9 +97,10 @@ const MembersTab: React.FC<MembersTabProps> = ({
             <Spin />
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min=-w-full divide-y divide-gray-200">
             <thead className="bg-indigo-50">
               <tr>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
@@ -113,8 +114,11 @@ const MembersTab: React.FC<MembersTabProps> = ({
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {members.length > 0 ? (
-                members.map((m) => (
+                members.map((m, index) => (
                   <tr key={m.userId} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-3 font-medium text-gray-800">
+                      {(memberPage - 1) * rowsPerPage + index + 1}
+                    </td>
                     <td className="px-6 py-3 font-medium text-gray-800">{m.userName}</td>
                     <td className="px-6 py-3 text-gray-600">{m.email}</td>
                     <td className="px-6 py-3 text-gray-600">{m.phone || '-'}</td>
@@ -150,7 +154,7 @@ const MembersTab: React.FC<MembersTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-gray-500">
+                  <td colSpan={8} className="text-center py-4 text-gray-500">
                     No members found
                   </td>
                 </tr>

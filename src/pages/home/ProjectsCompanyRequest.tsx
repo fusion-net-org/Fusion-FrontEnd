@@ -21,10 +21,16 @@ import { GetProjectByProjectId } from '@/services/projectService.js';
 import { useParams } from 'react-router-dom';
 import type { ProjectDetailResponse } from '@/interfaces/Project/project';
 import type { IProjectMemberV2 } from '@/interfaces/ProjectMember/projectMember';
+import type { ITicket } from '@/interfaces/Ticket/Ticket';
+
 const ProjectCompanyRequest = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
   const [projectMembers, setProjectMembers] = useState<IProjectMemberV2>();
+  const [projectTickets, setProjectTickets] = useState<{ items: ITicket[]; totalCount: number }>({
+    items: [],
+    totalCount: 0,
+  });
   const [activeTab, setActiveTab] = useState<'members' | 'tickets' | 'sprints'>('members');
   const tasksPerSprint = {
     'Sprint 1': [
@@ -43,38 +49,6 @@ const ProjectCompanyRequest = () => {
     'Sprint 3': [{ id: '5', title: 'Add Export Feature', assignee: 'Tran Thi B', status: 'Done' }],
     'Sprint 4': [],
   };
-
-  const [tickets] = useState([
-    { id: 1, title: 'Fix Login Bug', assignee: 'Tran Thi B', status: 'Done', date: '2025-10-10' },
-    {
-      id: 2,
-      title: 'Update Dashboard UI',
-      assignee: 'Nguyen Van A',
-      status: 'In Progress',
-      date: '2025-10-15',
-    },
-    {
-      id: 3,
-      title: 'Optimize API Performance',
-      assignee: 'Le Van C',
-      status: 'To Do',
-      date: '2025-10-20',
-    },
-    {
-      id: 4,
-      title: 'Refactor Notification Service',
-      assignee: 'Nguyen Van A',
-      status: 'In Review',
-      date: '2025-10-22',
-    },
-    {
-      id: 5,
-      title: 'Add Export Feature',
-      assignee: 'Tran Thi B',
-      status: 'Done',
-      date: '2025-10-25',
-    },
-  ]);
 
   const sprintData = [
     { name: 'Sprint 1', done: 10, total: 12 },
@@ -115,11 +89,6 @@ const ProjectCompanyRequest = () => {
     fetchData();
   }, [projectId]);
 
-  const [ticketSearch, setTicketSearch] = useState('');
-  const [ticketRange, setTicketRange] = useState<any>(null);
-
-  // --- PAGINATION STATES ---
-  const [ticketPage, setTicketPage] = useState(1);
   const rowsPerPage = 10;
 
   return (
@@ -254,7 +223,7 @@ const ProjectCompanyRequest = () => {
       ${activeTab === 'tickets' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'}
     `}
             >
-              {tickets.length}
+              {projectTickets.totalCount}
             </span>
             {/* underline */}
             {activeTab === 'tickets' && (
@@ -306,15 +275,10 @@ const ProjectCompanyRequest = () => {
           <div>
             <TicketCharts sprintData={sprintData} ticketsPerSprintData={ticketsPerSprintData} />
             <TicketsTab
-              tickets={tickets}
-              ticketSearch={ticketSearch}
-              setTicketSearch={setTicketSearch}
-              ticketRange={ticketRange}
-              setTicketRange={setTicketRange}
-              ticketPage={ticketPage}
-              setTicketPage={setTicketPage}
+              projectId={projectId!}
               rowsPerPage={rowsPerPage}
-              onCreateTicket={handleCreateTicket}
+              onCreateTicket={() => handleCreateTicket()}
+              onTicketsDataChange={(data) => setProjectTickets(data)}
             />
           </div>
         )}
