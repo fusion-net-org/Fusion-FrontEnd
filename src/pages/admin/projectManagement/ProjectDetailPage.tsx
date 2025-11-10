@@ -17,6 +17,7 @@ import {
   Badge,
   Empty,
   Breadcrumb,
+  Collapse,
 } from 'antd';
 import {
   UserOutlined,
@@ -92,6 +93,8 @@ const ProjectDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const { Panel } = Collapse;
+  const { Text } = Typography;
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -355,6 +358,11 @@ const ProjectDetailPage: React.FC = () => {
                   xl: 4,
                 }}
                 dataSource={project.members}
+                pagination={{
+                  pageSize: 12,
+                  showSizeChanger: false,
+                  showQuickJumper: true,
+                }}
                 renderItem={(member) => (
                   <List.Item>
                     <Card hoverable style={{ textAlign: 'center' }}>
@@ -399,9 +407,10 @@ const ProjectDetailPage: React.FC = () => {
           >
             {project.sprints.length === 0 ? (
               <Empty description="No sprints available" />
-            ) : (
+            ) : project.sprints.length <= 3 ? (
+              // ≤ 3 sprints
               <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                {project.sprints.map((sprint, index) => (
+                {project.sprints.map((sprint) => (
                   <Card
                     key={sprint.id}
                     type="inner"
@@ -423,6 +432,7 @@ const ProjectDetailPage: React.FC = () => {
                     }
                     style={{
                       borderLeft: '4px solid #1890ff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                     }}
                   >
                     {sprint.tasks.length > 0 ? (
@@ -451,7 +461,7 @@ const ProjectDetailPage: React.FC = () => {
                               description={
                                 <Space>
                                   <Text type="secondary" style={{ fontSize: '12px' }}>
-                                    Task ID: {task.id.substring(0, 8)}...
+                                    Task ID: {task.id}
                                   </Text>
                                   <Divider type="vertical" />
                                   <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -472,6 +482,96 @@ const ProjectDetailPage: React.FC = () => {
                   </Card>
                 ))}
               </Space>
+            ) : (
+              //> 3 sprints
+              <Collapse
+                accordion
+                bordered={false}
+                style={{
+                  background: 'transparent',
+                }}
+                expandIconPosition="end"
+              >
+                {project.sprints.map((sprint) => (
+                  <Panel
+                    key={sprint.id}
+                    style={{
+                      background: '#fff',
+                      borderRadius: 8,
+                      marginBottom: 12,
+                      overflow: 'hidden',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                    }}
+                    header={
+                      <Space size="middle" wrap>
+                        <Badge status="processing" />
+                        <Text strong>{sprint.name}</Text>
+                        <Tag color="purple" icon={<ClockCircleOutlined />}>
+                          {sprint.taskCount} Tasks
+                        </Tag>
+                        <Tag color="gold" icon={<TrophyOutlined />}>
+                          {sprint.totalPoint} Points
+                        </Tag>
+                      </Space>
+                    }
+                  >
+                    {sprint.tasks.length > 0 ? (
+                      <div
+                        style={{
+                          maxHeight: 350,
+                          overflowY: 'auto',
+                          paddingRight: 8,
+                        }}
+                      >
+                        <List
+                          itemLayout="horizontal"
+                          dataSource={sprint.tasks}
+                          pagination={{ pageSize: 5, size: 'small' }}
+                          renderItem={(task) => (
+                            <List.Item
+                              style={{
+                                padding: '10px 0',
+                                borderBottom: '1px solid #f0f0f0',
+                              }}
+                            >
+                              <List.Item.Meta
+                                avatar={
+                                  <Avatar style={{ backgroundColor: '#1890ff' }} size="small">
+                                    {task.point}
+                                  </Avatar>
+                                }
+                                title={
+                                  <Space>
+                                    <Text strong>{task.title}</Text>
+                                    <Tag color={getStatusColor(task.status)}>{task.status}</Tag>
+                                  </Space>
+                                }
+                                description={
+                                  <Space>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                                      Task ID: {task.id}
+                                    </Text>
+                                    <Divider type="vertical" />
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                                      <TrophyOutlined /> {task.point} points
+                                    </Text>
+                                  </Space>
+                                }
+                              />
+                            </List.Item>
+                          )}
+                        />
+                      </div>
+                    ) : (
+                      <Empty
+                        description="No tasks in this sprint"
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        style={{ margin: '20px 0' }}
+                      />
+                    )}
+                  </Panel>
+                ))}
+              </Collapse>
             )}
           </Card>
         </Col>
