@@ -55,7 +55,8 @@ i18n.use(initReactI18next).init({
           schedule: "Schedule",
           calendar: "Calendar",
           setting: "Settings",
-          logout: "Logout"
+          logout: "Logout",
+          subscription: "Subscription"
         },
         user_menu: {
           my_profile: "My profile",
@@ -116,7 +117,8 @@ i18n.use(initReactI18next).init({
           schedule: "Lịch trình",
           calendar: "Lịch",
           setting: "Cài đặt",
-          logout: "Đăng xuất"
+          logout: "Đăng xuất",
+          subscription: "Gói dịch vụ"
         },
         user_menu: {
           my_profile: "Hồ sơ của tôi",

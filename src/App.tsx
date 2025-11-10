@@ -19,7 +19,6 @@ import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/UserProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
@@ -43,6 +42,8 @@ import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
 
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
+import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
+import UserProfile from './pages/userProfile/UserProfile';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -66,9 +67,10 @@ function App() {
           }
         >
           <Route path="/company" element={<Company />} />
-          <Route path="/subscription" element={<SubscriptionPage />} />
+          {/* <Route path="/subscription" element={<SubscriptionPage />} /> */}
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
+          <Route path="/subscription" element={<SubscriptionPlan />} />
         </Route>
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
@@ -89,12 +91,14 @@ function App() {
             element={<ProjectRequestDetail />}
           />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
-<Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
-<Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-         
+          <Route
+            path="/companies/:companyId/workflows/:workflowId"
+            element={<WorkflowDesignerPage />}
+          />
+          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
+          <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
+          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
