@@ -9,6 +9,7 @@ import { GetTicketByProjectId } from '@/services/TicketService.js';
 import type { ITicketResponse, ITicket } from '@/interfaces/Ticket/Ticket';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hook/Debounce';
+import CreateTicketPopup from './CreateTicket';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -16,17 +17,12 @@ const { Option } = Select;
 interface TicketsTabProps {
   projectId: string;
   rowsPerPage: number;
-  onCreateTicket: () => void;
-  onTicketsDataChange?: (data: { items: ITicket[]; totalCount: number }) => void;
+  onTicketCreated?: () => void;
 }
 
-const TicketsTab: React.FC<TicketsTabProps> = ({
-  projectId,
-  rowsPerPage,
-  onCreateTicket,
-  onTicketsDataChange,
-}) => {
+const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicketCreated }) => {
   const navigate = useNavigate();
+  const [showCreatePopup, setShowCreatePopup] = useState(false);
 
   const [ticketsResponse, setTicketsResponse] = useState<ITicketResponse | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
@@ -57,7 +53,6 @@ const TicketsTab: React.FC<TicketsTabProps> = ({
       );
       if (res?.succeeded) {
         setTicketsResponse(res);
-        onTicketsDataChange?.({ items: res.data.items, totalCount: res.data.totalCount });
       }
     } catch (error) {
       console.error('Failed to fetch tickets', error);
@@ -125,7 +120,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({
 
             {/* Create Ticket button */}
             <button
-              onClick={onCreateTicket}
+              onClick={() => setShowCreatePopup(true)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-full shadow-md transition"
             >
               <MessageSquare className="w-4 h-4" /> Create Ticket
@@ -133,7 +128,6 @@ const TicketsTab: React.FC<TicketsTabProps> = ({
           </div>
         </div>
       </div>
-
       {/* TABLE */}
       <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
@@ -191,7 +185,6 @@ const TicketsTab: React.FC<TicketsTabProps> = ({
           </tbody>
         </table>
       </div>
-
       {/* PAGINATION */}
       <div className="mt-4 flex justify-end">
         <Stack spacing={2}>
@@ -204,6 +197,16 @@ const TicketsTab: React.FC<TicketsTabProps> = ({
           />
         </Stack>
       </div>
+
+      <CreateTicketPopup
+        visible={showCreatePopup}
+        onClose={() => setShowCreatePopup(false)}
+        projectId={projectId}
+        onSuccess={() => {
+          fetchTickets();
+          onTicketCreated?.();
+        }}
+      />
     </div>
   );
 };

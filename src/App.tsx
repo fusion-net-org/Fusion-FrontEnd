@@ -43,6 +43,7 @@ import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
 
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
+import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetailPage';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -83,18 +84,22 @@ function App() {
             path="/companies/:companyId/project/:projectId"
             element={<ProjectsCompanyRequest />}
           />
+          <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
+
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route
             path="/company/:companyId/project-request/:id"
             element={<ProjectRequestDetail />}
           />
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
-<Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows/:workflowId" element={<WorkflowDesignerPage />} />
-<Route path="/companies/:companyId/workflows" element={<WorkflowListPage/>} />
-<Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage/>} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-         
+          <Route
+            path="/companies/:companyId/workflows/:workflowId"
+            element={<WorkflowDesignerPage />}
+          />
+          <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
+          <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
+          <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
@@ -125,6 +130,7 @@ function App() {
         <Route element={<CompanyShell />}>
           <Route path="/notifications" element={<NotificationPage />} />
         </Route>
+        {/* //ticket */}
       </Routes>
     </>
   );
