@@ -26,12 +26,11 @@ export const getLatestTransaction = async () => {
 
 export const getAllTransactionForAdmin = async (filters = {}) => {
   try {
-    const response = await axiosInstance.get('/TransactionPayment/getAllForAdmin', {
+    const response = await axiosInstance.get('/TransactionPayment/paged', {
       params: {
-        TransactionCode: filters.transactionCode,
-        PackageName: filters.packageName,
-        PaymentDateFrom: filters.paymentDateFrom,
-        PaymentDateTo: filters.paymentDateTo,
+        PlanName: filters.planName,
+        'TransactionAt.From': filters.paymentDateFrom,
+        'TransactionAt.To': filters.paymentDateTo,
         AmountMin: filters.amountMin,
         AmountMax: filters.amountMax,
         Status: filters.status,
@@ -48,9 +47,9 @@ export const getAllTransactionForAdmin = async (filters = {}) => {
   }
 };
 
-export const getTransactionByCode = async (code) => {
+export const getTransactionById = async (id) => {
   try {
-    const response = await axiosInstance.get(`/TransactionPayment/${code}`);
+    const response = await axiosInstance.get(`/TransactionPayment/${id}`);
     return response.data.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Failed to get detail transaction!');

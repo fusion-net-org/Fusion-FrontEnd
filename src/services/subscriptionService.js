@@ -55,7 +55,7 @@ export const DeleteSubscription = async (id) => {
   }
 };
 
-export const createSubcriptionPlan = async (data) => {
+export const createSubscriptionPlan = async (data) => {
   try {
     const response = await axiosInstance.post('/SubscriptionPlan/create', data);
     return response.data;
@@ -64,7 +64,7 @@ export const createSubcriptionPlan = async (data) => {
   }
 };
 
-export const updateSubcriptionPlan = async (data) => {
+export const updateSubscriptionPlan = async (data) => {
   try {
     const response = await axiosInstance.put('/SubscriptionPlan/update', data);
     return response.data;
@@ -73,9 +73,18 @@ export const updateSubcriptionPlan = async (data) => {
   }
 };
 
-export const deleteSubcriptionPlan = async (id) => {
+export const deleteSubscriptionPlan = async (id) => {
   try {
     const response = await axiosInstance.delete(`/SubscriptionPlan/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const getSubscriptionPlanById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/SubscriptionPlan/${id}`);
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
