@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Input, Select, Button, Modal, Form, message, Card, Tag, Tooltip } from 'antd';
+import { Input, Select, Button, Modal, Form, message, Card, Tag, Tooltip, Space } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Pagination, Stack } from '@mui/material';
 import { Search, ArrowUp, ArrowDown, RefreshCw, Bell, Trash2 } from 'lucide-react';
@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import {
   getAllNotificationByAdmin,
   sendNotificationToSystem,
-  deleteNotificationById,
+  deleteNotificationByAdmin,
 } from '@/services/notificationService.js';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
@@ -78,18 +78,18 @@ export default function NotificationListPage() {
     }
   };
 
-  const handleDelete = (id: string, title: string) => {
+  const handleDelete = () => {
     confirm({
       title: 'Confirm delete',
-      content: `Are you sure you want to delete the notification "${title}"?`,
+      content: `Are you sure you want to delete all notifications?`,
       okText: 'Yes, delete',
       okType: 'danger',
       cancelText: 'Cancel',
       async onOk() {
         try {
           setLoading(true);
-          await deleteNotificationById(id);
-          toast.success('Notification deleted successfully!');
+          await deleteNotificationByAdmin();
+          toast.success('Notifications deleted successfully!');
           fetchNotifications();
         } catch (error: any) {
           toast.error(error.message || 'Failed to delete notification.');
@@ -138,21 +138,6 @@ export default function NotificationListPage() {
         <span className="text-gray-500 text-xs">{new Date(text).toLocaleString()}</span>
       ),
     },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: any, record: any) => (
-        <Tooltip title="Delete">
-          <Button
-            danger
-            size="small"
-            shape="circle"
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id, record.title)}
-          />
-        </Tooltip>
-      ),
-    },
   ];
 
   return (
@@ -172,9 +157,14 @@ export default function NotificationListPage() {
                 </p>
               </div>
             </div>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
-              Send Notification
-            </Button>
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+                Send Notification
+              </Button>
+              <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
+                Delete All Notifications
+              </Button>
+            </Space>
           </div>
 
           {/* Filters */}
@@ -244,11 +234,6 @@ export default function NotificationListPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {new Date(n.createAt).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button danger size="small" onClick={() => handleDelete(n.id, n.title)}>
-                        Delete
-                      </Button>
                     </td>
                   </tr>
                 ))

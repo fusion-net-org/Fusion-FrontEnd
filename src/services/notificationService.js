@@ -31,9 +31,9 @@ export const getAllNotificationByAdmin = async ({
   }
 };
 
-export const deleteNotificationById = async (id) => {
+export const deleteNotificationByAdmin = async (id) => {
   try {
-    const response = await axiosInstance.delete(`/notifications/${id}`);
+    const response = await axiosInstance.delete(`/notifications/admin`);
     return response.data?.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');

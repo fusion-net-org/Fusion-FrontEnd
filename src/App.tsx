@@ -45,7 +45,7 @@ import OverviewCompanyPage from './pages/admin/companyManagement/OverviewCompany
 import CompanyListPage from './pages/admin/companyManagement/CompanyListPage';
 import UserDetailPage from './pages/admin/userManagement/UserDetailPage';
 import CompanyDetailPage from './pages/admin/companyManagement/CompanyDetailPage';
-import SubcriptionListPage from './pages/admin/subcriptionManagement/SubcriptionListPage';
+import SubcriptionListPage from './pages/admin/subcriptionManagement/SubscriptionListPage';
 import TransactionListPage from './pages/admin/transactionManagement/TransactionListPage';
 import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
 import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';

@@ -89,10 +89,11 @@ const getStatusColor = (status: string): string => {
 };
 
 const ProjectDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: paramId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const id = paramId || localStorage.getItem('projectDetailId');
   const { Panel } = Collapse;
   const { Text } = Typography;
 
@@ -128,6 +129,14 @@ const ProjectDetailPage: React.FC = () => {
     );
   }
 
+  //Xem detail user:
+  const handleMemberClick = (uId: any) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', uId);
+    navigate(`/admin/users/detail/${uId}`);
+  };
+
+  // No project
   if (!project) {
     return (
       <div style={{ padding: 24 }}>
@@ -365,7 +374,11 @@ const ProjectDetailPage: React.FC = () => {
                 }}
                 renderItem={(member) => (
                   <List.Item>
-                    <Card hoverable style={{ textAlign: 'center' }}>
+                    <Card
+                      hoverable
+                      style={{ textAlign: 'center', cursor: 'pointer' }}
+                      onClick={() => handleMemberClick(member.memberId)}
+                    >
                       <Avatar
                         size={64}
                         src={member.avatar}
@@ -376,13 +389,13 @@ const ProjectDetailPage: React.FC = () => {
                         <Text strong style={{ display: 'block', fontSize: '14px' }}>
                           {member.memberName}
                         </Text>
-                        <Text
+                        {/* <Text
                           type="secondary"
                           style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}
                           ellipsis={{ tooltip: member.memberId }}
                         >
                           {member.memberId.substring(0, 8)}...
-                        </Text>
+                        </Text> */}
                       </div>
                       <Tag color="blue" style={{ marginTop: '8px' }}>
                         Member

@@ -543,7 +543,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Spin, Input, Select, Button, Modal } from 'antd';
+import { Table, Tag, Spin, Input, Select, Button, Modal, Space } from 'antd';
 import { toast } from 'react-toastify';
 import {
   getSubscriptionPlans,
@@ -552,7 +552,9 @@ import {
   deleteSubcriptionPlan,
 } from '@/services/subscriptionService.js';
 import SubscriptionPlanModal from './SubscriptionPlanModal';
-import { ArrowDown, ArrowUp, Plus, RotateCcw, Edit, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, RotateCcw, Edit, Trash2, Package } from 'lucide-react';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -561,16 +563,14 @@ interface Feature {
   featureKey: string;
   limitValue: number;
 }
-
 interface Price {
-  billingPeriod: number;
+  billingPeriod: string;
   periodCount: number;
   price: number;
   currency: string;
   refundWindowDays: number;
   refundFeePercent: number;
 }
-
 interface SubscriptionPlan {
   id: string;
   code: string;
@@ -589,7 +589,7 @@ export default function SubscriptionListPage() {
   // Filter states
   const [keyword, setKeyword] = useState('');
   const [isActive, setIsActive] = useState<boolean | null>(null);
-  const [billingPeriod, setBillingPeriod] = useState<number | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<'code' | 'name' | 'description'>('name');
   const [sortDescending, setSortDescending] = useState<boolean>(true);
 
@@ -609,9 +609,8 @@ export default function SubscriptionListPage() {
         sortColumn,
         sortDescending,
         pageNumber: page,
-        pageSize: pageSize,
+        pageSize,
       });
-
       if (res?.succeeded && res?.data) {
         setPlans(res.data.items || []);
         setPagination({
@@ -633,7 +632,6 @@ export default function SubscriptionListPage() {
     fetchPlans();
   }, [keyword, isActive, billingPeriod, sortColumn, sortDescending]);
 
-  // Create plan
   const handleCreatePlan = async (formData: any) => {
     try {
       await createSubcriptionPlan(formData);
@@ -648,7 +646,6 @@ export default function SubscriptionListPage() {
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
-  // Update
   const openEditModal = (plan: SubscriptionPlan) => {
     setEditingPlan(plan);
     setIsModalOpen(true);
@@ -656,7 +653,6 @@ export default function SubscriptionListPage() {
 
   const handleUpdatePlan = async (formData: any) => {
     try {
-      console.log(formData);
       await updateSubcriptionPlan({ ...formData, id: editingPlan?.id });
       toast.success('Subscription plan updated successfully!');
       closeModal();
@@ -667,7 +663,6 @@ export default function SubscriptionListPage() {
     }
   };
 
-  // Delete
   const handleDeletePlan = (id: string) => {
     Modal.confirm({
       title: 'Confirm Deletion',
@@ -687,7 +682,6 @@ export default function SubscriptionListPage() {
     });
   };
 
-  // Columns
   const columns = [
     { title: 'Code', dataIndex: 'code', key: 'code' },
     { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -708,7 +702,6 @@ export default function SubscriptionListPage() {
         return <Tag color={color}>{val || 'N/A'}</Tag>;
       },
     },
-
     {
       title: 'Price',
       dataIndex: ['price', 'price'],
@@ -730,33 +723,26 @@ export default function SubscriptionListPage() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: SubscriptionPlan) => (
-        <div className="flex items-center gap-2">
+        <Space>
           <Button
             icon={<Edit size={16} />}
             onClick={() => openEditModal(record)}
             type="link"
             className="text-indigo-600"
-          ></Button>
+          />
           <Button
             icon={<Trash2 size={16} />}
             onClick={() => handleDeletePlan(record.id)}
             type="link"
             danger
-          ></Button>
-        </div>
+          />
+        </Space>
       ),
     },
   ];
 
-  const handleTableChange = (paginationConfig: any) => {
-    const { current, pageSize } = paginationConfig;
-    setPagination({ ...pagination, current, pageSize });
-    fetchPlans(current, pageSize);
-  };
-
   const toggleSortDirection = () => setSortDescending((prev) => !prev);
 
-  // Reset filters
   const handleResetFilters = () => {
     setKeyword('');
     setIsActive(null);
@@ -768,90 +754,154 @@ export default function SubscriptionListPage() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header Row */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Subscription Plans</h2>
-        <Button
-          type="primary"
-          icon={<Plus size={16} />}
-          className="bg-indigo-600"
-          onClick={openModal}
-        >
-          Add Subcription
-        </Button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <Package className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 m-0">Subscription Management</h1>
+              <p className="text-sm text-gray-500 m-0">
+                Manage and edit all system subscription plans
+              </p>
+            </div>
+          </div>
+          <Button
+            type="primary"
+            icon={<Plus size={16} />}
+            className="bg-indigo-600 rounded-lg"
+            onClick={openModal}
+          >
+            Add Subscription
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 border-b border-gray-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <Search
+              placeholder="Search by keyword..."
+              allowClear
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              style={{ width: 220 }}
+            />
+            <Select
+              placeholder="Is Active"
+              allowClear
+              style={{ width: 130 }}
+              value={isActive as any}
+              onChange={(val) => setIsActive(val === undefined ? null : val)}
+            >
+              <Option value={true}>Active</Option>
+              <Option value={false}>Inactive</Option>
+            </Select>
+            <Select
+              placeholder="Billing Period"
+              allowClear
+              style={{ width: 150 }}
+              value={billingPeriod as any}
+              onChange={(val) => setBillingPeriod(val === undefined ? null : val)}
+            >
+              <Option value="Week">Week</Option>
+              <Option value="Month">Month</Option>
+              <Option value="Year">Year</Option>
+            </Select>
+            <Select
+              value={sortColumn}
+              onChange={(val) => setSortColumn(val)}
+              style={{ width: 160 }}
+            >
+              <Option value="code">Sort by Code</Option>
+              <Option value="name">Sort by Name</Option>
+              <Option value="description">Sort by Description</Option>
+            </Select>
+            <Button
+              icon={sortDescending ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
+              onClick={toggleSortDirection}
+            >
+              {sortDescending ? 'Descending' : 'Ascending'}
+            </Button>
+            <Button
+              icon={<RotateCcw size={16} />}
+              onClick={handleResetFilters}
+              className="border-gray-300 text-gray-700"
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <Spin spinning={loading}>
+            <Table
+              columns={columns.map((col) => ({
+                ...col,
+                onHeaderCell: () => ({
+                  className: 'px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase',
+                }),
+              }))}
+              dataSource={plans}
+              rowKey="id"
+              pagination={false}
+            />
+          </Spin>
+        </div>
+
+        {/* Pagination */}
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-gray-600">
+                Showing <span className="font-semibold text-gray-900">{plans.length}</span> of{' '}
+                <span className="font-semibold text-gray-900">
+                  {pagination.total.toLocaleString()}
+                </span>{' '}
+                subscription plans
+              </span>
+
+              <label className="inline-flex items-center gap-2">
+                <span className="text-gray-600">Rows per page:</span>
+                <select
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                  value={pagination.pageSize}
+                  onChange={(e) => {
+                    const size = Math.max(1, parseInt(e.target.value || '10', 10));
+                    setPagination((prev) => ({ ...prev, pageSize: size, current: 1 }));
+                    fetchPlans(1, size);
+                  }}
+                >
+                  {[5, 10, 20, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <Stack spacing={2}>
+              <Pagination
+                count={Math.max(1, Math.ceil(pagination.total / pagination.pageSize))}
+                page={pagination.current}
+                onChange={(_, p) => {
+                  setPagination((prev) => ({ ...prev, current: p }));
+                  fetchPlans(p, pagination.pageSize);
+                }}
+                color="primary"
+                variant="outlined"
+                shape="rounded"
+                showFirstButton
+                showLastButton
+              />
+            </Stack>
+          </div>
+        </div>
       </div>
-
-      {/* Filter Row */}
-      <div className="flex flex-wrap items-center gap-3 mb-4 bg-white p-4 rounded-lg shadow-sm">
-        <Search
-          placeholder="Search by keyword..."
-          allowClear
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          style={{ width: 220 }}
-        />
-
-        <Select
-          placeholder="Is Active"
-          allowClear
-          style={{ width: 130 }}
-          value={isActive as any}
-          onChange={(val) => setIsActive(val === undefined ? null : val)}
-        >
-          <Option value={true}>Active</Option>
-          <Option value={false}>Inactive</Option>
-        </Select>
-
-        <Select
-          placeholder="Billing Period"
-          allowClear
-          style={{ width: 150 }}
-          value={billingPeriod as any}
-          onChange={(val) => setBillingPeriod(val === undefined ? null : val)}
-        >
-          <Option value={'Week'}>Week</Option>
-          <Option value={'Month'}>Month</Option>
-          <Option value={'Year'}>Year</Option>
-        </Select>
-
-        <Select value={sortColumn} onChange={(val) => setSortColumn(val)} style={{ width: 160 }}>
-          <Option value="code">Sort by Code</Option>
-          <Option value="name">Sort by Name</Option>
-          <Option value="description">Sort by Description</Option>
-        </Select>
-
-        <Button
-          icon={sortDescending ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
-          onClick={toggleSortDirection}
-        >
-          {sortDescending ? 'Descending' : 'Ascending'}
-        </Button>
-
-        <Button
-          onClick={handleResetFilters}
-          icon={<RotateCcw size={16} />}
-          className="ml-2 border-gray-300 text-gray-700"
-        >
-          Reset
-        </Button>
-      </div>
-
-      {/* Table */}
-      <Spin spinning={loading}>
-        <Table
-          columns={columns}
-          dataSource={plans}
-          rowKey="id"
-          pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
-            showSizeChanger: true,
-          }}
-          onChange={handleTableChange}
-        />
-      </Spin>
 
       {/* Modal */}
       <SubscriptionPlanModal
