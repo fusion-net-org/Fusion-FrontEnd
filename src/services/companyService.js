@@ -130,3 +130,13 @@ export const deleteCompany = async (companyId) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+export const getCompaniesOfCurrentUser = async () => {
+  try {
+    const response = await axiosInstance.get("/company/current-user");
+    return response.data.data || [];
+  } catch (error) {
+    console.error("Error fetching current user companies:", error);
+    throw new Error(error.response?.data?.message || "Error fetching companies of current user!");
+  }
+};

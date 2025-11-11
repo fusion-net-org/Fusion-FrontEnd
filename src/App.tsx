@@ -24,7 +24,6 @@ import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
-import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
 import RequireAuth from './components/RequireAuth/RequireAuth';
 import WorkflowPage from './pages/home/Workflow';
@@ -40,10 +39,11 @@ import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
-
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
+import UserProfile from './pages/UserProfile/UserProfile';
 import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
-import UserProfile from './pages/userProfile/UserProfile';
+import MySubscriptions from './pages/mysubscription/MySubscription';
+import CompanySubscriptionsPage from './pages/home/CompanySubscriptionPage';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -71,6 +71,7 @@ function App() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
           <Route path="/subscription" element={<SubscriptionPlan />} />
+          <Route path="/mysubscription" element={<MySubscriptions />} />
         </Route>
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
@@ -81,6 +82,7 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
+          <Route path="/company/:companyId/subscription" element={<CompanySubscriptionsPage />} />
           <Route
             path="/companies/:companyId/project/:projectId"
             element={<ProjectsCompanyRequest />}
