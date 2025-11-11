@@ -15,163 +15,71 @@ import {
   Legend,
 } from 'recharts';
 import { Card } from 'antd';
-import { BarChart3, ClipboardList } from 'lucide-react';
 
 interface TicketChartsProps {
-  sprintData: { name: string; total: number; done: number }[];
-  ticketsPerSprintData: { name: string; created: number; done: number }[];
-  taskStatusData?: { name: string; value: number }[];
-  taskPriorityData?: { priority: string; count: number }[];
-  tasksPerSprint?: { sprint: string; tasks: number }[];
+  sprintData?: { name: string; done: number; total: number }[];
+  ticketsPerSprintData?: { name: string; created: number; done: number }[];
+
   ticketStatusData?: { name: string; value: number }[];
   budgetByStatus?: { status: string; budget: number }[];
-  taskCompletionOverTime?: { week: string; done: number }[];
+
+  ticketPriorityData?: { priority: string; value: number }[];
+  ticketUrgencyData?: { urgency: string; value: number }[];
+  billableData?: { name: string; value: number }[];
+  deleteStateData?: { name: string; value: number }[];
+  resolvedClosedTimeline?: { date: string; resolved: number; closed: number }[];
 }
 
 const TicketCharts: React.FC<TicketChartsProps> = ({
-  sprintData,
-  ticketsPerSprintData,
-  taskStatusData = [
-    { name: 'To Do', value: 10 },
-    { name: 'In Progress', value: 7 },
-    { name: 'In Review', value: 5 },
-    { name: 'Done', value: 20 },
-  ],
-  taskPriorityData = [
-    { priority: 'Low', count: 5 },
-    { priority: 'Medium', count: 12 },
-    { priority: 'High', count: 8 },
-    { priority: 'Critical', count: 3 },
-  ],
-  tasksPerSprint = [
-    { sprint: 'Sprint 1', tasks: 10 },
-    { sprint: 'Sprint 2', tasks: 15 },
-    { sprint: 'Sprint 3', tasks: 8 },
-  ],
   ticketStatusData = [
     { name: 'Open', value: 6 },
     { name: 'In Progress', value: 4 },
     { name: 'Resolved', value: 10 },
     { name: 'Closed', value: 7 },
   ],
+
   budgetByStatus = [
     { status: 'Open', budget: 1200 },
     { status: 'In Progress', budget: 3000 },
     { status: 'Resolved', budget: 4500 },
     { status: 'Closed', budget: 2000 },
   ],
-  taskCompletionOverTime = [
-    { week: 'Week 1', done: 3 },
-    { week: 'Week 2', done: 5 },
-    { week: 'Week 3', done: 7 },
-    { week: 'Week 4', done: 9 },
+
+  ticketPriorityData = [
+    { priority: 'Low', value: 3 },
+    { priority: 'Medium', value: 6 },
+    { priority: 'High', value: 10 },
+    { priority: 'Urgent', value: 8 },
+  ],
+
+  ticketUrgencyData = [
+    { urgency: 'Low', value: 5 },
+    { urgency: 'Medium', value: 7 },
+    { urgency: 'High', value: 6 },
+    { urgency: 'Critical', value: 4 },
+  ],
+
+  billableData = [
+    { name: 'Billable', value: 12 },
+    { name: 'Non-Billable', value: 7 },
+  ],
+
+  deleteStateData = [
+    { name: 'Active', value: 16 },
+    { name: 'Deleted', value: 3 },
+  ],
+
+  resolvedClosedTimeline = [
+    { date: 'Week 1', resolved: 2, closed: 1 },
+    { date: 'Week 2', resolved: 3, closed: 2 },
+    { date: 'Week 3', resolved: 4, closed: 2 },
+    { date: 'Week 4', resolved: 1, closed: 3 },
   ],
 }) => {
   return (
     <div className="mt-8 space-y-8">
-      {/* CHART 1: Sprint Task Overview */}
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-          <BarChart3 className="text-indigo-500 w-5 h-5" />
-          Sprint Task Overview
-        </h2>
-        <div className="bg-white border rounded-2xl shadow-inner p-4">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={sprintData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="total" fill="#CBD5E1" name="Total Tasks" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="done" fill="#6366F1" name="Completed Tasks" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-            <span>
-              🟦 <strong>{sprintData.reduce((a, b) => a + b.done, 0)}</strong> done tasks
-            </span>
-            <span>
-              📊 Total: <strong>{sprintData.reduce((a, b) => a + b.total, 0)}</strong> tasks
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* CHART 2: Tickets per Sprint */}
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-          <ClipboardList className="text-indigo-500 w-5 h-5" />
-          Tickets per Sprint
-        </h2>
-        <div className="bg-white border rounded-2xl shadow-inner p-4">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={ticketsPerSprintData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip
-                formatter={(value, name) =>
-                  name === 'created'
-                    ? [`${value}`, 'Created Tickets']
-                    : name === 'done'
-                    ? [`${value}`, 'Processed Tickets']
-                    : [value, name]
-                }
-              />
-              <Bar dataKey="created" fill="#93C5FD" name="Created Tickets" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="done" fill="#4F46E5" name="Processed Tickets" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-            <span>
-              🟦 Created: <strong>{ticketsPerSprintData.reduce((a, b) => a + b.created, 0)}</strong>
-            </span>
-            <span>
-              ✅ Processed: <strong>{ticketsPerSprintData.reduce((a, b) => a + b.done, 0)}</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 6 small charts grid */}
+      {/* 2 main charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 1️⃣ Task Status Distribution */}
-        <Card title="Task Status Distribution" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie data={taskStatusData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* 2️⃣ Task Priority Breakdown */}
-        <Card title="Task Priority Breakdown" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={taskPriorityData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="priority" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#f97316" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* 3️⃣ Tasks per Sprint */}
-        <Card title="Tasks per Sprint" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={tasksPerSprint}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="sprint" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="tasks" stroke="#2563eb" />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
         {/* 4️⃣ Ticket Status Overview */}
         <Card title="Ticket Status Overview" variant="outlined">
           <ResponsiveContainer width="100%" height={250}>
@@ -201,20 +109,79 @@ const TicketCharts: React.FC<TicketChartsProps> = ({
             </BarChart>
           </ResponsiveContainer>
         </Card>
+      </div>
 
-        {/* 6️⃣ Task Completion Over Time */}
-        <Card title="Task Completion Over Time" variant="outlined">
+      {/* 🔥 NEW CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Priority */}
+        <Card title="Ticket Priority">
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={taskCompletionOverTime}>
+            <BarChart data={ticketPriorityData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" />
+              <XAxis dataKey="priority" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="done" stroke="#22c55e" />
-            </LineChart>
+              <Bar dataKey="value" fill="#fb923c" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Urgency */}
+        <Card title="Ticket Urgency">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={ticketUrgencyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="urgency" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#f87171" />
+            </BarChart>
           </ResponsiveContainer>
         </Card>
       </div>
+
+      {/* Billable vs Non-Billable & Deleted */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card title="Billable Ticket Ratio">
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie data={billableData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label />
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card title="Active vs Deleted Tickets">
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={deleteStateData}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                dataKey="value"
+                label
+              />
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Timeline */}
+      <Card title="Resolved vs Closed Ticket Over Time">
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={resolvedClosedTimeline}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="resolved" stroke="#22c55e" />
+            <Line type="monotone" dataKey="closed" stroke="#3b82f6" />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
     </div>
   );
 };
