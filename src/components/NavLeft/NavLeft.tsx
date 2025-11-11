@@ -7,6 +7,7 @@ import {
   Settings,
   LogOut,
   CreditCard,
+  Folder,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -44,6 +45,7 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
     { name: t('menu_item.schedule'), icon: FileText, path: '/schedule' },
     { name: t('menu_item.calendar'), icon: CalendarDays, path: '/calendar' },
     { name: t('menu_item.subscription'), icon: CreditCard, path: '/subscription' },
+    { name: t('menu_item.mySubscription'), icon: Folder, path: '/mysubscription' },
     { name: t('menu_item.setting'), icon: Settings, path: '/setting' },
     { name: t('menu_item.logout'), icon: LogOut, onClick: handleLogout, danger: true },
   ];
