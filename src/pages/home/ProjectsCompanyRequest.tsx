@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import {
@@ -21,11 +22,22 @@ import { GetProjectByProjectId } from '@/services/projectService.js';
 import { useParams } from 'react-router-dom';
 import type { ProjectDetailResponse } from '@/interfaces/Project/project';
 import type { IProjectMemberV2 } from '@/interfaces/ProjectMember/projectMember';
+import type { ITicket } from '@/interfaces/Ticket/Ticket';
+import { getProjectMemberByProjectId } from '@/services/projectMember.js';
+import { GetTicketByProjectId } from '@/services/TicketService.js';
+
 const ProjectCompanyRequest = () => {
+  const rowsPerPage = 10;
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
   const [projectMembers, setProjectMembers] = useState<IProjectMemberV2>();
+  const [projectTickets, setProjectTickets] = useState<{ items: ITicket[]; totalCount: number }>({
+    items: [],
+    totalCount: 0,
+  });
   const [activeTab, setActiveTab] = useState<'members' | 'tickets' | 'sprints'>('members');
+  const [refreshChartKey, setRefreshChartKey] = useState(0);
+
   const tasksPerSprint = {
     'Sprint 1': [
       { id: '1', title: 'Fix Login Bug', assignee: 'Tran Thi B', status: 'Done' },
@@ -44,87 +56,73 @@ const ProjectCompanyRequest = () => {
     'Sprint 4': [],
   };
 
-  const [tickets] = useState([
-    { id: 1, title: 'Fix Login Bug', assignee: 'Tran Thi B', status: 'Done', date: '2025-10-10' },
-    {
-      id: 2,
-      title: 'Update Dashboard UI',
-      assignee: 'Nguyen Van A',
-      status: 'In Progress',
-      date: '2025-10-15',
-    },
-    {
-      id: 3,
-      title: 'Optimize API Performance',
-      assignee: 'Le Van C',
-      status: 'To Do',
-      date: '2025-10-20',
-    },
-    {
-      id: 4,
-      title: 'Refactor Notification Service',
-      assignee: 'Nguyen Van A',
-      status: 'In Review',
-      date: '2025-10-22',
-    },
-    {
-      id: 5,
-      title: 'Add Export Feature',
-      assignee: 'Tran Thi B',
-      status: 'Done',
-      date: '2025-10-25',
-    },
-  ]);
-
   const sprintData = [
     { name: 'Sprint 1', done: 10, total: 12 },
     { name: 'Sprint 2', done: 8, total: 10 },
     { name: 'Sprint 3', done: 6, total: 9 },
     { name: 'Sprint 4', done: 3, total: 10 },
   ];
-
-  const ticketsPerSprintData = [
-    { name: 'Sprint 1', created: 15, done: 10 },
-    { name: 'Sprint 2', created: 12, done: 8 },
-    { name: 'Sprint 3', created: 9, done: 5 },
-    { name: 'Sprint 4', created: 11, done: 3 },
-  ];
-
-  const handleCreateTicket = () => {
-    toast.success('New ticket created successfully!');
+  const handleTicketCreated = () => {
+    setRefreshChartKey((prev) => prev + 1);
   };
 
-  //#region  handling
-  //#endregion
-
-  //#region fetch
-  const fetchData = async () => {
+  useEffect(() => {
     if (!projectId) return;
 
-    try {
-      const projectRes = await GetProjectByProjectId(projectId);
-      if (projectRes?.succeeded) {
-        setProject(projectRes.data);
+    const fetchProject = async () => {
+      try {
+        const res = await GetProjectByProjectId(projectId);
+        if (res?.succeeded) setProject(res.data);
+      } catch (error) {
+        console.log(error);
+        toast.error('Failed to fetch project');
       }
-    } catch (error) {
-      console.log(error);
-      toast.error('Failed to fetch data');
-    }
-  };
-  useEffect(() => {
-    fetchData();
+    };
+
+    const fetchMembersCount = async () => {
+      try {
+        const res = await getProjectMemberByProjectId(projectId, '', '', '', 1, 1000);
+        console.log('data mêmbr', res.data);
+
+        if (res?.succeeded) setProjectMembers(res.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    const fetchTicketsCount = async () => {
+      try {
+        const res = await GetTicketByProjectId(
+          projectId,
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          1,
+          1000,
+          '',
+          null,
+        );
+        if (res?.succeeded) setProjectTickets(res.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchProject();
+    fetchMembersCount();
+    fetchTicketsCount();
   }, [projectId]);
-
-  const [ticketSearch, setTicketSearch] = useState('');
-  const [ticketRange, setTicketRange] = useState<any>(null);
-
-  // --- PAGINATION STATES ---
-  const [ticketPage, setTicketPage] = useState(1);
-  const rowsPerPage = 10;
 
   return (
     <div className="min-h-screen bg-gray-50 py-5 px-5">
-      <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 p-10 space-y-10">
+      <div className="mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 p-10 space-y-10">
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-6">
           <div>
@@ -254,7 +252,7 @@ const ProjectCompanyRequest = () => {
       ${activeTab === 'tickets' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'}
     `}
             >
-              {tickets.length}
+              {projectTickets.totalCount}
             </span>
             {/* underline */}
             {activeTab === 'tickets' && (
@@ -295,26 +293,16 @@ const ProjectCompanyRequest = () => {
         {activeTab === 'members' && (
           <div>
             <MemberCharts projectId={projectId!} />
-            <MembersTab
-              projectId={projectId!}
-              rowsPerPage={rowsPerPage}
-              onMembersDataChange={(data) => setProjectMembers(data)}
-            />
+            <MembersTab projectId={projectId!} rowsPerPage={rowsPerPage} />
           </div>
         )}
         {activeTab === 'tickets' && (
           <div>
-            <TicketCharts sprintData={sprintData} ticketsPerSprintData={ticketsPerSprintData} />
+            <TicketCharts projectId={projectId!} refreshKey={refreshChartKey} />
             <TicketsTab
-              tickets={tickets}
-              ticketSearch={ticketSearch}
-              setTicketSearch={setTicketSearch}
-              ticketRange={ticketRange}
-              setTicketRange={setTicketRange}
-              ticketPage={ticketPage}
-              setTicketPage={setTicketPage}
+              projectId={projectId!}
               rowsPerPage={rowsPerPage}
-              onCreateTicket={handleCreateTicket}
+              onTicketCreated={handleTicketCreated}
             />
           </div>
         )}

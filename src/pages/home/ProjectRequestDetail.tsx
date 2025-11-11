@@ -125,7 +125,7 @@ export default function ProjectRequestDetail() {
       ) : (
         <div className="min-h-screen py-5 px-5">
           {accepting && <LoadingOverlay loading message="Accepting request..." />}
-          <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+          <div className="mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
             {/* HEADER */}
             <div className="bg-gradient-to-r from-[#2563eb] to-[#4f46e5] text-white px-10 py-8 rounded-b-3xl shadow-lg">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between">

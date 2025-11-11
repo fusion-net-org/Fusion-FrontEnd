@@ -13,14 +13,9 @@ const { RangePicker } = DatePicker;
 interface MembersTabProps {
   projectId: string;
   rowsPerPage?: number;
-  onMembersDataChange?: (data: any) => void;
 }
 
-const MembersTab: React.FC<MembersTabProps> = ({
-  projectId,
-  rowsPerPage = 10,
-  onMembersDataChange,
-}) => {
+const MembersTab: React.FC<MembersTabProps> = ({ projectId, rowsPerPage = 10 }) => {
   const [members, setMembers] = useState<IProjectMemberItemV2[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const debouncedSearch = useDebounce(memberSearch, 500); // debounce 500ms
@@ -43,9 +38,6 @@ const MembersTab: React.FC<MembersTabProps> = ({
       );
       if (res?.succeeded) {
         setMembers(res.data.items || []);
-        if (onMembersDataChange) {
-          onMembersDataChange(res.data);
-        }
       }
       setTotalPages(Math.ceil((res.data.totalCount || 0) / rowsPerPage));
     } catch (error) {
@@ -53,7 +45,7 @@ const MembersTab: React.FC<MembersTabProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [projectId, debouncedSearch, memberRange, memberPage, rowsPerPage, onMembersDataChange]);
+  }, [projectId, debouncedSearch, memberRange, memberPage, rowsPerPage]);
 
   useEffect(() => {
     fetchMembers();
@@ -97,24 +89,40 @@ const MembersTab: React.FC<MembersTabProps> = ({
             <Spin />
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-indigo-50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-10">#</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-40">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
+                  Phone
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">
+                  Gender
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
                   Joined Date
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-auto">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {members.length > 0 ? (
-                members.map((m) => (
+                members.map((m, index) => (
                   <tr key={m.userId} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-3 font-medium text-gray-800">
+                      {(memberPage - 1) * rowsPerPage + index + 1}
+                    </td>
                     <td className="px-6 py-3 font-medium text-gray-800">{m.userName}</td>
                     <td className="px-6 py-3 text-gray-600">{m.email}</td>
                     <td className="px-6 py-3 text-gray-600">{m.phone || '-'}</td>
@@ -150,7 +158,7 @@ const MembersTab: React.FC<MembersTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-gray-500">
+                  <td colSpan={8} className="text-center py-4 text-gray-500">
                     No members found
                   </td>
                 </tr>
