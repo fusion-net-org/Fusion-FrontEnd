@@ -14,7 +14,6 @@ import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import ProjectsPage from './pages/home/ProjectsPage';
 import Calendar from './pages/calendar/Calendar';
-import ResetPassword from './pages/resetPassword/ResetPassword';
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
@@ -23,8 +22,16 @@ import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
 import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
+import Admin from './pages/admin/Admin';
+import AdminLayout from './layouts/Admin/AdminLayout';
+import AdminDashboardPage from './pages/admin/dashboard/Dashboard';
+import AdminUsersPage from './pages/admin/userManagement/Users';
+import AdminSubscriptionsPage from './pages/admin/Subscriptions';
+import AdminCompaniesPage from './pages/admin/companyManagement/Companies';
+import SubscriptionPag from './pages/subscription/SubscriptionPage';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
+import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequireAuth from './components/RequireAuth/RequireAuth';
 import WorkflowPage from './pages/home/Workflow';
 import WorkflowCreatePage from './pages/home/Workflow';
@@ -40,10 +47,25 @@ import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
-import UserProfile from './pages/UserProfile/UserProfile';
+
 import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
 import MySubscriptions from './pages/mysubscription/MySubscription';
 import CompanySubscriptionsPage from './pages/home/CompanySubscriptionPage';
+
+import ResetPassword from './pages/resetPassword/ResetPassword';
+import OverviewUserPage from './pages/admin/userManagement/OverviewUserPage';
+import UserListPage from './pages/admin/userManagement/UserListPage';
+import OverviewCompanyPage from './pages/admin/companyManagement/OverviewCompanyPage';
+import CompanyListPage from './pages/admin/companyManagement/CompanyListPage';
+import UserDetailPage from './pages/admin/userManagement/UserDetailPage';
+import CompanyDetailPage from './pages/admin/companyManagement/CompanyDetailPage';
+import SubcriptionListPage from './pages/admin/subcriptionManagement/SubscriptionListPage';
+import TransactionListPage from './pages/admin/transactionManagement/TransactionListPage';
+import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
+import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';
+import UserProfile from './pages/userProfile/UserProfile';
+import ProjectDetailAdminPage from './pages/admin/projectManagement/ProjectDetailAdminPage';
+
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -72,6 +94,30 @@ function App() {
           <Route path="/setting" element={<Settings />} />
           <Route path="/subscription" element={<SubscriptionPlan />} />
           <Route path="/mysubscription" element={<MySubscriptions />} />
+          {/* <Route path="/subscription" element={<SubscriptionPage />} /> */}
+        </Route>
+
+        {/* Route admin layout */}
+
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/overview" element={<OverviewUserPage />} />
+          <Route path="users/list" element={<UserListPage />} />
+          <Route path="/admin/users/detail/:id" element={<UserDetailPage />} />
+          <Route path="/admin/users/detail" element={<UserDetailPage />} />
+          <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+          <Route path="/admin/companies/overview" element={<OverviewCompanyPage />} />
+          <Route path="/admin/companies/list" element={<CompanyListPage />} />
+          <Route path="/admin/companies/detail/:id" element={<CompanyDetailPage />} />
+          <Route path="/admin/companies/detail" element={<CompanyDetailPage />} />
+          <Route path="/admin/subscriptions/list" element={<SubcriptionListPage />} />
+          <Route path="/admin/transactions/list" element={<TransactionListPage />} />
+          <Route path="/admin/notifications/list" element={<NotificationListPage />} />
+          <Route path="/admin/projects/list" element={<ProjectListPage />} />
+          <Route path="/admin/projects/detail/:id" element={<ProjectDetailAdminPage />} />
+          <Route path="/admin/projects/detail" element={<ProjectDetailAdminPage />} />
+          {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
@@ -102,6 +148,8 @@ function App() {
           <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 
+          {/* Payment result */}
+
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
           {/* CREATE */}
@@ -122,6 +170,7 @@ function App() {
             </RequireAuth>
           }
         />
+
         <Route path="*" element={<NotFound />} />
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
@@ -131,6 +180,8 @@ function App() {
         <Route element={<CompanyShell />}>
           <Route path="/notifications" element={<NotificationPage />} />
         </Route>
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

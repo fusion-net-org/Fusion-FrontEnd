@@ -133,10 +133,31 @@ export const deleteCompany = async (companyId) => {
 
 export const getCompaniesOfCurrentUser = async () => {
   try {
-    const response = await axiosInstance.get("/company/current-user");
+    const response = await axiosInstance.get('/company/current-user');
     return response.data.data || [];
   } catch (error) {
-    console.error("Error fetching current user companies:", error);
-    throw new Error(error.response?.data?.message || "Error fetching companies of current user!");
+    console.error('Error fetching current user companies:', error);
+    throw new Error(error.response?.data?.message || 'Error fetching companies of current user!');
+  }
+};
+export const updateCompanyByAdmin = async (id, data) => {
+  try {
+    const response = await axiosInstance.put(`/company/admin/${id}`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Update fail!');
+  }
+};
+
+export const deleteCompanyByAdmin = async (companyId) => {
+  try {
+    const response = await axiosInstance.delete(`/company/admin/${companyId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
   }
 };

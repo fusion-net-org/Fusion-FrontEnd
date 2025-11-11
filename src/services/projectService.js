@@ -250,11 +250,44 @@ export async function createProject(payload) {
   const { data } = await axiosInstance.post(`/companies/${companyId}/projects`, dto);
   return data?.data ?? data;
 }
-
+  
 // https://localhost:7160/api/projects/5E9AC255-E049-4106-85FB-43F0492D0637
-export const GetProjectByProjectId = async (projectId) => {
+export const GetProjectByProjectId = async (id) => {
   try {
-    const response = await axiosInstance.get(`/projects/${projectId}`);
+    const response = await axiosInstance.get(`/projects/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+    
+export const getAllProjectByAdmin = async ({
+  CompanyName = '',
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn = '',
+  SortDescending = false,
+}) => {
+  try {
+    const response = await axiosInstance.get('/admin', {
+      params: {
+        CompanyName,
+        PageNumber,
+        PageSize,
+        SortColumn,
+        SortDescending,
+      },
+    });
+
+    return response.data?.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to fetch admin projects.');
+  }
+};
+
+export const getProjectById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/admin/${id}`);
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
