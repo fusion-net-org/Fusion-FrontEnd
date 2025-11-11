@@ -12,58 +12,12 @@ import {
   AlertTriangle,
   Link as LinkIcon,
 } from "lucide-react";
+import type { TaskVm, MemberRef } from "@/types/projectBoard";
 
-/** ==== Shared types ==== */
-export type Id = string;
+/** ==== Local helpers ==== */
+type TaskType = "Feature" | "Bug" | "Chore";
 
-export type Priority = "Urgent" | "High" | "Medium" | "Low";
-export type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-export type Severity = "Critical" | "High" | "Medium" | "Low";
-
-export type MemberRef = {
-  id: Id;
-  name: string;
-  avatarUrl?: string | null;
-};
-
-export type TaskType = "Feature" | "Bug" | "Chore";
-
-export type TaskVm = {
-  id: Id;
-  code: string;
-  title: string;
-  type: TaskType;
-  priority: Priority;
-  severity?: Severity;
-  tags?: string[];
-  storyPoints: number;
-  estimateHours: number;
-  remainingHours: number;
-  dueDate?: string;
-  openedAt: string;
-  updatedAt: string;
-  sprintId: Id | null;
-  status: StatusKey;
-  stage:
-    | "IN_PROGRESS"
-    | "WAITING_FOR_DEPLOY"
-    | "CHECK_AGAIN"
-    | "DEV_DONE"
-    | "READY_ON_PRODUCTION"
-    | "CLOSED";
-  assignees: MemberRef[];
-  dependsOn: Id[];
-  parentTaskId?: Id | null;
-  carryOverCount: number;
-  createdAt: string;
-
-  /** Ticket linkage (task được tạo từ ticket) */
-  sourceTicketId?: Id | null;
-  sourceTicketCode?: string | null;
-};
-
-/** ==== SLA rules ==== */
-const SLA_POLICIES: Array<{ type: TaskType; priority: Priority; targetHours: number }> = [
+const SLA_POLICIES: Array<{ type: TaskType; priority: "Urgent" | "High" | "Medium" | "Low"; targetHours: number }> = [
   { type: "Bug",     priority: "Urgent", targetHours: 24 },
   { type: "Bug",     priority: "High",   targetHours: 48 },
   { type: "Bug",     priority: "Medium", targetHours: 72 },
@@ -74,32 +28,25 @@ const SLA_POLICIES: Array<{ type: TaskType; priority: Priority; targetHours: num
   { type: "Chore",   priority: "Low",    targetHours: 336 },
 ];
 
-function getSlaTarget(type: TaskType, priority: Priority): number | null {
-  const p = SLA_POLICIES.find((x) => x.type === type && x.priority === priority);
+function getSlaTarget(type: string, priority: TaskVm["priority"]): number | null {
+  const t = (["Feature","Bug","Chore"] as const).includes(type as any) ? (type as TaskType) : null;
+  if (!t) return null;
+  const p = SLA_POLICIES.find((x) => x.type === t && x.priority === priority);
   return p?.targetHours ?? null;
 }
 
 function hoursBetween(aIso: string, bIso: string): number {
   return (new Date(bIso).getTime() - new Date(aIso).getTime()) / 36e5;
 }
+const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
+const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
-function fmtDate(d?: string) {
-  if (!d) return "N/A";
-  const x = new Date(d);
-  return x.toLocaleDateString();
-}
-
-function cn(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
-
-/** ==== Assignee avatars ==== */
+/** ==== Avatars ==== */
 function Initials({ name }: { name: string }) {
   const parts = name.trim().split(/\s+/);
   const initials = ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
   return <span>{initials || "?"}</span>;
 }
-
 function Avatar({ m }: { m: MemberRef }) {
   return (
     <div className="w-6 h-6 rounded-full ring-2 ring-white overflow-hidden bg-slate-200 flex items-center justify-center text-[10px] font-semibold text-slate-700">
@@ -107,10 +54,9 @@ function Avatar({ m }: { m: MemberRef }) {
     </div>
   );
 }
-
 function AvatarGroup({ members }: { members: MemberRef[] }) {
-  const shown = members.slice(0, 3);
-  const more = members.length - shown.length;
+  const shown = (members ?? []).slice(0, 3);
+  const more = (members ?? []).length - shown.length;
   return (
     <div className="flex items-center">
       {shown.map((m, i) => (
@@ -129,13 +75,13 @@ function AvatarGroup({ members }: { members: MemberRef[] }) {
 
 /** ==== Props ==== */
 type Props = {
-  t: TaskVm;
-  ticketSiblingsCount?: number; // số task khác cùng ticket (không tính bản thân)
+  t: TaskVm;                               // <-- từ "@/types/projectBoard"
+  ticketSiblingsCount?: number;
   onMarkDone: (t: TaskVm) => void;
   onNext: (t: TaskVm) => void;
   onSplit: (t: TaskVm) => void;
   onMoveNext: (t: TaskVm) => void;
-  onOpenTicket?: (ticketId: Id) => void;
+  onOpenTicket?: (ticketId: string) => void;
 };
 
 export default function TaskCard({
@@ -153,7 +99,9 @@ export default function TaskCard({
   const remaining = slaTarget != null ? Math.ceil(slaTarget - elapsed) : null;
   const overdue = remaining != null && remaining < 0;
   const urgent = t.priority === "Urgent";
-  const blocked = (t.dependsOn || []).length > 0; // demo: chưa check trạng thái done thực sự
+  const blocked = (t.dependsOn || []).length > 0;
+
+  const isDone = t.statusCategory === "DONE";
 
   const slaTone =
     overdue ? "text-rose-700 bg-rose-50 border-rose-200" :
@@ -228,8 +176,10 @@ export default function TaskCard({
       {/* Meta rows */}
       <div className="mt-2 text-xs text-slate-600 flex items-center flex-wrap gap-x-4 gap-y-1">
         <div className="flex items-center gap-1"><Flag className="w-3 h-3" /> {t.type}</div>
-        <div className="flex items-center gap-1"><TimerReset className="w-3 h-3" /> {Math.max(0, t.storyPoints)} pts</div>
-        <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours)}/{t.estimateHours}h</div>
+        <div className="flex items-center gap-1"><TimerReset className="w-3 h-3" /> {Math.max(0, t.storyPoints ?? 0)} pts</div>
+        <div className="flex items-center gap-1">
+          <Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours ?? 0)}/{t.estimateHours ?? 0}h
+        </div>
         <div className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {fmtDate(t.dueDate)}</div>
       </div>
 
@@ -238,12 +188,12 @@ export default function TaskCard({
         <div className="flex items-center gap-2">
           <AvatarGroup members={t.assignees || []} />
           <div className="text-xs text-slate-600 truncate max-w-[200px]">
-            {(t.assignees || []).map(a => a.name).join(", ") || "Unassigned"}
+            {(t.assignees || []).map((a) => a.name).join(", ") || "Unassigned"}
           </div>
         </div>
 
         {/* SLA badge */}
-        {slaTarget != null && t.status !== "done" && (
+        {slaTarget != null && !isDone && (
           <span
             className={cn(
               "text-[11px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
@@ -259,7 +209,7 @@ export default function TaskCard({
 
       {/* Actions */}
       <div className="mt-3 flex items-center gap-2">
-        {t.status !== "done" && (
+        {!isDone && (
           <button
             className="text-xs px-2 py-1 rounded-lg border hover:bg-emerald-50 border-emerald-300 text-emerald-700 flex items-center gap-1"
             onClick={() => onMarkDone(t)}
@@ -267,7 +217,7 @@ export default function TaskCard({
             <Check className="w-3 h-3" /> Mark done
           </button>
         )}
-        {t.status !== "done" && (
+        {!isDone && (
           <button
             className="text-xs px-2 py-1 rounded-lg border hover:bg-blue-50 border-blue-300 text-blue-700 flex items-center gap-1"
             onClick={() => onNext(t)}

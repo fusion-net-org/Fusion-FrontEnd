@@ -1,51 +1,108 @@
 // src/components/KanbanBySprintBoard.tsx
-import React, { useState } from "react";
+import React from "react";
 import {
   DragDropContext,
   Droppable,
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import TaskCard, {
-  type TaskVm,
-} from "@/components/Company/Projects/TaskCard";
-import QuickTaskCreateModal from "@/components/Tasks/QuickTaskCreateModal";
-
-/* ====== Private types & helpers (local) ====== */
-type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-
-export type SprintVm = {
-  id: string;
-  name: string;
-  startDate?: string;
-  endDate?: string;
-  columns: Record<StatusKey, TaskVm[]>;
-};
+import TaskCard from "@/components/Company/Projects/TaskCard";
+import type { SprintVm, TaskVm, StatusCategory } from "@/types/projectBoard";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 
+/* ================== Helpers ================== */
+
+/** Lấy tasks của sprint theo filter category (workflow động) từ columns thật */
 const flattenSprintTasks = (
   s: SprintVm,
-  filter: StatusKey | "all" = "all"
-) =>
-  filter === "all"
-    ? ([] as TaskVm[]).concat(
-        ...(["todo", "inprogress", "inreview", "done"] as StatusKey[]).map(
-          (k) => s.columns[k]
-        )
-      )
-    : s.columns[filter];
+  filterCategory: "ALL" | StatusCategory = "ALL"
+): TaskVm[] => {
+  const order = s.statusOrder ?? Object.keys(s.columns ?? {});
+  const out: TaskVm[] = [];
+  for (const stId of order) {
+    const arr = (s.columns?.[stId] as TaskVm[]) ?? [];
+    if (filterCategory === "ALL") out.push(...arr);
+    else out.push(...arr.filter((t) => t.statusCategory === filterCategory));
+  }
+  return out;
+};
 
-const computeSprintStats = (s: SprintVm, filter: StatusKey | "all") => {
-  const list = flattenSprintTasks(s, filter);
+const sprintHasRealTasks = (s: SprintVm) =>
+  flattenSprintTasks(s, "ALL").length > 0;
+
+/** Sinh task demo ổn định theo sprint (để nhìn UI khi chưa có dữ liệu) */
+function makeDemoTasksForSprint(s: SprintVm): TaskVm[] {
+  const order = s.statusOrder?.length ? s.statusOrder : Object.keys(s.columns ?? {});
+  const take = Math.min(4, Math.max(2, order.length)); // 2–4 tasks
+  const now = new Date();
+  const mkIso = (d: Date) => d.toISOString();
+
+  const list: TaskVm[] = [];
+  for (let i = 0; i < take; i++) {
+    const stId = order[i % order.length];
+    const meta = s.statusMeta?.[stId];
+    const idx = i + 1;
+
+    list.push({
+      id: `__demo_${s.id}_${stId}_${idx}`,
+      code: `DEMO-${idx}`,
+      title:
+        (meta?.category === "IN_PROGRESS" && idx % 2 === 0)
+          ? "Implement payment link API"
+          : (meta?.category === "REVIEW"
+              ? "Code review + unit tests"
+              : (meta?.category === "DONE"
+                  ? "User profile page"
+                  : "Fix webhook signature")),
+      type: (idx % 3 === 0 ? "Bug" : idx % 3 === 1 ? "Feature" : "Chore") as TaskVm["type"],
+      priority: (idx % 3 === 0 ? "High" : idx % 3 === 1 ? "Medium" : "Low"),
+      severity: undefined,
+      storyPoints: (idx % 3) + 2,     // 2..4
+      estimateHours: 8 + idx * 2,     // 10..14
+      remainingHours: meta?.category === "DONE" ? 0 : 4 + (idx % 3),
+      dueDate: s.end || mkIso(new Date(now.getTime() + 3 * 86400e3)),
+      openedAt: mkIso(new Date(now.getTime() - 2 * 86400e3)),
+      updatedAt: mkIso(now),
+      createdAt: mkIso(new Date(now.getTime() - 3 * 86400e3)),
+
+      sprintId: s.id,
+      workflowStatusId: meta?.id ?? stId,
+      statusCode: meta?.code ?? "todo",
+      statusCategory: meta?.category ?? "TODO",
+
+      assignees: [],
+      dependsOn: [],
+      parentTaskId: null,
+      carryOverCount: 0,
+      sourceTicketId: null,
+      sourceTicketCode: null,
+    } as TaskVm);
+  }
+  return list;
+}
+
+/** Tính tổng/đã done theo filter; có thể truyền danh sách tasks override (demo) */
+const computeSprintStats = (
+  s: SprintVm,
+  filterCategory: "ALL" | StatusCategory,
+  tasksOverride?: TaskVm[]
+) => {
+  const list = tasksOverride ?? flattenSprintTasks(s, filterCategory);
   const total = list.length;
   const done =
-    filter === "all" ? s.columns.done.length : list.filter(t => t.status === "done").length;
+    filterCategory === "ALL"
+      ? (tasksOverride
+          ? tasksOverride.filter((t) => t.statusCategory === "DONE").length
+          : flattenSprintTasks(s, "DONE").length)
+      : list.filter((t) => t.statusCategory === "DONE").length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   return { total, done, pct };
 };
+
+/* ================== UI atoms ================== */
 
 const BoardColumn = ({
   title,
@@ -90,10 +147,11 @@ const BoardColumn = ({
   );
 };
 
-/* ====== Main ====== */
+/* ================== Main ================== */
+
 export default function KanbanBySprintBoard({
   sprints,
-  filter = "all",
+  filterCategory = "ALL",
   onDragEnd,
   onMarkDone,
   onNext,
@@ -102,7 +160,8 @@ export default function KanbanBySprintBoard({
   onOpenTicket,
 }: {
   sprints: SprintVm[];
-  filter?: StatusKey | "all";
+  /** Lọc theo category động: "ALL" | "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE" */
+  filterCategory?: "ALL" | StatusCategory;
   onDragEnd: (result: DropResult) => void;
   onMarkDone?: (t: TaskVm) => void;
   onNext?: (t: TaskVm) => void;
@@ -114,7 +173,6 @@ export default function KanbanBySprintBoard({
   const BOARD_H = `calc(100vh - ${TOP_OFFSET}px)`;
   const COL_W_CLASS =
     "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
-const [openCreate, setOpenCreate] = useState(false);
 
   const noop = () => {};
   const _onMarkDone = onMarkDone ?? noop;
@@ -123,28 +181,7 @@ const [openCreate, setOpenCreate] = useState(false);
   const _onMoveNext = onMoveNext ?? noop;
 
   return (
-    
     <DragDropContext onDragEnd={onDragEnd}>
-      {/* <button
-  onClick={() => setOpenCreate(true)}
-  className="px-3 h-9 rounded-full border text-sm flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-slate-50"
->
-  + New task
-</button>
-
-<QuickTaskCreateModal
-  projectId={'projectId'}
-  sprints={sprints.map(s => ({ id: s.id, name: s.name, status: (s as any).state  }))}
-  defaultSprintId={'defaultSprintId'}
-  isOpen={openCreate}
-  onClose={() => setOpenCreate(false)}
-  onCreated={(t) => {
-    // tuỳ bạn: update local state để hiện ngay trên Board/List
-    // fetch lại hoặc append tối thiểu:
-    // setTasks(prev => [{ id: t.id, code: t.code, ... }, ...prev])
-  }}
-  navigateToDetail={true}
-/> */}
       <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
         <div className="relative w-full min-w-0 max-w-[100vw] overflow-x-clip">
           <div
@@ -153,7 +190,24 @@ const [openCreate, setOpenCreate] = useState(false);
           >
             <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5">
               {sprints.map((s, colIdx) => {
-                const stats = computeSprintStats(s, filter);
+                // Lấy tasks thật; nếu rỗng → sinh demo cho sprint đó
+                const hasReal = sprintHasRealTasks(s);
+                const demoTasks = hasReal ? [] : makeDemoTasksForSprint(s);
+                const tasks =
+                  hasReal
+                    ? flattenSprintTasks(s, filterCategory)
+                    : demoTasks.filter(
+                        (t) =>
+                          filterCategory === "ALL" ||
+                          t.statusCategory === filterCategory
+                      );
+
+                const stats = computeSprintStats(
+                  s,
+                  filterCategory,
+                  hasReal ? undefined : tasks
+                );
+
                 return (
                   <div key={s.id} className={`shrink-0 h-full ${COL_W_CLASS}`}>
                     <BoardColumn
@@ -175,10 +229,17 @@ const [openCreate, setOpenCreate] = useState(false);
                           <span className="text-green-700 font-semibold">
                             {stats.pct}%
                           </span>
+                          {!hasReal && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-slate-50 text-slate-600 border-slate-200">
+                              demo
+                            </span>
+                          )}
                         </div>
                       }
                     >
-                      <Droppable droppableId={`kanban:${s.id}`} type="task">
+                      {/* Lane droppable theo sprint (kéo giữa sprint, giữ nguyên statusId) */}
+                      {/* NOTE: đổi prefix thành 'spr:' để khớp onDragEndKanban */}
+                      <Droppable droppableId={`spr:${s.id}`} type="task">
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
@@ -201,51 +262,56 @@ const [openCreate, setOpenCreate] = useState(false);
                             </div>
 
                             <div className="space-y-4">
-                              {flattenSprintTasks(s, filter).map(
-                                (task, idx, arr) => {
-                                  const ticketSiblingsCount = task.sourceTicketId
-                                    ? arr.filter(
-                                        (x) =>
-                                          x.id !== task.id &&
-                                          x.sourceTicketId ===
-                                            task.sourceTicketId
-                                      ).length
-                                    : 0;
+                              {tasks.map((task, idx, arr) => {
+                                const ticketSiblingsCount = task.sourceTicketId
+                                  ? arr.filter(
+                                      (x) =>
+                                        x.id !== task.id &&
+                                        x.sourceTicketId ===
+                                          task.sourceTicketId
+                                    ).length
+                                  : 0;
 
-                                  return (
-                                    <Draggable
-                                      key={task.id}
-                                      draggableId={task.id}
-                                      index={idx}
-                                    >
-                                      {(dragProvided, dragSnapshot) => (
-                                        <div
-                                          ref={dragProvided.innerRef}
-                                          {...dragProvided.draggableProps}
-                                          {...dragProvided.dragHandleProps}
-                                          className={
-                                            dragSnapshot.isDragging
-                                              ? "rotate-[0.5deg]"
-                                              : ""
+                                return (
+                                  <Draggable
+                                    key={task.id}
+                                    draggableId={task.id}
+                                    index={idx}
+                                    isDragDisabled={!hasReal} // Không cho drag khi là demo
+                                  >
+                                    {(dragProvided, dragSnapshot) => (
+                                      <div
+                                        ref={dragProvided.innerRef}
+                                        {...dragProvided.draggableProps}
+                                        {...dragProvided.dragHandleProps}
+                                        className={
+                                          dragSnapshot.isDragging
+                                            ? "rotate-[0.5deg]"
+                                            : ""
+                                        }
+                                        // Khi là demo: khóa actions UI (không chặn hover)
+                                        style={
+                                          !hasReal
+                                            ? { pointerEvents: "none", opacity: 0.95 }
+                                            : undefined
+                                        }
+                                      >
+                                        <TaskCard
+                                          t={task}
+                                          ticketSiblingsCount={
+                                            ticketSiblingsCount
                                           }
-                                        >
-                                          <TaskCard
-                                            t={task}
-                                            ticketSiblingsCount={
-                                              ticketSiblingsCount
-                                            }
-                                            onMarkDone={_onMarkDone}
-                                            onNext={_onNext}
-                                            onSplit={_onSplit}
-                                            onMoveNext={_onMoveNext}
-                                            onOpenTicket={onOpenTicket}
-                                          />
-                                        </div>
-                                      )}
-                                    </Draggable>
-                                  );
-                                }
-                              )}
+                                          onMarkDone={_onMarkDone}
+                                          onNext={_onNext}
+                                          onSplit={_onSplit}
+                                          onMoveNext={_onMoveNext}
+                                          onOpenTicket={onOpenTicket}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                );
+                              })}
                             </div>
                             {provided.placeholder}
                           </div>

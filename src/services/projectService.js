@@ -229,7 +229,7 @@ export async function createProject(payload) {
 
   if (!isGuid(companyId)) throw new Error('Invalid companyId');
   if (!isGuid(workflowId)) throw new Error('Invalid workflowId');
-
+  console.log("a")
   const dto = {
     companyId,
     isHired: !!isHired,
