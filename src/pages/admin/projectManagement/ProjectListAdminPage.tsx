@@ -66,7 +66,7 @@ const SORT_OPTIONS = [
   { key: 'name', label: 'Project Name' },
 ];
 
-export default function ProjectListPage() {
+export default function ProjectListAdminPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
 

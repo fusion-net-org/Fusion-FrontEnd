@@ -88,7 +88,7 @@ const getStatusColor = (status: string): string => {
   return statusMap[status.toLowerCase()] || 'default';
 };
 
-const ProjectDetailPage: React.FC = () => {
+const ProjectDetailAdminPage: React.FC = () => {
   const { id: paramId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectDetail | null>(null);
@@ -593,4 +593,4 @@ const ProjectDetailPage: React.FC = () => {
   );
 };
 
-export default ProjectDetailPage;
+export default ProjectDetailAdminPage;

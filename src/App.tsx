@@ -48,8 +48,9 @@ import CompanyDetailPage from './pages/admin/companyManagement/CompanyDetailPage
 import SubcriptionListPage from './pages/admin/subcriptionManagement/SubscriptionListPage';
 import TransactionListPage from './pages/admin/transactionManagement/TransactionListPage';
 import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
-import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';
-import ProjectDetailPage from './pages/admin/projectManagement/ProjectDetailPage';
+import OverviewTransactionAdmin from './pages/admin/transactionManagement/OverviewTransactionAdmin';
+import ProjectListAdminPage from './pages/admin/projectManagement/ProjectListAdminPage';
+import ProjectDetailAdminPage from './pages/admin/projectManagement/ProjectDetailAdminPage';
 function App() {
   return (
     <>
@@ -92,10 +93,12 @@ function App() {
           <Route path="/admin/companies/detail" element={<CompanyDetailPage />} />
           <Route path="/admin/subscriptions/list" element={<SubcriptionListPage />} />
           <Route path="/admin/transactions/list" element={<TransactionListPage />} />
+          <Route path="/admin/transactions/overview" element={<OverviewTransactionAdmin />} />
           <Route path="/admin/notifications/list" element={<NotificationListPage />} />
-          <Route path="/admin/projects/list" element={<ProjectListPage />} />
-          <Route path="/admin/projects/detail/:id" element={<ProjectDetailPage />} />
-          <Route path="/admin/projects/detail" element={<ProjectDetailPage />} />
+          <Route path="/admin/projects/list" element={<ProjectListAdminPage />} />
+          <Route path="/admin/projects/detail/:id" element={<ProjectDetailAdminPage />} />
+          <Route path="/admin/projects/detail" element={<ProjectDetailAdminPage />} />
+
           {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>
         {/* route company layout */}
