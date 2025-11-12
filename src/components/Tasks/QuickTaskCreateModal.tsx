@@ -72,9 +72,7 @@ export default function QuickTaskCreateModal({
       estimateHours: estimateHours === "" ? null : Math.max(0, Number(estimateHours)),
       storyPoints: storyPoints === "" ? null : Math.max(0, Number(storyPoints)),
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-      // Nếu BE tự sinh code thì bỏ dòng dưới.
-      // Nếu BE yêu cầu code not null => bật lên:
-      // code: tmpCode(),
+      
     };
 
     try {

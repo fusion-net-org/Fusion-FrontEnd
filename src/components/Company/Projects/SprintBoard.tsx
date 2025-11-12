@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
+import QuickTaskCreateCard from "../Task/QuickTaskCreateCard";
+import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 
 type Id = string;
 
@@ -41,7 +43,7 @@ function isDark(hex?: string) {
 
 /* ========= Board atoms ========= */
 function BoardColumnShell({
-  title, tone, colorHex, right, children,
+  title, tone, colorHex, right, children, 
 }: {
   title: string;
   tone: "amber" | "blue" | "purple" | "green";
@@ -399,7 +401,7 @@ export default function SprintWorkspacePage() {
       const over = items.length > wip;
 
       return (
-        <div key={statusId} className={`shrink-0 h-full ${COL_W}`}>
+        <div key={statusId} className={`shrink-0 h-full ${COL_W}  relative group`}>
           <BoardColumnShell
             title={meta?.name ?? meta?.code ?? statusId}
             tone={tone}
@@ -420,6 +422,7 @@ export default function SprintWorkspacePage() {
               </div>
             }
           >
+           
             <Droppable droppableId={`col:${activeSprint.id}:${statusId}`} type="task">
               {(provided, snapshot) => (
                 <div
@@ -428,6 +431,11 @@ export default function SprintWorkspacePage() {
                   className={cn("h-full overflow-y-auto overscroll-contain pr-1", snapshot.isDraggingOver && "bg-slate-50 rounded-xl")}
                   style={{ scrollbarWidth: "thin" }}
                 >
+                    <ColumnHoverCreate
+                  sprint={activeSprint}
+                  statusId={statusId}
+                />
+
                   <div className="space-y-4">
                     {items.map((t, index) => {
                       const siblings = t.sourceTicketId

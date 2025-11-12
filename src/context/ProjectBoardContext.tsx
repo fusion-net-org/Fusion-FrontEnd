@@ -20,6 +20,10 @@ type Ctx = {
   ) => Promise<void>;
   done: (projectId: string, t: TaskVm) => Promise<void>;
   split: (projectId: string, t: TaskVm) => Promise<void>;
+   createTask: (
+    projectId: string,
+    draft: Partial<TaskVm> & { title: string; sprintId: string; workflowStatusId?: string }
+  ) => Promise<TaskVm>;
 };
 
 const ProjectBoardContext = React.createContext<Ctx | null>(null);
@@ -74,7 +78,7 @@ function inRange(iso: string, start?: string, end?: string) {
 function syncColumns(rawSprints: SprintVm[], tasks: TaskVm[]): SprintVm[] {
   const map = new Map<string, SprintVm>();
   for (const s of rawSprints) map.set(s.id, ensureColumns(s));
-
+  
   const all = Array.from(map.values());
 
   for (const t of tasks) {
@@ -83,11 +87,15 @@ function syncColumns(rawSprints: SprintVm[], tasks: TaskVm[]): SprintVm[] {
 
     // 2) nếu chưa có, gán theo khoảng ngày sprint (ưu tiên dueDate, sau đó openedAt/createdAt)
     if (!sid) {
+       console.warn("[ProjectBoard] task has no sprintId, skip", t);
       const anchor = t.dueDate || t.openedAt || t.createdAt || "";
       const hit = all.find(s => inRange(anchor, s.start, s.end));
       if (hit) sid = hit.id;
     }
-    if (!sid) continue; // vẫn không xác định được sprint
+    if (!sid) {
+       console.warn("[ProjectBoard] no sprint for sprintId, skip", { sid, taskId: t.id });
+    continue;
+    }
 
     const s = map.get(sid);
     if (!s) continue;
@@ -285,6 +293,53 @@ export function ProjectBoardProvider({
       return (bPts > 0 || bHrs > 0) ? [...updatedA, partB] : updatedA;
     });
   };
+const createTask: Ctx["createTask"] = async (_pid, draft) => {
+  const sp = sRef.current.find((x) => x.id === draft.sprintId);
+  const statusId = draft.workflowStatusId && sp?.statusMeta[draft.workflowStatusId]
+    ? draft.workflowStatusId
+    : sp?.statusOrder?.[0];
+ if (!sp) {
+    console.warn(
+      "[ProjectBoard] createTask: sprint not found",
+      { draftSprintId: draft.sprintId, available: sRef.current.map(s => s.id) }
+    );
+  }
+  const meta = statusId ? sp?.statusMeta[statusId] : undefined;
+  const now = new Date().toISOString();
+function newTaskCode() {
+  const n = Math.floor(100 + Math.random() * 900);
+  return `PRJ-T-${n}`;
+}
+
+  const created: TaskVm = {
+    id: uuid(),
+    code: newTaskCode(),
+    title: draft.title.trim(),
+    type: draft.type ?? "Feature",
+    priority: draft.priority ?? "Medium",
+    severity: draft.severity,
+    storyPoints: draft.storyPoints ?? 0,
+    estimateHours: draft.estimateHours ?? 0,
+    remainingHours: draft.remainingHours ?? draft.estimateHours ?? 0,
+    dueDate: draft.dueDate,
+    sprintId: draft.sprintId,
+    workflowStatusId: statusId ?? "st-todo",
+    statusCode: draft.statusCode ?? meta?.code ?? "todo",
+    statusCategory: draft.statusCategory ?? meta?.category ?? "TODO",
+    assignees: draft.assignees ?? [],
+    dependsOn: [],
+    parentTaskId: null,
+    carryOverCount: 0,
+    openedAt: now,
+    updatedAt: now,
+    createdAt: now,
+    sourceTicketId: null,
+    sourceTicketCode: null,
+  };
+
+  applyWithColumns((prev) => [...prev, created]);
+  return created;
+};
 
   const value: Ctx = {
     sprints,
@@ -295,6 +350,7 @@ export function ProjectBoardProvider({
     reorder,
     done,
     split,
+    createTask,
   };
 
   return <ProjectBoardContext.Provider value={value}>{children}</ProjectBoardContext.Provider>;
