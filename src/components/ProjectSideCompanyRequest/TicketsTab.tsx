@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { Eye, MessageSquare, Search } from 'lucide-react';
+import { CheckCircle, Eye, MessageSquare, Search, XCircle } from 'lucide-react';
 import { Input, Select, DatePicker } from 'antd';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
@@ -65,8 +65,10 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
 
   const tickets: ITicket[] = ticketsResponse?.data?.items || [];
 
-  const handleGoToDetail = (ticketId: string) => {
-    navigate(`/tickets/${ticketId}`);
+  const handleGoToDetail = (ticket: ITicket) => {
+    navigate(`/project/${projectId}/tickets/${ticket.id}`, {
+      state: { isDeleted: ticket.isDeleted },
+    });
   };
 
   return (
@@ -141,6 +143,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
               <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
                 Created At
               </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Deleted</th>
               <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Detail</th>
             </tr>
           </thead>
@@ -149,7 +152,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
               <tr
                 key={t.id}
                 className="hover:bg-gray-50 transition cursor-pointer"
-                onClick={() => handleGoToDetail(t.id)}
+                onClick={() => handleGoToDetail(t)}
               >
                 <td className="px-6 py-3 font-medium text-gray-800">{index + 1}</td>
                 <td className="px-6 py-3 text-gray-700">{t.ticketName}</td>
@@ -172,11 +175,18 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
                   {t.createdAt ? dayjs(t.createdAt).format('DD/MM/YYYY') : '-'}
                 </td>
                 <td className="px-6 py-3 text-center">
+                  {t.isDeleted ? (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  )}
+                </td>{' '}
+                <td className="px-6 py-3 text-center">
                   <Eye
                     className="w-5 h-5 text-indigo-500 hover:text-indigo-700 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleGoToDetail(t.id);
+                      handleGoToDetail(t);
                     }}
                   />
                 </td>
