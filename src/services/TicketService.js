@@ -74,3 +74,34 @@ export const GetTicketById = async (ticketId) => {
     throw error;
   }
 };
+
+export const DeleteTicket = async (ticketId, reason) => {
+  try {
+    const res = await axiosInstance.delete(`/ticket/${ticketId}`, {
+      params: { reason },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Delete ticket error:', error);
+    throw error;
+  }
+};
+
+export const RestoreTicket = async (ticketId) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/restore`);
+    return res.data;
+  } catch (error) {
+    console.error('Restore ticket error:', error);
+    throw error;
+  }
+};
+export const UpdateTicket = async (ticketId, ticketData) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}`, ticketData);
+    return res.data;
+  } catch (error) {
+    console.error('Update ticket error:', error);
+    throw error;
+  }
+};
