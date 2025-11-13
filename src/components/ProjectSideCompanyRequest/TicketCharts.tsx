@@ -14,6 +14,7 @@ import {
   Line,
   Legend,
   Cell,
+  ComposedChart,
 } from 'recharts';
 import { Card, Spin } from 'antd';
 import { GetTicketDashboard } from '@/services/TicketService.js';
@@ -100,17 +101,19 @@ const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) =>
           </ResponsiveContainer>
         </Card>
       </div>
-
+      /
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card title="Ticket Priority">
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={ticketPriorityData}>
+            <ComposedChart data={ticketPriorityData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="priority" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="#fb923c" />
-            </BarChart>
+              <Legend />
+              <Bar dataKey="value" barSize={40} fill="#fb923c" name="Value" radius={[6, 6, 0, 0]} />
+              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
+            </ComposedChart>
           </ResponsiveContainer>
         </Card>
 
@@ -134,7 +137,6 @@ const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) =>
           </ResponsiveContainer>
         </Card>
       </div>
-
       <Card title="Resolved vs Closed Ticket Over Time">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={resolvedClosedTimeline}>
