@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { CalendarDays, UserRound, CheckSquare, Plus, ChevronDown } from "lucide-react";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import { createTaskQuick } from "@/services/taskService.js"; 
+import { useProjectBoard } from "@/context/ProjectBoardContext";
 
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const isoFromDateInput = (v?: string) => {
@@ -28,7 +29,7 @@ export default function QuickTaskCreateCard({
   const [due, setDue] = useState<string>("");
   const [assigneeName, setAssigneeName] = useState<string>(""); // chỉ hiển thị UI, không gửi BE
   const [isSaving, setIsSaving] = useState(false);
-
+const { attachTaskVm } = useProjectBoard();
   const statusOptions = useMemo(
     () => sprint.statusOrder.map((id) => ({ id, name: sprint.statusMeta[id]?.name ?? sprint.statusMeta[id]?.code ?? id })),
     [sprint],
@@ -96,10 +97,9 @@ const updatedAt = api.updateAt ?? api.updatedAt ?? createdAt;
         sourceTicketId: api.sourceTaskId ?? null,
         sourceTicketCode: api.code ?? "",
       };
-
+attachTaskVm(vm);
       resetForm();
       onCreated?.(vm);
-      onCancel?.();
     } catch (err: any) {
       console.error(err);
       alert(err?.message || "Create task failed");

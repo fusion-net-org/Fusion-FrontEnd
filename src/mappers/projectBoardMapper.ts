@@ -23,8 +23,8 @@ const asPriority = (x?: string | null): TaskVm["priority"] => {
 };
 
 const toMember = (m: Any): MemberRef => ({
-  id: m?.id ?? m?.userId ?? rid(),
-  name: m?.name ?? m?.fullName ?? m?.email ?? "Unknown",
+  id: m?.id ?? m?.userId ?? m?.memberId ?? rid(),
+  name: m?.name ?? m?.fullName ?? m?.memberName ?? m?.email ?? "Unknown",
   avatarUrl: m?.avatarUrl ?? m?.avatar ?? null,
 });
 
@@ -32,18 +32,18 @@ const toMember = (m: Any): MemberRef => ({
 const inferCategory = (codeOrName: string): TaskVm["statusCategory"] => {
   const k = codeOrName.toLowerCase().replace(/[\s_-]/g, "");
   if (k.includes("review")) return "REVIEW";
-  if (k.includes("progress") || k === "doing") return "IN_PROGRESS";
+  if (k.includes("progress") || k === "doing" || k === "work") return "IN_PROGRESS";
   if (k.includes("done") || k === "closed") return "DONE";
   return "TODO";
 };
 
-// Tạo workflow mặc định 4 cột khi thiếu
+// Workflow mặc định 4 cột (có isStart ở cột đầu)
 function defaultStatuses() {
   const defs = [
-    { id: "st-todo", code: "todo", name: "To do", order: 1, category: "TODO", color: "#F59E0B", wipLimit: 999 },
-    { id: "st-inp", code: "inprogress", name: "In progress", order: 2, category: "IN_PROGRESS", color: "#3B82F6", wipLimit: 5 },
-    { id: "st-rev", code: "inreview", name: "In review", order: 3, category: "REVIEW", color: "#8B5CF6", wipLimit: 3 },
-    { id: "st-done", code: "done", name: "Done", order: 4, category: "DONE", color: "#10B981", wipLimit: 999, isFinal: true },
+    { id: "st-todo", code: "todo",        name: "To do",      order: 1, category: "TODO",        color: "#F59E0B", isStart: true  },
+    { id: "st-inp",  code: "inprogress",  name: "In progress",order: 2, category: "IN_PROGRESS", color: "#3B82F6"                  },
+    { id: "st-rev",  code: "inreview",    name: "In review",  order: 3, category: "REVIEW",      color: "#8B5CF6"                  },
+    { id: "st-done", code: "done",        name: "Done",       order: 4, category: "DONE",        color: "#10B981", isFinal: true   },
   ] as const;
 
   const statusOrder = defs.map(s => s.id);
@@ -53,6 +53,12 @@ function defaultStatuses() {
   return { statusOrder, statusMeta };
 }
 
+// Lấy id status bắt đầu của sprint (ưu tiên flag isStart)
+const getStartStatusId = (s: SprintVm): string => {
+  const byFlag = s.statusOrder.find(id => s.statusMeta?.[id]?.isStart === true);
+  return byFlag ?? s.statusOrder[0] ?? Object.keys(s.columns ?? {})[0] ?? "";
+};
+
 /* ===========================================================
  * Sprint DTO -> SprintVm (workflow động)
  * =========================================================== */
@@ -61,7 +67,7 @@ export function mapSprint(dto: Any): SprintVm {
   let statusOrder: string[] = [];
   let statusMeta: SprintVm["statusMeta"] = {};
 
-  // Trường hợp API mới trả thẳng statusOrder + statusMeta
+  // Trường hợp API đã trả thẳng statusOrder + statusMeta
   if (Array.isArray(dto?.statusOrder) && dto?.statusMeta) {
     statusOrder = dto.statusOrder.map(String);
     statusMeta = {};
@@ -77,6 +83,7 @@ export function mapSprint(dto: Any): SprintVm {
         color: m.color ?? undefined,
         wipLimit: m.wipLimit ?? undefined,
         isFinal: !!m.isFinal,
+        isStart: !!m.isStart, // <— NEW
       };
     }
   } else if (ws.length) {
@@ -89,6 +96,7 @@ export function mapSprint(dto: Any): SprintVm {
       color: s.color ?? undefined,
       wipLimit: s.wipLimit ?? undefined,
       isFinal: !!s.isFinal,
+      isStart: !!s.isStart, // <— NEW
     }));
     statusOrder = [...metas].sort((a, b) => a.order - b.order).map(m => m.id);
     statusMeta = {};
@@ -121,22 +129,19 @@ export function mapSprint(dto: Any): SprintVm {
  * Task DTO -> TaskVm (dựa theo sprint.workflow)
  * =========================================================== */
 export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
-  // tìm meta status để lấy code/category
-  const stId = String(dto?.workflowStatusId ?? dto?.statusId ?? "");
-  const stMeta = sprint?.statusMeta?.[stId];
+  // Meta theo id (nếu có)
+  const incomingId = String(dto?.workflowStatusId ?? dto?.statusId ?? "");
+  const stMeta = sprint?.statusMeta?.[incomingId];
 
-  // nếu API cũ: status string -> cố gắng map sang code/cột đầu tiên
+  // API cũ trả status string -> normalize code
   const legacyStatusStr = String(dto?.status ?? "").toLowerCase().replace(/[\s_-]/g, "");
-  const fallbackCode =
-    legacyStatusStr || stMeta?.code || "todo";
-  const fallbackCategory = stMeta?.category ?? inferCategory(fallbackCode);
-  const statusIdFinal =
-    stMeta?.id ||
-    // nếu sprint có status có code trùng, lấy id đó
-    (sprint?.statusOrder.find(id => sprint?.statusMeta[id].code === legacyStatusStr)) ||
-    // nếu không có, đẩy về cột đầu tiên của sprint
-    (sprint?.statusOrder?.[0]) ||
-    "st-todo";
+  const codeGuess = stMeta?.code || legacyStatusStr || "todo";
+  const stIdByCode = sprint?.statusOrder.find(id => sprint!.statusMeta[id].code === codeGuess);
+
+  // Fallback: id start theo isStart, nếu không có thì cột đầu
+  const startId = sprint ? getStartStatusId(sprint) : "st-todo";
+  const statusIdFinal = stMeta?.id || stIdByCode || startId;
+  const metaFinal = sprint?.statusMeta?.[statusIdFinal];
 
   const est = Number(dto?.estimateHours ?? dto?.estimate ?? 0) || 0;
   const rem = Number(dto?.remainingHours ?? dto?.remaining ?? est) || 0;
@@ -157,8 +162,9 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
 
     sprintId: dto?.sprintId ?? dto?.weekId ?? null,
     workflowStatusId: statusIdFinal,
-    statusCode: stMeta?.code ?? fallbackCode,
-    statusCategory: stMeta?.category ?? fallbackCategory,
+    statusCode: metaFinal?.code ?? codeGuess,
+    statusCategory: metaFinal?.category ?? inferCategory(codeGuess),
+    StatusName: metaFinal?.name ?? "",
 
     assignees: Array.isArray(dto?.assignees)
       ? dto.assignees.map(toMember)
@@ -181,10 +187,10 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
 
 /* ===========================================================
  * Chuẩn hoá input
- *  - Chấp nhận:
- *    { sprints:[], tasks:[] }
- *    { sprints:[{..., tasks:[]}, ...] }
- *    { weeks:[], tasks:[] } hoặc chỉ { tasks:[] } có sprintId/weekId/statusId
+ * - Chấp nhận:
+ *   { sprints:[], tasks:[] }
+ *   { sprints:[{..., tasks:[]}, ...] }
+ *   { weeks:[], tasks:[] } hoặc chỉ { tasks:[] } có sprintId/weekId/statusId
  * =========================================================== */
 export function normalizeBoardInput(input: Any): { sprints: SprintVm[]; tasks: TaskVm[] } {
   const rawSprints: Any[] = input?.sprints ?? input?.weeks ?? [];
@@ -247,8 +253,9 @@ export function fillSprintColumns(sprints: SprintVm[], tasks: TaskVm[]): SprintV
     const s = byId.get(t.sprintId);
     if (!s) continue;
 
-    // statusId hợp lệ? nếu không, đẩy về cột đầu tiên
-    const stId = s.statusMeta[t.workflowStatusId] ? t.workflowStatusId : s.statusOrder[0];
+    // statusId hợp lệ? nếu không, đẩy về start (isStart) rồi mới tới cột đầu
+    const fallbackStart = getStartStatusId(s);
+    const stId = s.statusMeta[t.workflowStatusId] ? t.workflowStatusId : (fallbackStart || s.statusOrder[0]);
     (s.columns[stId] ||= []).push(t);
   }
 

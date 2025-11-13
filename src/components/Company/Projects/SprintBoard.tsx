@@ -90,7 +90,13 @@ export default function SprintWorkspacePage() {
   const {
     sprints, tasks, changeStatus, moveToNextSprint, split, done, reorder,
   } = useProjectBoard();
+const [flashTaskId, setFlashTaskId] = useState<Id | null>(null);
 
+useEffect(() => {
+  if (!flashTaskId) return;
+  const timer = setTimeout(() => setFlashTaskId(null), 800); // 0.8s
+  return () => clearTimeout(timer);
+}, [flashTaskId]);
   // ===== UI State =====
   const [activeSprintId, setActiveSprintId] = useState<Id>(sprints[0]?.id ?? "");
   const [view, setView] = useState<"Board" | "Analytics" | "Roadmap">("Board");
@@ -423,7 +429,7 @@ export default function SprintWorkspacePage() {
             }
           >
            
-            <Droppable droppableId={`col:${activeSprint.id}:${statusId}`} type="task">
+            <Droppable droppableId={`col:${activeSprint.id}:${statusId} `} type="task">
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}
@@ -431,10 +437,13 @@ export default function SprintWorkspacePage() {
                   className={cn("h-full overflow-y-auto overscroll-contain pr-1", snapshot.isDraggingOver && "bg-slate-50 rounded-xl")}
                   style={{ scrollbarWidth: "thin" }}
                 >
-                    <ColumnHoverCreate
-                  sprint={activeSprint}
-                  statusId={statusId}
-                />
+                  <ColumnHoverCreate
+  sprint={activeSprint}
+  statusId={statusId}
+  onCreatedVM={(vm) => {
+    setFlashTaskId(vm.id);   
+  }}
+/>
 
                   <div className="space-y-4">
                     {items.map((t, index) => {
@@ -449,6 +458,7 @@ export default function SprintWorkspacePage() {
                                 t={t}
                                 ticketSiblingsCount={siblings}
                                 onMarkDone={onMarkDone}
+                                isNew={t.id === flashTaskId}
                                 onNext={(x) => {
                                   const nextId = toNextStatusId(x, activeSprint);
                                   if (nextId && nextId !== x.workflowStatusId) onChangeStatus(x, nextId);

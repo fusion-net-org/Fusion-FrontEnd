@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, CalendarDays, Clock, Plus, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createProjectTask, type CreateTaskRequest } from "@/services/taskService.js";
+import { useProjectBoard } from "@/context/ProjectBoardContext";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
@@ -36,7 +37,7 @@ export default function QuickTaskCreateModal({
   const [dueDate, setDueDate] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
+const { attachTaskFromApi } = useProjectBoard();
   useEffect(() => {
     if (isOpen) {
       setTitle("");
@@ -57,7 +58,7 @@ export default function QuickTaskCreateModal({
     return `TMP-${Date.now()}`;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
 
@@ -72,15 +73,21 @@ export default function QuickTaskCreateModal({
       estimateHours: estimateHours === "" ? null : Math.max(0, Number(estimateHours)),
       storyPoints: storyPoints === "" ? null : Math.max(0, Number(storyPoints)),
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-      
     };
 
     try {
       const created = await createProjectTask(projectId, payload);
-      onCreated?.(created);
+
+      // 🔥 Cập nhật ProjectBoardContext ngay sau khi BE tạo xong
+      // (nếu task có sprintId thì sẽ hiện luôn trên board)
+      attachTaskFromApi(created);
+
+      // callback ngoài nếu cần (toast, v.v.)
+      onCreated?.({ id: created.id, code: created.code });
+
       onClose();
+
       if (navigateToDetail) {
-        // điều chỉnh route detail cho khớp app của bạn
         nav(`/projects/${projectId}/tasks/${created.id}`);
       }
     } catch (ex: any) {
@@ -89,6 +96,7 @@ export default function QuickTaskCreateModal({
       setSubmitting(false);
     }
   }
+
 
   if (!isOpen) return null;
 

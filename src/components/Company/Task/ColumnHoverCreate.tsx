@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
 import QuickTaskCreateCard from "@/components/Company/Task/QuickTaskCreateCard";
-import type { SprintVm } from "@/types/projectBoard";
+import type { SprintVm, TaskVm  } from "@/types/projectBoard";
 import useClickOutside from "@/hook/useClickOutside";
 
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
@@ -12,11 +12,13 @@ export default function ColumnHoverCreate({
   statusId,
   allowStatusPicker = false,
   className = "",
+  onCreatedVM,
 }: {
   sprint: SprintVm;
   statusId: string;
   allowStatusPicker?: boolean;
   className?: string;
+  onCreatedVM?: (t: TaskVm) => void; 
 }) {
   const [open, setOpen] = useState(false);
 
@@ -43,8 +45,11 @@ export default function ColumnHoverCreate({
           sprint={sprint}
           statusId={statusId}
           allowStatusPicker={allowStatusPicker}
-          onCreated={() => setOpen(false)}
-          onCancel={() => setOpen(false)}   
+         onCreated={(vm) => {
+            if (vm) onCreatedVM?.(vm); 
+            setOpen(false);           
+          }}
+          onCancel={() => setOpen(false)}
         />
       )}
     </div>

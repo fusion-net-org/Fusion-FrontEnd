@@ -24,6 +24,8 @@ type Ctx = {
     projectId: string,
     draft: Partial<TaskVm> & { title: string; sprintId: string; workflowStatusId?: string }
   ) => Promise<TaskVm>;
+  attachTaskFromApi: (api: any) => void; 
+  attachTaskVm: (vm: TaskVm) => void;
 };
 
 const ProjectBoardContext = React.createContext<Ctx | null>(null);
@@ -189,6 +191,76 @@ export function ProjectBoardProvider({
       )
     );
   };
+ // ⬇️ thay toàn bộ attachTaskVm hiện tại
+const attachTaskVm = React.useCallback((vm: TaskVm) => {
+  const sp = sRef.current.find(s => s.id === vm.sprintId) ?? sRef.current[0];
+  const normalized = sp ? normalizeTaskStatus(vm, sp) : vm;
+  applyWithColumns(prev => {
+    const others = prev.filter(t => t.id !== normalized.id);
+    return [normalized, ...others];
+  });
+}, []);
+
+  /** Nhận DTO task từ BE, map sang TaskVm và thêm vào state */
+  const attachTaskFromApi = (api: any) => {
+    const sid = api.sprintId ?? api.sprint_id;
+    if (!sid) {
+      console.warn("[ProjectBoard] attachTaskFromApi: missing sprintId", api);
+      return;
+    }
+
+    const sprint = sRef.current.find((s) => s.id === sid);
+    if (!sprint) {
+      console.warn("[ProjectBoard] attachTaskFromApi: sprint not found", {
+        sid,
+        available: sRef.current.map((s) => s.id),
+      });
+      return;
+    }
+
+    // chọn statusId phù hợp với workflow của sprint
+    const statusIdRaw =
+      api.currentStatusId ?? api.workflowStatusId ?? api.statusId ?? api.current_status_id;
+    const statusId =
+      statusIdRaw && sprint.statusMeta?.[statusIdRaw]
+        ? statusIdRaw
+        : sprint.statusOrder[0];
+
+    const meta = sprint.statusMeta?.[statusId];
+
+    const openedAt = api.openedAt ?? api.createAt ?? api.createdAt ?? new Date().toISOString();
+    const createdAt = api.createdAt ?? api.createAt ?? openedAt;
+    const updatedAt = api.updatedAt ?? api.updateAt ?? createdAt;
+
+    const vm: TaskVm = {
+      id: api.id,
+      code: api.code ?? "",
+      title: api.title ?? "",
+      type: api.type ?? "Feature",
+      priority: api.priority ?? "Medium",
+      storyPoints: api.storyPoints ?? api.point ?? 0,
+      estimateHours: api.estimateHours ?? 0,
+      remainingHours: api.remainingHours ?? api.estimateHours ?? 0,
+      dueDate: api.dueDate ?? undefined,
+      sprintId: sprint.id,
+      workflowStatusId: statusId,
+      statusCode: api.status ?? meta?.code ?? "",
+      statusCategory: meta?.category ?? "TODO",
+      StatusName:  meta?.name ?? "",
+      assignees: [],
+      dependsOn: [],
+      parentTaskId: api.parentTaskId ?? null,
+      carryOverCount: api.carryOverCount ?? 0,
+
+      openedAt,
+      createdAt,
+      updatedAt,
+      sourceTicketId: api.sourceTaskId ?? null,
+      sourceTicketCode: api.sourceTaskCode ?? api.code ?? "",
+    };
+
+    applyWithColumns((prev) => [...prev, vm]);
+  };
 
   const reorder = async (_pid: string, sprintId: string, t: TaskVm, toStatusId: string, _toIndex: number) => {
     // Ở tầng context chỉ cập nhật status; thứ tự sẽ build lại từ columns đã sync
@@ -326,6 +398,7 @@ function newTaskCode() {
     workflowStatusId: statusId ?? "st-todo",
     statusCode: draft.statusCode ?? meta?.code ?? "todo",
     statusCategory: draft.statusCategory ?? meta?.category ?? "TODO",
+    StatusName:  meta?.name ?? "",
     assignees: draft.assignees ?? [],
     dependsOn: [],
     parentTaskId: null,
@@ -351,6 +424,8 @@ function newTaskCode() {
     done,
     split,
     createTask,
+    attachTaskFromApi,
+    attachTaskVm,
   };
 
   return <ProjectBoardContext.Provider value={value}>{children}</ProjectBoardContext.Provider>;

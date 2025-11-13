@@ -82,8 +82,16 @@ type Props = {
   onSplit: (t: TaskVm) => void;
   onMoveNext: (t: TaskVm) => void;
   onOpenTicket?: (ticketId: string) => void;
+  isNew?: boolean; 
+  statusColorHex?: string;
 };
-
+function hexToRgba(hex?: string, a = 1) {
+  if (!hex) return `rgba(148,163,184,${a})`; // slate-400
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return `rgba(148,163,184,${a})`;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
 export default function TaskCard({
   t,
   ticketSiblingsCount = 0,
@@ -92,6 +100,8 @@ export default function TaskCard({
   onSplit,
   onMoveNext,
   onOpenTicket,
+  isNew,
+  statusColorHex,
 }: Props) {
   const nowIso = new Date().toISOString();
   const slaTarget = getSlaTarget(t.type, t.priority);
@@ -108,15 +118,70 @@ export default function TaskCard({
     remaining != null && remaining <= 4 ? "text-rose-700 bg-rose-50 border-rose-200" :
     remaining != null && remaining <= 12 ? "text-amber-700 bg-amber-50 border-amber-200" :
     "text-slate-600 bg-slate-50 border-slate-200";
+   React.useEffect(() => {
+    if (typeof document === "undefined") return;
 
+    if (!document.getElementById("fuse-pop-style")) {
+      const el = document.createElement("style");
+      el.id = "fuse-pop-style";
+      el.textContent = `
+@keyframes fusePop { 0% {transform:scale(0.92);} 55%{transform:scale(1.08);} 100%{transform:scale(1);} }
+`;
+      document.head.appendChild(el);
+    }
+    if (!document.getElementById("fuse-statusfade-style")) {
+      const el = document.createElement("style");
+      el.id = "fuse-statusfade-style";
+      el.textContent = `
+@keyframes fuseStatusFade {
+  0%   { background-color: var(--status-bg); }
+  100% { background-color: #ffffff; }
+}
+`;
+      document.head.appendChild(el);
+    }
+  }, []);
+
+  // màu nền “mềm” từ status (pha alpha)
+  const statusSoftBg = hexToRgba(statusColorHex, 0.18);
   return (
-    <div
+         <div
+      data-task-id={t.id}
       className={cn(
-        "rounded-xl border border-slate-200 bg-white shadow-sm p-3 hover:shadow-md transition relative",
-        urgent && "ring-1 ring-rose-200",
+        "rounded-xl bg-white shadow-sm p-3 hover:shadow-md",
+        "transition-all duration-300 relative",
+        // ⛔ không viền khi isNew, còn lại có viền mảnh
+        isNew ? "" : "border border-slate-200",
+        // urgent ring chỉ khi KHÔNG isNew (để đúng yêu cầu “không viền”)
+        !isNew && t.priority === "Urgent" && "ring-1 ring-rose-200"
       )}
-      style={urgent ? { boxShadow: "0 1px 2px rgba(190,18,60,0.10)" } : undefined}
+      style={{
+        // hiệu ứng khi mới tạo: pop + fade-to-white
+        ...(isNew
+          ? {
+              animation:
+                "fusePop 420ms cubic-bezier(0.2,0.8,0.2,1), fuseStatusFade 1400ms ease-out forwards",
+              backgroundColor: "var(--status-bg)",
+              // @ts-ignore
+              "--status-bg": statusSoftBg,
+              willChange: "transform, background-color",
+            }
+          : {}),
+        ...(t.priority === "Urgent" && !isNew
+          ? { boxShadow: "0 1px 2px rgba(190,18,60,0.10)" }
+          : {}),
+        transformOrigin: "center",
+      }}
     >
+      {/* Urgent strip + pulse dot (giữ lại), có thể ẩn khi isNew nếu muốn */}
+      {t.priority === "Urgent" && (
+        <>
+          <div className="absolute inset-y-0 left-0 w-1 rounded-l-xl bg-rose-600" />
+          <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
+        </>
+      )}
+
+
       {/* Urgent strip + pulse dot */}
       {urgent && (
         <>

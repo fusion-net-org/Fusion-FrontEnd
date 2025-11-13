@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Search, Clock, Check, MoveRight, MoveDown, SplitSquareHorizontal } from "lucide-react";
-import type { TaskVm, StatusCategory } from "@/types/projectBoard";
+import type { TaskVm, StatusCategory, SprintVm, MemberRef } from "@/types/projectBoard";
+import CreateTaskModal from "../Task/CreateTaskModal";
+import { useProjectBoard } from "@/context/ProjectBoardContext";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
@@ -35,7 +37,9 @@ export default function ProjectTaskList({
   const [cats, setCats] = useState<Array<StatusCategory>>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-
+ const [open, setOpen] = useState(false);
+  // lấy thật từ API/context
+  const sprints: SprintVm[] = useProjectBoard().sprints;
   const filtered = useMemo(() => {
     const k = kw.trim().toLowerCase();
     let list = tasks.filter(t => (!k || `${t.code} ${t.title}`.toLowerCase().includes(k)));
@@ -44,6 +48,15 @@ export default function ProjectTaskList({
     list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return list;
   }, [tasks, kw, cats]);
+const members: MemberRef[] = React.useMemo(() => {
+  const map = new Map<string, MemberRef>();
+  for (const t of tasks) {
+    (t.assignees ?? []).forEach(m => {
+      if (!map.has(m.id)) map.set(m.id, m);
+    });
+  }
+  return Array.from(map.values());
+}, [tasks]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const slice = filtered.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
@@ -69,6 +82,19 @@ export default function ProjectTaskList({
     <div className="px-8 mt-5 space-y-4">
       {/* toolbar */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 flex flex-wrap items-center justify-between gap-3">
+         <button onClick={() => setOpen(true)} className="fuse-blue-pill">New Task</button>
+      <CreateTaskModal
+        open={open}
+        onClose={() => setOpen(false)}
+        sprints={sprints}
+        members={members}
+        defaultSprintId={sprints[0]?.id}
+        onSubmit={async (payload) => {
+          // TODO: gọi API tạo task của bạn
+          // await createTask(payload)
+          console.log("CreateTask payload", payload);
+        }}
+      />
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

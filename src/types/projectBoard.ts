@@ -18,6 +18,7 @@ export type StatusMeta = {
   wipLimit?: number;
   color?: string;
   isFinal?: boolean;
+  isStart?: boolean;
 };
 
 export type SprintVm = {
@@ -52,12 +53,11 @@ export type TaskVm = {
   workflowStatusId: string;          // FK
   statusCode: string;                // tiện màu sắc/icon
   statusCategory: StatusCategory;
-
   assignees: MemberRef[];
   dependsOn: string[];
   parentTaskId: string | null;
   carryOverCount: number;
-
+  StatusName: string;
   openedAt: string;
   updatedAt: string;
   createdAt: string;
