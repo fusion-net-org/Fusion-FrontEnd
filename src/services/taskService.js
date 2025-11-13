@@ -100,3 +100,49 @@ export const deleteTask = async (id) => {
     throw new Error(message);
   }
 };
+export const createTaskQuick = async (
+  projectId,
+  {
+    title,
+    sprintId = null,
+    type = 'Feature',
+    priority = 'Medium',
+    severity = null,
+    storyPoints = null,      // map -> point
+    estimateHours = null,
+    dueDate = null,          // ISO string hoặc null
+    workflowStatusId = null, // ưu tiên id
+    statusCode = null,       // fallback nếu chỉ có code
+    parentTaskId = null,
+    sourceTaskId = null,
+    assigneeIds = null,      // optional: array<Guid>
+  } = {}
+) => {
+  try {
+    const payload = {
+      projectId,
+      sprintId,
+      title: title?.trim() || '',
+      type,
+      priority,
+      severity,
+      point: storyPoints,
+      estimateHours,
+      dueDate,
+      workflowStatusId,
+      statusCode,
+      parentTaskId,
+      sourceTaskId,
+      ...(Array.isArray(assigneeIds) && assigneeIds.length
+        ? { assigneeIds }
+        : {}),
+    };
+
+    const res = await axiosInstance.post('/tasks', payload);
+    // BE trả ResponseModel => lấy thẳng data bên trong
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    const message = error?.response?.data?.message || 'Create task failed';
+    throw new Error(message);
+  }
+};

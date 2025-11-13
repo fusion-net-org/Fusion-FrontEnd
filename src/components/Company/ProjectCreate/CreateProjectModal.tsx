@@ -27,6 +27,7 @@ import WorkflowPreviewModal from '@/components/Workflow/WorkflowPreviewModal';
 import WorkflowDesigner from '@/components/Workflow/WorkflowDesigner';
 import { getWorkflowPreviews, postWorkflowWithDesigner } from '@/services/workflowService.js';
 import type { WorkflowPreviewVm, DesignerDto } from '@/types/workflow';
+import { toast } from 'react-toastify';
 /* ========= Types ========= */
 export type Id = string;
 type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
@@ -782,21 +783,15 @@ export default function CreateProjectModal({
 
         // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-        if (onSubmit) {
-          await onSubmit(payloadToPost);
-        } else {
-          await createProject(payloadToPost);
-        }
-
-        onClose(); // đóng modal sau khi tạo thành công
+       const result = await createProject(payloadToPost);
+try { await onSubmit?.(payloadToPost); } catch { /* callback lỗi cũng không ảnh hưởng tạo */ }
+onClose();
       } catch (err: any) {
         console.error('Create project failed:', err);
-        // TODO: gắn toast ở đây nếu bạn đang dùng thư viện toast
-        // toast.error(err?.response?.data?.message || err.message || "Create project failed");
+         toast.error(err?.response?.data?.message || err.message || "Create project failed");
       } finally {
         setSaving(false);
       }
-      onClose();
     }
   };
   const back = () => setStep((s) => Math.max(1, s - 1) as any);

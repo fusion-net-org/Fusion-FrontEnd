@@ -1,99 +1,141 @@
 // src/components/KanbanBySprintBoard.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   DragDropContext,
   Droppable,
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import TaskCard, {
-  type TaskVm,
-} from "@/components/Company/Projects/TaskCard";
-import QuickTaskCreateModal from "@/components/Tasks/QuickTaskCreateModal";
-
-/* ====== Private types & helpers (local) ====== */
-type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-
-export type SprintVm = {
-  id: string;
-  name: string;
-  startDate?: string;
-  endDate?: string;
-  columns: Record<StatusKey, TaskVm[]>;
-};
+import TaskCard from "@/components/Company/Projects/TaskCard";
+import type { SprintVm, TaskVm, StatusCategory } from "@/types/projectBoard";
+import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 
+/* ===== CSS-inject: animations & effects (mount once) ===== */
+function useFuseKanbanStyles() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.getElementById("fuse-kanban-style")) return;
+
+    const css = `
+@keyframes fusePillIn {
+  0% { transform: translateY(4px) scale(.96); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes fuseSheen {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@keyframes fuseDropGlow {
+  0% { box-shadow: inset 0 0 0 0 rgba(46,139,255,.28); }
+  100% { box-shadow: inset 0 0 0 2px rgba(46,139,255,.28); }
+}
+
+.fuse-pill {
+  display:inline-flex; align-items:center;
+  font-weight:600; font-size:12px;
+  border-radius:9999px; padding:2px 8px;
+  background:${brand}; color:#fff;
+  animation:fusePillIn .42s cubic-bezier(.2,.8,.2,1);
+  transition: background-color .35s ease, color .35s ease, transform .2s ease;
+}
+.fuse-pill:hover { background:#ffffff; color:${brand}; transform: translateY(-1px); }
+.fuse-pill--sheen {
+  position:relative; overflow:hidden; isolation:isolate;
+}
+.fuse-pill--sheen::after {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,.65) 12%, transparent 24%);
+  transform: translateX(-120%);
+}
+.group:hover .fuse-pill--sheen::after {
+  animation: fuseSheen 1.2s ease forwards;
+}
+
+.fuse-dropzone { transition: background-color .2s ease, box-shadow .2s ease; }
+.fuse-dropzone.is-over {
+  background: radial-gradient(600px 120px at center top, rgba(46,139,255,.08), transparent 70%);
+  animation: fuseDropGlow .18s ease-out forwards;
+}
+
+.fuse-progress { height:6px; background:#eef2f7; border-radius:9999px; overflow:hidden; }
+.fuse-progress > i { display:block; height:100%; background:${brand}; transition: width .45s cubic-bezier(.2,.8,.2,1); }
+`;
+    const el = document.createElement("style");
+    el.id = "fuse-kanban-style";
+    el.textContent = css;
+    document.head.appendChild(el);
+  }, []);
+}
+
+/* === helpers === */
+
+// Lấy toàn bộ task trong sprint theo thứ tự statusOrder + filter category
 const flattenSprintTasks = (
   s: SprintVm,
-  filter: StatusKey | "all" = "all"
-) =>
-  filter === "all"
-    ? ([] as TaskVm[]).concat(
-        ...(["todo", "inprogress", "inreview", "done"] as StatusKey[]).map(
-          (k) => s.columns[k]
-        )
-      )
-    : s.columns[filter];
-
-const computeSprintStats = (s: SprintVm, filter: StatusKey | "all") => {
-  const list = flattenSprintTasks(s, filter);
-  const total = list.length;
-  const done =
-    filter === "all" ? s.columns.done.length : list.filter(t => t.status === "done").length;
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-  return { total, done, pct };
+  filter: "ALL" | StatusCategory = "ALL",
+): TaskVm[] => {
+  const order = s.statusOrder ?? Object.keys(s.columns ?? {});
+  const out: TaskVm[] = [];
+  for (const stId of order) {
+    const arr = (s.columns?.[stId] as TaskVm[]) ?? [];
+    out.push(
+      ...(filter === "ALL"
+        ? arr
+        : arr.filter((t) => t.statusCategory === filter)),
+    );
+  }
+  return out;
 };
 
+// Thống kê số task + % done, chỉ dùng dữ liệu thật
+const computeSprintStats = (s: SprintVm, filter: "ALL" | StatusCategory) => {
+  const listVisible = flattenSprintTasks(s, filter);
+  const listAll = flattenSprintTasks(s, "ALL");
+  const total = listVisible.length;
+  const done = listAll.filter((t) => t.statusCategory === "DONE").length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return { total, pct };
+};
+
+/* ===== Column shell: 1 màu xanh + hiệu ứng ===== */
 const BoardColumn = ({
   title,
-  tone,
   right,
   children,
 }: {
   title: string;
-  tone: "amber" | "blue" | "purple" | "green";
   right?: React.ReactNode;
   children?: React.ReactNode;
 }) => {
-  const topBar: Record<string, string> = {
-    amber: "bg-amber-500",
-    blue: "bg-blue-600",
-    purple: "bg-purple-600",
-    green: "bg-green-600",
-  };
-  const ring: Record<string, string> = {
-    amber: "ring-amber-200",
-    blue: "ring-blue-200",
-    purple: "ring-purple-200",
-    green: "ring-green-200",
-  };
   return (
     <div
       className={cn(
-        "rounded-2xl border border-gray-200 bg-white overflow-hidden ring-1 h-full flex flex-col",
-        ring[tone]
+        "rounded-2xl border border-gray-200 bg-white overflow-hidden ring-1 ring-blue-200 h-full flex flex-col group",
       )}
       style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}
     >
-      <div className={cn("h-2 w-full", topBar[tone])} />
+      {/* top bar 1 màu xanh */}
+      <div className="h-2 w-full" style={{ backgroundColor: brand }} />
+
       <div className="p-4 pb-3 flex items-center justify-between">
-        <span className="inline-flex items-center text-[12px] font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
-          {title}
-        </span>
+        {/* pill 1 màu xanh, hover fade -> trắng, không viền */}
+        <span className="fuse-pill fuse-pill--sheen">{title}</span>
         {right}
       </div>
+
       <div className="px-4 pb-4 flex-1 overflow-auto">{children}</div>
     </div>
   );
 };
 
-/* ====== Main ====== */
 export default function KanbanBySprintBoard({
   sprints,
-  filter = "all",
+  filterCategory = "ALL",
   onDragEnd,
   onMarkDone,
   onNext,
@@ -102,20 +144,28 @@ export default function KanbanBySprintBoard({
   onOpenTicket,
 }: {
   sprints: SprintVm[];
-  filter?: StatusKey | "all";
-  onDragEnd: (result: DropResult) => void;
+  filterCategory?: "ALL" | StatusCategory;
+  onDragEnd: (r: DropResult) => void;
   onMarkDone?: (t: TaskVm) => void;
   onNext?: (t: TaskVm) => void;
   onSplit?: (t: TaskVm) => void;
   onMoveNext?: (t: TaskVm) => void;
   onOpenTicket?: (ticketId: string) => void;
 }) {
+  useFuseKanbanStyles();
+
+  // flash card mới tạo (animate "isNew")
+  const [flashTaskId, setFlashTaskId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!flashTaskId) return;
+    const t = setTimeout(() => setFlashTaskId(null), 900);
+    return () => clearTimeout(t);
+  }, [flashTaskId]);
+
   const TOP_OFFSET = 220;
   const BOARD_H = `calc(100vh - ${TOP_OFFSET}px)`;
-  const COL_W_CLASS =
+  const COL_W =
     "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
-const [openCreate, setOpenCreate] = useState(false);
-
   const noop = () => {};
   const _onMarkDone = onMarkDone ?? noop;
   const _onNext = onNext ?? noop;
@@ -123,129 +173,135 @@ const [openCreate, setOpenCreate] = useState(false);
   const _onMoveNext = onMoveNext ?? noop;
 
   return (
-    
     <DragDropContext onDragEnd={onDragEnd}>
-      {/* <button
-  onClick={() => setOpenCreate(true)}
-  className="px-3 h-9 rounded-full border text-sm flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-slate-50"
->
-  + New task
-</button>
-
-<QuickTaskCreateModal
-  projectId={'projectId'}
-  sprints={sprints.map(s => ({ id: s.id, name: s.name, status: (s as any).state  }))}
-  defaultSprintId={'defaultSprintId'}
-  isOpen={openCreate}
-  onClose={() => setOpenCreate(false)}
-  onCreated={(t) => {
-    // tuỳ bạn: update local state để hiện ngay trên Board/List
-    // fetch lại hoặc append tối thiểu:
-    // setTasks(prev => [{ id: t.id, code: t.code, ... }, ...prev])
-  }}
-  navigateToDetail={true}
-/> */}
       <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
-        <div className="relative w-full min-w-0 max-w-[100vw] overflow-x-clip">
+        {/* không dùng overflow-x-clip để không bị cắt khi drag */}
+        <div className="relative w-full min-w-0 max-w-[100vw]">
           <div
             className="overflow-x-auto overscroll-x-contain rounded-xl w-full min-w-0 max-w-[100vw]"
-            style={{ height: BOARD_H, overflowY: "hidden" }}
+            style={{ height: BOARD_H }}
           >
-            <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5">
-              {sprints.map((s, colIdx) => {
-                const stats = computeSprintStats(s, filter);
+            <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5 ">
+              {sprints.map((s) => {
+                const tasks = flattenSprintTasks(s, filterCategory);
+                const stats = computeSprintStats(s, filterCategory);
                 return (
-                  <div key={s.id} className={`shrink-0 h-full ${COL_W_CLASS}`}>
+                  <div key={s.id} className={`shrink-0 h-full ${COL_W} relative`}>
                     <BoardColumn
                       title={s.name}
-                      tone={
-                        (colIdx % 4 === 0
-                          ? "amber"
-                          : colIdx % 4 === 1
-                          ? "blue"
-                          : colIdx % 4 === 2
-                          ? "purple"
-                          : "green") as any
-                      }
                       right={
                         <div className="flex items-center gap-2 text-[12px]">
-                          <span className="text-gray-600">
-                            {stats.total} tasks
-                          </span>
+                          <span className="text-gray-600">{stats.total} tasks</span>
                           <span className="text-green-700 font-semibold">
                             {stats.pct}%
                           </span>
                         </div>
                       }
                     >
-                      <Droppable droppableId={`kanban:${s.id}`} type="task">
+                      {/* prefix spr: để khớp onDragEndKanban */}
+                      <Droppable
+                        droppableId={`spr:${s.id}`}
+                        type="task"
+                        renderClone={(provided, snapshot, rubric) => {
+                          const t = tasks[rubric.source.index];
+                          return createPortal(
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              style={{
+                                ...provided.draggableProps.style,
+                                zIndex: 9999,
+                                pointerEvents: "none",
+                              }}
+                            >
+                              <TaskCard
+                                t={t}
+                                ticketSiblingsCount={
+                                  t.sourceTicketId
+                                    ? tasks.filter(
+                                        (x) =>
+                                          x.id !== t.id &&
+                                          x.sourceTicketId === t.sourceTicketId,
+                                      ).length
+                                    : 0
+                                }
+                                onMarkDone={_onMarkDone}
+                                onNext={_onNext}
+                                onSplit={_onSplit}
+                                onMoveNext={_onMoveNext}
+                                onOpenTicket={onOpenTicket}
+                                isNew={t.id === flashTaskId}
+                              />
+                            </div>,
+                            document.body,
+                          );
+                        }}
+                      >
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.droppableProps}
                             className={cn(
-                              "h-full overflow-y-auto overscroll-contain pr-1",
-                              snapshot.isDraggingOver && "bg-gray-50 rounded-xl"
+                              "h-full overflow-y-auto overscroll-contain pr-1 fuse-dropzone",
+                              snapshot.isDraggingOver && "is-over rounded-xl",
                             )}
                             style={{ scrollbarWidth: "thin" }}
                           >
-                            {/* mini progress */}
-                            <div className="h-1.5 w-full rounded-full bg-gray-100 mb-2">
-                              <div
-                                className="h-1.5 rounded-full"
-                                style={{
-                                  width: `${stats.pct}%`,
-                                  backgroundColor: brand,
-                                }}
-                              />
+                            {/* progress bar (animated width) */}
+                            <div className="fuse-progress mb-2">
+                              <i style={{ width: `${stats.pct}%` }} />
                             </div>
 
-                            <div className="space-y-4">
-                              {flattenSprintTasks(s, filter).map(
-                                (task, idx, arr) => {
-                                  const ticketSiblingsCount = task.sourceTicketId
-                                    ? arr.filter(
-                                        (x) =>
-                                          x.id !== task.id &&
-                                          x.sourceTicketId ===
-                                            task.sourceTicketId
-                                      ).length
-                                    : 0;
+                            {/* Quick create; set flashTaskId khi tạo */}
+                            <ColumnHoverCreate
+                              sprint={s}
+                              statusId={s.statusOrder?.[0] ?? Object.keys(s.columns ?? {})[0]}
+                              allowStatusPicker
+                              onCreatedVM={(vm) => setFlashTaskId(vm.id)}
+                            />
 
-                                  return (
-                                    <Draggable
-                                      key={task.id}
-                                      draggableId={task.id}
-                                      index={idx}
-                                    >
-                                      {(dragProvided, dragSnapshot) => (
-                                        <div
-                                          ref={dragProvided.innerRef}
-                                          {...dragProvided.draggableProps}
-                                          {...dragProvided.dragHandleProps}
-                                          className={
-                                            dragSnapshot.isDragging
-                                              ? "rotate-[0.5deg]"
-                                              : ""
-                                          }
-                                        >
-                                          <TaskCard
-                                            t={task}
-                                            ticketSiblingsCount={
-                                              ticketSiblingsCount
-                                            }
-                                            onMarkDone={_onMarkDone}
-                                            onNext={_onNext}
-                                            onSplit={_onSplit}
-                                            onMoveNext={_onMoveNext}
-                                            onOpenTicket={onOpenTicket}
-                                          />
-                                        </div>
-                                      )}
-                                    </Draggable>
-                                  );
-                                }
-                              )}
+                            <div className="space-y-4">
+                              {tasks.map((task, idx, arr) => {
+                                const sibs = task.sourceTicketId
+                                  ? arr.filter(
+                                      (x) =>
+                                        x.id !== task.id &&
+                                        x.sourceTicketId === task.sourceTicketId,
+                                    ).length
+                                  : 0;
+                                return (
+                                  <Draggable
+                                    key={task.id}
+                                    draggableId={task.id}
+                                    index={idx}
+                                  >
+                                    {(drag, snap) => (
+                                      <div
+                                        ref={drag.innerRef}
+                                        {...drag.draggableProps}
+                                        {...drag.dragHandleProps}
+                                        style={{
+                                          ...drag.draggableProps.style,
+                                          zIndex: snap.isDragging ? 9999 : undefined,
+                                        }}
+                                        className={snap.isDragging ? "rotate-[0.5deg]" : ""}
+                                      >
+                                        <TaskCard
+                                          t={task}
+                                          ticketSiblingsCount={sibs}
+                                          onMarkDone={_onMarkDone}
+                                          onNext={_onNext}
+                                          onSplit={_onSplit}
+                                          onMoveNext={_onMoveNext}
+                                          onOpenTicket={onOpenTicket}
+                                          isNew={task.id === flashTaskId}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                );
+                              })}
                             </div>
                             {provided.placeholder}
                           </div>

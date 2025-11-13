@@ -81,7 +81,7 @@ function App() {
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route
-            path="/companies/:companyId/project/:projectId"
+            path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
           />
           <Route path="project/:projectId/tickets/:ticketId" element={<TicketDetailPage />} />
