@@ -303,7 +303,7 @@ export default function ProjectRequestDetail() {
                           viewMode === 'AsExecutor'
                             ? `/companies/${companyId}/project`
                             : // : `/companies/${companyId}/project-company-request`;
-                              `/companies/${companyId}/project/${projectRequest.convertedProjectId}`;
+                              `/companies/${companyId}/projectRequest/${projectRequest.convertedProjectId}`;
 
                         navigate(url);
                       }}

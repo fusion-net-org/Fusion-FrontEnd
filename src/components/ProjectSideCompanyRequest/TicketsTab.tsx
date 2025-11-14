@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, Eye, MessageSquare, Search, XCircle } from 'lucide-react';
+import { Eye, MessageSquare, Search } from 'lucide-react';
 import { Input, Select, DatePicker } from 'antd';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
@@ -64,7 +64,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
   }, [projectId, debouncedSearch, ticketPriority, ticketRange, ticketPage]);
 
   const tickets: ITicket[] = ticketsResponse?.data?.items || [];
-
+  console.log('Ticket', tickets);
   const handleGoToDetail = (ticket: ITicket) => {
     navigate(`/project/${projectId}/tickets/${ticket.id}`, {
       state: { isDeleted: ticket.isDeleted },
@@ -139,7 +139,9 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
               <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Title</th>
               <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Assignee</th>
               <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Priority</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Budget</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                Budget (VND)
+              </th>
               <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
                 Created At
               </th>
@@ -170,17 +172,22 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, rowsPerPage, onTicke
                     {t.priority || '-'}
                   </span>
                 </td>
-                <td className="px-6 py-3 text-gray-700">{t.budget ?? '-'}</td>
+                <td className="px-6 py-3 text-gray-700">
+                  {t.budget != null ? t.budget.toLocaleString('vi-VN') : '-'}
+                </td>
                 <td className="px-6 py-3 text-gray-500">
                   {t.createdAt ? dayjs(t.createdAt).format('DD/MM/YYYY') : '-'}
                 </td>
                 <td className="px-6 py-3 text-center">
-                  {t.isDeleted ? (
-                    <XCircle className="w-5 h-5 text-red-500" />
-                  ) : (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  )}
-                </td>{' '}
+                  <span
+                    className={
+                      t.isDeleted ? 'text-red-500 font-semibold' : 'text-green-600 font-semibold'
+                    }
+                  >
+                    {t.isDeleted ? 'Yes' : 'No'}
+                  </span>
+                </td>
+
                 <td className="px-6 py-3 text-center">
                   <Eye
                     className="w-5 h-5 text-indigo-500 hover:text-indigo-700 cursor-pointer"
