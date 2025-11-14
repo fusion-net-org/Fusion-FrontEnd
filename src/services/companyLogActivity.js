@@ -7,8 +7,8 @@ export const AllActivityLogCompanyById = async (
   Keyword = null,
   From = null,
   To = null,
-  PageNumber,
-  PageSize,
+  PageNumber = 1,
+  PageSize = 25,
   SortColumn = null,
   SortDescending = null,
 ) => {

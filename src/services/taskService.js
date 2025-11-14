@@ -65,7 +65,22 @@ export const postTask = async (data) => {
     throw new Error(message);
   }
 };
-
+export const createProjectTask = async (data) => {
+  try {
+    const payload = {
+      //projectId: '6909CE3D-38DF-4C71-919E-82300C9984A3',
+      //sprintId: 'EF92CB06-5C70-41C4-AAFA-DB00FE7E9313',
+      projectId: '',
+      sprintId: '',
+      ...data,
+    };
+    const response = await axiosInstance.post('/tasks', payload);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
 export const putTask = async (id, data) => {
   try {
     const response = await axiosInstance.put(`/tasks/${id}`, data);
@@ -82,6 +97,52 @@ export const deleteTask = async (id) => {
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
+export const createTaskQuick = async (
+  projectId,
+  {
+    title,
+    sprintId = null,
+    type = 'Feature',
+    priority = 'Medium',
+    severity = null,
+    storyPoints = null,      // map -> point
+    estimateHours = null,
+    dueDate = null,          // ISO string hoặc null
+    workflowStatusId = null, // ưu tiên id
+    statusCode = null,       // fallback nếu chỉ có code
+    parentTaskId = null,
+    sourceTaskId = null,
+    assigneeIds = null,      // optional: array<Guid>
+  } = {}
+) => {
+  try {
+    const payload = {
+      projectId,
+      sprintId,
+      title: title?.trim() || '',
+      type,
+      priority,
+      severity,
+      point: storyPoints,
+      estimateHours,
+      dueDate,
+      workflowStatusId,
+      statusCode,
+      parentTaskId,
+      sourceTaskId,
+      ...(Array.isArray(assigneeIds) && assigneeIds.length
+        ? { assigneeIds }
+        : {}),
+    };
+
+    const res = await axiosInstance.post('/tasks', payload);
+    // BE trả ResponseModel => lấy thẳng data bên trong
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    const message = error?.response?.data?.message || 'Create task failed';
     throw new Error(message);
   }
 };

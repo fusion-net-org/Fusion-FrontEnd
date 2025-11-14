@@ -16,7 +16,11 @@ import {
   Image,
   Contact,
   ClipboardList,
+  Check,
+  XCircle,
+  Clock,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import { getCompanyById } from '@/services/companyService.js';
 import { getOwnerUser } from '@/services/userService.js';
@@ -26,6 +30,7 @@ import UpdateCompany from '@/components/Company/UpdateCompany';
 import InvitePartner from '@/components/Partner/InvitePartner';
 import DeleteCompany from '@/components/Company/DeleteCompany';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import type { CompanyRole } from '@/interfaces/Company/company';
 
 const CompanyDetails: React.FC = () => {
   const [company, setCompany] = useState<CompanyRequest>();
@@ -36,6 +41,7 @@ const CompanyDetails: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<'overview' | 'image' | 'contact' | null>(
     null,
   );
+
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [openInviteModal, setOpenInviteModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,6 +63,7 @@ const CompanyDetails: React.FC = () => {
 
       const response = await getCompanyById(companyId);
       const data: CompanyRequest = response.data;
+      console.log('Data', data);
       setCompany(data);
     } catch (error: any) {
       console.log(error.message);
@@ -104,7 +111,7 @@ const CompanyDetails: React.FC = () => {
               alt="avatar"
               className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg object-cover"
             />
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-2">
               <h1 className="text-3xl font-bold text-gray-800">{company?.name}</h1>
 
               <p className="text-gray-500">
@@ -143,7 +150,7 @@ const CompanyDetails: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 mb-4">
                 <UserIcon className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-800">Overview</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-auto">Overview</h2>
               </div>
               {company?.ownerUserId == userId ? (
                 <button
@@ -193,7 +200,7 @@ const CompanyDetails: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 mb-4">
                 <Image className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-800">Image Company</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-auto">Image Company</h2>
               </div>
               {company?.ownerUserId == userId ? (
                 <button
@@ -240,7 +247,7 @@ const CompanyDetails: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 mb-4">
                 <ClipboardList className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-800">Information Contact</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-auto">Information Contact</h2>
               </div>
               {company?.ownerUserId == userId ? (
                 <button
@@ -256,26 +263,37 @@ const CompanyDetails: React.FC = () => {
                 >
                   <Edit className="w-4 h-4" /> Edit
                 </button>
-              ) : (
-                <></>
-              )}
+              ) : null}
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2 text-gray-700">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span>{company?.email}</span>
+
+            {/* Contact Info - 4 dòng dọc */}
+            <div className="space-y-5">
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" /> Email
+                </p>
+                <p className="font-medium text-gray-800 break-all">{company?.email || '—'}</p>
               </div>
-              <div className="flex items-center space-x-2 text-gray-700">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span>{company?.phoneNumber}</span>
+
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" /> Phone Number
+                </p>
+                <p className="font-medium text-gray-800">{company?.phoneNumber || '—'}</p>
               </div>
-              <div className="flex items-center space-x-2 text-gray-700">
-                <Globe className="w-4 h-4 text-gray-400" />
-                <span>{company?.website}</span>
+
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-gray-400" /> Website
+                </p>
+                <p className="font-medium text-gray-800 break-all">{company?.website || '—'}</p>
               </div>
-              <div className="flex items-center space-x-2 text-gray-700">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span>{company?.address}</span>
+
+              <div>
+                <p className="text-gray-500 text-sm mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-400" /> Address
+                </p>
+                <p className="font-medium text-gray-800">{company?.address || '—'}</p>
               </div>
             </div>
           </div>
@@ -284,7 +302,7 @@ const CompanyDetails: React.FC = () => {
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6">
             <div className="flex items-center gap-2 mb-4">
               <Contact className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-800">Projects Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-auto">Projects Information</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
@@ -304,6 +322,114 @@ const CompanyDetails: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* ===Dashboard === */}
+          <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Chart 1 Performance project */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                {company?.name} Project Performance Overview
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={[
+                    { name: 'On-Time', value: company?.onTimeRelease ?? 0 },
+                    { name: 'Ongoing', value: company?.totalOngoingProjects ?? 0 },
+                    { name: 'Completed', value: company?.totalCompletedProjects ?? 0 },
+                    { name: 'Closed', value: company?.totalClosedProjects ?? 0 },
+                    { name: 'Late', value: company?.totalLateProjects ?? 0 },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#6366F1" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                Company Members by Role
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={
+                    company?.companyRoles?.map((role: any) => ({
+                      role: role.roleName,
+                      count: role.totalMembers,
+                    })) ?? []
+                  }
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="role" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10B981" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 3 project create and hired */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                Projects Created vs Hired
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={[
+                    { type: 'Created', count: company?.totalProjectCreated ?? 0 },
+                    { type: 'Hired', count: company?.totalProjectHired ?? 0 },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 4 project request send and receive */}
+            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
+              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
+                Project Requests Sent vs Received
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={[
+                    {
+                      type: 'Sent',
+                      count: company?.totalProjectRequestSent ?? 0,
+                      accepted: company?.totalProjectRequestAcceptSent ?? 0,
+                      rejected: company?.totalProjectRequestRejectSent ?? 0,
+                      pending: company?.totalProjectRequestPendingSent ?? 0,
+                    },
+                    {
+                      type: 'Received',
+                      count: company?.totalProjectRequestReceive ?? 0,
+                      accepted: company?.totalProjectRequestAcceptReceive ?? 0,
+                      rejected: company?.totalProjectRequestRejectReceive ?? 0,
+                      pending: company?.totalProjectRequestPendingReceive ?? 0,
+                    },
+                  ]}
+                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           {/* Google Map Section */}
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6 col-span-1 lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">
@@ -355,6 +481,39 @@ const CompanyDetails: React.FC = () => {
       </div>
     </>
   );
+};
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length > 0) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-3 rounded-lg shadow text-sm border border-gray-100 space-y-1">
+        <p className="font-semibold text-gray-700">{label}</p>
+
+        <p>
+          Total: <span className="font-medium">{data.count}</span>
+        </p>
+
+        <div className="flex items-center gap-1 text-green-600">
+          <CheckCircle className="h-4 w-4" />
+          <span>Accepted:</span>
+          <span className="font-medium">{data.accepted}</span>
+        </div>
+
+        <div className="flex items-center gap-1 text-red-600">
+          <XCircle className="h-4 w-4" />
+          <span>Rejected:</span>
+          <span className="font-medium">{data.rejected}</span>
+        </div>
+
+        <div className="flex items-center gap-1 text-yellow-600">
+          <Clock className="h-4 w-4" />
+          <span>Pending:</span>
+          <span className="font-medium">{data.pending}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
 };
 
 export default CompanyDetails;

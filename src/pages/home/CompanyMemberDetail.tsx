@@ -1,6 +1,39 @@
-import React from 'react';
-import { Mail, Phone, Calendar, MessageSquare, Edit, Folder, Star, Clock } from 'lucide-react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { useEffect, useState } from 'react';
+import {
+  Mail,
+  Phone,
+  MessageSquare,
+  Folder,
+  Star,
+  Clock,
+  Search,
+  Mars,
+  Venus,
+  User,
+  Calendar,
+  Eye,
+  Trash,
+} from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
+import { getUserById } from '@/services/userService.js';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import type { User as IUser } from '@/interfaces/User/User';
+import {
+  GetCompanyMemberByCompanyIdAndUserId,
+  FireMemberFromCompany,
+} from '@/services/companyMemberService.js';
+import type { CompanyMemberInterface } from '@/interfaces/Company/member';
+import LoadingOverlay from '@/common/LoadingOverlay';
+import { getProjectMemberByCompanyIdAndUserId } from '@/services/projectMember.js';
+import type { IProjectMember } from '@/interfaces/ProjectMember/projectMember';
+import DeleteProjectMember from '@/components/ProjectMember/DeleteProjectMember';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useDebounce } from '@/hook/Debounce';
 
 const data = [
   { name: 'Productivity', value: 75 },
@@ -10,136 +43,371 @@ const data = [
 ];
 
 export default function CompanyMemberDetail() {
+  const navigate = useNavigate();
+  //state open delete popup
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  // pagination state
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalProjectCount, setTotalProjectCount] = useState(0);
+
+  //get companyid by use location of state
+  const { state } = useLocation();
+  const companyId = state?.companyId;
+
+  //state loading
+  const [loadingProject, setLoadingProject] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  //state loading delete
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [reasonDelete, setReasonDelete] = useState('');
+  //state project membert
+  const [listProjectMember, setListProjectMember] = useState<IProjectMember | undefined>();
+
+  //state user
+  const [user, setUser] = useState<IUser | undefined>();
+
+  //state member
+  const [member, setMember] = useState<CompanyMemberInterface | undefined>();
+
+  //state search filter
+  const [searchProjectName, setSearchProjectName] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  //get userId from url
+  const { Id } = useParams<{ Id: string }>();
+  const debouncedSearch = useDebounce(searchProjectName, 300);
+  const debouncedFilter = useDebounce(statusFilter, 300);
+
+  //handle remove member
+  const handleRemoveMember = async (memberId: string, reason: string) => {
+    if (!member || !memberId) return;
+
+    try {
+      setLoadingDelete(true);
+
+      const response = await FireMemberFromCompany(member.email, reasonDelete, member.companyId);
+      setIsDeleteOpen(false);
+
+      toast.success(response.message || 'Removed successfully');
+
+      navigate(-1);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Failed to remove member.');
+    } finally {
+      setLoadingDelete(false);
+    }
+  };
+  //handle backto list
+  const handleBackToList = () => {
+    navigate(-1);
+  };
+
+  const GenderIcon = () => {
+    if (user?.gender === 'Male') return <Mars size={16} className="text-blue-500" />;
+    if (user?.gender === 'Female') return <Venus size={16} className="text-pink-500" />;
+    return <User size={16} className="text-gray-500" />;
+  };
+  //fetch api getProjectMemberByCompanyIdAndUserId
+  const fetchGetProjectMemberByCompanyIdAndUserId = async () => {
+    try {
+      setLoadingProject(true);
+
+      const response = await getProjectMemberByCompanyIdAndUserId(
+        companyId,
+        Id,
+        searchProjectName ?? '',
+        statusFilter ?? '',
+        null,
+        null,
+        pageNumber,
+        pageSize,
+        null,
+        null,
+      );
+      setListProjectMember(response.data.items[0]);
+
+      setTotalProjectCount(response.data.totalCount ?? 0);
+    } catch (error: any) {
+      console.log(error);
+      setListProjectMember(undefined);
+    } finally {
+      setTimeout(() => setLoadingProject(false), 250);
+    }
+  };
+  //fetch api get user by id
+  const fetchGetUserById = async () => {
+    try {
+      setLoading(true);
+      if (!Id) return;
+      const response = await getUserById(Id);
+      const data = response.data;
+      setUser(data);
+    } catch (error: any) {
+      console.log(error);
+    } finally {
+      setTimeout(() => setLoading(false), 200);
+    }
+  };
+  //fetch api get company member by company id and userid
+  const fetchCompanyMemberByCompanyIdAndUserId = async () => {
+    try {
+      const response = await GetCompanyMemberByCompanyIdAndUserId(companyId, Id);
+
+      setMember(response.data);
+    } catch (error: any) {
+      console.log(error);
+    }
+  };
+  useEffect(() => {
+    fetchGetUserById();
+    fetchGetProjectMemberByCompanyIdAndUserId();
+    fetchCompanyMemberByCompanyIdAndUserId();
+  }, [Id]);
+
+  // debounce
+  useEffect(() => {
+    fetchGetProjectMemberByCompanyIdAndUserId();
+  }, [debouncedSearch, debouncedFilter]);
+
+  //paging
+  useEffect(() => {
+    fetchGetProjectMemberByCompanyIdAndUserId();
+  }, [pageNumber, pageSize]);
+
   return (
-    <div className="p-8 bg-white-50 min-h-screen text-gray-800">
-      <h1 className="text-2xl font-semibold mb-6 text-gray-800">Member Detail</h1>
+    <div className="relative">
+      <LoadingOverlay loading={loadingProject} message="Loading..." />
+      <LoadingOverlay loading={loading} message="Loading..." />
 
-      {/* Tabs */}
-      <div className="flex space-x-6 border-b mb-6">
-        {['Profile', 'Permissions', 'Reports', 'Feedback'].map((tab) => (
-          <button
-            key={tab}
-            className={`pb-3 font-medium ${
-              tab === 'Profile'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-blue-600'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <div className={`${loading ? 'pointer-events-none opacity-40' : ''}`}>
+        <div className="p-8 bg-white-50 min-h-screen text-gray-800">
+          {/* Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column */}
+            <div className="col-span-1 bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+              <div className="flex flex-col items-center text-center">
+                <div>
+                  <img
+                    src={user?.avatar}
+                    className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-400 flex items-center justify-center text-white text-3xl font-bold shadow"
+                  />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">{user?.userName}</h2>
+                  <p className="text-gray-500">Product Manager</p>
+                </div>
 
-      {/* Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column */}
-        <div className="col-span-1 bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-400 flex items-center justify-center text-white text-3xl font-bold shadow">
-              QJ
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold">Quincy Jefferson</h2>
-              <p className="text-gray-500 text-sm">Product Manager</p>
-            </div>
+                <div className="text-sm space-y-2 text-gray-600 -mt-[5px]">
+                  <p className="flex items-center gap-2 justify-center">
+                    <Mail size={16} /> {user?.email}
+                  </p>
+                  <p className="flex items-center gap-2 justify-center">
+                    <GenderIcon /> {user?.gender}
+                  </p>
+                  <p className="flex items-center gap-2 justify-center">
+                    <Phone size={16} /> {user?.phone}
+                  </p>
+                  <p className="flex items-center gap-2 justify-center">
+                    <Calendar size={16} />{' '}
+                    {member?.joinedAt ? new Date(member.joinedAt).toLocaleDateString('vi-VN') : '—'}
+                  </p>
+                </div>
 
-            <div className="text-sm space-y-2 text-gray-600 mt-2">
-              <p className="flex items-center gap-2 justify-center">
-                <Mail size={16} /> quincy@techcomp.com
-              </p>
-              <p className="flex items-center gap-2 justify-center">
-                <Phone size={16} /> 987-654-3210
-              </p>
-              <p className="flex items-center gap-2 justify-center">
-                <Calendar size={16} /> Joined on Aug 1, 2023
-              </p>
-            </div>
+                <div className="flex gap-3 w-full mt-4">
+                  <button className="flex-1 py-2 rounded-lg border bg-gray-300 border-gray-300 hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-medium">
+                    <MessageSquare size={16} /> Message
+                  </button>
+                  <button
+                    onClick={() => setIsDeleteOpen(true)}
+                    className="flex-1 py-2 rounded-lg border border-red-300 bg-red-500 text-white hover:bg-red-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <Trash size={16} /> Remove Member
+                  </button>
+                </div>
 
-            <div className="flex gap-3 w-full mt-4">
-              <button className="flex-1 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-medium">
-                <MessageSquare size={16} /> Message
-              </button>
-              <button className="flex-1 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-medium">
-                <Edit size={16} /> Edit Info
-              </button>
-            </div>
-
-            <div className="flex justify-around w-full py-4 mt-3 border-t border-gray-100">
-              <div className="flex flex-col items-center">
-                <Folder size={20} className="text-blue-500 mb-1" />
-                <span className="text-sm font-semibold">8</span>
-                <p className="text-xs text-gray-500">Projects</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <Star size={20} className="text-yellow-500 mb-1" />
-                <span className="text-sm font-semibold">88</span>
-                <p className="text-xs text-gray-500">Score</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <Clock size={20} className="text-purple-500 mb-1" />
-                <span className="text-sm font-semibold">40</span>
-                <p className="text-xs text-gray-500">hr/week</p>
-              </div>
-            </div>
-
-            <button className="w-full py-2 mt-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition">
-              Back to Members List
-            </button>
-          </div>
-        </div>
-        {/* Performance */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-lg font-semibold mb-4">Performance Overview</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="url(#colorUv)" radius={[6, 6, 0, 0]} />
-                <defs>
-                  <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.9} />
-                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.5} />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="col-span-2 space-y-6">
-          <div className="grid md:grid-cols-2 gap-6"></div>
-
-          {/* Projects */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <h3 className="text-lg font-semibold mb-4">Projects</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'Project Alpha', progress: 80 },
-                { name: 'Project Beta', progress: 60 },
-                { name: 'Project Gamma', progress: 45 },
-              ].map((proj) => (
-                <div key={proj.name}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium">{proj.name}</span>
-                    <span className="text-gray-500">{proj.progress}%</span>
+                <div className="flex justify-around w-full py-4 mt-3 border-t border-gray-100">
+                  <div className="flex flex-col items-center">
+                    <Folder size={20} className="text-blue-500 mb-1" />
+                    <span className="text-sm font-semibold">{listProjectMember?.totalProject}</span>
+                    <p className="text-xs text-gray-500">Projects</p>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-indigo-400 h-2.5 rounded-full"
-                      style={{ width: `${proj.progress}%` }}
-                    ></div>
+                  <div className="flex flex-col items-center">
+                    <Star size={20} className="text-yellow-500 mb-1" />
+                    <span className="text-sm font-semibold">88</span>
+                    <p className="text-xs text-gray-500">Score</p>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <Clock size={20} className="text-purple-500 mb-1" />
+                    <span className="text-sm font-semibold">40</span>
+                    <p className="text-xs text-gray-500">hr/week</p>
                   </div>
                 </div>
-              ))}
+
+                <button
+                  className="w-full py-2 mt-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+                  onClick={handleBackToList}
+                >
+                  Back to Members List
+                </button>
+              </div>
             </div>
-            <button className="mt-5 w-full py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium text-sm transition">
-              View All Projects
-            </button>
+
+            {/* Performance */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <h3 className="text-lg font-semibold mb-4">Performance Overview</h3>
+              <div className="h-full">
+                <ResponsiveContainer width="100%" height={500}>
+                  <BarChart data={data}>
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="url(#colorUv)" radius={[6, 6, 0, 0]} />
+                    <defs>
+                      <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.5} />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="col-span-2 space-y-6">
+              <div className="grid md:grid-cols-2 gap-6"></div>
+
+              {/* Projects Table */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <div className="flex justify-between items-center mb-4">
+                  {/* Search */}
+                  <div className="relative w-1/3 ">
+                    <Search size={18} className="absolute left-2 top-2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search project..."
+                      className="pl-8 pr-3 py-2 border-2 rounded-lg text-sm w-full focus:ring-2 focus:ring-blue-300 outline-none"
+                      onChange={(e) => setSearchProjectName(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Filter */}
+                  <select
+                    className="px-3 py-2 border-2 rounded-lg text-sm text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-300"
+                    onChange={(e) =>
+                      setStatusFilter(e.target.value === 'All' ? '' : e.target.value)
+                    }
+                  >
+                    <option>All</option>
+                    <option>Active</option>
+                    <option>Inactive</option>
+                  </select>
+                </div>
+
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="text-left text-gray-600 border-b bg-gray-50">
+                      <th className="p-3 font-medium">Project Code</th>
+                      <th className="p-3 font-medium">Project name</th>
+                      <th className="p-3 font-medium ">isHire</th>
+                      <th className="p-3 font-medium text-center">Start Date</th>
+                      <th className="p-3 font-medium text-center">End Date</th>
+                      <th className="p-3 font-medium text-center">Status</th>
+                      <th className="p-3 font-medium text-center">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(listProjectMember?.projects) &&
+                    listProjectMember.projects.length > 0 ? (
+                      listProjectMember.projects.map((proj) => (
+                        <tr
+                          key={proj.id}
+                          className="border-b hover:bg-blue-50 transition cursor-pointer"
+                          onClick={() => navigate(`/project-detail/${proj.id}`)}
+                        >
+                          <td className="p-3 font-medium text-gray-800">{proj.code}</td>
+                          <td className="p-3 text-gray-800">{proj.name}</td>
+                          <td className="p-3 text-gray-800">{proj.isHired ? 'Yes' : 'No'}</td>
+
+                          <td className="p-3 text-center">
+                            {proj.startDate
+                              ? new Date(proj.startDate).toLocaleDateString('vi-VN')
+                              : '--'}
+                          </td>
+                          <td className="p-3 text-center">
+                            {proj.endDate
+                              ? new Date(proj.endDate).toLocaleDateString('vi-VN')
+                              : '--'}
+                          </td>
+
+                          <td className="p-3 text-center">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                proj.status === 'Active'
+                                  ? 'bg-green-100 text-green-600'
+                                  : proj.status === 'Completed'
+                                  ? 'bg-blue-100 text-blue-600'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {proj.status ?? '--'}
+                            </span>
+                          </td>
+
+                          <td className="p-3 text-center">
+                            <button
+                              className="text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1 text-sm mx-auto"
+                              onClick={() => navigate(`/project-detail/${proj.id}`)}
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="text-center py-6 text-gray-500">
+                          Don't have project for members with company
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {/* Pagination */}
+                <div className="flex justify-end mt-3 w-full">
+                  <Stack
+                    spacing={2}
+                    className="bg-white p-3 rounded-xl shadow-sm border-2 border-gray-200"
+                  >
+                    <Pagination
+                      count={Math.ceil(totalProjectCount / pageSize) || 1}
+                      page={pageNumber}
+                      onChange={(e, value) => setPageNumber(value)}
+                      color="primary"
+                      variant="outlined"
+                      shape="rounded"
+                      size="medium"
+                      showFirstButton
+                      showLastButton
+                    />
+                  </Stack>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      <DeleteProjectMember
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={() => handleRemoveMember(member?.memberId || '', reasonDelete)}
+        memberName={member?.memberName}
+        companyName={member?.companyName}
+      />
+      <LoadingOverlay loading={loadingDelete} message="Removing member..." />
     </div>
   );
 }

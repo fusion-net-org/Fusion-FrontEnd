@@ -19,8 +19,7 @@ const getErr = (error, fallback = 'Fail!') =>
 export const getWorkflows = async (companyId) => {
   try {
     const res = await axiosInstance.get(url.list(companyId));
-    // BE của bạn trả về dạng { data: [...] } hay [...] ?
-    // Nếu là { data: [...] } thì đổi thành res.data.data
+   
     return res.data;
   } catch (error) {
     throw new Error(getErr(error, 'Cannot load workflows'));

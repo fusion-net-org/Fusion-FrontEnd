@@ -1,0 +1,432 @@
+// src/context/ProjectBoardContext.tsx
+import React, { useEffect, useRef, useState } from "react";
+import type { SprintVm, TaskVm } from "@/types/projectBoard";
+
+/* ================== Context types ================== */
+type Ctx = {
+  sprints: SprintVm[];
+  tasks: TaskVm[];
+  loading: boolean;
+
+  // dùng statusId (workflowStatusId), KHÔNG dùng StatusKey cứng
+  changeStatus: (projectId: string, t: TaskVm, nextStatusId: string) => Promise<void>;
+  moveToNextSprint: (projectId: string, t: TaskVm, toSprintId?: string) => Promise<void>;
+  reorder: (
+    projectId: string,
+    sprintId: string,
+    t: TaskVm,
+    toStatusId: string,
+    toIndex: number
+  ) => Promise<void>;
+  done: (projectId: string, t: TaskVm) => Promise<void>;
+  split: (projectId: string, t: TaskVm) => Promise<void>;
+   createTask: (
+    projectId: string,
+    draft: Partial<TaskVm> & { title: string; sprintId: string; workflowStatusId?: string }
+  ) => Promise<TaskVm>;
+  attachTaskFromApi: (api: any) => void; 
+  attachTaskVm: (vm: TaskVm) => void;
+};
+
+const ProjectBoardContext = React.createContext<Ctx | null>(null);
+
+export function useProjectBoard() {
+  const ctx = React.useContext(ProjectBoardContext);
+  if (!ctx) throw new Error("useProjectBoard outside provider");
+  return ctx;
+}
+
+/* ================== Helpers ================== */
+
+// Tạo columns rỗng theo statusOrder
+function ensureColumns(s: SprintVm): SprintVm {
+  const cols: Record<string, TaskVm[]> = {};
+  for (const id of s.statusOrder ?? []) cols[id] = [];
+  // nếu thiếu meta/order (phòng khi dữ liệu seed chưa đủ), giữ nguyên columns hiện có
+  return {
+    ...s,
+    columns: Object.keys(cols).length ? cols : (s.columns ?? {}),
+  };
+}
+
+// Chuẩn hoá status của task theo sprint: id hợp lệ, gán lại code/category
+function normalizeTaskStatus(t: TaskVm, s: SprintVm): TaskVm {
+  let statusId = t.workflowStatusId;
+  if (!statusId || !s.statusMeta?.[statusId]) {
+    const byCode = Object.values(s.statusMeta ?? {}).find(m => m.code === t.statusCode);
+    statusId = byCode?.id ?? s.statusOrder[0];
+  }
+  const meta = s.statusMeta[statusId];
+  return {
+    ...t,
+    workflowStatusId: statusId,
+    statusCode: meta?.code ?? t.statusCode,
+    statusCategory: meta?.category ?? t.statusCategory,
+  };
+}
+
+// ProjectBoardContext.tsx
+
+// helper
+function inRange(iso: string, start?: string, end?: string) {
+  if (!iso) return false;
+  const d = new Date(iso).getTime();
+  const s = start ? new Date(start).getTime() : -Infinity;
+  const e = end ? new Date(end).getTime() : +Infinity;
+  return d >= s && d <= e;
+}
+
+// ⬇️ sửa syncColumns: fallback map task → sprint theo due/opened date
+function syncColumns(rawSprints: SprintVm[], tasks: TaskVm[]): SprintVm[] {
+  const map = new Map<string, SprintVm>();
+  for (const s of rawSprints) map.set(s.id, ensureColumns(s));
+  
+  const all = Array.from(map.values());
+
+  for (const t of tasks) {
+    // 1) ưu tiên sprintId có sẵn
+    let sid = t.sprintId;
+
+    // 2) nếu chưa có, gán theo khoảng ngày sprint (ưu tiên dueDate, sau đó openedAt/createdAt)
+    if (!sid) {
+       console.warn("[ProjectBoard] task has no sprintId, skip", t);
+      const anchor = t.dueDate || t.openedAt || t.createdAt || "";
+      const hit = all.find(s => inRange(anchor, s.start, s.end));
+      if (hit) sid = hit.id;
+    }
+    if (!sid) {
+       console.warn("[ProjectBoard] no sprint for sprintId, skip", { sid, taskId: t.id });
+    continue;
+    }
+
+    const s = map.get(sid);
+    if (!s) continue;
+
+    const nt = normalizeTaskStatus(t, s);
+    if (!Array.isArray(s.columns[nt.workflowStatusId])) s.columns[nt.workflowStatusId] = [];
+    s.columns[nt.workflowStatusId].push(nt);
+  }
+  return Array.from(map.values());
+}
+
+
+function addDaysISO(iso: string, days: number) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
+function uuid() {
+  return (crypto as any)?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Tạo sprint mới “giống” workflow của sprint tham chiếu
+function makeNextSprintLike(base: SprintVm, labelIndex: number): SprintVm {
+  const start = addDaysISO(base?.end ?? new Date().toISOString(), 1);
+  const end = addDaysISO(start, 6);
+  return {
+    id: `spr-${uuid()}`,
+    name: `Week ${labelIndex}`,
+    start,
+    end,
+    state: "Planning",
+    capacityHours: base?.capacityHours ?? 160,
+    committedPoints: 0,
+    workflowId: base?.workflowId,
+    statusOrder: [...(base?.statusOrder ?? [])],
+    statusMeta: { ...(base?.statusMeta ?? {}) },
+    columns: Object.fromEntries((base?.statusOrder ?? []).map(id => [id, [] as TaskVm[]])),
+  };
+}
+
+/* ================== Provider ================== */
+export function ProjectBoardProvider({
+  projectId,
+  initialData,
+  children,
+}: {
+  projectId: string;
+  initialData?: { sprints: SprintVm[]; tasks: TaskVm[] };
+  children: React.ReactNode;
+}) {
+  // Khởi tạo đã sync columns để tránh lỗi 'push' lúc mount
+  const [tasks, setTasks] = useState<TaskVm[]>(initialData?.tasks ?? []);
+  const [sprints, setSprints] = useState<SprintVm[]>(
+    () => syncColumns(initialData?.sprints ?? [], initialData?.tasks ?? [])
+  );
+  const [loading] = useState<boolean>(false);
+
+  // giữ bản tham chiếu mới nhất để dùng trong handlers
+  const sRef = useRef<SprintVm[]>(sprints);
+  const tRef = useRef<TaskVm[]>(tasks);
+  useEffect(() => void (sRef.current = sprints), [sprints]);
+  useEffect(() => void (tRef.current = tasks), [tasks]);
+
+  /** Cập nhật tasks bằng fn, rồi sync lại columns từ tasksNext */
+  const applyWithColumns = (tasksUpdater: (prev: TaskVm[]) => TaskVm[]) => {
+    setTasks(prev => {
+      const next = tasksUpdater(prev);
+      setSprints(prevS => syncColumns(prevS, next));
+      return next;
+    });
+  };
+
+  const changeStatus = async (_pid: string, t: TaskVm, nextStatusId: string) => {
+    const now = new Date().toISOString();
+    // lấy meta để cập nhật code/category
+    const sp = sRef.current.find(s => s.id === t.sprintId);
+    const meta = sp?.statusMeta?.[nextStatusId];
+
+    applyWithColumns(prev =>
+      prev.map(x =>
+        x.id === t.id
+          ? {
+              ...x,
+              workflowStatusId: nextStatusId,
+              statusCode: meta?.code ?? x.statusCode,
+              statusCategory: meta?.category ?? x.statusCategory,
+              updatedAt: now,
+            }
+          : x
+      )
+    );
+  };
+ // ⬇️ thay toàn bộ attachTaskVm hiện tại
+const attachTaskVm = React.useCallback((vm: TaskVm) => {
+  const sp = sRef.current.find(s => s.id === vm.sprintId) ?? sRef.current[0];
+  const normalized = sp ? normalizeTaskStatus(vm, sp) : vm;
+  applyWithColumns(prev => {
+    const others = prev.filter(t => t.id !== normalized.id);
+    return [normalized, ...others];
+  });
+}, []);
+
+  /** Nhận DTO task từ BE, map sang TaskVm và thêm vào state */
+  const attachTaskFromApi = (api: any) => {
+    const sid = api.sprintId ?? api.sprint_id;
+    if (!sid) {
+      console.warn("[ProjectBoard] attachTaskFromApi: missing sprintId", api);
+      return;
+    }
+
+    const sprint = sRef.current.find((s) => s.id === sid);
+    if (!sprint) {
+      console.warn("[ProjectBoard] attachTaskFromApi: sprint not found", {
+        sid,
+        available: sRef.current.map((s) => s.id),
+      });
+      return;
+    }
+
+    // chọn statusId phù hợp với workflow của sprint
+    const statusIdRaw =
+      api.currentStatusId ?? api.workflowStatusId ?? api.statusId ?? api.current_status_id;
+    const statusId =
+      statusIdRaw && sprint.statusMeta?.[statusIdRaw]
+        ? statusIdRaw
+        : sprint.statusOrder[0];
+
+    const meta = sprint.statusMeta?.[statusId];
+
+    const openedAt = api.openedAt ?? api.createAt ?? api.createdAt ?? new Date().toISOString();
+    const createdAt = api.createdAt ?? api.createAt ?? openedAt;
+    const updatedAt = api.updatedAt ?? api.updateAt ?? createdAt;
+
+    const vm: TaskVm = {
+      id: api.id,
+      code: api.code ?? "",
+      title: api.title ?? "",
+      type: api.type ?? "Feature",
+      priority: api.priority ?? "Medium",
+      storyPoints: api.storyPoints ?? api.point ?? 0,
+      estimateHours: api.estimateHours ?? 0,
+      remainingHours: api.remainingHours ?? api.estimateHours ?? 0,
+      dueDate: api.dueDate ?? undefined,
+      sprintId: sprint.id,
+      workflowStatusId: statusId,
+      statusCode: api.status ?? meta?.code ?? "",
+      statusCategory: meta?.category ?? "TODO",
+      StatusName:  meta?.name ?? "",
+      assignees: [],
+      dependsOn: [],
+      parentTaskId: api.parentTaskId ?? null,
+      carryOverCount: api.carryOverCount ?? 0,
+
+      openedAt,
+      createdAt,
+      updatedAt,
+      sourceTicketId: api.sourceTaskId ?? null,
+      sourceTicketCode: api.sourceTaskCode ?? api.code ?? "",
+    };
+
+    applyWithColumns((prev) => [...prev, vm]);
+  };
+
+  const reorder = async (_pid: string, sprintId: string, t: TaskVm, toStatusId: string, _toIndex: number) => {
+    // Ở tầng context chỉ cập nhật status; thứ tự sẽ build lại từ columns đã sync
+    return changeStatus(_pid, t, toStatusId);
+  };
+
+  const moveToNextSprint = async (_pid: string, t: TaskVm, toSprintId?: string) => {
+    const all = sRef.current;
+    const curIdx = all.findIndex(s => s.id === (t.sprintId ?? ""));
+    const fallbackNext = all[curIdx + 1];
+
+    let target = toSprintId ? all.find(s => s.id === toSprintId) : fallbackNext;
+
+    // nếu chưa có sprint kế -> tạo sprint mới clone workflow hiện tại
+    if (!target) {
+      const base = all[Math.max(0, curIdx)] ?? all[0];
+      const newSprint = makeNextSprintLike(base ?? all[0], all.length + 1);
+      setSprints(prev => [...prev, newSprint]);
+      target = newSprint;
+    }
+
+    const now = new Date().toISOString();
+    const targetId = target.id;
+
+    applyWithColumns(prev =>
+      prev.map(x =>
+        x.id === t.id
+          ? {
+              ...x,
+              sprintId: targetId,
+              // giữ nguyên statusId hiện tại
+              carryOverCount: (x.carryOverCount ?? 0) + 1,
+              updatedAt: now,
+            }
+          : x
+      )
+    );
+  };
+
+  const done = async (_pid: string, t: TaskVm) => {
+    const sp = sRef.current.find(s => s.id === t.sprintId);
+    if (!sp) return;
+    const finalId = sp.statusOrder.find(id => sp.statusMeta[id]?.isFinal) ?? sp.statusOrder[sp.statusOrder.length - 1];
+    if (t.workflowStatusId !== finalId) return changeStatus(_pid, t, finalId);
+  };
+
+  const split = async (_pid: string, t: TaskVm) => {
+    // Chia Part A/B; Part B sang sprint kế tiếp (tự tạo nếu chưa có), status = cột đầu
+    const spVal = Math.max(0, t.storyPoints ?? 0);
+    const rhVal = Math.max(0, t.remainingHours ?? 0);
+    if (spVal < 2 && rhVal < 2) return;
+
+    const all = sRef.current;
+    const curIdx = all.findIndex(s => s.id === (t.sprintId ?? ""));
+    let target = all[curIdx + 1];
+
+    if (!target) {
+      const base = all[Math.max(0, curIdx)] ?? all[0];
+      const newSprint = makeNextSprintLike(base ?? all[0], all.length + 1);
+      setSprints(prev => [...prev, newSprint]);
+      target = newSprint;
+    }
+
+    const firstStatusId = target.statusOrder[0];
+    const firstMeta = target.statusMeta[firstStatusId];
+
+    const baseTitle = (t.title ?? "").replace(/\s*\(Part [AB]\)\s*$/i, "").trim();
+    const bPts = spVal >= 2 ? Math.floor(spVal / 2) : 0;
+    const aPts = spVal - bPts;
+    const bHrs = rhVal >= 2 ? Math.floor(rhVal / 2) : 0;
+    const aHrs = Math.max(0, rhVal - bHrs);
+
+    const nowIso = new Date().toISOString();
+    const partB: TaskVm = {
+      ...t,
+      id: uuid(),
+      title: `${baseTitle} (Part B)`,
+      storyPoints: bPts,
+      remainingHours: bHrs,
+      sprintId: target.id,
+      workflowStatusId: firstStatusId,
+      statusCode: firstMeta.code,
+      statusCategory: firstMeta.category,
+      parentTaskId: t.id,
+      carryOverCount: 0,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    applyWithColumns(prev => {
+      const updatedA = prev.map(x =>
+        x.id === t.id
+          ? {
+              ...x,
+              title: `${baseTitle} (Part A)`,
+              storyPoints: aPts,
+              remainingHours: aHrs,
+              updatedAt: nowIso,
+            }
+          : x
+      );
+      return (bPts > 0 || bHrs > 0) ? [...updatedA, partB] : updatedA;
+    });
+  };
+const createTask: Ctx["createTask"] = async (_pid, draft) => {
+  const sp = sRef.current.find((x) => x.id === draft.sprintId);
+  const statusId = draft.workflowStatusId && sp?.statusMeta[draft.workflowStatusId]
+    ? draft.workflowStatusId
+    : sp?.statusOrder?.[0];
+ if (!sp) {
+    console.warn(
+      "[ProjectBoard] createTask: sprint not found",
+      { draftSprintId: draft.sprintId, available: sRef.current.map(s => s.id) }
+    );
+  }
+  const meta = statusId ? sp?.statusMeta[statusId] : undefined;
+  const now = new Date().toISOString();
+function newTaskCode() {
+  const n = Math.floor(100 + Math.random() * 900);
+  return `PRJ-T-${n}`;
+}
+
+  const created: TaskVm = {
+    id: uuid(),
+    code: newTaskCode(),
+    title: draft.title.trim(),
+    type: draft.type ?? "Feature",
+    priority: draft.priority ?? "Medium",
+    severity: draft.severity,
+    storyPoints: draft.storyPoints ?? 0,
+    estimateHours: draft.estimateHours ?? 0,
+    remainingHours: draft.remainingHours ?? draft.estimateHours ?? 0,
+    dueDate: draft.dueDate,
+    sprintId: draft.sprintId,
+    workflowStatusId: statusId ?? "st-todo",
+    statusCode: draft.statusCode ?? meta?.code ?? "todo",
+    statusCategory: draft.statusCategory ?? meta?.category ?? "TODO",
+    StatusName:  meta?.name ?? "",
+    assignees: draft.assignees ?? [],
+    dependsOn: [],
+    parentTaskId: null,
+    carryOverCount: 0,
+    openedAt: now,
+    updatedAt: now,
+    createdAt: now,
+    sourceTicketId: null,
+    sourceTicketCode: null,
+  };
+
+  applyWithColumns((prev) => [...prev, created]);
+  return created;
+};
+
+  const value: Ctx = {
+    sprints,
+    tasks,
+    loading,
+    changeStatus,
+    moveToNextSprint,
+    reorder,
+    done,
+    split,
+    createTask,
+    attachTaskFromApi,
+    attachTaskVm,
+  };
+
+  return <ProjectBoardContext.Provider value={value}>{children}</ProjectBoardContext.Provider>;
+}

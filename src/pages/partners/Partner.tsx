@@ -28,7 +28,6 @@ const Partners: React.FC = () => {
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
   const [loading, setLoading] = useState(false);
-
   //#region State
   const [partners, setPartners] = useState<any[]>([]);
   const [pagination, setPagination] = useState<
@@ -268,7 +267,7 @@ const Partners: React.FC = () => {
   return (
     <>
       <LoadingOverlay loading={loading} message="Loading Partners" />
-      <div className="px-8 py-6 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
           <div className="flex justify-between items-center">
@@ -289,16 +288,16 @@ const Partners: React.FC = () => {
 
         {/* STATUS SUMMARY */}
         <div className="flex flex-wrap gap-3 mb-6">
-          <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-green-200 text-green-700 text-sm font-medium rounded-full">
             Active: {summaryStatusPartner?.active ?? 0}
           </span>
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-yellow-200 text-yellow-700 text-sm font-medium rounded-full">
             Pending: {summaryStatusPartner?.pending ?? 0}
           </span>
-          <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-red-200 text-red-700 text-sm font-medium rounded-full">
             Inactive: {summaryStatusPartner?.inactive ?? 0}
           </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-blue-200 text-blue-700 text-sm font-medium rounded-full">
             Total:{summaryStatusPartner?.total ?? 0}
           </span>
         </div>
@@ -357,7 +356,7 @@ const Partners: React.FC = () => {
           <table className="w-full text-sm text-gray-700">
             <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
               <tr className="hover:bg-blue-100/70 transition">
-                <th className="px-6 py-3 text-left w-[30%]">Company</th>
+                <th className="px-6 py-3 text-center w-[20%]">Company</th>
                 <th className="px-6 py-3 text-center w-[15%]">Owner</th>
                 <th className="px-6 py-3 text-center w-[10%]">Status</th>
                 <th className="px-6 py-3 text-center w-[10%]">Since</th>
@@ -383,7 +382,12 @@ const Partners: React.FC = () => {
                 partners.map((p, i) => (
                   <tr
                     key={i}
-                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center"
+                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center cursor-pointer"
+                    onClick={() =>
+                      navigate(`/company/partners/${p.companyInfo?.id}`, {
+                        state: { companyId, partnerId: p.id },
+                      })
+                    }
                   >
                     {/* Cột Company vẫn giữ text-left để hình và tên công ty hiển thị đẹp */}
                     <td className="px-6 py-4 flex items-center gap-3 text-left">
