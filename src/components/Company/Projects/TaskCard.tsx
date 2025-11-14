@@ -282,14 +282,7 @@ export default function TaskCard({
             <Check className="w-3 h-3" /> Mark done
           </button>
         )}
-        {!isDone && (
-          <button
-            className="text-xs px-2 py-1 rounded-lg border hover:bg-blue-50 border-blue-300 text-blue-700 flex items-center gap-1"
-            onClick={() => onNext(t)}
-          >
-            <MoveRight className="w-3 h-3" /> Next
-          </button>
-        )}
+       
         <button
           className="text-xs px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
           onClick={() => onSplit(t)}
