@@ -84,7 +84,7 @@ const updatedAt = api.updateAt ?? api.updatedAt ?? createdAt;
         workflowStatusId: api.currentStatusId ?? stId,
         statusCode: api.status ?? (meta?.code ?? ""),
         statusCategory: sprint.statusMeta[stId]?.category ?? "TODO",
-
+        StatusName: sprint.statusMeta[stId]?.name ?? "",
         // các field FE yêu cầu phải có để khỏi lỗi TS
         assignees: [],
         dependsOn: [],

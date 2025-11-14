@@ -1,4 +1,5 @@
 import { axiosInstance } from '../apiConfig';
+import { flashTaskCard, hexToRgba } from '@/utils/flash'; 
 
 export const getAllTask = async ({
   pageNumber = 1,
@@ -98,6 +99,66 @@ export const deleteTask = async (id) => {
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';
     throw new Error(message);
+  }
+};
+export const patchTaskStatusById = async (taskId, statusId, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.patch(`/tasks/${taskId}/status-id`, { statusId });
+    // ResponseModel => lấy data
+    const dto = res?.data?.data ?? res?.data;
+    // Flash tại DOM card
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Change status failed');
+  }
+};
+
+export const putReorderTask = async (projectId, sprintId, { taskId, toStatusId, toIndex }, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.put(`/projects/${projectId}/sprints/${sprintId}/tasks/reorder`, {
+      taskId, toStatusId, toIndex,
+    });
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Reorder failed');
+  }
+};
+
+export const postMoveTask = async (taskId, toSprintId, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.post(`/tasks/${taskId}/move`, { toSprintId });
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Move to sprint failed');
+  }
+};
+
+export const postTaskMarkDone = async (taskId, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.post(`/tasks/${taskId}/mark-done`);
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Mark done failed');
+  }
+};
+
+export const postTaskSplit = async (taskId, { flashColorHexA, flashColorHexB } = {}) => {
+  try {
+    const res = await axiosInstance.post(`/tasks/${taskId}/split`);
+    const dto = res?.data?.data ?? res?.data; // { partA, partB }
+    // Flash cho cả A (update) và B (new)
+    if (dto?.partA?.id) flashTaskCard(dto.partA.id, { colorHex: flashColorHexA });
+    if (dto?.partB?.id) flashTaskCard(dto.partB.id, { colorHex: flashColorHexB ?? flashColorHexA });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Split failed');
   }
 };
 export const createTaskQuick = async (

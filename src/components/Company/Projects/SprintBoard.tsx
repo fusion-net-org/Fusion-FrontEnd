@@ -15,7 +15,6 @@ import {
 } from "recharts";
 import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
-import QuickTaskCreateCard from "../Task/QuickTaskCreateCard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 
 type Id = string;
@@ -429,7 +428,7 @@ useEffect(() => {
             }
           >
            
-            <Droppable droppableId={`col:${activeSprint.id}:${statusId} `} type="task">
+            <Droppable droppableId={`col:${activeSprint.id}:${statusId}`} type="task">
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}
