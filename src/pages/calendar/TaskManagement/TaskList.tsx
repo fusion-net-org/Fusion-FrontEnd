@@ -138,9 +138,9 @@ const TaskList: React.FC<TaskListProps> = ({
         <Tooltip title="View detail">
           <Button size="small" icon={<EyeOutlined />} onClick={() => onViewDetail?.(task)} />
         </Tooltip>
-        <Tooltip title="Edit task">
+        {/* <Tooltip title="Edit task">
           <Button size="small" icon={<EditOutlined />} onClick={() => onEdit?.(task)} />
-        </Tooltip>
+        </Tooltip> */}
         <Tooltip title="Delete task">
           <Button
             size="small"

@@ -61,7 +61,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       footer={
         <Space>
           <Button onClick={onClose}>Close</Button>
-          {onEdit && (
+          {/* {onEdit && (
             <Button
               type="default"
               icon={<EditOutlined />}
@@ -72,7 +72,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             >
               Edit
             </Button>
-          )}
+          )} */}
           {onDelete && (
             <Button
               danger

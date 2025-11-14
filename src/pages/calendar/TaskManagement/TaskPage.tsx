@@ -91,9 +91,9 @@ const TaskPage: React.FC = () => {
             {sortDescending ? '↓ Desc' : '↑ Asc'}
           </Button>
 
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+          {/* <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             New Task
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -128,7 +128,7 @@ const TaskPage: React.FC = () => {
         open={openModal}
         onCancel={() => setOpenModal(false)}
         onSubmit={handleSubmit}
-        task={editingTask}
+        //task={editingTask}
       />
     </div>
   );
