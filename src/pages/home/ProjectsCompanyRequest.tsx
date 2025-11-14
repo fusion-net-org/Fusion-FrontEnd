@@ -25,11 +25,14 @@ import type { IProjectMemberV2 } from '@/interfaces/ProjectMember/projectMember'
 import type { ITicket } from '@/interfaces/Ticket/Ticket';
 import { getProjectMemberByProjectId } from '@/services/projectMember.js';
 import { GetTicketByProjectId } from '@/services/TicketService.js';
+import { getSprintByProjectId } from '@/services/sprintService.js';
+import type { ISprintResponse } from '@/interfaces/Sprint/sprint';
 
 const ProjectCompanyRequest = () => {
   const rowsPerPage = 10;
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
+  const [sprints, setSprints] = useState<ISprintResponse>();
   const [projectMembers, setProjectMembers] = useState<IProjectMemberV2>();
   const [projectTickets, setProjectTickets] = useState<{ items: ITicket[]; totalCount: number }>({
     items: [],
@@ -38,30 +41,6 @@ const ProjectCompanyRequest = () => {
   const [activeTab, setActiveTab] = useState<'members' | 'tickets' | 'sprints'>('members');
   const [refreshChartKey, setRefreshChartKey] = useState(0);
 
-  const tasksPerSprint = {
-    'Sprint 1': [
-      { id: '1', title: 'Fix Login Bug', assignee: 'Tran Thi B', status: 'Done' },
-      { id: '2', title: 'Update Dashboard UI', assignee: 'Nguyen Van A', status: 'In Progress' },
-    ],
-    'Sprint 2': [
-      { id: '3', title: 'Optimize API Performance', assignee: 'Le Van C', status: 'To Do' },
-      {
-        id: '4',
-        title: 'Refactor Notification Service',
-        assignee: 'Nguyen Van A',
-        status: 'In Review',
-      },
-    ],
-    'Sprint 3': [{ id: '5', title: 'Add Export Feature', assignee: 'Tran Thi B', status: 'Done' }],
-    'Sprint 4': [],
-  };
-
-  const sprintData = [
-    { name: 'Sprint 1', done: 10, total: 12 },
-    { name: 'Sprint 2', done: 8, total: 10 },
-    { name: 'Sprint 3', done: 6, total: 9 },
-    { name: 'Sprint 4', done: 3, total: 10 },
-  ];
   const handleTicketCreated = () => {
     setRefreshChartKey((prev) => prev + 1);
   };
@@ -82,7 +61,6 @@ const ProjectCompanyRequest = () => {
     const fetchMembersCount = async () => {
       try {
         const res = await getProjectMemberByProjectId(projectId, '', '', '', 1, 1000);
-        console.log('data mêmbr', res.data);
 
         if (res?.succeeded) setProjectMembers(res.data);
       } catch (error) {
@@ -114,8 +92,18 @@ const ProjectCompanyRequest = () => {
         console.log(error);
       }
     };
+    const fetchSprints = async () => {
+      if (!projectId) return;
+      try {
+        const response = await getSprintByProjectId(projectId);
+        setSprints(response.data);
+      } catch (error) {
+        console.error('Failed to fetch sprints:', error);
+      }
+    };
 
     fetchProject();
+    fetchSprints();
     fetchMembersCount();
     fetchTicketsCount();
   }, [projectId]);
@@ -283,7 +271,7 @@ const ProjectCompanyRequest = () => {
       ${activeTab === 'sprints' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'}
     `}
             >
-              4
+              {sprints?.totalCount}
             </span>
             {activeTab === 'sprints' && (
               <div className="absolute bottom-[-9px] left-0 right-0 h-[3px] bg-indigo-500 rounded-full scale-100 transition" />
@@ -307,9 +295,7 @@ const ProjectCompanyRequest = () => {
           </div>
         )}
 
-        {activeTab === 'sprints' && (
-          <SprintTab tasksPerSprint={tasksPerSprint} sprintData={sprintData} />
-        )}
+        {activeTab === 'sprints' && <SprintTab />}
       </div>
     </div>
   );

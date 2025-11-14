@@ -169,15 +169,15 @@ export const createTaskQuick = async (
     type = 'Feature',
     priority = 'Medium',
     severity = null,
-    storyPoints = null,      // map -> point
+    storyPoints = null, // map -> point
     estimateHours = null,
-    dueDate = null,          // ISO string hoặc null
+    dueDate = null, // ISO string hoặc null
     workflowStatusId = null, // ưu tiên id
-    statusCode = null,       // fallback nếu chỉ có code
+    statusCode = null, // fallback nếu chỉ có code
     parentTaskId = null,
     sourceTaskId = null,
-    assigneeIds = null,      // optional: array<Guid>
-  } = {}
+    assigneeIds = null, // optional: array<Guid>
+  } = {},
 ) => {
   try {
     const payload = {
@@ -194,9 +194,7 @@ export const createTaskQuick = async (
       statusCode,
       parentTaskId,
       sourceTaskId,
-      ...(Array.isArray(assigneeIds) && assigneeIds.length
-        ? { assigneeIds }
-        : {}),
+      ...(Array.isArray(assigneeIds) && assigneeIds.length ? { assigneeIds } : {}),
     };
 
     const res = await axiosInstance.post('/tasks', payload);
@@ -205,5 +203,38 @@ export const createTaskQuick = async (
   } catch (error) {
     const message = error?.response?.data?.message || 'Create task failed';
     throw new Error(message);
+  }
+};
+
+export const GetTaskBySprintId = async (
+  sprintId,
+  Title = '',
+  Status = '',
+  Priority = '',
+  CreatedFrom = '',
+  CreatedTo = '',
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn = '',
+  SortDescending = null,
+) => {
+  try {
+    const response = await axiosInstance.get(`/sprints/${sprintId}/tasks`, {
+      params: {
+        Title,
+        Status,
+        Priority,
+        CreatedFrom,
+        CreatedTo,
+        PageNumber,
+        PageSize,
+        SortColumn,
+        SortDescending,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error in GetTaskBySprintId:', error);
+    throw new Error(error.response?.data?.message || 'Fail!');
   }
 };
