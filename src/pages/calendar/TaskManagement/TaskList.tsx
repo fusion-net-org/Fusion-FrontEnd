@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Col, Row, Tag, Spin, Button, Tooltip, Empty, Modal } from 'antd';
+import { Card, Col, Row, Tag, Spin, Button, Tooltip, Empty, Modal, Pagination } from 'antd';
 import {
   ExclamationCircleOutlined,
   SyncOutlined,
@@ -41,6 +41,10 @@ type TaskListProps = {
   onViewDetail?: (task: Task) => void;
   sortColumn?: string;
   sortDescending?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+  total?: number;
+  onPageChange?: (page: number, pageSize?: number) => void;
 };
 
 const TaskList: React.FC<TaskListProps> = ({
@@ -49,9 +53,13 @@ const TaskList: React.FC<TaskListProps> = ({
   onViewDetail,
   sortColumn,
   sortDescending,
+  onPageChange,
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     fetchTasks();
@@ -61,8 +69,8 @@ const TaskList: React.FC<TaskListProps> = ({
     setLoading(true);
     try {
       const res = await getAllTask({
-        pageNumber: 1,
-        pageSize: 50,
+        pageNumber,
+        pageSize,
         sortColumn,
         sortDescending,
       });
@@ -71,6 +79,7 @@ const TaskList: React.FC<TaskListProps> = ({
         const payload = res.data ?? res;
         const items = Array.isArray(payload) ? payload : payload.items ?? [];
         setTasks(items);
+        setTotal(payload.totalCount || items.length);
       }
     } catch (error) {
       toast.error('Failed to load tasks');
@@ -78,6 +87,11 @@ const TaskList: React.FC<TaskListProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number, size?: number) => {
+    setPageNumber(page);
+    if (size) setPageSize(size);
   };
 
   const handleDelete = (task: Task) => {
@@ -99,56 +113,53 @@ const TaskList: React.FC<TaskListProps> = ({
 
   const renderCard = (task: Task) => (
     <Card
-      key={task.id || task._id}
-      hoverable
+      key={task.id}
       style={{
-        marginBottom: 16,
-        borderRadius: 12,
-        border: '1px solid #f0f0f0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        marginBottom: 8,
+        borderRadius: 10,
+        border: '1px solid #e5e5e5',
+        padding: 0,
       }}
+      bodyStyle={{ padding: '10px 14px' }}
     >
-      {/* Header */}
-      <div className="flex justify-between items-start mb-2">
-        <div className="font-medium text-base">{task.title}</div>
-        <Tag color={priorityColors[task.priority || 'Low']}>{task.priority}</Tag>
-      </div>
+      <div className="flex items-center text-sm">
+        <div className="w-[8%]">{typeIcons[task.type || 'Task']}</div>
 
-      {/* Type and Story Point */}
-      <div className="flex items-center gap-2 mb-2 text-sm text-gray-500">
-        <Tooltip title={task.type}>{typeIcons[task.type || 'Task']}</Tooltip>
-        <span>{task.point ?? 0} pts</span>
-      </div>
+        <div className="w-[28%] font-medium truncate">{task.title}</div>
 
-      {/* Due Date */}
-      <div className="flex justify-between items-center text-sm text-gray-500">
-        <div>
-          <ClockCircleOutlined />{' '}
-          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : 'No due date'}
+        <div className="w-[14%]">
+          <Tag
+            color={
+              task.status === 'Done' ? 'green' : task.status === 'In Progress' ? 'blue' : 'default'
+            }
+          >
+            {task.status}
+          </Tag>
         </div>
-        {task.status === 'Done' ? (
-          <CheckCircleOutlined style={{ color: statusColor['Done'], fontSize: 18 }} />
-        ) : (
-          <SyncOutlined spin style={{ color: statusColor['In Progress'], fontSize: 18 }} />
-        )}
-      </div>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 mt-3">
-        <Tooltip title="View detail">
-          <Button size="small" icon={<EyeOutlined />} onClick={() => onViewDetail?.(task)} />
-        </Tooltip>
-        {/* <Tooltip title="Edit task">
-          <Button size="small" icon={<EditOutlined />} onClick={() => onEdit?.(task)} />
-        </Tooltip> */}
-        <Tooltip title="Delete task">
-          <Button
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(task)}
-          />
-        </Tooltip>
+        <div className="w-[15%] flex items-center gap-1 text-gray-600">
+          <ClockCircleOutlined />
+          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '—'}
+        </div>
+
+        <div className="w-[10%]">
+          <Tag color={priorityColors[task.priority || 'Low']}>{task.priority}</Tag>
+        </div>
+
+        <div className="w-[15%] flex justify-end gap-2">
+          <Tooltip title="View detail">
+            <Button size="small" icon={<EyeOutlined />} onClick={() => onViewDetail?.(task)} />
+          </Tooltip>
+
+          <Tooltip title="Delete">
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(task)}
+            />
+          </Tooltip>
+        </div>
       </div>
     </Card>
   );
@@ -163,34 +174,41 @@ const TaskList: React.FC<TaskListProps> = ({
 
   return (
     <div className="p-4">
-      <Row gutter={[24, 24]}>
-        {/* In Progress Column */}
-        <Col xs={24} md={12}>
-          <h3 className="font-semibold text-lg mb-3 flex items-center">
-            <SyncOutlined className="mr-2 text-blue-500" spin /> In Progress
-          </h3>
-          {inProgressTasks.length > 0 ? (
-            inProgressTasks.map(renderCard)
-          ) : (
-            <Empty
-              description="Không có task nào đang thực hiện"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          )}
-        </Col>
-
-        {/* Done Column */}
-        <Col xs={24} md={12}>
-          <h3 className="font-semibold text-lg mb-3 flex items-center">
-            <CheckCircleOutlined className="mr-2 text-green-500" /> Done
-          </h3>
-          {doneTasks.length > 0 ? (
-            doneTasks.map(renderCard)
-          ) : (
-            <Empty description="Chưa có task hoàn thành" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          )}
-        </Col>
-      </Row>
+      <Card
+        style={{
+          borderRadius: 10,
+          border: '1px solid #e5e5e5',
+          marginBottom: 10,
+          background: '#fafafa',
+        }}
+        bodyStyle={{ padding: '10px 14px' }}
+      >
+        <div className="flex font-semibold text-gray-600">
+          <div className="w-[8%]">Type</div>
+          <div className="w-[28%]">Title</div>
+          <div className="w-[14%]">Status</div>
+          <div className="w-[15%]">Due date</div>
+          <div className="w-[10%]">Priority</div>
+          <div className="w-[15%] text-right">Actions</div>
+        </div>
+      </Card>
+      {tasks.length > 0 ? (
+        tasks.map(renderCard)
+      ) : (
+        <Empty description="Không có task nào" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      )}
+      {total && total > pageSize && (
+        <div className="flex justify-center mt-4">
+          <Pagination
+            current={pageNumber}
+            pageSize={pageSize}
+            total={total}
+            onChange={onPageChange}
+            showSizeChanger
+            pageSizeOptions={['5', '10', '20', '50']}
+          />
+        </div>
+      )}
     </div>
   );
 };

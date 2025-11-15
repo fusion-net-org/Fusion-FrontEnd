@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, SyncOutlined } from '@ant-design/icons';
 import { toast } from 'react-toastify';
 import TaskList from './TaskList';
 import TaskFormModal from './TaskFormModal';
 import { deleteTask, postTask, putTask } from '@/services/taskService.js';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import TaskDetailModal from './TaskDetailModal';
 import type { Task } from '@/interfaces/Task/task';
 
@@ -71,7 +71,10 @@ const TaskPage: React.FC = () => {
   return (
     <div className="rounded-xl bg-white ring-1 ring-gray-200 p-6 text-gray-600">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-700">Task Management</h2>
+        <div className="flex items-center gap-2">
+          <SyncOutlined className="text-blue-500" spin />
+          <h2 className="text-lg font-semibold text-gray-700 m-0">Tasks</h2>
+        </div>
 
         {/* SORT CONTROL */}
         <div className="flex items-center gap-2">
@@ -87,8 +90,16 @@ const TaskPage: React.FC = () => {
             <ChevronDown className="absolute right-2 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
 
-          <Button size="small" onClick={toggleSortOrder} className="border-gray-300">
-            {sortDescending ? '↓ Desc' : '↑ Asc'}
+          <Button
+            size="small"
+            onClick={toggleSortOrder}
+            className="!flex !items-center !justify-center !w-9 !h-9 !border-gray-300 hover:!border-gray-400 hover:!bg-gray-50 rounded-lg"
+          >
+            {sortDescending ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronUp className="w-4 h-4" />
+            )}
           </Button>
 
           {/* <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
