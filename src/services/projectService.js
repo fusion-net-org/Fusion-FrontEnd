@@ -222,7 +222,7 @@ export async function createProject(payload) {
     status,
     startDate, // 'yyyy-MM-dd'
     endDate, // 'yyyy-MM-dd'
-    sprintLengthWeeks, // int >= 1 (bỏ nếu BE không dùng)
+    sprintLengthWeeks, 
     workflowId, // GUID
     memberIds,
   } = payload;
