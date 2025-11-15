@@ -81,12 +81,20 @@ const flattenSprintTasks = (
 ): TaskVm[] => {
   const order = s.statusOrder ?? Object.keys(s.columns ?? {});
   const out: TaskVm[] = [];
+
   for (const stId of order) {
     const arr = (s.columns?.[stId] as TaskVm[]) ?? [];
+
+    // ✨ Gắn workflowStatusId tương ứng cột cho từng task (clone object, không mutate)
+    const withStatus = arr.map((t) => ({
+      ...t,
+      workflowStatusId: t.workflowStatusId ?? stId,
+    }));
+
     out.push(
       ...(filter === "ALL"
-        ? arr
-        : arr.filter((t) => t.statusCategory === filter)),
+        ? withStatus
+        : withStatus.filter((t) => t.statusCategory === filter)),
     );
   }
   return out;
@@ -185,6 +193,7 @@ export default function KanbanBySprintBoard({
               {sprints.map((s) => {
                 const tasks = flattenSprintTasks(s, filterCategory);
                 const stats = computeSprintStats(s, filterCategory);
+
                 return (
                   <div key={s.id} className={`shrink-0 h-full ${COL_W} relative`}>
                     <BoardColumn
@@ -204,6 +213,8 @@ export default function KanbanBySprintBoard({
                         type="task"
                         renderClone={(provided, snapshot, rubric) => {
                           const t = tasks[rubric.source.index];
+                          const meta = s.statusMeta?.[t.workflowStatusId ?? ""];
+
                           return createPortal(
                             <div
                               ref={provided.innerRef}
@@ -232,6 +243,9 @@ export default function KanbanBySprintBoard({
                                 onMoveNext={_onMoveNext}
                                 onOpenTicket={onOpenTicket}
                                 isNew={t.id === flashTaskId}
+                                // ★ status chỉ ở Kanban
+                                statusColorHex={meta?.color}
+                                statusLabel={meta?.name ?? meta?.code ?? ""}
                               />
                             </div>,
                             document.body,
@@ -256,7 +270,10 @@ export default function KanbanBySprintBoard({
                             {/* Quick create; set flashTaskId khi tạo */}
                             <ColumnHoverCreate
                               sprint={s}
-                              statusId={s.statusOrder?.[0] ?? Object.keys(s.columns ?? {})[0]}
+                              statusId={
+                                s.statusOrder?.[0] ??
+                                Object.keys(s.columns ?? {})[0]
+                              }
                               allowStatusPicker
                               onCreatedVM={(vm) => setFlashTaskId(vm.id)}
                             />
@@ -270,6 +287,11 @@ export default function KanbanBySprintBoard({
                                         x.sourceTicketId === task.sourceTicketId,
                                     ).length
                                   : 0;
+
+                                const meta = s.statusMeta?.[
+                                  task.workflowStatusId ?? ""
+                                ];
+
                                 return (
                                   <Draggable
                                     key={task.id}
@@ -285,7 +307,9 @@ export default function KanbanBySprintBoard({
                                           ...drag.draggableProps.style,
                                           zIndex: snap.isDragging ? 9999 : undefined,
                                         }}
-                                        className={snap.isDragging ? "rotate-[0.5deg]" : ""}
+                                        className={
+                                          snap.isDragging ? "rotate-[0.5deg]" : ""
+                                        }
                                       >
                                         <TaskCard
                                           t={task}
@@ -296,6 +320,9 @@ export default function KanbanBySprintBoard({
                                           onMoveNext={_onMoveNext}
                                           onOpenTicket={onOpenTicket}
                                           isNew={task.id === flashTaskId}
+                                          // ★ status chỉ ở Kanban
+                                          statusColorHex={meta?.color}
+                                          statusLabel={meta?.name ?? meta?.code ?? ""}
                                         />
                                       </div>
                                     )}
