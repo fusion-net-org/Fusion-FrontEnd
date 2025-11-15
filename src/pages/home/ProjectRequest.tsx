@@ -18,8 +18,14 @@ import { AcceptProjectRequest, RejectProjectRequest } from '@/services/projectRe
 import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import { useNavigate } from 'react-router-dom';
+import ContractModal from '@/components/ProjectRequest/ContractModal';
+import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
 const { RangePicker } = DatePicker;
-
+interface ContractNextData {
+  contractId: string;
+  effectiveDate: string;
+  expiredDate: string;
+}
 const ProjectRequestPage: React.FC = () => {
   const navigate = useNavigate();
   const { companyId } = useParams();
@@ -34,11 +40,17 @@ const ProjectRequestPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [viewMode, setViewMode] = useState<'AsRequester' | 'AsExecutor'>('AsRequester');
-  console.log(data);
   //open popup
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [modalOpenInviteProjectRequest, setModalOpenInviteProjectRequest] = useState(false);
+  //contract
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractData, setContractData] = useState<ContractNextData>();
+
+  //contract side executor
+  const [contractDetailModalOpen, setContractDetailModalOpen] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
 
   //handing open
   const openRejectModal = (id: string) => {
@@ -46,8 +58,14 @@ const ProjectRequestPage: React.FC = () => {
     setRejectModalOpen(true);
   };
   //popup invite
-  const handleNewClick = () => setModalOpenInviteProjectRequest(true);
-
+  // const handleNewClick = () => setModalOpenInviteProjectRequest(true);
+  const handleNewClick = () => setContractModalOpen(true);
+  const handleContractNext = (data: any) => {
+    setContractData(data);
+    setContractModalOpen(false);
+    setModalOpenInviteProjectRequest(true);
+  };
+  console.log('selectedContractId', selectedContractId);
   const handleClose = () => setModalOpenInviteProjectRequest(false);
 
   //handing accept and reject for company executor
@@ -67,23 +85,10 @@ const ProjectRequestPage: React.FC = () => {
       setAcceptingId(null);
     }
   };
-
-  const handleReject = async (id: string) => {
-    const reason = prompt('Enter reason:');
-    if (!reason) {
-      toast.info('Please enter reason!');
-      return;
-    }
-
-    const res = await RejectProjectRequest(id, reason);
-    if (res.succeeded) {
-      toast.success('Request rejected successfully!');
-      fetchData();
-    } else {
-      toast.error(res.message || 'Failed to reject request');
-    }
+  const handleAcceptClick = (contractId: string) => {
+    setSelectedContractId(contractId);
+    setContractDetailModalOpen(true);
   };
-
   const fetchData = async (
     companyIdParam = companyId,
     searchParam = searchTerm,
@@ -133,7 +138,6 @@ const ProjectRequestPage: React.FC = () => {
       debouncedFetch.cancel();
     };
   }, [searchTerm, debouncedFetch]);
-  console.log('🔄 Fetching with ViewMode:', viewMode);
 
   useEffect(() => {
     fetchData();
@@ -342,17 +346,6 @@ const ProjectRequestPage: React.FC = () => {
                     {/* Requester Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* {item.requesterCompanyLogoUrl ? (
-                          <img
-                            src={item.requesterCompanyLogoUrl}
-                            alt="Requester Logo"
-                            className="w-7 h-7 rounded-full object-cover border"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                            N
-                          </div>
-                        )} */}
                         <span>{item.requesterCompanyName}</span>
                       </div>
                     </td>
@@ -360,17 +353,6 @@ const ProjectRequestPage: React.FC = () => {
                     {/* Executor Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* {item.executorCompanyLogoUrl ? (
-                          <img
-                            src={item.executorCompanyLogoUrl}
-                            alt="Executor Logo"
-                            className="w-7 h-7 rounded-full object-cover border"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                            N
-                          </div>
-                        )} */}
                         <span>{item.executorCompanyName}</span>
                       </div>
                     </td>
@@ -405,7 +387,8 @@ const ProjectRequestPage: React.FC = () => {
                         {item.status === 'Pending' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleAccept(item.id)}
+                              // onClick={() => handleAccept(item.id)}
+                              onClick={() => handleAcceptClick(item.contractId)}
                               disabled={acceptingId === item.id}
                               className={`flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-lg transition min-w-[90px]
                                 ${
@@ -532,15 +515,29 @@ const ProjectRequestPage: React.FC = () => {
         projectId={selectedProjectId}
         onSuccess={fetchData}
       />
+      <ContractModal
+        open={contractModalOpen}
+        onClose={() => setContractModalOpen(false)}
+        onNext={handleContractNext}
+      />
+
       <InviteProjectRequestModal
         open={modalOpenInviteProjectRequest}
         onClose={handleClose}
         requesterCompanyId={companyId || ''}
         executorCompanyId=""
+        contractId={contractData?.contractId}
+        effectiveDate={contractData?.effectiveDate}
+        expiredDate={contractData?.expiredDate}
         onSuccess={() => {
           fetchData();
           setRejectModalOpen(false);
         }}
+      />
+      <ContractModalDetail
+        open={contractDetailModalOpen}
+        contractId={selectedContractId || ''}
+        onClose={() => setContractDetailModalOpen(false)}
       />
     </div>
   );
