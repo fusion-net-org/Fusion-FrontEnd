@@ -14,11 +14,11 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { mapTasksToEvents } from './event-utils';
-import TaskPage from './TaskManagement/TaskPage';
+import TaskPage from '../TaskManagement/TaskPage';
 import { toast } from 'react-toastify';
-import TaskFormModal from './TaskManagement/TaskFormModal';
+import TaskFormModal from '../TaskManagement/TaskFormModal';
 import { getAllTask, postTask, putTask, getTaskById } from '@/services/taskService.js';
-import TaskDetailModal from './TaskManagement/TaskDetailModal';
+import TaskDetailModal from '../TaskManagement/TaskDetailModal';
 import '@/pages/calendar/css/calendar.css';
 
 const menuItems = [
@@ -248,7 +248,25 @@ const Calendar: React.FC = () => {
                 events={events}
                 eventContent={EventPill}
                 datesSet={(arg) => setTitle(arg.view.title)}
-                eventDidMount={(info) => {}}
+                eventDidMount={(info) => {
+                  const el = info.el;
+                  el.classList.add(
+                    'transition-all',
+                    'duration-150',
+                    'ease-in-out',
+                    'cursor-pointer',
+                  );
+                  el.addEventListener('mouseenter', () => {
+                    el.style.transform = 'scale(1.03)';
+                    el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                    el.style.zIndex = '10';
+                  });
+                  el.addEventListener('mouseleave', () => {
+                    el.style.transform = '';
+                    el.style.boxShadow = '';
+                    el.style.zIndex = '';
+                  });
+                }}
                 eventClick={async (info) => {
                   const taskId = info.event.id;
 

@@ -10,7 +10,7 @@ import {
   DeleteOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import { formatDate } from '@/pages/calendar/event-utils';
+import { formatDate } from '@/pages/calendar/calendarManagement/event-utils';
 
 interface TaskDetailModalProps {
   open: boolean;
