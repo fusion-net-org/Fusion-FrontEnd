@@ -49,3 +49,13 @@ export const getCompanyStatusCounts = async () => {
     throw new Error(message);
   }
 };
+
+export const getUserStatusCounts = async () => {
+  try {
+    const response = await axiosInstance.put(`/User/count-status-user`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};

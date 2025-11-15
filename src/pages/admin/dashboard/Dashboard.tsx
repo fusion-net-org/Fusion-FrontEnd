@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { MoreVertical, Plus } from 'lucide-react';
 import { PolarArea } from 'react-chartjs-2';
@@ -14,7 +14,7 @@ import icTotalCompany from '@/assets/admin/ic_total_company.png';
 import icTotalPj from '@/assets/admin/ic_total_pj.png';
 import icTotalRevenue from '@/assets/admin/ic_total_revenue.png';
 import icTotalUser from '@/assets/admin/ic_total_user.png';
-
+import { getCompanyStatusCounts, getUserStatusCounts } from '@/services/adminDashboardService.js';
 ChartJS.register(ArcElement, ChartTooltip, Legend, RadialLinearScale);
 
 const Dashboard = () => {
@@ -22,11 +22,40 @@ const Dashboard = () => {
   const [transPage, setTransPage] = useState(1);
   const itemsPerPage = 5;
 
+  const [companyCounts, setCompanyCounts] = useState({ active: 0, inactive: 0, total: 0 });
+  const [userCounts, setUserCounts] = useState({ countTrue: 0, countFalse: 0 });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const companyRes = await getCompanyStatusCounts();
+        const userRes = await getUserStatusCounts();
+
+        setCompanyCounts(companyRes.data);
+        setUserCounts(userRes.data);
+      } catch (error) {
+        console.error('Dashboard API error:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const kpis = [
-    { title: 'Total Account', value: '3,050', subtitle: 'active daily login', img: icTotalAcc },
-    { title: 'Total Company', value: '150', subtitle: 'use services', img: icTotalCompany },
+    {
+      title: 'Total Account',
+      value: userCounts.countTrue + userCounts.countFalse,
+      subtitle: 'active daily login',
+      img: icTotalAcc,
+    },
+    {
+      title: 'Total Company',
+      value: companyCounts.total,
+      subtitle: 'use services',
+      img: icTotalCompany,
+    },
     { title: 'Total Projects', value: '17k', subtitle: 'created on platform', img: icTotalPj },
-    { title: 'Total Users', value: '9,453', subtitle: 'activated', img: icTotalUser },
+    //{ title: 'Total Users', value: '9,453', subtitle: 'activated', img: icTotalUser },
     { title: 'Total Revenue', value: '13,200', subtitle: 'units in stock', img: icTotalRevenue },
   ];
 
@@ -199,12 +228,6 @@ const Dashboard = () => {
               </div>
             </div>
           ))}
-          <div className="bg-blue-50 border border-blue-100 rounded-md p-5 flex flex-col items-center justify-center min-h-[148px]">
-            <button className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white mb-3 hover:bg-blue-600 transition-colors">
-              <Plus className="w-5 h-5" />
-            </button>
-            <p className="text-sm text-blue-600 font-medium">Add New KPI</p>
-          </div>
         </div>
 
         {/* Revenue Chart */}
