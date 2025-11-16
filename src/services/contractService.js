@@ -46,3 +46,27 @@ export const getContractById = async (contractId) => {
     throw new Error(error.response?.data?.message || 'Error fetching contract!');
   }
 };
+export const updateContract = async (contractId, data) => {
+  try {
+    const payload = {
+      contractCode: data.contractCode,
+      contractName: data.contractName,
+      budget: data.budget,
+      effectiveDate: data.effectiveDate,
+      expiredDate: data.expiredDate,
+      appendices: data.appendices.map((a) => ({
+        id: a.id || null,
+        title: a.title,
+        description: a.description,
+      })),
+    };
+
+    const response = await axiosInstance.put(`/contract/${contractId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error updating contract!');
+  }
+};

@@ -44,19 +44,20 @@ const ProjectCompanyRequest = () => {
   const handleTicketCreated = () => {
     setRefreshChartKey((prev) => prev + 1);
   };
-
   useEffect(() => {
     if (!projectId) return;
 
     const fetchProject = async () => {
       try {
         const res = await GetProjectByProjectId(projectId);
-        if (res?.succeeded) setProject(res.data);
+        console.log(res);
+        setProject(res);
       } catch (error) {
         console.log(error);
         toast.error('Failed to fetch project');
       }
     };
+    console.log('project dâta', project);
 
     const fetchMembersCount = async () => {
       try {

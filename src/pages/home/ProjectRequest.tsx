@@ -51,6 +51,7 @@ const ProjectRequestPage: React.FC = () => {
   //contract side executor
   const [contractDetailModalOpen, setContractDetailModalOpen] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [viewContractDetailModalOpen, setViewContractDetailModalOpen] = useState(false);
 
   //handing open
   const openRejectModal = (id: string) => {
@@ -65,30 +66,19 @@ const ProjectRequestPage: React.FC = () => {
     setContractModalOpen(false);
     setModalOpenInviteProjectRequest(true);
   };
-  console.log('selectedContractId', selectedContractId);
   const handleClose = () => setModalOpenInviteProjectRequest(false);
 
-  //handing accept and reject for company executor
-  const handleAccept = async (id: string) => {
-    setAcceptingId(id);
-    try {
-      const res = await AcceptProjectRequest(id);
-      if (res.succeeded) {
-        toast.success('Request accepted successfully!');
-        fetchData();
-      } else {
-        toast.error(res.message || 'Failed to accept request');
-      }
-    } catch (error) {
-      toast.error('Error while accepting request');
-    } finally {
-      setAcceptingId(null);
-    }
-  };
-  const handleAcceptClick = (contractId: string) => {
+  const handleAcceptClick = (contractId: string, projectRequestId: string) => {
     setSelectedContractId(contractId);
+    setSelectedProjectId(projectRequestId);
     setContractDetailModalOpen(true);
   };
+  const handleViewContractClick = (contractId: string, projectRequestId: string) => {
+    setSelectedContractId(contractId);
+    setSelectedProjectId(projectRequestId);
+    setViewContractDetailModalOpen(true);
+  };
+
   const fetchData = async (
     companyIdParam = companyId,
     searchParam = searchTerm,
@@ -295,38 +285,24 @@ const ProjectRequestPage: React.FC = () => {
             <option value="Finished">Finished</option>
           </select>
 
-          {/* <select
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={viewMode}
-            onChange={(e) => {
-              const value = e.target.value as 'AsRequester' | 'AsExecutor';
-              console.log('Change ViewMode:', value);
-              setViewMode(value);
-              setPageNumber(1);
-            }}
-          >
-            <option value="AsRequester">My Requests</option>
-            <option value="AsExecutor">Requests To Me</option>
-          </select> */}
-
           <span className="text-sm text-gray-500">{data.length} results</span>
         </div>
       </div>
 
       {/* TABLE */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-[1000px] w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 text-left">
             <tr>
-              {/* <th className="px-4 py-3 font-medium">Code</th> */}
               <th className="px-4 py-3 font-medium text-center">Name</th>
               <th className="px-4 py-3 font-medium text-center">Request Company</th>
               <th className="px-4 py-3 font-medium text-center">Executor Company</th>
               <th className="px-4 py-3 font-medium text-center">Status</th>
-              <th className="px-4 py-3 font-medium text-center">Start Date</th>
-              <th className="px-4 py-3 font-medium text-center">End Date</th>
+              {/* <th className="px-4 py-3 font-medium text-center">Start Date</th>
+              <th className="px-4 py-3 font-medium text-center">End Date</th> */}
               <th className="px-4 py-3 font-medium text-center">Have Project</th>
               <th className="px-4 py-3 font-medium text-center">Deleted</th>
+              <th className="px-4 py-3 font-medium text-center">Contract</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
               {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
               <th className="px-4 py-3 font-medium text-left">Detail</th>
@@ -358,12 +334,12 @@ const ProjectRequestPage: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-3 text-center">{getStatusBadge(item.status)}</td>
-                    <td className="px-4 py-3 text-gray-600 text-center">
+                    {/* <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.startDate).toLocaleDateString('vi-VN')}
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.endDate).toLocaleDateString('vi-VN')}
-                    </td>
+                    </td> */}
 
                     <td className="px-4 py-3 text-center">
                       {item.isHaveProject ? (
@@ -381,6 +357,18 @@ const ProjectRequestPage: React.FC = () => {
                         <span className="text-green-600 font-medium">No</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.contractId ? (
+                        <button
+                          onClick={() => handleViewContractClick(item.contractId, item.id)}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View Contract
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
 
                     {showActionColumn && item.executorCompanyId === companyId && (
                       <td className="px-4 py-3 text-center">
@@ -388,7 +376,7 @@ const ProjectRequestPage: React.FC = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               // onClick={() => handleAccept(item.id)}
-                              onClick={() => handleAcceptClick(item.contractId)}
+                              onClick={() => handleAcceptClick(item.contractId, item.id)}
                               disabled={acceptingId === item.id}
                               className={`flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-lg transition min-w-[90px]
                                 ${
@@ -469,7 +457,7 @@ const ProjectRequestPage: React.FC = () => {
                         className="w-5 h-5 text-gray-500 hover:text-blue-600 cursor-pointer"
                         onClick={() =>
                           navigate(`/company/${companyId}/project-request/${item.id}`, {
-                            state: { viewMode },
+                            state: { viewMode, contractId: item.contractId },
                           })
                         }
                       />
@@ -537,7 +525,19 @@ const ProjectRequestPage: React.FC = () => {
       <ContractModalDetail
         open={contractDetailModalOpen}
         contractId={selectedContractId || ''}
+        projectRequestId={selectedProjectId || ''}
         onClose={() => setContractDetailModalOpen(false)}
+        onAccepted={() => {
+          fetchData();
+        }}
+      />
+      <ContractModalDetail
+        open={viewContractDetailModalOpen}
+        contractId={selectedContractId || ''}
+        projectRequestId={selectedProjectId || ''}
+        onClose={() => setViewContractDetailModalOpen(false)}
+        isView={true}
+        viewMode={viewMode}
       />
     </div>
   );

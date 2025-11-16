@@ -34,6 +34,7 @@ export default function ProjectRequestDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const viewMode = (location.state as { viewMode?: string })?.viewMode ?? 'AsRequester';
+  const contractId = (location.state as { contractId?: string })?.contractId;
   const { companyId, id } = useParams<{ companyId: string; id: string }>();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedDeleteProjectId, setSelectedDeleteProjectId] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export default function ProjectRequestDetail() {
     setRejectModalOpen(true);
   };
   const isDeleted = projectRequest?.isDeleted ?? false;
-
+  console.log('contractId project request detail', contractId);
   const handleAccept = async () => {
     try {
       setAccepting(true);
@@ -69,7 +70,6 @@ export default function ProjectRequestDetail() {
       setAccepting(false);
     }
   };
-
   const handleRestore = async () => {
     try {
       setDeleting(true);
@@ -98,6 +98,7 @@ export default function ProjectRequestDetail() {
       setLoading(true);
       const projectRes = await GetProjectRequestById(id);
       const projectData = projectRes.data;
+      console.log(projectData);
       setProjectRequest(projectData);
 
       const [reqRes, exeRes] = await Promise.all([
@@ -278,7 +279,7 @@ export default function ProjectRequestDetail() {
                     />
                     <ActionButton
                       color="red"
-                      label="Decline"
+                      label="Reject Inviation"
                       icon={<XCircle />}
                       onClick={openRejectModal}
                       disabled={isDeleted}

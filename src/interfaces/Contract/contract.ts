@@ -2,6 +2,7 @@ export interface ContractAppendix {
   id: string;
   appendixName: string;
   appendixCode: string;
+  appendixDescription: string;
 }
 
 export interface ContractResponse {
