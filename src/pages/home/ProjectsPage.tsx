@@ -179,7 +179,7 @@ export default function ProjectsPage() {
   const openProject = (p: Project) => {
     setSelectedId(p.id);
     // Navigate directly to project (adjust route to your app)
-    nav(`/companies/${encodeURIComponent(p.ownerCompany)}/project/${p.id}`);
+    nav(`/companies/${companyId}/project/${p.id}`);
   };
 
   // Kanban groups

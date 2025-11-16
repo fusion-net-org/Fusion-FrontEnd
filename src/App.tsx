@@ -102,6 +102,8 @@ function App() {
           <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
 <Route path="/companies/:companyId/project/:projectId/task/:taskId" element={<TaskDetailPage />} />
+<Route path="/companies/:companyId/project/:projectId/detail" element={<ProjectDetailPage />} />
+
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
           {/* CREATE */}
