@@ -36,7 +36,7 @@ export const getAllTransactionForAdmin = async (filters = {}) => {
         Status: filters.status,
         PageNumber: filters.pageNumber || 1,
         PageSize: filters.pageSize || 10,
-        SortColumn: filters.sortColumn || 'PaymentDate',
+        SortColumn: filters.sortColumn || 'transactionDateTime',
         SortDescending: filters.sortDescending !== undefined ? filters.sortDescending : true,
       },
     });

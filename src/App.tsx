@@ -19,22 +19,14 @@ import PaymentFailed from './pages/subscription/PaymentFailPage';
 import UserProfile from './pages/userProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
-import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
-import Admin from './pages/admin/Admin';
 import AdminLayout from './layouts/Admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/dashboard/Dashboard';
-import AdminUsersPage from './pages/admin/userManagement/Users';
-import AdminSubscriptionsPage from './pages/admin/Subscriptions';
-import AdminCompaniesPage from './pages/admin/companyManagement/Companies';
-import SubscriptionPag from './pages/subscription/SubscriptionPage';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequireAuth from './components/RequireAuth/RequireAuth';
 import WorkflowPage from './pages/home/Workflow';
-import WorkflowCreatePage from './pages/home/Workflow';
 import WorkflowListPage from './pages/home/WorkflowListPage';
-import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
@@ -81,12 +73,10 @@ function App() {
 
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
-          <Route path="users" element={<AdminUsersPage />} />
-          <Route path="users/overview" element={<OverviewUserPage />} />
-          <Route path="users/list" element={<UserListPage />} />
+          <Route path="/admin/users/overview" element={<OverviewUserPage />} />
+          <Route path="/admin/users/list" element={<UserListPage />} />
           <Route path="/admin/users/detail/:id" element={<UserDetailPage />} />
           <Route path="/admin/users/detail" element={<UserDetailPage />} />
-          <Route path="/admin/companies" element={<AdminCompaniesPage />} />
           <Route path="/admin/companies/overview" element={<OverviewCompanyPage />} />
           <Route path="/admin/companies/list" element={<CompanyListPage />} />
           <Route path="/admin/companies/detail/:id" element={<CompanyDetailPage />} />

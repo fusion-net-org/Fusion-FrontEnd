@@ -59,3 +59,33 @@ export const getUserStatusCounts = async () => {
     throw new Error(message);
   }
 };
+
+export const getTotalsDashboard = async () => {
+  try {
+    const response = await axiosInstance.get(`/dashboard/totals`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
+
+export const getMonthlyStats = async () => {
+  try {
+    const response = await axiosInstance.get(`/dashboard/monthly-stats`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
+
+export const getPlanRate = async () => {
+  try {
+    const response = await axiosInstance.get(`/dashboard/plan-rate`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
