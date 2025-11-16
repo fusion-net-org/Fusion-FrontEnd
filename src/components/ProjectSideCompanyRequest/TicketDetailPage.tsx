@@ -132,7 +132,7 @@ const TicketDetailPage: React.FC = () => {
       try {
         setLoading(true);
         const data = await GetProjectByProjectId(ticket?.projectId ?? undefined);
-        setProject(data.data);
+        setProject(data);
       } catch (error) {
         console.error('Error fetching project:', error);
       } finally {
