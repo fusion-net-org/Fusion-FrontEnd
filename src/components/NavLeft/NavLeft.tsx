@@ -6,6 +6,7 @@ import {
   FileText,
   Settings,
   LogOut,
+  UserPlus,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -38,6 +39,7 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
 
   const menuItems: MenuItem[] = [
     { name: t('menu_item.company'), icon: LayoutDashboard, path: '/company' },
+    { name: t('menu_item.invitation'), icon: UserPlus, path: '/invitation' },
     { name: t('menu_item.analytics'), icon: BarChart2, path: '/analytics' },
     { name: t('menu_item.invoice'), icon: Ticket, path: '/invoice' },
     { name: t('menu_item.schedule'), icon: FileText, path: '/schedule' },
