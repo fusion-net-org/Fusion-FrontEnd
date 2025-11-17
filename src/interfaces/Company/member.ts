@@ -22,3 +22,38 @@ export interface CompanyMemberResponse {
   pageSize: number;
   totalCount: number;
 }
+
+export interface CompanyMemberItem {
+  id: number;
+  companyId: string;
+  companyName: string;
+  companyEmail: string;
+  companyOwner: string;
+  companyAvatar: string;
+  companyPhone: string;
+  companyAddress: string;
+  companyCreateAt: string;
+
+  userId: string;
+  memberJoinAt: string;
+  status: string;
+
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  userAvatar: string;
+}
+
+export interface CompanyMemberPagedData {
+  items: CompanyMemberItem[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+export interface CompanyMemberPagedResponse {
+  succeeded: boolean;
+  statusCode: number;
+  message: string;
+  data: CompanyMemberPagedData;
+}
