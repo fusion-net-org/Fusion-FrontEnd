@@ -25,9 +25,7 @@ import CompanyMember from './pages/home/CompanyMember';
 import Admin from './pages/admin/Admin';
 import AdminLayout from './layouts/Admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/dashboard/Dashboard';
-import AdminUsersPage from './pages/admin/userManagement/Users';
 import AdminSubscriptionsPage from './pages/admin/Subscriptions';
-import AdminCompaniesPage from './pages/admin/companyManagement/Companies';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
 import RequireAuth from './components/RequireAuth/RequireAuth';
@@ -62,7 +60,7 @@ import TransactionListPage from './pages/admin/transactionManagement/Transaction
 import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
 import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';
 import ProjectDetailAdminPage from './pages/admin/projectManagement/ProjectDetailAdminPage';
-import UserProfile from './pages/UserProfile/UserProfile';
+import UserProfile from './pages/userProfile/UserProfile';
 import FeatureListPage from './pages/admin/featureManagement/FeatureListPage';
 import CompanySubscriptionPage from './pages/home/CompanySubscriptionPage';
 
@@ -101,12 +99,10 @@ function App() {
 
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
-          <Route path="users" element={<AdminUsersPage />} />
-          <Route path="users/overview" element={<OverviewUserPage />} />
-          <Route path="users/list" element={<UserListPage />} />
+          <Route path="/admin/users/overview" element={<OverviewUserPage />} />
+          <Route path="/admin/users/list" element={<UserListPage />} />
           <Route path="/admin/users/detail/:id" element={<UserDetailPage />} />
           <Route path="/admin/users/detail" element={<UserDetailPage />} />
-          <Route path="/admin/companies" element={<AdminCompaniesPage />} />
           <Route path="/admin/companies/overview" element={<OverviewCompanyPage />} />
           <Route path="/admin/companies/list" element={<CompanyListPage />} />
           <Route path="/admin/companies/detail/:id" element={<CompanyDetailPage />} />
