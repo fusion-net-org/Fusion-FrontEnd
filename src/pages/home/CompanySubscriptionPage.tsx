@@ -1,363 +1,517 @@
-import React, { useEffect, useMemo, useState } from "react";
+// src/pages/home/CompanySubscriptionsPage.tsx
+import React from "react";
 import { useParams } from "react-router-dom";
+import { Search, Layers, Eye } from "lucide-react";
+import { Spin } from "antd";
+
 import {
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  ChevronRight as ArrowRight,
-} from "lucide-react";
-import StatusBadge from "@/components/MySubscription/StatusBadge";
-import {
-  type CompanySubscriptionListItem,
-  type CompanySubscriptionPaged,
-  type CompanySubscriptionQuery,
-  type SubscriptionStatus,
+  getCompanySubscriptionsByCompany,
+  getCompanySubscriptionDetail,
+} from "@/services/companysubscription.js";
+
+import type {
+  CompanySubscriptionListResponse,
+  CompanySubscriptionPagedResult,
+  CompanySubscriptionStatus,
+  CompanySubscriptionDetailResponse,
 } from "@/interfaces/CompanySubscription/CompanySubscription";
-import { getCompanySubscriptionsByCompany } from "@/services/companySubscription.js";
-import CompanySubscriptionDetailModal from "@/components/CompanySubscription/CompanySubscriptionDetailModal";
 
-/* ===== Helpers ===== */
-const formatDate = (iso?: string) =>
-  iso ? new Date(iso).toLocaleDateString("vi-VN") : "--";
+import CompanySubscriptionDetailModal from "@/pages/home/SubscriptionDetailModel";
 
-const CompanySubscriptionsPage: React.FC = () => {
-  const { companyId } = useParams<{ companyId: string }>();
+const cn = (...xs: Array<string | false | null | undefined>) =>
+  xs.filter(Boolean).join(" ");
 
-  /* Filters */
-  const [keyword, setKeyword] = useState("");
-  const [status, setStatus] = useState<SubscriptionStatus | "">("");
-  const [sortColumn, setSortColumn] =
-    useState<NonNullable<CompanySubscriptionQuery["SortColumn"]>>("expiredAt");
-  const [sortDesc, setSortDesc] = useState(true);
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("vi-VN");
+}
 
-  /* Paging */
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+function statusTagClass(status: CompanySubscriptionStatus | string) {
+  const s = (status || "").toLowerCase();
+  if (s.includes("active"))
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (s.includes("pending"))
+    return "bg-sky-50 text-sky-700 border-sky-200";
+  if (s.includes("expired") || s.includes("cancel"))
+    return "bg-rose-50 text-rose-700 border-rose-200";
+  return "bg-slate-50 text-slate-700 border-slate-200";
+}
 
-  /* Data */
-  const [items, setItems] = useState<CompanySubscriptionListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+const Chip: React.FC<
+  React.ComponentProps<"button"> & { active?: boolean }
+> = ({ active, className = "", ...rest }) => (
+  <button
+    {...rest}
+    className={[
+      "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition",
+      active
+        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
+      className,
+    ].join(" ")}
+  />
+);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / pageSize)),
-    [total, pageSize]
+type SortPreset = "newest" | "oldest" | "expiredSoon" | "status";
+
+export default function CompanySubscriptionsPage() {
+  const { companyId: routeCompanyId } = useParams<{ companyId: string }>();
+  const companyId =
+    routeCompanyId || localStorage.getItem("currentCompanyId") || undefined;
+
+  const [items, setItems] = React.useState<CompanySubscriptionListResponse[]>(
+    []
   );
+  const [total, setTotal] = React.useState(0);
+  const [page, setPage] = React.useState(1);
+  const pageSize = 8;
 
-  /* Detail modal */
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [filters, setFilters] = React.useState<{
+    q: string;
+    statuses: CompanySubscriptionStatus[];
+  }>({ q: "", statuses: [] });
+  const [applied, setApplied] = React.useState(filters);
+  const [sort, setSort] = React.useState<SortPreset>("newest");
+  const [loading, setLoading] = React.useState(false);
 
-  /* Fetch */
-  const fetchData = async () => {
+  // ===== DETAIL MODAL STATE =====
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [detailLoading, setDetailLoading] = React.useState(false);
+  const [detail, setDetail] =
+    React.useState<CompanySubscriptionDetailResponse | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
+
+  // summary nhỏ giống Partner page
+  const summary = React.useMemo(() => {
+    const active = items.filter((x) =>
+      (x.status || "").toLowerCase().includes("active")
+    ).length;
+    const pending = items.filter((x) =>
+      (x.status || "").toLowerCase().includes("pending")
+    ).length;
+    const expired = items.filter((x) =>
+      (x.status || "").toLowerCase().includes("expired")
+    ).length;
+    const cancelled = items.filter((x) =>
+      (x.status || "").toLowerCase().includes("cancel")
+    ).length;
+    return {
+      active,
+      pending,
+      expired,
+      cancelled,
+      total: total || items.length,
+    };
+  }, [items, total]);
+
+  const fetchData = React.useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
-    const q: CompanySubscriptionQuery = {
-      status: status || undefined,
-      Keyword: keyword || undefined,
-      PageNumber: page,
-      PageSize: pageSize,
-      SortColumn: sortColumn,
-      SortDescending: sortDesc,
-    };
     try {
-      const data: CompanySubscriptionPaged = await getCompanySubscriptionsByCompany(
-        companyId,
-        q
-      );
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setTotal(data?.totalCount ?? 0);
+      const params = {
+        keyword: applied.q || undefined,
+        status:
+          applied.statuses.length === 1 ? applied.statuses[0] : undefined,
+        pageNumber: page,
+        pageSize,
+        sortColumn:
+          sort === "status"
+            ? "status"
+            : sort === "expiredSoon"
+            ? "expiredAt"
+            : "createdAt",
+        sortDescending: sort === "newest", // newest desc, oldest asc
+      } as any;
+
+      const res: CompanySubscriptionPagedResult | null =
+        await getCompanySubscriptionsByCompany(companyId, params);
+
+      const list = res?.items ?? [];
+      setItems(list);
+      setTotal(res?.totalCount ?? list.length);
+    } catch (e) {
+      console.error("[CompanySubscriptions] load error:", e);
+      setItems([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [companyId, applied, page, pageSize, sort]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, page, pageSize, sortColumn, sortDesc]);
+  }, [fetchData]);
 
-  /* Handlers */
   const applyFilters = () => {
+    setApplied(filters);
     setPage(1);
-    fetchData();
   };
-  const clearFilters = () => {
-    setKeyword("");
-    setStatus("");
-    setSortColumn("expiredAt");
-    setSortDesc(true);
+
+  const resetFilters = () => {
+    const f = { q: "", statuses: [] as CompanySubscriptionStatus[] };
+    setFilters(f);
+    setApplied(f);
     setPage(1);
-    fetchData();
   };
-  const handleSort = (
-    key: NonNullable<CompanySubscriptionQuery["SortColumn"]>
-  ) => {
-    if (sortColumn === key) setSortDesc(!sortDesc);
-    else {
-      setSortColumn(key);
-      setSortDesc(false);
+
+  // ===== OPEN DETAIL (CALL API + SHOW MODAL) =====
+  const openDetail = async (s: CompanySubscriptionListResponse) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const res = await getCompanySubscriptionDetail(s.id);
+      setDetail(res);
+    } catch (e) {
+      console.error("[CompanySubscriptions] load detail error:", e);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
-  const SortMark: React.FC<{ active: boolean; desc: boolean }> = ({
-    active,
-    desc,
-  }) => (
-    <span
-      className={`ml-1 inline-block text-xs ${
-        active ? "text-slate-500" : "text-transparent"
-      }`}
-      aria-hidden
-    >
-      {desc ? "▼" : "▲"}
-    </span>
-  );
-
-  const openDetail = (id: string) => {
-    setDetailId(id);
-    setDetailOpen(true);
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setDetail(null);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="mb-4 text-2xl font-bold text-slate-900">
-          Company Subscriptions
-        </h1>
-
-        {/* Toolbar */}
-        <div className="mb-5 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            {/* Keyword */}
-            <div className="flex-1">
-              <label className="text-xs font-medium text-slate-600">
-                Keyword
-              </label>
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500">
-                <Search className="h-4 w-4 shrink-0 text-slate-500" />
-                <input
-                  className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Tìm theo tên subscription..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") applyFilters();
-                    if (e.key === "Escape") clearFilters();
-                  }}
-                />
-              </div>
+    <>
+      <div
+        className="mx-auto w-full max-w-[1300px] px-6 pt-6 pb-16"
+        style={{
+          backgroundImage:
+            "radial-gradient(900px 220px at 50% -70px, rgba(37,99,235,0.06), transparent 70%)",
+        }}
+      >
+        {/* HEADER BANNER */}
+        <div className="mb-5 flex items-center justify-between rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-500 px-7 py-5 text-white shadow-[0_18px_45px_rgba(37,99,235,0.35)]">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
+              <Layers className="h-6 w-6 text-white" />
             </div>
-
-            {/* Filters */}
-            <div className="flex flex-col gap-2 md:flex-row md:items-end">
-              <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Status
-                </label>
-                <select
-                  className="mt-1 h-9 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                >
-                  <option value="">All</option>
-                  <option value="Active">Active</option>
-                  <option value="Expired">Expired</option>
-                  <option value="InActive">InActive</option>
-                </select>
-              </div>
-
-              {/* Sort */}
-              <div className="flex gap-2 md:ml-2">
-                <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    Sort by
-                  </label>
-                  <select
-                    className="mt-1 h-9 w-44 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                    value={sortColumn}
-                    onChange={(e) => setSortColumn(e.target.value as any)}
-                  >
-                    <option value="expiredAt">ExpiredAt</option>
-                    <option value="status">Status</option>
-                    <option value="createdAt">CreatedAt</option>
-                    <option value="nameSubscription">Name</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    Order
-                  </label>
-                  <select
-                    className="mt-1 h-9 w-28 rounded-lg border border-slate-300 bg-white px-2 text-sm"
-                    value={String(sortDesc)}
-                    onChange={(e) => setSortDesc(e.target.value === "true")}
-                  >
-                    <option value="false">Asc</option>
-                    <option value="true">Desc</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-2 md:ml-2">
-                <button
-                  className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  onClick={clearFilters}
-                  title="Xóa bộ lọc (Esc)"
-                >
-                  Clear
-                </button>
-                <button
-                  className="h-9 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 text-sm font-semibold text-white shadow hover:from-indigo-500 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  onClick={applyFilters}
-                  title="Áp dụng (Enter)"
-                >
-                  Apply
-                </button>
-              </div>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">
+                Company subscriptions
+              </h1>
+              <p className="text-sm text-blue-100">
+                View and manage all subscriptions shared to this company.
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {[
-                  { key: "nameSubscription", label: "Name" },
-                  { key: "status", label: "Status" },
-                  { key: "createdAt", label: "Created at" },
-                  { key: "expiredAt", label: "Expired at" },
-                ].map((col) => (
-                  <th
-                    key={col.key}
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600"
-                  >
-                    <button
-                      className="inline-flex items-center gap-1 hover:text-slate-800"
-                    >
-                      {col.label}
-                      <SortMark
-                        active={sortColumn === col.key}
-                        desc={!!sortDesc}
-                      />
-                    </button>
-                  </th>
-                ))}
-                <th className="w-40 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  Action
-                </th>
-              </tr>
-            </thead>
+        {/* SUMMARY CHIPS */}
+        <div className="mb-4 flex flex-wrap gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-medium text-emerald-800">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Active: {summary.active}
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-xs font-medium text-amber-800">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            Pending: {summary.pending}
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-rose-100 px-4 py-1.5 text-xs font-medium text-rose-800">
+            <span className="h-2 w-2 rounded-full bg-rose-500" />
+            Expired: {summary.expired}
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 text-xs font-medium text-slate-700">
+            <span className="h-2 w-2 rounded-full bg-slate-400" />
+            Cancelled: {summary.cancelled}
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-xs font-medium text-blue-800">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            Total: {summary.total}
+          </div>
+        </div>
 
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 5 }).map((_, j) => (
-                      <td key={j} className="px-4 py-4">
-                        <div className="h-4 w-28 rounded bg-slate-200/70" />
+        {/* FILTER CARD */}
+        <div className="mb-4 rounded-3xl border border-slate-200 bg-white/90 px-5 py-4 shadow-[0_12px_35px_-18px_rgba(15,23,42,0.45)] backdrop-blur">
+          <div className="flex w-full flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                value={filters.q}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, q: e.target.value }))
+                }
+                placeholder="Search by plan or status..."
+                className="w-full rounded-2xl border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={applyFilters}
+                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+              >
+                Apply
+              </button>
+              <button
+                onClick={resetFilters}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            {/* Sort */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs font-semibold text-slate-500">
+                Sort:
+              </span>
+              <Chip
+                active={sort === "newest"}
+                onClick={() => setSort("newest")}
+              >
+                Newest
+              </Chip>
+              <Chip
+                active={sort === "oldest"}
+                onClick={() => setSort("oldest")}
+              >
+                Oldest
+              </Chip>
+              <Chip
+                active={sort === "expiredSoon"}
+                onClick={() => setSort("expiredSoon")}
+              >
+                Expired soon
+              </Chip>
+              <Chip
+                active={sort === "status"}
+                onClick={() => setSort("status")}
+              >
+                Status A–Z
+              </Chip>
+            </div>
+
+            {/* Status */}
+            <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
+              <span className="mr-1 text-xs font-semibold text-slate-500">
+                Status:
+              </span>
+              <Chip
+                active={filters.statuses.length === 0}
+                onClick={() =>
+                  setFilters((f) => ({ ...f, statuses: [] as any }))
+                }
+              >
+                All
+              </Chip>
+              {["Active", "Pending", "Expired", "Cancelled"].map((s) => {
+                const active = filters.statuses.includes(
+                  s as CompanySubscriptionStatus
+                );
+                return (
+                  <Chip
+                    key={s}
+                    active={active}
+                    onClick={() => {
+                      setFilters((f) => {
+                        const set = new Set(f.statuses);
+                        if (set.has(s as CompanySubscriptionStatus))
+                          set.delete(s as CompanySubscriptionStatus);
+                        else set.add(s as CompanySubscriptionStatus);
+                        return {
+                          ...f,
+                          statuses: Array.from(
+                            set
+                          ) as CompanySubscriptionStatus[],
+                        };
+                      });
+                    }}
+                  >
+                    {s}
+                  </Chip>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* TABLE CARD */}
+        <div className="rounded-3xl border border-slate-200 bg-white/95 shadow-[0_16px_45px_-24px_rgba(15,23,42,0.55)]">
+          {loading ? (
+            <div className="flex min-h-[220px] items-center justify-center">
+              <Spin />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
+              <div className="mb-1 text-sm font-semibold text-slate-700">
+                No subscriptions available.
+              </div>
+              <div className="text-xs text-slate-500">
+                Try adjusting filters or share a subscription from your personal
+                plan.
+              </div>
+            </div>
+          ) : (
+            <>
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#F3F7FF] text-[11px] font-semibold uppercase tracking-wide text-[#175CD3]">
+                  <tr>
+                    <th className="w-10 px-5 py-3 text-left" />
+                    <th className="px-5 py-3 text-left">Plan</th>
+                    <th className="px-5 py-3 text-left">Company</th>
+                    <th className="px-5 py-3 text-left">Shared by</th>
+                    <th className="px-5 py-3 text-left">Status</th>
+                    <th className="px-5 py-3 text-left">Shared on</th>
+                    <th className="px-5 py-3 text-left">Expired at</th>
+                    <th className="px-5 py-3 text-left">Seat limit</th>
+                    <th className="px-5 py-3 pr-7 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[13px]">
+                  {items.map((s) => (
+                    <tr key={s.id} className="hover:bg-slate-50/70">
+                      <td className="px-5 py-3" />
+                      <td className="px-5 py-3">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {s.planName || "(Unnamed plan)"}
+                        </span>
                       </td>
-                    ))}
-                  </tr>
-                ))
-              ) : items.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-10 text-center text-slate-500"
-                  >
-                    Không có subscription nào.
-                  </td>
-                </tr>
-              ) : (
-                items.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">
-                        {r.nameSubscription ?? "--"}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        ID: {r.id.slice(0, 8)}…
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge value={r.status} />
-                    </td>
-                    <td className="px-4 py-3">{formatDate(r.createdAt)}</td>
-                    <td className="px-4 py-3">{formatDate(r.expiredAt)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => openDetail(r.id)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 active:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                        title="View detail"
-                      >
-                        View detail
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <td className="px-5 py-3">
+                        <span className="text-xs text-slate-700">
+                          {s.companyName || "(Unnamed company)"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="text-xs text-slate-700">
+                          {s.userName || "—"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+                            statusTagClass(s.status)
+                          )}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="text-xs text-slate-700">
+                          {formatDate(s.sharedOn)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="text-xs text-slate-700">
+                          {formatDate(s.expiredAt)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        {s.seatsLimitSnapshot != null ? (
+                          <span className="text-xs text-slate-700">
+                            {s.seatsLimitSnapshot} seats
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">
+                            Unlimited
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 pr-7 text-right">
+                        {/* Nút con mắt: nền trắng, viền xám nhạt, icon xám */}
+                        <button
+                          onClick={() => openDetail(s)}
+                          className={cn(
+                            "inline-flex h-8 w-8 items-center justify-center rounded-full border text-slate-400",
+                            "border-slate-200 bg-white hover:border-slate-300 hover:text-slate-600"
+                          )}
+                          aria-label="View detail"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-        {/* Pagination */}
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-slate-600">
-            Page <b>{page}</b> / {totalPages} — {total} items
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(parseInt(e.target.value));
-                setPage(1);
-              }}
-            >
-              {[10, 20, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n} / page
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1">
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                aria-label="Prev page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+              {/* Pagination giống Members */}
+              <div className="flex items-center justify-between px-6 pb-5 pt-3">
+                <span className="text-[11px] text-slate-500">
+
+                </span>
+
+                <div className="flex items-center gap-2 text-[13px]">
+                  <button
+                    type="button"
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg border text-xs",
+                      "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-500",
+                      page === 1 && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {"|<"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPage((p) => Math.max(1, p - 1))
+                    }
+                    disabled={page === 1}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg border text-xs",
+                      "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-500",
+                      page === 1 && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {"<"}
+                  </button>
+                  <div className="flex h-8 min-w-[2rem] items-center justify-center rounded-lg border border-blue-300 bg-[#E5F0FF] px-3 text-xs font-semibold text-[#1D4ED8]">
+                    {page}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPage((p) =>
+                        Math.min(totalPages, p + 1)
+                      )
+                    }
+                    disabled={page === totalPages}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg border text-xs",
+                      "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-500",
+                      page === totalPages && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {">"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPage(totalPages)}
+                    disabled={page === totalPages}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg border text-xs",
+                      "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-500",
+                      page === totalPages && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {">|"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Detail modal */}
+      {/* ===== DETAIL MODAL ===== */}
       <CompanySubscriptionDetailModal
         open={detailOpen}
-        id={detailId}
-        onClose={() => {
-          setDetailOpen(false);
-          setDetailId(null);
-        }}
+        loading={detailLoading}
+        data={detail}
+        onClose={closeDetail}
       />
-    </div>
+    </>
   );
-};
-
-export default CompanySubscriptionsPage;
+}

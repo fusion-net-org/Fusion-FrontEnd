@@ -1,66 +1,83 @@
-
+// src/services/companySubscriptionService.js
 import { axiosInstance } from "@/apiConfig";
 
-function extractApiError(err) {
-  // trả về message thân thiện từ ResponseModel hoặc ModelState
-  const res = err?.response;
-  if (!res) return err?.message || "Request failed";
-  const data = res.data;
-  // chuẩn ResponseModel<T>
-  if (data?.message && typeof data.message === "string") return data.message;
-  // ASP.NET ModelState
-  const modelState = data?.errors || data?.ErrorData || data?.errorData;
-  if (modelState) {
-    if (typeof modelState === "string") return modelState;
-    if (typeof modelState === "object") {
-      const lines = [];
-      Object.keys(modelState).forEach(k => {
-        const arr = modelState[k];
-        if (Array.isArray(arr)) arr.forEach(v => lines.push(`${k}: ${v}`));
-        else if (arr) lines.push(`${k}: ${arr}`);
-      });
-      if (lines.length) return lines.join("\n");
-    }
-  }
-  return `HTTP ${res.status} ${res.statusText}`;
-}
+const unwrap = (res) => res?.data?.data ?? res?.data;
+const onError = (e) => {
+  const msg = e?.response?.data?.message || e?.message || "Unexpected error";
+  throw new Error(msg);
+};
 
-export async function createCompanySubscription(body) {
+/**
+ * POST /CompanySubscription
+ * Body: CompanySubscriptionCreateRequest
+ * Res: ResponseModel<CompanySubscriptionDetailResponse>
+ */
+export async function createCompanySubscription(payload) {
   try {
-    if (!body?.companyId) throw new Error("Missing companyId");
-    if (!body?.userSubscriptionId) throw new Error("Missing userSubscriptionId");
-    const list = body?.entitlements ?? [];
-    if (!Array.isArray(list) || list.length === 0) {
-      throw new Error("Entitlements are required");
-    }
-    const res = await axiosInstance.post("/CompanySubscription", body);
-    return res?.data?.data;
-  } catch (err) {
-    throw new Error(extractApiError(err));
+    const res = await axiosInstance.post("/CompanySubscription", payload);
+    return unwrap(res) ?? null;
+  } catch (e) {
+    onError(e);
+    return null;
   }
 }
 
-export async function getCompanySubscriptionsByCompany(companyId, q = {}) {
-  const params = {
-    status: q.status || undefined,
-    Keyword: q.Keyword || undefined,
-    PageNumber: q.PageNumber ?? 1,
-    PageSize: q.PageSize ?? 10,
-    SortColumn: q.SortColumn || undefined,
-    SortDescending: q.SortDescending ?? undefined,
+/**
+ * GET /CompanySubscription/{id}
+ * Res: ResponseModel<CompanySubscriptionDetailResponse>
+ */
+export async function getCompanySubscriptionDetail(id) {
+  if (!id) throw new Error("companySubscriptionId is required");
+  try {
+    const res = await axiosInstance.get(`/CompanySubscription/${id}`);
+    return unwrap(res) ?? null;
+  } catch (e) {
+    onError(e);
+    return null;
+  }
+}
+
+/**
+ * GET /CompanySubscription/company/{companyId}
+ * Res: ResponseModel<PagedResult<CompanySubscriptionListResponse>>
+ */
+export async function getCompanySubscriptionsByCompany(companyId, params = {}) {
+  if (!companyId) throw new Error("companyId is required");
+
+  const query = {
+    keyword: params.keyword,
+    status: params.status,
+    pageNumber: params.pageNumber ?? 1,
+    pageSize: params.pageSize ?? 10,
+    sortColumn: params.sortColumn,       // "status" | "createdAt" | "expiredAt"
+    sortDescending: params.sortDescending,
   };
-  const { data } = await axiosInstance.get(`/CompanySubscription/company/${companyId}`, { params });
-  return data?.data ?? data ?? {};
+
+  try {
+    const res = await axiosInstance.get(
+      `/CompanySubscription/company/${companyId}`,
+      { params: query }
+    );
+    return unwrap(res) ?? null; // CompanySubscriptionPagedResult
+  } catch (e) {
+    onError(e);
+    return null;
+  }
 }
 
-export async function getCompanySubscriptionById(id) {
-  const { data } = await axiosInstance.get(`/CompanySubscription/${id}`);
-  // ResponseModel<CompanySubscriptionDetailResponse>
-  return data?.data ?? data ?? null;
-}
-
-export async function updateCompanySubscription(request) {
-  // Điều chỉnh URL nếu controller của bạn khác (vd: /CompanySubscription/Update)
-  const { data } = await axiosInstance.put(`/companysubscription`, request);
-  return data?.data ?? data;
+/**
+ * GET /CompanySubscription/company/{companyId}/active
+ * Res: ResponseModel<List<CompanySubscriptionActiveResponse>>
+ */
+export async function getActiveCompanySubscriptions(companyId) {
+  if (!companyId) throw new Error("companyId is required");
+  try {
+    const res = await axiosInstance.get(
+      `/CompanySubscription/company/${companyId}/active`
+    );
+    return unwrap(res) ?? [];
+  } catch (e) {
+    onError(e);
+    return [];
+  }
 }

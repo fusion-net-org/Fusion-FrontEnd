@@ -1,322 +1,605 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Search, ChevronRight as ArrowRight } from "lucide-react";
-import StatusBadge from "@/components/MySubscription/StatusBadge";
-import SubscriptionDetailModal from "@/components/MySubscription/SubscriptionDetailModal";
+import { Table, Tag, Button, Input, Select, Spin, Modal } from "antd";
+import { Info, CreditCard, Layers, CalendarDays } from "lucide-react";
+
 import {
-  getMySubscriptions,
+  getUserSubscriptionsPaged,
+  getUserSubscriptionDetail,
 } from "@/services/userSubscription.js";
+import UserSubscriptionDetailModal from "@/components/MySubscription/SubscriptionDetailModal";
+
+import {
+  getNextPendingInstallment,
+} from "@/services/transactionService.js";
+import { createPaymentLink } from "@/services/payosService.js";
+
 import type {
-  UserSubscriptionListItem,
-  UserSubscriptionPaged,
-  UserSubscriptionQuery,
-  SubscriptionStatus,
+  UserSubscriptionResponse,
+  UserSubscriptionPagedResult,
+  UserSubscriptionDetailResponse,
 } from "@/interfaces/UserSubscription/UserSubscription";
+import type { TransactionPaymentDetailResponse } from "@/interfaces/Transaction/TransactionPayment";
 
-const formatCurrency = (amount: number, currency?: string | null) => {
-  const cur = (currency || "VND").toUpperCase();
-  const opts: Intl.NumberFormatOptions = { style: "currency", currency: cur };
-  if (cur === "VND") opts.maximumFractionDigits = 0;
+const { Search } = Input;
+const { Option } = Select;
+
+const cn = (...xs: Array<string | false | null | undefined>) =>
+  xs.filter(Boolean).join(" ");
+
+/* =================== Helpers =================== */
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("vi-VN");
+}
+
+function formatCurrency(amount: number, currency: string) {
   try {
-    return new Intl.NumberFormat("vi-VN", opts).format(amount);
+    return amount.toLocaleString("vi-VN") + " " + currency;
   } catch {
-    return `${amount?.toLocaleString?.("vi-VN") ?? amount} ${cur}`;
+    return `${amount} ${currency}`;
   }
-};
-const formatDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("vi-VN") : "--");
+}
 
-const SortMark: React.FC<{ active: boolean; desc: boolean }> = ({ active, desc }) => (
-  <span className={`ml-1 inline-block text-xs ${active ? "text-slate-500" : "text-transparent"}`} aria-hidden>
-    {desc ? "▼" : "▲"}
-  </span>
-);
+function statusTagColor(status: string) {
+  const s = status.toLowerCase();
+  if (s.includes("active")) return "green";
+  if (s.includes("pending")) return "blue";
+  if (s.includes("expired") || s.includes("cancel")) return "red";
+  return "default";
+}
 
-const MySubscriptionsPage: React.FC = () => {
-  // Filters
-  const [keyword, setKeyword] = useState("");
-  const [status, setStatus] = useState<SubscriptionStatus | "">("");
-  const [sortColumn, setSortColumn] = useState<UserSubscriptionQuery["SortColumn"]>("expiredAt");
-  const [sortDesc, setSortDesc] = useState(true);
+function formatInstallmentLabel(tx: TransactionPaymentDetailResponse | null) {
+  if (!tx) return "";
+  const idx = tx.installmentIndex ?? undefined;
+  const total = tx.installmentTotal ?? undefined;
+  if (idx && total) return `Installment ${idx} of ${total}`;
+  if (idx) return `Installment ${idx}`;
+  if (total) return `${total} installments`;
+  return "Installment payment";
+}
 
-  // Paging
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+/* =================== Component =================== */
 
-  // Data
-  const [items, setItems] = useState<UserSubscriptionListItem[]>([]);
+export default function UserSubscriptionsPage() {
+  const [rows, setRows] = useState<UserSubscriptionResponse[]>([]);
   const [total, setTotal] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
 
-  // Modal
+  const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(
+    undefined
+  );
+
+  // Cache detail cho modal subscription detail
+  const [detailCache, setDetailCache] = useState<
+    Record<string, UserSubscriptionDetailResponse>
+  >({});
+
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailTargetId, setDetailTargetId] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
+  const activeDetail: UserSubscriptionDetailResponse | null = useMemo(() => {
+    if (!detailTargetId) return null;
+    return detailCache[detailTargetId] ?? null;
+  }, [detailTargetId, detailCache]);
 
-  // Fetch list
-  const fetchData = async () => {
-    setLoading(true);
-    const q: UserSubscriptionQuery = {
-      status: status || undefined,
-      Keyword: keyword || undefined,
-      PageNumber: page,
-      PageSize: pageSize,
-      SortColumn: sortColumn,
-      SortDescending: sortDesc,
-    };
-    try {
-      const data: UserSubscriptionPaged = await getMySubscriptions(q);
-      setItems(data.items || []);
-      setTotal(data.totalCount || 0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Đếm active + installment dựa trên nextPaymentDueAt
+  const activeCount = useMemo(
+    () =>
+      rows.filter((r) => r.status.toLowerCase().includes("active")).length,
+    [rows]
+  );
+
+  const installmentSubsCount = useMemo(
+    () => rows.filter((r) => !!r.nextPaymentDueAt).length,
+    [rows]
+  );
+
+  // ================== PAYMENT CHECKOUT MODAL STATE ==================
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentTx, setPaymentTx] = useState<TransactionPaymentDetailResponse | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentSubscription, setPaymentSubscription] =
+    useState<UserSubscriptionResponse | null>(null);
+
+  /* ---------- Load paged list ---------- */
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, sortColumn, sortDesc]);
+    let mounted = true;
 
-  const applyFilters = () => {
-    setPage(1);
-    fetchData();
+    const load = async () => {
+      setLoading(true);
+      try {
+        const page: UserSubscriptionPagedResult | null =
+          await getUserSubscriptionsPaged({
+            keyword: keyword || undefined,
+            status: statusFilter || undefined,
+            pageNumber,
+            pageSize,
+          });
+
+        if (!mounted) return;
+
+        const items = page?.items ?? [];
+        setRows(items);
+        setTotal(page?.totalCount ?? 0);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [keyword, statusFilter, pageNumber, pageSize]);
+
+  /* ---------- Handlers ---------- */
+
+  const handleSearch = (value: string) => {
+    setKeyword(value.trim());
+    setPageNumber(1);
   };
-  const clearFilters = () => {
-    setKeyword("");
-    setStatus("");
-    setSortColumn("expiredAt");
-    setSortDesc(true);
-    setPage(1);
-    fetchData();
+
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value || undefined);
+    setPageNumber(1);
   };
-  const handleSort = (key: NonNullable<UserSubscriptionQuery["SortColumn"]>) => {
-    if (sortColumn === key) setSortDesc(!sortDesc);
-    else {
-      setSortColumn(key);
-      setSortDesc(false);
+
+  const openDetail = async (id: string) => {
+    setDetailTargetId(id);
+    setDetailOpen(true);
+
+    if (!detailCache[id]) {
+      try {
+        setDetailLoading(true);
+        const d = await getUserSubscriptionDetail(id);
+        if (d) {
+          setDetailCache((prev) => ({ ...prev, [id]: d }));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setDetailLoading(false);
+      }
     }
   };
 
-  const openDetail = (id: string) => {
-    setSelectedId(id);
-    setDetailOpen(true);
+  // ====== EVENT PAYMENT: mở modal + load transaction installment ======
+  const handlePaymentClick = async (sub: UserSubscriptionResponse) => {
+    setPaymentSubscription(sub);
+    setPaymentOpen(true);
+    setPaymentError(null);
+    setPaymentTx(null);
+    setPaymentLoading(true);
+
+    try {
+      const tx = await getNextPendingInstallment({
+        planId: sub.planId,
+        userSubscriptionId: sub.id,
+      });
+
+      if (!tx) {
+        setPaymentError("No pending installment found for this subscription.");
+      } else {
+        setPaymentTx(tx);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPaymentError(
+        err?.message || "Failed to load next installment transaction."
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
   };
-  const closeDetail = () => {
-    setDetailOpen(false);
-    setSelectedId(null);
+
+  const handleClosePayment = () => {
+    if (checkoutLoading) return;
+    setPaymentOpen(false);
+    setPaymentTx(null);
+    setPaymentError(null);
+    setPaymentSubscription(null);
   };
+
+  const handleConfirmCheckout = async () => {
+    if (!paymentTx?.id) return;
+
+    try {
+      setCheckoutLoading(true);
+
+      // 1) Gọi PayOS tạo link từ transaction installment
+      const linkRes = await createPaymentLink(paymentTx.id);
+      const checkoutUrl = linkRes?.data?.data;
+
+      if (!checkoutUrl || typeof checkoutUrl !== "string") {
+        throw new Error("Missing checkout URL");
+      }
+
+      // 2) Optional: lưu lại transactionId
+      sessionStorage.setItem("fusion:lastTxId", paymentTx.id);
+
+      // 3) Redirect sang PayOS
+      window.location.href = checkoutUrl;
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || "Payment initialization failed!");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  /* ---------- Columns ---------- */
+
+  const headerTitle = (label: string) => (
+    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      {label}
+    </span>
+  );
+
+  const columns = [
+    {
+      title: headerTitle("Plan"),
+      dataIndex: "planName",
+      key: "planName",
+      render: (text: string) => (
+        <span className="text-sm font-semibold text-slate-900">{text}</span>
+      ),
+    },
+    {
+      title: headerTitle("Status"),
+      dataIndex: "status",
+      key: "status",
+      render: (value: string) => (
+        <Tag
+          color={statusTagColor(value)}
+          className="rounded-full px-3 py-0.5 text-xs"
+        >
+          {value}
+        </Tag>
+      ),
+    },
+    {
+      title: headerTitle("Term"),
+      key: "term",
+      render: (_: unknown, record: UserSubscriptionResponse) => (
+        <div className="flex flex-col text-xs text-slate-700">
+          <span className="font-medium text-slate-800">
+            {formatDate(record.termStart)} - {formatDate(record.termEnd)}
+          </span>
+          {record.nextPaymentDueAt && (
+            <span className="mt-0.5 text-[11px] text-slate-500">
+              Next payment: {formatDate(record.nextPaymentDueAt)}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: headerTitle("Unit price"),
+      key: "unitPrice",
+      render: (_: unknown, record: UserSubscriptionResponse) => (
+        <span className="text-sm font-semibold text-indigo-600">
+          {formatCurrency(record.unitPrice, record.currency)}
+        </span>
+      ),
+    },
+    {
+      title: headerTitle("Created at"),
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (value: string) => (
+        <span className="text-xs font-medium text-slate-600">
+          {formatDate(value)}
+        </span>
+      ),
+    },
+    {
+      title: headerTitle("Actions"),
+      key: "actions",
+      align: "center" as const,
+      render: (_: unknown, record: UserSubscriptionResponse) => {
+        const showPayment = !!record.nextPaymentDueAt;
+
+        return (
+          <div
+            className={cn(
+              "inline-flex min-w-[140px] flex-col items-stretch gap-1",
+              "rounded-2xl border border-slate-100 bg-slate-50 px-2 py-1.5",
+              "shadow-sm"
+            )}
+          >
+            {/* Detail */}
+            <Button
+              size="small"
+              type="default"
+              onClick={() => openDetail(record.id)}
+              className={cn(
+                "flex w-full items-center justify-center rounded-xl px-3 py-1",
+                "text-xs font-medium",
+                "!border-slate-200 !bg-white !text-slate-700",
+                "hover:!border-indigo-400 hover:!text-indigo-600"
+              )}
+              icon={<Info className="mr-1 h-3.5 w-3.5" />}
+            >
+              View detail
+            </Button>
+
+            {/* Payment (nếu có nextPaymentDueAt) */}
+            {showPayment && (
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => handlePaymentClick(record)}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-xl px-3 py-1",
+                  "text-xs font-semibold"
+                )}
+                icon={<CreditCard className="mr-1 h-3.5 w-3.5" />}
+              >
+                Payment
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  /* ---------- JSX ---------- */
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="mb-4 text-2xl font-bold text-slate-900">My Subscriptions</h1>
-
-        {/* Toolbar */}
-        <div className="mb-5 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex-1">
-              <label className="text-xs font-medium text-slate-600">Keyword</label>
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500">
-                <Search className="h-4 w-4 shrink-0 text-slate-500" />
-                <input
-                  className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Tìm theo plan, currency, ..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") applyFilters();
-                    if (e.key === "Escape") clearFilters();
-                  }}
-                />
-              </div>
+    <div className="min-h-[calc(100vh-96px)] bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100 px-4 py-8 sm:px-6 lg:px-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        {/* Header */}
+        <header className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-gradient-to-r from-indigo-50 via-sky-50 to-purple-50 px-5 py-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm">
+              <Layers className="h-5 w-5" />
             </div>
-
-            <div className="flex flex-col gap-2 md:flex-row md:items-end">
-              <div>
-                <label className="text-xs font-medium text-slate-600">Status</label>
-                <select
-                  className="mt-1 h-9 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                >
-                  <option value="">All</option>
-                  <option value="Active">Active</option>
-                  <option value="Expired">Expired</option>
-                  <option value="InActive">InActive</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2 md:ml-2">
-                <div>
-                  <label className="text-xs font-medium text-slate-600">Sort by</label>
-                  <select
-                    className="mt-1 h-9 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                    value={sortColumn}
-                    onChange={(e) => setSortColumn(e.target.value as any)}
-                  >
-                    <option value="expiredAt">ExpiredAt</option>
-                    <option value="status">Status</option>
-                    <option value="createdAt">CreatedAt</option>
-                    <option value="planName">Plan</option>
-                    <option value="price">Price</option>
-                    <option value="currency">Currency</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600">Order</label>
-                  <select
-                    className="mt-1 h-9 w-28 rounded-lg border border-slate-300 bg-white px-2 text-sm"
-                    value={String(sortDesc)}
-                    onChange={(e) => setSortDesc(e.target.value === "true")}
-                  >
-                    <option value="false">Asc</option>
-                    <option value="true">Desc</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-2 md:ml-2">
-                <button
-                  className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  onClick={clearFilters}
-                  title="Xóa bộ lọc (Esc)"
-                >
-                  Clear
-                </button>
-                <button
-                  className="h-9 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 text-sm font-semibold text-white shadow hover:from-indigo-500 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  onClick={applyFilters}
-                  title="Áp dụng (Enter)"
-                >
-                  Apply
-                </button>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                My subscriptions
+              </h1>
+              <p className="mt-1 text-sm text-slate-600">
+                View all your active and past subscription plans, including
+                billing periods and upcoming payments.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-slate-700 shadow-sm">
+                  <span className="mr-1.5 h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="font-medium">{activeCount}</span>
+                  &nbsp;active subscriptions
+                </span>
+                <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-slate-700 shadow-sm">
+                  <CreditCard className="mr-1.5 h-3.5 w-3.5 text-indigo-500" />
+                  <span className="font-medium">{installmentSubsCount}</span>
+                  &nbsp;installment plans
+                </span>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  <button className="inline-flex items-center gap-1 hover:text-slate-800" onClick={() => handleSort("planName" as any)}>
-                    Plan <SortMark active={sortColumn === "planName"} desc={!!sortDesc} />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  <button className="inline-flex items-center gap-1 hover:text-slate-800" onClick={() => handleSort("price" as any)}>
-                    Price
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  <button className="inline-flex items-center gap-1 hover:text-slate-800" onClick={() => handleSort("currency" as any)}>
-                    Currency
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  <button className="inline-flex items-center gap-1 hover:text-slate-800" onClick={() => handleSort("status" as any)}>
-                    Status <SortMark active={sortColumn === "status"} desc={!!sortDesc} />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  <button className="inline-flex items-center gap-1 hover:text-slate-800" onClick={() => handleSort("expiredAt" as any)}>
-                    Expired at <SortMark active={sortColumn === "expiredAt"} desc={!!sortDesc} />
-                  </button>
-                </th>
-                <th className="w-40 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-4 py-4"><div className="h-4 w-40 rounded bg-slate-200/70" /><div className="mt-2 h-3 w-24 rounded bg-slate-200/60" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-20 rounded bg-slate-200/70" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-16 rounded bg-slate-200/70" /></td>
-                    <td className="px-4 py-4"><div className="h-5 w-24 rounded-full bg-slate-200/70" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200/70" /></td>
-                    <td className="px-4 py-4 text-center"><div className="mx-auto h-8 w-28 rounded-lg bg-slate-200/70" /></td>
-                  </tr>
-                ))
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">Không có subscription nào.</td>
-                </tr>
-              ) : (
-                items.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{r.namePlan ?? "--"}</div>
-                      <div className="text-xs text-slate-500">ID: {r.id.slice(0, 8)}…</div>
-                    </td>
-                    <td className="px-4 py-3">{formatCurrency(r.price, r.currency)}</td>
-                    <td className="px-4 py-3">{(r.currency || "VND").toUpperCase()}</td>
-                    <td className="px-4 py-3"><StatusBadge value={r.status} /></td>
-                    <td className="px-4 py-3">{formatDate(r.expiredAt)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => openDetail(r.id)}
-                        className={[
-                          "inline-flex items-center justify-center gap-1.5",
-                          "rounded-lg px-3.5 py-2 text-sm font-semibold",
-                          "bg-indigo-600 text-white shadow-sm",
-                          "hover:bg-indigo-500 active:bg-indigo-600",
-                          "focus:outline-none focus:ring-2 focus:ring-indigo-500",
-                          "transition",
-                        ].join(" ")}
-                        title="View detail"
-                      >
-                        View detail <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-slate-600">Page <b>{page}</b> / {totalPages} — {total} items</div>
-          <div className="flex items-center gap-3">
-            <select
-              className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm"
-              value={pageSize}
-              onChange={(e) => { setPageSize(parseInt(e.target.value)); setPage(1); }}
+          <div className="flex flex-wrap items-center gap-2">
+            <Search
+              allowClear
+              placeholder="Search by plan name..."
+              onSearch={handleSearch}
+              className="w-60"
+              size="middle"
+            />
+            <Select
+              allowClear
+              placeholder="Status"
+              size="middle"
+              className="w-36"
+              value={statusFilter}
+              onChange={handleStatusChange}
             >
-              {[10, 20, 50].map((n) => (<option key={n} value={n}>{n} / page</option>))}
-            </select>
-            <div className="flex items-center gap-1">
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                aria-label="Prev page"
-                title="Trang trước"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                aria-label="Next page"
-                title="Trang sau"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+              <Option value="Active">Active</Option>
+              <Option value="Pending">Pending</Option>
+              <Option value="Expired">Expired</Option>
+              <Option value="Cancelled">Cancelled</Option>
+            </Select>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Modal */}
-      <SubscriptionDetailModal open={detailOpen} subscriptionId={selectedId} onClose={closeDetail} />
+        {/* List */}
+        <section className="rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          {loading ? (
+            <div className="flex min-h-[200px] items-center justify-center py-16">
+              <Spin />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex min-h-[200px] flex-col items-center justify-center text-center">
+              <Info className="mb-2 h-7 w-7 text-slate-400" />
+              <p className="text-sm font-semibold text-slate-800">
+                You don&apos;t have any subscriptions yet.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Once you purchase a plan, your subscriptions will appear here.
+              </p>
+            </div>
+          ) : (
+            <Table<UserSubscriptionResponse>
+              rowKey={(r) => r.id}
+              columns={columns}
+              dataSource={rows}
+              pagination={{
+                current: pageNumber,
+                pageSize,
+                total,
+                showSizeChanger: true,
+                onChange: (page, size) => {
+                  setPageNumber(page);
+                  setPageSize(size || 10);
+                },
+              }}
+              size="large"
+            />
+          )}
+        </section>
+
+        {/* Detail modal */}
+        <UserSubscriptionDetailModal
+          open={detailOpen}
+          loading={detailLoading && !activeDetail}
+          data={activeDetail}
+          onClose={() => setDetailOpen(false)}
+        />
+
+        {/* PAYMENT CHECKOUT MODAL */}
+        <Modal
+          open={paymentOpen}
+          onCancel={handleClosePayment}
+          footer={null}
+          centered
+          width={720}
+          title={
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-50">
+                <CreditCard className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-slate-900">
+                  Installment checkout
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Review the next installment before redirecting to the payment
+                  gateway.
+                </div>
+              </div>
+            </div>
+          }
+        >
+          {paymentLoading && !paymentTx && !paymentError ? (
+            <div className="flex min-h-[160px] items-center justify-center">
+              <Spin />
+            </div>
+          ) : paymentError ? (
+            <div className="space-y-3 py-4 text-sm text-slate-700">
+              <p className="font-medium text-rose-600">{paymentError}</p>
+              <p className="text-xs text-slate-500">
+                It might be that all installments have already been paid.
+              </p>
+              <div className="mt-2 flex justify-end">
+                <Button onClick={handleClosePayment}>Close</Button>
+              </div>
+            </div>
+          ) : !paymentTx ? (
+            <div className="py-4 text-center text-sm text-slate-500">
+              No installment transaction to display.
+            </div>
+          ) : (
+            <div className="space-y-5 pb-2">
+              {/* Summary card */}
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Plan
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {paymentTx.planName ||
+                      paymentSubscription?.planName ||
+                      "Subscription plan"}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                    <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5">
+                      {formatInstallmentLabel(paymentTx)}
+                    </span>
+                    {paymentTx.dueAt && (
+                      <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5">
+                        <CalendarDays className="mr-1 h-3.5 w-3.5 text-slate-500" />
+                        Due: {formatDate(paymentTx.dueAt)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white px-4 py-3 text-right text-xs text-slate-600 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Installment amount
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-600">
+                    {formatCurrency(paymentTx.amount, paymentTx.currency)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Order summary */}
+              <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Order summary
+                </p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {paymentTx.planName ||
+                        paymentSubscription?.planName ||
+                        "Subscription plan"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Quantity: <span className="font-medium">1</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-slate-500">Unit price</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {formatCurrency(paymentTx.amount, paymentTx.currency)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-dashed border-slate-200 pt-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-800">
+                      Total this payment
+                    </span>
+                    <span className="text-base font-semibold text-emerald-600">
+                      {formatCurrency(paymentTx.amount, paymentTx.currency)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    This payment covers{" "}
+                    {formatInstallmentLabel(paymentTx).toLowerCase()} for your
+                    subscription.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[11px] text-slate-500">
+                  After confirming, you will be redirected to the payment
+                  gateway (PayOS) to complete this installment.
+                </p>
+                <div className="flex gap-2">
+                  <Button onClick={handleClosePayment} disabled={checkoutLoading}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={handleConfirmCheckout}
+                    loading={checkoutLoading}
+                  >
+                    Confirm & Checkout
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
+      </div>
     </div>
   );
-};
-
-export default MySubscriptionsPage;
+}

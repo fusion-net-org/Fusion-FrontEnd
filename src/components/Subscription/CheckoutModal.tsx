@@ -1,232 +1,345 @@
-// components/Subscription/CheckoutModal.tsx
-import React, { useEffect, useRef } from "react";
-import { Check, Shield, X, Info } from "lucide-react";
+// checkout modal for subscription plans
+import React, { useEffect, useMemo, useState } from "react";
+import { Modal, InputNumber } from "antd";
+import { Check, Shield, Users } from "lucide-react";
 
-type BillingPeriod = "Week" | "Month" | "Year";
+import type {
+  SubscriptionPlanCustomerResponse,
+  SubscriptionPlanDetailResponse,
+  PlanPricePreviewResponse,
+  LicenseScope,
+} from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
-type ApiFeature = {
-  featureKey: string;
-  limitValue: number | string | null;
-};
+const cn = (...xs: Array<string | false | null | undefined>) =>
+  xs.filter(Boolean).join(" ");
 
-type ApiPrice = {
-  billingPeriod: BillingPeriod;
-  periodCount: number;
-  price: number;
-  currency: string;
-  refundWindowDays?: number;
-  refundFeePercent?: number;
-};
-
-type ApiPlan = {
-  id: string;
-  code: string;
-  name: string;
-  description?: string | null;
-  price: ApiPrice;
-  features: ApiFeature[];
-};
-
-interface CheckoutModalProps {
-  open: boolean;
-  onClose: () => void;
-  plan: any;                     // có thể là ApiPlan hoặc {data:{data:ApiPlan}}
-  processing?: boolean;
-  onConfirm?: (plan: ApiPlan) => void;
+// ===== Helpers =====
+function formatCurrency(amount: number, currency: string) {
+  try {
+    return amount.toLocaleString("vi-VN") + " " + currency;
+  } catch {
+    return `${amount} ${currency}`;
+  }
 }
 
-const humanFeatureName = (key: string) => {
-  const map: Record<string, string> = {
-    company: "Company",
-    project: "Project",
-    share: "Share",
-    member: "Member",
-    user: "User",
-    storage: "Storage (GB)",
-  };
-  // fallback: Capitalize
-  return map[key] ?? key.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
-};
+function formatPriceShortUnit(p: PlanPricePreviewResponse) {
+  const unit = p.billingPeriod.toLowerCase();
+  if (p.periodCount === 1) return `/${unit}`;
+  return `/${p.periodCount} ${unit}s`;
+}
 
-const formatCurrency = (amount: number, currency: string) => {
-  try {
-    // Với VND hiển thị rõ ràng, không có phần thập phân
-    const opts: Intl.NumberFormatOptions = {
-      style: "currency",
-      currency,
-      ...(currency.toUpperCase() === "VND" ? { maximumFractionDigits: 0 } : {})
-    };
-    return new Intl.NumberFormat("vi-VN", opts).format(amount);
-  } catch {
-    return `${amount.toLocaleString("vi-VN")} ${currency}`;
+function formatPaymentNote(p: PlanPricePreviewResponse) {
+  if (p.paymentMode === "Installments") {
+    const count = p.installmentCount ?? 0;
+    const interval = p.installmentInterval ?? p.billingPeriod;
+    const unit = interval.toLowerCase();
+
+    if (count > 0) {
+      const times = count === 1 ? "1 installment" : `${count} installments`;
+      return `${times} · paid every ${unit}`;
+    }
+    return `Installments · paid every ${unit}`;
   }
+  return "One-time payment";
+}
+
+function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
+  if (scope === "CompanyWide") return "All members in the company";
+  if (!seats || seats <= 0) return "Unlimited seats per company";
+  return `Up to ${seats} seats per company`;
+}
+
+function formatCompanyShareLimit(limit?: number | null) {
+  if (!limit || limit <= 0) return "Unlimited companies";
+  return `Up to ${limit} companies`;
+}
+
+function formatChargeUnit(
+  _scope: LicenseScope,
+  chargeUnit: PlanPricePreviewResponse["chargeUnit"]
+) {
+  if (chargeUnit === "PerSeat") return "Charged per seat";
+  return "Charged per subscription";
+}
+
+type Props = {
+  open: boolean;
+  loadingDetail: boolean;
+  planPublic: SubscriptionPlanCustomerResponse | null;
+  planDetail: SubscriptionPlanDetailResponse | null;
+  onClose: () => void;
+  onConfirm: (plan: SubscriptionPlanCustomerResponse, quantity: number) => void;
 };
 
-const CheckoutModal: React.FC<CheckoutModalProps> = ({
+export default function SubscriptionPlanCheckoutModal({
   open,
+  loadingDetail,
+  planPublic,
+  planDetail,
   onClose,
-  plan,
-  processing,
   onConfirm,
-}) => {
-  // normalize từ response: plan có thể là ApiPlan hoặc { data: { data: ApiPlan } }
-  const normalized: ApiPlan | null = plan?.data?.data ?? plan ?? null;
+}: Props) {
+  const [quantity, setQuantity] = useState<number>(1);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  // đóng bằng ESC
+  // reset quantity mỗi lần mở modal
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (open) setQuantity(1);
+  }, [open, planPublic?.id]);
+
+  // ===== Effective data (ưu tiên detail, fallback public) =====
+  const effectiveName = planDetail?.name ?? planPublic?.name ?? "";
+  const effectiveDescription =
+    planDetail?.description ?? planPublic?.description ?? "";
+
+  const licenseScope: LicenseScope | undefined =
+    planDetail?.licenseScope ?? planPublic?.licenseScope;
+
+  const isFullPackage =
+    planDetail?.isFullPackage ?? planPublic?.isFullPackage ?? false;
+
+  const seatsPerCompanyLimit =
+    planDetail?.seatsPerCompanyLimit ?? planPublic?.seatsPerCompanyLimit;
+
+  const companyShareLimit =
+    planDetail?.companyShareLimit ?? planPublic?.companyShareLimit;
+
+  // Map price từ Detail (price) hoặc Preview (amount) về PlanPricePreviewResponse
+  const price: PlanPricePreviewResponse | null = useMemo(() => {
+    const raw: any =
+      (planDetail?.price as any) ?? (planPublic?.price as any) ?? null;
+    if (!raw) return null;
+
+    // Detail: .price, Preview: .amount
+    const amount =
+      typeof raw.amount === "number"
+        ? raw.amount
+        : typeof raw.price === "number"
+        ? raw.price
+        : 0;
+
+    return {
+      amount,
+      currency: raw.currency,
+      billingPeriod: raw.billingPeriod,
+      periodCount: raw.periodCount,
+      chargeUnit: raw.chargeUnit,
+      paymentMode: raw.paymentMode,
+      installmentCount: raw.installmentCount ?? null,
+      installmentInterval: raw.installmentInterval ?? null,
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [planDetail, planPublic]);
 
-  if (!open || !normalized) return null;
+  const featureNames: string[] = useMemo(() => {
+    if (planDetail?.features?.length) {
+      return planDetail.features
+        .filter((f) => f.enabled)
+        .map(
+          (f) =>
+            f.featureName ||
+            f.featureCode ||
+            `Feature ${f.featureId?.toString().slice(0, 6)}`
+        );
+    }
+    if (planPublic?.featuresPreview?.length) {
+      return planPublic.featuresPreview.map((f) => f.name);
+    }
+    return [];
+  }, [planDetail, planPublic]);
 
-  const { name, description, price, features, code } = normalized;
+  const totalAmount = useMemo(() => {
+    if (!price) return 0;
+    return price.amount * quantity;
+  }, [price, quantity]);
+
+  const handleOk = () => {
+    if (planPublic) {
+      onConfirm(planPublic, quantity);
+    }
+  };
+
+  const disabled = !planPublic || !price;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      aria-modal="true"
-      role="dialog"
+    <Modal
+      open={open}
+      onCancel={onClose}
+      onOk={handleOk}
+      okText="Confirm & checkout"
+      cancelText="Cancel"
+      centered
+      width={780}
+      okButtonProps={{ disabled }}
     >
-      {/* backdrop */}
-      <div
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* card */}
-      <div
-        ref={dialogRef}
-        className="relative w-full max-w-2xl rounded-2xl shadow-2xl
-                   bg-white/80 dark:bg-slate-900/80 backdrop-blur-md
-                   ring-1 ring-slate-200/70 dark:ring-slate-700/60
-                   animate-[fadeIn_120ms_ease-out]"
-      >
-        {/* header */}
-        <div className="relative overflow-hidden rounded-t-2xl">
-          <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-500" />
-          <button
-            onClick={onClose}
-            className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center
-                       rounded-full bg-white/80 text-slate-600 shadow hover:bg-white"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-
-          <div className="px-6 pt-5 pb-4">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">
-                {code}
-              </span>
-              <span className="text-xs text-slate-500">Subscription plan</span>
-            </div>
-            <h2 className="mt-2 text-2xl font-bold leading-tight text-slate-900">
-              {name}
-            </h2>
-            {description && (
-              <p className="mt-1 text-sm text-slate-600">{description}</p>
-            )}
-          </div>
+      {!planPublic ? (
+        <div className="py-8 text-center text-sm text-slate-500">
+          No plan selected.
         </div>
-
-        {/* body: 2 cột */}
-        <div className="grid gap-6 px-6 pb-4 pt-2 md:grid-cols-2">
-          {/* left: giá + refund */}
-          <div className="rounded-xl border border-slate-200 bg-white/70 p-4 shadow-sm">
-            <div className="mb-3">
-              <div className="text-sm font-medium text-slate-600">Price</div>
-              <div className="mt-1 flex items-end gap-2">
-                <span className="text-4xl font-extrabold tracking-tight text-slate-900">
-                  {formatCurrency(price.price, price.currency)}
-                </span>
-              </div>
-              <div className="mt-1 text-sm text-slate-500">
-                {price.periodCount} {price.billingPeriod}
-                {price.periodCount > 1 ? "s" : ""} • {price.currency}
-              </div>
+      ) : (
+        <div className="mt-2 flex flex-col gap-6 md:flex-row">
+          {/* LEFT: Plan detail */}
+          <div className="flex-1 space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">
+                {effectiveName}
+              </h2>
+              {effectiveDescription && (
+                <p className="mt-1 text-sm text-slate-600">
+                  {effectiveDescription}
+                </p>
+              )}
+              {loadingDetail && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Loading detailed information...
+                </p>
+              )}
             </div>
 
-            <div className="mt-4 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
-              <div className="flex items-start gap-2">
-                <Info className="mt-0.5 h-4 w-4 text-slate-500" />
-                <div className="text-sm text-slate-600">
-                  Refund within{" "}
-                  <b>{price.refundWindowDays ?? 0} days</b> (fee{" "}
-                  <b>{price.refundFeePercent ?? 0}%</b>).
+            <div className="flex flex-wrap gap-1.5">
+              {isFullPackage ? (
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                  <Shield className="mr-1.5 h-3.5 w-3.5" />
+                  Full feature package
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  Custom feature set
+                </span>
+              )}
+
+              {licenseScope && (
+                <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
+                  {licenseScope === "SeatBased"
+                    ? "Seat-based license"
+                    : "Company-wide license"}
+                </span>
+              )}
+            </div>
+
+            {/* Price detail */}
+            <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+              {price ? (
+                <>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-semibold text-slate-900">
+                      {formatCurrency(price.amount, price.currency)}
+                    </span>
+                    <span className="text-xs font-medium text-slate-500">
+                      {formatPriceShortUnit(price)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {formatPaymentNote(price)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm font-medium text-slate-800">
+                  Contact sales for pricing.
+                </p>
+              )}
+            </div>
+
+            {/* Usage limits */}
+            <div className="space-y-1 text-xs text-slate-600">
+              <p className="font-semibold text-slate-800">Usage limits</p>
+              {licenseScope && (
+                <p className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  {formatSeatsLimit(licenseScope, seatsPerCompanyLimit)}
+                </p>
+              )}
+              {typeof companyShareLimit !== "undefined" && (
+                <p>{formatCompanyShareLimit(companyShareLimit)}</p>
+              )}
+              {price && licenseScope && (
+                <p>{formatChargeUnit(licenseScope, price.chargeUnit)}</p>
+              )}
+            </div>
+
+            {/* Features list */}
+            <div>
+              <p className="mb-1 text-xs font-semibold text-slate-800">
+                Included features
+              </p>
+              {featureNames.length ? (
+                <ul className="space-y-1 text-xs text-slate-700">
+                  {featureNames.map((name) => (
+                    <li key={name} className="flex items-center gap-2">
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>{name}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Feature list will be confirmed during onboarding.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT: Order summary */}
+          <aside className="w-full md:w-64 lg:w-72">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Order summary
+              </h3>
+
+              <div className="mt-3 space-y-3 text-xs text-slate-700">
+                <div className="flex items-center justify-between">
+                  <span>Selected plan</span>
+                  <span className="font-medium text-slate-900">
+                    {effectiveName || "-"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>Unit price</span>
+                  <span className="font-medium text-slate-900">
+                    {price
+                      ? formatCurrency(price.amount, price.currency)
+                      : "Contact sales"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>Quantity</span>
+                  <div className="flex items-center gap-2">
+                    <InputNumber
+                      min={1}
+                      value={quantity}
+                      onChange={(v) =>
+                        setQuantity(typeof v === "number" ? v : 1)
+                      }
+                      size="small"
+                      className="w-20"
+                    />
+                    <span className="text-[11px] text-slate-500">x</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-dashed border-slate-200 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-900">
+                      Total
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900">
+                      {price
+                        ? formatCurrency(totalAmount, price.currency)
+                        : "-"}
+                    </span>
+                  </div>
+                  {price?.paymentMode === "Installments" && (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Total contract value above will be split into installments.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
-
-            <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
-              <Shield className="h-4 w-4" />
-              Secure checkout • Encrypted payment
-            </div>
-          </div>
-
-          {/* right: features */}
-          <div className="rounded-xl border border-slate-200 bg-white/70 p-4 shadow-sm">
-            <div className="text-sm font-medium text-slate-600">Features</div>
-            <ul className="mt-2 max-h-44 space-y-2 overflow-auto pr-1">
-              {features?.map((f, idx) => (
-                <li
-                  key={`${f.featureKey}-${idx}`}
-                  className="flex items-center gap-2"
-                >
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100">
-                    <Check className="h-3.5 w-3.5 text-blue-700" />
-                  </span>
-                  <span className="text-sm text-slate-700">
-                    {humanFeatureName(f.featureKey)}:{" "}
-                    <b className="font-semibold">{f.limitValue}</b>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          </aside>
         </div>
-
-        {/* footer */}
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="text-sm text-slate-600">
-            Total due now:{" "}
-            <b className="text-slate-900">
-              {formatCurrency(price.price, price.currency)}
-            </b>
-            {"  "}
-            <span className="text-slate-400">
-              / {price.periodCount} {price.billingPeriod}
-              {price.periodCount > 1 ? "s" : ""}
-            </span>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300
-                         bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={processing}
-              onClick={() => onConfirm?.(normalized)}
-              className="inline-flex items-center justify-center rounded-lg
-                         bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white
-                         shadow hover:from-indigo-500 hover:to-blue-500 disabled:opacity-60"
-            >
-              {processing ? "Processing..." : "Confirm Purchase"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
-};
-
-export default CheckoutModal;
+}

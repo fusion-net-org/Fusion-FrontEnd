@@ -1,347 +1,879 @@
-// src/pages/company/subscription/SubscriptionPlan.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Sparkles, TriangleAlert } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Spin, Modal } from "antd";
+import { Check, Star, ArrowRight, Shield, Users, Info } from "lucide-react";
+
 import {
-  GetAllForCustomer,
-  getSubscriptionPlanById,
+  getPublicPlans,
+  getPlanById,
 } from "@/services/subscriptionPlanService.js";
-import CheckoutModal from "@/components/Subscription/CheckoutModal";
-import {createTransaction } from "@/services/transactionService.js";
-import { createPaymentLink } from '@/services/payosService.js';
+import { createTransactionPayment } from "@/services/transactionService.js";
+import { createPaymentLink } from "@/services/payOSService.js";
 
-/** ========= Types ========= */
-type BillingPeriod = "Week" | "Month" | "Year";
-type Feature = { key: string; limitValue: string | number | null };
-type PlanCardVm = {
-  id: string;
-  code?: string;
-  name: string;
-  price: number;
-  periodCount: number;
-  billingPeriod: BillingPeriod;
-  currency: string;
-  refundWindowDays?: number;
-  refundFeePercent?: number;
-  features: Feature[];
-  popular?: boolean;
-};
-type Plans = { week: PlanCardVm[]; month: PlanCardVm[] };
+import type {
+  SubscriptionPlanCustomerResponse,
+  SubscriptionPlanDetailResponse,
+  PlanPricePreviewResponse,
+  LicenseScope,
+} from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
-/** ========= Utils ========= */
-const humanFeatureName = (key: string) => {
-  const map: Record<string, string> = {
-    company: "Company",
-    project: "Project",
-    share: "Share",
-  };
-  return map[key] ?? key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
-};
+const cn = (...xs: Array<string | false | null | undefined>) =>
+  xs.filter(Boolean).join(" ");
 
-const formatCurrency = (amount: number, currency: string) => {
+/* =========================================================
+ * Helpers
+ * =======================================================*/
+function formatCurrency(amount: number, currency: string) {
   try {
-    const opts: Intl.NumberFormatOptions = {
-      style: "currency",
-      currency,
-      ...(currency?.toUpperCase() === "VND" ? { maximumFractionDigits: 0 } : {}),
-    };
-    return new Intl.NumberFormat("vi-VN", opts).format(amount);
+    return amount.toLocaleString("vi-VN") + " " + currency;
   } catch {
-    return `${amount?.toLocaleString("vi-VN")} ${currency}`;
+    return `${amount} ${currency}`;
   }
-};
+}
 
-/** ========= Simple event emitter for analytics =========
- *  Listen anywhere:
- *  window.addEventListener('subscription:checkout_open', (e) => console.log(e.detail));
- *  window.addEventListener('subscription:checkout_close', ...)
- */
-const fireEvent = (name: string, detail?: any) =>
-  window.dispatchEvent(new CustomEvent(name, { detail }));
+function formatBillingPeriod(p: PlanPricePreviewResponse) {
+  const unit = p.billingPeriod.toLowerCase(); // week/month/year
+  if (p.periodCount === 1) return `Billed per ${unit}`;
+  return `${p.periodCount}-${unit} shelf life`;
+}
 
-/** ========= Page ========= */
-const SubscriptionPlan: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState<"week" | "month">("month");
-  const [plans, setPlans] = useState<Plans>({ week: [], month: [] });
-  const [loading, setLoading] = useState(true);
-  const [loadErr, setLoadErr] = useState<string | null>(null);
+function formatPriceShortUnit(p: PlanPricePreviewResponse) {
+  const unit = p.billingPeriod.toLowerCase();
+  if (p.periodCount === 1) return `/${unit}`;
+  return `/${p.periodCount} ${unit}s`;
+}
 
-  // checkout modal state
+/** Note hiển thị dưới giá, xử lý cả installments và prepaid */
+function formatPaymentNote(p: PlanPricePreviewResponse) {
+  if (p.paymentMode === "Installments") {
+    const count = p.installmentCount ?? 0;
+    const interval = p.installmentInterval ?? p.billingPeriod;
+    const unit = interval.toLowerCase();
+
+    if (count > 0) {
+      const times = count === 1 ? "1 installment" : `${count} installments`;
+      return `${times} · paid every ${unit}`;
+    }
+    return `Installments · paid every ${unit}`;
+  }
+
+  // Prepaid
+  return "One-time payment";
+}
+
+function formatChargeUnit(
+  _scope: LicenseScope,
+  chargeUnit: PlanPricePreviewResponse["chargeUnit"]
+) {
+  if (chargeUnit === "PerSeat") return "Charged per seat";
+  return "Charged per subscription";
+}
+
+function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
+  if (scope === "CompanyWide") {
+    return "All members in the company";
+  }
+  if (!seats || seats <= 0) return "Unlimited seats per company";
+  return `Up to ${seats} seats per company`;
+}
+
+function formatCompanyShareLimit(limit?: number | null) {
+  if (!limit || limit <= 0) return "Unlimited companies";
+  return `Up to ${limit} companies`;
+}
+
+function buildPriceLabel(price?: PlanPricePreviewResponse | null) {
+  if (!price) return "Contact sales";
+  const main = formatCurrency(price.amount, price.currency);
+  const period = formatBillingPeriod(price);
+  return `${main} · ${period}`;
+}
+
+/* =========================================================
+ * Page component
+ * =======================================================*/
+
+export default function SubscriptionPlan() {
+  const [plans, setPlans] = useState<SubscriptionPlanCustomerResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [activeBillingTab, setActiveBillingTab] = useState<"Month" | "Year">(
+    "Month"
+  );
+
+  // ===== Checkout state =====
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [checkoutPlan, setCheckoutPlan] = useState<any>(null);
+  const [checkoutTarget, setCheckoutTarget] =
+    useState<SubscriptionPlanCustomerResponse | null>(null);
+  const [checkoutDetail, setCheckoutDetail] =
+    useState<SubscriptionPlanDetailResponse | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  // fetch controller to cancel on unmount
-  const controllerRef = useRef<AbortController | null>(null);
-
+  /* ----------------- Load public plans ----------------- */
   useEffect(() => {
-    controllerRef.current = new AbortController();
-    const signal = controllerRef.current.signal;
-
-    const fetchPlans = async () => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        setLoadErr(null);
-        const res = await GetAllForCustomer(); // GET all public plans
-        const data = res?.data ?? [];
-
-        const mapPlan = (p: any): PlanCardVm => ({
-          id: p.id,
-          code: p.code,
-          name: p.name,
-          price: p.price?.price ?? 0,
-          periodCount: p.price?.periodCount ?? 1,
-          billingPeriod: p.price?.billingPeriod ?? "Month",
-          currency: p.price?.currency ?? "VND",
-          refundWindowDays: p.price?.refundWindowDays,
-          refundFeePercent: p.price?.refundFeePercent,
-          // gộp & loại trùng tính năng
-          features: (p.features ?? []).reduce((acc: Feature[], cur: any) => {
-            const k = cur.featureKey;
-            if (!acc.find((x) => x.key === k)) acc.push({ key: k, limitValue: cur.limitValue });
-            return acc;
-          }, []),
-        });
-
-        const weekPlans: PlanCardVm[] = data
-          .filter((p: any) => p.price?.billingPeriod === "Week")
-          .map(mapPlan);
-        const monthPlans: PlanCardVm[] = data
-          .filter((p: any) => p.price?.billingPeriod === "Month")
-          .map(mapPlan);
-
-        // đánh dấu popular gói đầu của tab tháng (có thể đổi logic)
-        if (monthPlans.length > 0) monthPlans[0].popular = true;
-
-        if (!signal.aborted) setPlans({ week: weekPlans, month: monthPlans });
-      } catch (err: any) {
-        if (!signal.aborted) setLoadErr(err?.message ?? "Failed to load plans");
+        const data = await getPublicPlans();
+        if (mounted && Array.isArray(data)) {
+          setPlans(data);
+        }
       } finally {
-        if (!signal.aborted) setLoading(false);
+        if (mounted) setLoading(false);
       }
+    })();
+    return () => {
+      mounted = false;
     };
-
-    fetchPlans();
-    return () => controllerRef.current?.abort();
   }, []);
 
-  const currentPlans = useMemo(
-    () => (selectedTab === "week" ? plans.week : plans.month),
-    [plans, selectedTab]
+  /* ----------------- Sort plans ----------------- */
+  const sortedPlans = useMemo(() => {
+    const copy = [...plans];
+    copy.sort((a, b) => {
+      const pa = a.price?.amount ?? Number.MAX_SAFE_INTEGER;
+      const pb = b.price?.amount ?? Number.MAX_SAFE_INTEGER;
+      return pa - pb;
+    });
+    return copy;
+  }, [plans]);
+
+  const monthlyPlansSorted = useMemo(() => {
+    const list = sortedPlans.filter(
+      (p) => p.price?.billingPeriod === "Month" && p.price
+    );
+    return list.slice().sort((a, b) => {
+      const pa = a.price as PlanPricePreviewResponse;
+      const pb = b.price as PlanPricePreviewResponse;
+      if (pa.periodCount !== pb.periodCount) return pa.periodCount - pb.periodCount;
+      return pa.amount - pb.amount;
+    });
+  }, [sortedPlans]);
+
+  const yearlyPlansSorted = useMemo(() => {
+    const list = sortedPlans.filter(
+      (p) => p.price?.billingPeriod === "Year" && p.price
+    );
+    return list.slice().sort((a, b) => {
+      const pa = a.price as PlanPricePreviewResponse;
+      const pb = b.price as PlanPricePreviewResponse;
+      if (pa.periodCount !== pb.periodCount) return pa.periodCount - pb.periodCount;
+      return pa.amount - pb.amount;
+    });
+  }, [sortedPlans]);
+
+  const visiblePlans = useMemo(
+    () => (activeBillingTab === "Month" ? monthlyPlansSorted : yearlyPlansSorted),
+    [activeBillingTab, monthlyPlansSorted, yearlyPlansSorted]
   );
 
-const handleBuy = async (plan: PlanCardVm) => {
-  // mở ngay pop-up với skeleton
-  setCheckoutPlan(null);          // để modal hiểu là đang loading
-  setCheckoutOpen(true);
-  window.dispatchEvent(new CustomEvent("subscription:checkout_open", { detail: { planId: plan.id, planName: plan.name } }));
+  const highlightedId = useMemo(() => {
+    if (!visiblePlans.length) return null;
+    if (visiblePlans.length >= 3) return visiblePlans[1].id;
+    return visiblePlans[0].id;
+  }, [visiblePlans]);
 
-  try {
-    setCheckoutLoading(true);
-    const res = await getSubscriptionPlanById(plan.id);
-    const payload = res?.data?.data ?? res?.data ?? res ?? null;
-    setCheckoutPlan(payload);
-  } catch (err) {
-    alert("Failed to load plan details");
-    console.error("Error fetching plan details:", err);
-    setCheckoutOpen(false);
-  } finally {
-    setCheckoutLoading(false);
-  }
-};
+  /* ----------------- Checkout derived data ----------------- */
 
-  const closeCheckout = () => {
-    setCheckoutOpen(false);
-    fireEvent("subscription:checkout_close", { planId: checkoutPlan?.id });
+  const effectivePlan = checkoutDetail || checkoutTarget || null;
+
+  const checkoutPrice: PlanPricePreviewResponse | null = useMemo(() => {
+    const raw: any =
+      (checkoutDetail as any)?.price ?? (checkoutTarget as any)?.price ?? null;
+    if (!raw) return null;
+
+    const amount =
+      typeof raw.amount === "number"
+        ? raw.amount
+        : typeof raw.price === "number"
+        ? raw.price
+        : 0;
+
+    return {
+      amount,
+      currency: raw.currency,
+      billingPeriod: raw.billingPeriod,
+      periodCount: raw.periodCount,
+      chargeUnit: raw.chargeUnit,
+      paymentMode: raw.paymentMode,
+      installmentCount: raw.installmentCount ?? null,
+      installmentInterval: raw.installmentInterval ?? null,
+    };
+  }, [checkoutDetail, checkoutTarget]);
+
+  // số tiền phải trả mỗi lần thanh toán
+  const perChargeAmount = useMemo(() => {
+    if (!checkoutPrice) return 0;
+    if (
+      checkoutPrice.paymentMode === "Installments" &&
+      (checkoutPrice.installmentCount ?? 0) > 0
+    ) {
+      return checkoutPrice.amount / (checkoutPrice.installmentCount as number);
+    }
+    return checkoutPrice.amount;
+  }, [checkoutPrice]);
+
+  const isInstallments =
+    !!checkoutPrice &&
+    checkoutPrice.paymentMode === "Installments" &&
+    (checkoutPrice.installmentCount ?? 0) > 0;
+
+  const checkoutFeatures: string[] = useMemo(() => {
+    if (checkoutDetail?.features?.length) {
+      return checkoutDetail.features
+        .filter((f) => f.enabled)
+        .map(
+          (f) =>
+            f.featureName ||
+            f.featureCode ||
+            `Feature ${f.featureId?.toString().slice(0, 6)}`
+        );
+    }
+    if (checkoutTarget?.featuresPreview?.length) {
+      return checkoutTarget.featuresPreview.map((f) => f.name);
+    }
+    return [];
+  }, [checkoutDetail, checkoutTarget]);
+
+  /* ----------------- Handlers ----------------- */
+
+  const handleSelectPlan = (plan: SubscriptionPlanCustomerResponse) => {
+    setCheckoutTarget(plan);
+    setCheckoutDetail(null);
+    setCheckoutOpen(true);
+
+    (async () => {
+      try {
+        setCheckoutLoading(true);
+        const detail = (await getPlanById(
+          plan.id
+        )) as SubscriptionPlanDetailResponse | null;
+        if (detail) setCheckoutDetail(detail);
+      } finally {
+        setCheckoutLoading(false);
+      }
+    })();
   };
 
-  /** ======= Render ======= */
-  if (loading) {
-    // skeleton shimmer
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
-        <div className="mx-auto max-w-7xl">
-          <div className="mx-auto mb-10 max-w-2xl text-center">
-            <div className="mx-auto h-6 w-40 animate-pulse rounded-full bg-slate-200/70" />
-            <div className="mx-auto mt-3 h-8 w-96 animate-pulse rounded bg-slate-200/70" />
-          </div>
-          <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 items-stretch">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-72 rounded-2xl border border-slate-200 bg-white/70 p-6 shadow animate-pulse"
-              >
-                <div className="h-5 w-32 rounded bg-slate-200/80" />
-                <div className="mt-4 h-9 w-40 rounded bg-slate-200/80" />
-                <div className="mt-2 h-4 w-28 rounded bg-slate-200/80" />
-                <div className="mt-6 h-28 rounded bg-slate-100" />
-                <div className="mt-6 h-10 rounded bg-slate-200/90" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleCheckoutConfirm = async () => {
+    if (!checkoutTarget) return;
 
-  if (loadErr) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-        <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
-          <TriangleAlert className="h-5 w-5" />
-          <span>{loadErr}</span>
+    try {
+      setCheckoutLoading(true);
+
+      // 1) Create transaction from subscription plan
+      const tx = await createTransactionPayment({ planId: checkoutTarget.id });
+      const transactionId = tx?.id;
+      if (!transactionId) {
+        throw new Error("Missing transactionId");
+      }
+
+      // 2) Create PayOS checkout link
+      const linkRes = await createPaymentLink(transactionId);
+      // service createPaymentLink trả về nguyên axios response
+      const checkoutUrl =
+        linkRes?.data?.data ?? linkRes?.data ?? linkRes ?? null;
+
+      if (!checkoutUrl || typeof checkoutUrl !== "string") {
+        throw new Error("Missing checkoutUrl");
+      }
+
+      // 3) Redirect to PayOS
+      sessionStorage.setItem("fusion:lastTxId", transactionId);
+      window.location.href = checkoutUrl;
+    } catch (err: any) {
+      console.error(err);
+      // TODO: dùng notification/toast của bạn
+      // message.error(err?.message || "Payment initialization failed!");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const renderCompareTable = (items: SubscriptionPlanCustomerResponse[]) => {
+    if (!items.length) {
+      return (
+        <div className="py-6 text-center text-xs text-slate-500">
+          No plans available for this period.
         </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <table className="min-w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <th className="py-2 pr-4 text-xs font-semibold text-slate-600">
+                Plan
+              </th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Full package
+              </th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                License scope
+              </th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Seats / company
+              </th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Companies
+              </th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Payment
+              </th>
+             <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Number Of times
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((plan) => {
+              const price = plan.price ?? null;
+              return (
+                <tr
+                  key={plan.id}
+                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
+                >
+                  <td className="py-2 pr-4">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-slate-900">
+                        {plan.name}
+                      </span>
+                      {price && (
+                        <span className="text-xs text-slate-500">
+                          {buildPriceLabel(price)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-4">
+                    {plan.isFullPackage ? "Yes" : "No"}
+                  </td>
+                  <td className="py-2 px-4">
+                    {plan.licenseScope === "SeatBased"
+                      ? "Seat-based"
+                      : "Company-wide"}
+                  </td>
+                  <td className="py-2 px-4">
+                    {formatSeatsLimit(
+                      plan.licenseScope,
+                      plan.seatsPerCompanyLimit
+                    )}
+                  </td>
+                  <td className="py-2 px-4">
+                    {formatCompanyShareLimit(plan.companyShareLimit)}
+                  </td>
+                  <td className="py-2 px-4">
+                    {price ? price.paymentMode : "—"}
+                  </td>
+                  <td className="py-2 px-4">
+                     {price
+                         ? price.paymentMode === "Installments"
+                         ? price.installmentCount
+                            : 1
+                            : "—"}
+                   </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     );
-  }
+  };
+
+  /* =========================================================
+   * JSX
+   * =======================================================*/
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
-      <div className="mx-auto max-w-7xl">
-        {/* header */}
-        <div className="mx-auto mb-10 max-w-2xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs text-slate-600">
-            <Sparkles className="h-3.5 w-3.5" /> Flexible billing
+    <div className="min-h-[calc(100vh-96px)] bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+        {/* Hero header */}
+        <header className="flex flex-col gap-6 rounded-2xl bg-gradient-to-r from-indigo-50 via-blue-50 to-slate-50 px-5 py-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1 text-xs font-medium text-indigo-700 shadow-sm">
+              <Shield className="h-4 w-4" />
+              Flexible subscription for FUSION
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
+              Choose the right plan for your company
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+              Compare billing cycles and limits, then pick the plan that fits
+              your company today and can grow with you tomorrow.
+            </p>
           </div>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
-            Choose Your Subscription Plan
-          </h1>
-          <p className="mt-2 text-slate-600">Simple pricing for teams and projects.</p>
-        </div>
 
-        {/* Tabs */}
-        <div className="mb-10 flex justify-center">
-          <div className="inline-flex rounded-full border border-slate-200 bg-white p-1.5 shadow-lg">
-            <button
-              onClick={() => setSelectedTab("week")}
-              className={`px-8 py-3 rounded-full font-semibold transition-all ${
-                selectedTab === "week"
-                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Weekly
-            </button>
-            <button
-              onClick={() => setSelectedTab("month")}
-              className={`px-8 py-3 rounded-full font-semibold transition-all ${
-                selectedTab === "month"
-                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Monthly
-            </button>
+          <div className="flex flex-col items-start gap-2 text-xs text-slate-600 sm:items-end">
+            <div className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm">
+              <Users className="h-4 w-4 text-indigo-500" />
+              Optimized for multi-company IT teams
+            </div>
           </div>
-        </div>
+        </header>
 
-{/* Grid plans */}
-<div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-6 items-stretch">
-  {currentPlans.length === 0 ? (
-    <p className="text-slate-600">No plans available for this period.</p>
-  ) : (
-    currentPlans.map((plan) => (
-      <div
-        key={plan.id}
-        className={`group w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white/80
-                    shadow-[0_1px_1px_rgba(17,24,39,0.06),0_10px_22px_-12px_rgba(30,64,175,0.30)]
-                    backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-2xl
-                    ${plan.popular ? "ring-2 ring-blue-500" : ""} flex h-full`}
-      >
-        <div className="flex h-full w-full flex-col">
-          <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-500" />
-          {/* content */}
-          <div className="p-6 flex h-full flex-col min-h-[420px]"> {/* min-h để ổn định thẻ */}
-            {/* header */}
-            <div className="mb-1 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
-              {plan.popular && (
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">Popular</span>
-              )}
+        {/* Loading / empty */}
+        {loading ? (
+          <div className="flex min-h-[200px] items-center justify-center">
+            <Spin />
+          </div>
+        ) : !sortedPlans.length ? (
+          <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <Info className="mb-3 h-6 w-6 text-slate-400" />
+            <p className="text-sm font-medium text-slate-800">
+              No subscription plans are available yet.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Please contact your administrator to configure plans.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Tabs: Monthly / Yearly */}
+            <div className="flex justify-center">
+              <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-1 py-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setActiveBillingTab("Month")}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                    activeBillingTab === "Month"
+                      ? "bg-blue-600 text-white shadow"
+                      : "text-slate-700 hover:text-slate-900"
+                  )}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveBillingTab("Year")}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                    activeBillingTab === "Year"
+                      ? "bg-blue-600 text-white shadow"
+                      : "text-slate-700 hover:text-slate-900"
+                  )}
+                >
+                  Yearly
+                </button>
+              </div>
             </div>
 
-            {/* price */}
-            <div className="mt-2">
-              <div className="text-3xl font-extrabold tracking-tight text-slate-900">
-                {formatCurrency(plan.price, plan.currency)}
+            {/* Pricing cards */}
+            {visiblePlans.length === 0 ? (
+              <div className="mt-6 text-center text-xs text-slate-500">
+                No plans available for this period.
               </div>
-              <div className="text-sm text-slate-500">
-                {plan.periodCount} {plan.billingPeriod}{plan.periodCount > 1 ? "s" : ""} • {plan.currency}
-              </div>
-            </div>
+            ) : (
+              <section className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {visiblePlans.map((plan) => {
+                  const price = plan.price ?? null;
+                  const isHighlight = plan.id === highlightedId;
+                  const featureNames = plan.featuresPreview?.map((f) => f.name) ?? [];
+                  const maxChips = 4;
+                  const visibleChips = featureNames.slice(0, maxChips);
+                  const remaining = featureNames.length - visibleChips.length;
 
-            {/* features */}
-            <div className="mt-4 space-y-2">
-              {plan.features.map((feature, idx) => (
-                <div key={`${feature.key}-${idx}`} className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100">
-                    <Check className="h-3.5 w-3.5 text-blue-700" />
-                  </span>
-                  <p className="m-0 text-sm text-slate-800">
-                    {humanFeatureName(feature.key)}: <span className="text-slate-600">{feature.limitValue}</span>
+                  return (
+                    <article
+                      key={plan.id}
+                      className={cn(
+                        "relative h-full rounded-2xl border border-slate-200 bg-white/95 p-[1px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg",
+                        isHighlight &&
+                          "border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_18px_40px_rgba(79,70,229,0.35)]"
+                      )}
+                    >
+                      <div className="flex h-full flex-col rounded-2xl bg-white p-5">
+                        {isHighlight && (
+                          <div className="absolute -top-3 right-6 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
+                            <Star className="h-3.5 w-3.5 fill-current" />
+                            Most popular
+                          </div>
+                        )}
+
+                        {/* Header */}
+                        <div className="flex flex-col gap-1">
+                          <h2 className="text-sm font-semibold tracking-tight text-slate-900">
+                            {plan.name}
+                          </h2>
+                          {plan.description && (
+                            <p className="text-xs text-slate-600">
+                              {plan.description}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {plan.isFullPackage ? (
+                              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                                <Shield className="mr-1.5 h-3.5 w-3.5" />
+                                Full feature package
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                                <Check className="mr-1.5 h-3.5 w-3.5" />
+                                Custom feature set
+                              </span>
+                            )}
+
+                            <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
+                              {plan.licenseScope === "SeatBased"
+                                ? "Seat-based license"
+                                : "Company-wide license"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="my-4 h-px w-full bg-slate-100" />
+
+                        {/* Price */}
+                        <div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-semibold text-slate-900">
+                              {price
+                                ? formatCurrency(price.amount, price.currency)
+                                : "Contact sales"}
+                            </span>
+                            {price && (
+                              <span className="text-xs font-medium text-slate-500">
+                                {formatPriceShortUnit(price)}
+                              </span>
+                            )}
+                          </div>
+
+                          {price && (
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              {formatPaymentNote(price)}
+                            </p>
+                          )}
+
+                          {price && (
+                            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-slate-600">
+                              <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
+                                <Users className="mr-1.5 h-3.5 w-3.5" />
+                                {formatSeatsLimit(
+                                  plan.licenseScope,
+                                  plan.seatsPerCompanyLimit
+                                )}
+                              </span>
+                              <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
+                                {formatChargeUnit(
+                                  plan.licenseScope,
+                                  price.chargeUnit
+                                )}
+                              </span>
+                              {typeof plan.companyShareLimit !== "undefined" && (
+                                <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
+                                  {formatCompanyShareLimit(
+                                    plan.companyShareLimit
+                                  )}
+                                </span>
+                              )}
+                              {price.paymentMode === "Installments" && (
+                                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                                  Installments available
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Divider */}
+                        <div className="my-4 h-px w-full bg-slate-100" />
+
+                        {/* Features + CTA */}
+                        <div className="flex flex-1 flex-col">
+                          <div className="mb-3">
+                            <p className="mb-1 text-[11px] font-semibold tracking-wide text-slate-700">
+                              Key features
+                            </p>
+                            {visibleChips.length ? (
+                              <ul className="space-y-1.5 text-xs text-slate-700">
+                                {visibleChips.map((name) => (
+                                  <li
+                                    key={name}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+                                    <span>{name}</span>
+                                  </li>
+                                ))}
+                                {remaining > 0 && (
+                                  <li className="text-[11px] text-slate-500">
+                                    +{remaining} more features
+                                  </li>
+                                )}
+                              </ul>
+                            ) : (
+                              <p className="text-[11px] text-slate-400">
+                                Detailed feature list will be provided during
+                                onboarding.
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="mt-auto pt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectPlan(plan)}
+                              className={cn(
+                                "inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
+                                isHighlight
+                                  ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                                  : "bg-slate-900 text-white hover:bg-slate-800"
+                              )}
+                            >
+                              Buy now
+                              <ArrowRight className="ml-1.5 h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
+            )}
+
+            {/* Comparison table */}
+            <section className="mt-10 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-xs text-slate-700 lg:block">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Compare plans
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Currently viewing{" "}
+                    <span className="font-semibold">
+                      {activeBillingTab === "Month" ? "monthly" : "yearly"}
+                    </span>{" "}
+                    billing period.
                   </p>
                 </div>
-              ))}
+              </div>
+
+              {activeBillingTab === "Month"
+                ? renderCompareTable(monthlyPlansSorted)
+                : renderCompareTable(yearlyPlansSorted)}
+            </section>
+          </>
+        )}
+
+        {/* =============== Checkout Modal =============== */}
+        <Modal
+          open={checkoutOpen}
+          onCancel={() => setCheckoutOpen(false)}
+          onOk={handleCheckoutConfirm}
+          okText="Confirm & checkout"
+          cancelText="Cancel"
+          centered
+          width={780}
+          confirmLoading={checkoutLoading}
+        >
+          {!effectivePlan ? (
+            <div className="py-8 text-center text-sm text-slate-500">
+              No plan selected.
             </div>
+          ) : (
+            <div className="mt-2 flex flex-col gap-6 md:flex-row">
+              {/* LEFT: plan info */}
+              <div className="flex-1 space-y-4">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">
+                    {effectivePlan.name}
+                  </h2>
+                  {effectivePlan.description && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      {effectivePlan.description}
+                    </p>
+                  )}
+                  {checkoutLoading && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Loading detailed information...
+                    </p>
+                  )}
+                </div>
 
-            {/* actions: luôn ở đáy nhờ mt-auto */}
-            <div className="mt-auto pt-6">
-              <button
-                onClick={() => handleBuy(plan)}
-                disabled={checkoutLoading}
-                className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600
-                           px-4 py-3 text-sm font-semibold text-white shadow
-                           hover:from-indigo-500 hover:to-blue-500 disabled:opacity-50"
-              >
-                {checkoutLoading ? "Loading..." : "Buy Now"}
-              </button>
-              {(plan.refundWindowDays ?? plan.refundFeePercent) && (
-                <p className="mt-2 text-xs text-slate-500">
-                  Refund within <b>{plan.refundWindowDays ?? 0} days</b> (fee <b>{plan.refundFeePercent ?? 0}%</b>).
-                </p>
-              )}
+                <div className="flex flex-wrap gap-1.5">
+                  {(checkoutDetail?.isFullPackage ??
+                    checkoutTarget?.isFullPackage ??
+                    false) ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                      <Shield className="mr-1.5 h-3.5 w-3.5" />
+                      Full feature package
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                      <Check className="mr-1.5 h-3.5 w-3.5" />
+                      Custom feature set
+                    </span>
+                  )}
+
+                  {(() => {
+                    const scope: LicenseScope | undefined =
+                      checkoutDetail?.licenseScope ??
+                      checkoutTarget?.licenseScope;
+                    if (!scope) return null;
+                    return (
+                      <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
+                        {scope === "SeatBased"
+                          ? "Seat-based license"
+                          : "Company-wide license"}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Price detail (contract value) */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+                  {checkoutPrice ? (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-semibold text-slate-900">
+                          {formatCurrency(
+                            checkoutPrice.amount,
+                            checkoutPrice.currency
+                          )}
+                        </span>
+                        <span className="text-xs font-medium text-slate-500">
+                          {formatPriceShortUnit(checkoutPrice)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatPaymentNote(checkoutPrice)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-800">
+                      Contact sales for pricing.
+                    </p>
+                  )}
+                </div>
+
+                {/* Limits */}
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p className="font-semibold text-slate-800">Usage limits</p>
+                  {(() => {
+                    const scope: LicenseScope | undefined =
+                      checkoutDetail?.licenseScope ??
+                      checkoutTarget?.licenseScope;
+                    const seats =
+                      checkoutDetail?.seatsPerCompanyLimit ??
+                      checkoutTarget?.seatsPerCompanyLimit;
+                    const companies =
+                      checkoutDetail?.companyShareLimit ??
+                      checkoutTarget?.companyShareLimit;
+
+                    return (
+                      <>
+                        {scope && (
+                          <p className="flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5" />
+                            {formatSeatsLimit(scope, seats)}
+                          </p>
+                        )}
+                        {typeof companies !== "undefined" && (
+                          <p>{formatCompanyShareLimit(companies)}</p>
+                        )}
+                        {checkoutPrice && scope && (
+                          <p>
+                            {formatChargeUnit(scope, checkoutPrice.chargeUnit)}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Features */}
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-slate-800">
+                    Included features
+                  </p>
+                  {checkoutFeatures.length ? (
+                    <ul className="space-y-1 text-xs text-slate-700">
+                      {checkoutFeatures.map((name) => (
+                        <li key={name} className="flex items-center gap-2">
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>{name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-400">
+                      Feature list will be confirmed during onboarding.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT: Order summary */}
+              <aside className="w-full md:w-64 lg:w-72">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Order summary
+                  </h3>
+
+                  <div className="mt-3 space-y-3 text-xs text-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span>Selected plan</span>
+                      <span className="font-medium text-slate-900">
+                        {effectivePlan.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>
+                        Unit price
+                        {isInstallments && " (per installment)"}
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        {checkoutPrice
+                          ? formatCurrency(
+                              perChargeAmount,
+                              checkoutPrice.currency
+                            )
+                          : "Contact sales"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>Quantity</span>
+                      <span className="font-medium text-slate-900">1</span>
+                    </div>
+
+                    <div className="border-t border-dashed border-slate-200 pt-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-900">
+                          Total this payment
+                        </span>
+                        <span className="text-sm font-semibold text-slate-900">
+                          {checkoutPrice
+                            ? formatCurrency(
+                                perChargeAmount,
+                                checkoutPrice.currency
+                              )
+                            : "-"}
+                        </span>
+                      </div>
+                      {isInstallments && checkoutPrice && (
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Contract value{" "}
+                          {formatCurrency(
+                            checkoutPrice.amount,
+                            checkoutPrice.currency
+                          )}{" "}
+                          over {checkoutPrice.installmentCount} installments.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
-          </div>
-        </div>
+          )}
+        </Modal>
       </div>
-    ))
-  )}
-</div>
-      </div>
-
-      {/* Checkout Modal + pop-up events */}
-      <CheckoutModal
-        open={checkoutOpen}
-        onClose={closeCheckout}
-        plan={checkoutPlan}
-        processing={checkoutLoading}
-        onConfirm={async (p) => {    
-          try{
-            setCheckoutLoading(true);
-
-            // 1) Tạo transaction từ subscription plan (planId = p.id)
-            const txRes = await createTransaction(p.id);
-            const tx = txRes?.data?.data ?? txRes?.data ?? txRes;
-            const transactionId = tx?.id;
-            if (!transactionId) throw new Error('Missing transactionId');
-            
-            // 2) Tạo PayOS checkout link
-            const linkRes = await createPaymentLink(transactionId);
-            const checkoutUrl = linkRes?.data?.data; // {succeeded, statusCode, message, data: "https://..."}
-            if (!checkoutUrl) throw new Error('Missing checkoutUrl');
-
-            // 3) Điều hướng sang PayOS
-            sessionStorage.setItem('fusion:lastTxId', transactionId);
-            window.location.href = checkoutUrl;
-          } catch (err) {
-            console.error(err);
-            // alert(err.message || 'Payment initialization failed!');
-          } finally {
-            setCheckoutLoading(false); 
-          }
-        }}
-      />
     </div>
   );
-};
-
-export default SubscriptionPlan;
+}

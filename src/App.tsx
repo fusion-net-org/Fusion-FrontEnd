@@ -28,10 +28,8 @@ import AdminDashboardPage from './pages/admin/dashboard/Dashboard';
 import AdminUsersPage from './pages/admin/userManagement/Users';
 import AdminSubscriptionsPage from './pages/admin/Subscriptions';
 import AdminCompaniesPage from './pages/admin/companyManagement/Companies';
-import SubscriptionPag from './pages/subscription/SubscriptionPage';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
-import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequireAuth from './components/RequireAuth/RequireAuth';
 import WorkflowPage from './pages/home/Workflow';
 import WorkflowCreatePage from './pages/home/Workflow';
@@ -50,7 +48,7 @@ import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
 
 import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
 import MySubscriptions from './pages/mysubscription/MySubscription';
-import CompanySubscriptionsPage from './pages/home/CompanySubscriptionPage';
+// import CompanySubscriptionsPage from './pages/home/CompanySubscriptionPage';
 
 import ResetPassword from './pages/resetPassword/ResetPassword';
 import OverviewUserPage from './pages/admin/userManagement/OverviewUserPage';
@@ -63,8 +61,10 @@ import SubcriptionListPage from './pages/admin/subcriptionManagement/Subscriptio
 import TransactionListPage from './pages/admin/transactionManagement/TransactionListPage';
 import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
 import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';
-import UserProfile from './pages/userProfile/UserProfile';
 import ProjectDetailAdminPage from './pages/admin/projectManagement/ProjectDetailAdminPage';
+import UserProfile from './pages/UserProfile/UserProfile';
+import FeatureListPage from './pages/admin/featureManagement/FeatureListPage';
+import CompanySubscriptionPage from './pages/home/CompanySubscriptionPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -117,6 +117,7 @@ function App() {
           <Route path="/admin/projects/list" element={<ProjectListPage />} />
           <Route path="/admin/projects/detail/:id" element={<ProjectDetailAdminPage />} />
           <Route path="/admin/projects/detail" element={<ProjectDetailAdminPage />} />
+          <Route path="/admin/features/list" element={<FeatureListPage />} />
           {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>
         {/* route company layout */}
@@ -128,7 +129,7 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
-          <Route path="/company/:companyId/subscription" element={<CompanySubscriptionsPage />} />
+          <Route path="/company/:companyId/subscription" element={<CompanySubscriptionPage />} />
           <Route
             path="/companies/:companyId/project/:projectId"
             element={<ProjectsCompanyRequest />}

@@ -80,3 +80,8 @@ export interface CompanyListResponse {
   id: string | null;
   companyName: string | null;
 }
+
+export interface CompanyListResponse {
+  id: string | null;
+  companyName: string | null;
+}

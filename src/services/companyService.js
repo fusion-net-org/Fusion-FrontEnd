@@ -39,6 +39,7 @@ export const getPagedCompanies = async (pageNumber = 1, pageSize = 8) => {
   }
 };
 
+
 export const searchCompanies = async (keyword, pageNumber = 1, pageSize = 8) => {
   try {
     const response = await axiosInstance.get(
@@ -133,13 +134,16 @@ export const deleteCompany = async (companyId) => {
 
 export const getCompaniesOfCurrentUser = async () => {
   try {
-    const response = await axiosInstance.get('/company/current-user');
-    return response.data.data || [];
+    const response = await axiosInstance.get("/Company/current-user");
+    return response?.data?.data ?? [];
   } catch (error) {
-    console.error('Error fetching current user companies:', error);
-    throw new Error(error.response?.data?.message || 'Error fetching companies of current user!');
+    throw new Error(
+      error.response?.data?.message ||
+        "Failed to load companies of current user!"
+    );
   }
 };
+
 export const updateCompanyByAdmin = async (id, data) => {
   try {
     const response = await axiosInstance.put(`/company/admin/${id}`, data, {

@@ -1,57 +1,69 @@
+// src/interfaces/CompanySubscription/CompanySubscription.ts
 
-export type SubscriptionStatus = "Active" | "Expired" | "InActive";
+import type { Guid, PagedResult } from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
-// map theo backend request
-export interface CompanySubscriptionEntitlementCreateRequest {
-  featureKey: string;
-  quantity: number;
-}
+export type CompanySubscriptionStatus = string;
 
-export interface CompanySubscriptionCreateRequest {
-  companyId: string;
-  userSubscriptionId: string;
-  entitlements: CompanySubscriptionEntitlementCreateRequest[];
-}
+// ====== CREATE REQUEST ======
+export type CompanySubscriptionCreateRequest = {
+  userSubscriptionId: Guid;
+  companyId: Guid;
+  ownerUserId: Guid;
+};
 
-export interface CompanySubscriptionListItem {
-  id: string;
-  nameSubscription: string | null;
-  status: SubscriptionStatus;
-  createdAt: string;  
-  expiredAt: string;  
-}
+// ====== LIST ITEM (company/{companyId}) ======
+export type CompanySubscriptionListResponse = {
+  id: Guid;
+  companyName?: string | null;
+  planName?: string | null;
+  userName?: string | null;
+  status: CompanySubscriptionStatus;
+  sharedOn: string;              // DateTimeOffset -> ISO string
+  expiredAt?: string | null;     // DateTimeOffset? -> ISO
+  seatsLimitSnapshot?: number | null;
+  seatsLimitUnit?: number | null;
+};
 
-export interface CompanySubscriptionPaged {
-  items: CompanySubscriptionListItem[];
-  totalCount: number;
+// ====== DETAIL ======
+export type CompanySubscriptionEntitlementDetailResponse = {
+  featureId: Guid;
+  featureCode?: string | null;
+  featureName?: string | null;
+  category?: string | null;
+  enabled: boolean;
+};
+
+export type CompanySubscriptionDetailResponse =
+  CompanySubscriptionListResponse & {
+    companyId: Guid;
+    userSubscriptionId: Guid;
+    ownerUserId: Guid;
+    entitlements: CompanySubscriptionEntitlementDetailResponse[];
+  };
+
+// ====== ACTIVE BY COMPANY (dropdown) ======
+export type CompanySubscriptionEntitlementDropdownResponse = {
+  id: Guid;
+  featureName: string;
+};
+
+export type CompanySubscriptionActiveResponse = {
+  id: Guid;
+  nameSubscription?: string | null;
+  seatsLimitSnapshot?: number | null;
+  seatsLimitUnit?: number | null;
+  companySubscriptionEntitlements: CompanySubscriptionEntitlementDropdownResponse[];
+};
+
+// ====== PAGED REQUEST / RESULT ======
+export type CompanySubscriptionPagedRequest = {
+  keyword?: string;
+  status?: CompanySubscriptionStatus;  // map enum SubscriptionStatus ở BE
   pageNumber: number;
   pageSize: number;
-}
+  sortColumn?: "status" | "createdAt" | "expiredAt";
+  sortDescending?: boolean;
+};
 
-export interface CompanySubscriptionQuery {
-  status?: SubscriptionStatus | "";
-  Keyword?: string;
-  PageNumber?: number;
-  PageSize?: number;
-  SortColumn?: "nameSubscription" | "status" | "createdAt" | "expiredAt";
-  SortDescending?: boolean;
-}
-
-
-export interface CompanySubscriptionEntitlementDetail {
-  id: string;
-  featureKey: string;   // server gửi enum -> FE nhận dạng string
-  quantity: number;
-  remaining: number;
-}
-
-export interface CompanySubscriptionDetailResponse {
-  id: string;
-  companyId: string;
-  userSubscriptionId: string;
-  nameSubscription: string | null;
-  status: SubscriptionStatus;
-  createdAt: string;   // ISO
-  expiredAt: string;   // ISO
-  entitlements: CompanySubscriptionEntitlementDetail[];
-}
+export type CompanySubscriptionPagedResult =
+  PagedResult<CompanySubscriptionListResponse>;

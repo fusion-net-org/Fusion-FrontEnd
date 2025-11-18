@@ -1,45 +1,59 @@
-export type SubscriptionStatus = "Active" | "Expired" | "InActive";
+// src/interfaces/UserSubscription/UserSubscription.ts
 
-export interface UserSubscriptionListItem {
-  id: string;
-  namePlan: string | null;
-  price: number;
-  currency: string | null;
-  status: SubscriptionStatus;
-  expiredAt: string; // ISO
-}
+import type {
+  Guid,
+  PagedResult,
+  LicenseScope,
+  BillingPeriod,
+  PaymentMode,
+} from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
-export interface UserSubscriptionPaged {
-  items: UserSubscriptionListItem[];
-  totalCount: number;
+// Nếu sau này BE fix cứng enum thì có thể đổi thành union
+export type UserSubscriptionStatus = string;
+
+export type UserSubscriptionResponse = {
+  id: Guid;
+  userId: Guid;
+  planId: Guid;
+  planName: string;
+  status: UserSubscriptionStatus;
+
+  termStart?: string | null;        // DateTimeOffset? -> ISO string
+  termEnd?: string | null;
+  nextPaymentDueAt?: string | null;
+
+  unitPrice: number;
+  currency: string;                 // "VND" ...
+  createdAt: string;                // DateTimeOffset -> ISO string
+};
+
+export type EntitlementVm = {
+  featureId: Guid;
+  code?: string | null;
+  name?: string | null;
+  enabled: boolean;
+};
+
+export type UserSubscriptionDetailResponse = UserSubscriptionResponse & {
+  isFullPackage: boolean;
+  licenseScope: LicenseScope;       // "SeatBased" | "CompanyWide"
+  companyShareLimit?: number | null;
+  seatsPerCompanyLimit?: number | null;
+
+  periodCount: number;
+  billingPeriod: BillingPeriod;     // "Week" | "Month" | "Year"
+  paymentMode: PaymentMode;         // "Prepaid" | "Installments"
+  installmentCount?: number | null;
+  installmentInterval?: BillingPeriod | null;
+
+  entitlements: EntitlementVm[];
+};
+
+export type UserSubscriptionPagedRequest = {
+  keyword?: string;
+  status?: string;
   pageNumber: number;
   pageSize: number;
-}
+};
 
-/** Query cho GET /UserSubscription/user */
-export interface UserSubscriptionQuery {
-  status?: SubscriptionStatus | "";
-  Keyword?: string;
-  PageNumber?: number;
-  PageSize?: number;
-  SortColumn?: "planName" | "status" | "createdAt" | "expiredAt";
-  SortDescending?: boolean;
-}
-export interface UserSubscriptionEntitlementResponse {
-  id: string;
-  featureKey: string;
-  quantity: number;
-  remaining: number;
-}
-
-export interface UserSubscriptionDetailResponse {
-  id: string;
-  namePlan: string | null;
-  price: number;
-  currency: string | null;
-  status: SubscriptionStatus;
-  creatAt: string;     // theo backend: CreatAt
-  expiredAt: string;
-  updateAt?: string | null;
-  entitlements: UserSubscriptionEntitlementResponse[];
-}
+export type UserSubscriptionPagedResult = PagedResult<UserSubscriptionResponse>;

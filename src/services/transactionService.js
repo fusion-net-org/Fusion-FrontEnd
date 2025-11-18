@@ -1,27 +1,22 @@
-import { axiosInstance } from '@/apiConfig';
+import { axiosInstance } from "@/apiConfig";
 
-export const createTransaction = async (subscription) => {
-  try {
-    const payload = { PackageId: subscription.planId || subscription.plan.id };
-    console.log('Payload for transaction:', payload);
-    const response = await axiosInstance.post('/TransactionPayment', payload, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to create transaction!');
-  }
+const unwrap = (res) => res?.data?.data ?? res?.data;
+const onError = (e) => {
+  const msg = e?.response?.data?.message || e?.message || "Unexpected error";
+  throw new Error(msg);
 };
 
-/**Get latest transaction of user */
-export const getLatestTransaction = async () => {
+
+export async function createTransactionPayment(payload) {
   try {
-    const response = await axiosInstance.get('/TransactionPayment/latest');
-    return response.data.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || 'Failed to get latest transaction!');
+    const res = await axiosInstance.post("/TransactionPayment/create", payload);
+    // ResponseModel<TransactionPaymentDetailResponse>
+    return unwrap(res) ?? null;
+  } catch (e) {
+    onError(e);
   }
-};
+}
+
 
 export const getAllTransactionForAdmin = async (filters = {}) => {
   try {
@@ -52,5 +47,18 @@ export const getTransactionById = async (id) => {
     return response.data.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Failed to get detail transaction!');
+  }
+};
+
+export const getNextPendingInstallment = async (params) => {
+  try {
+    const res = await axiosInstance.get(
+      "/TransactionPayment/installments/next",
+      { params }
+    );
+    return unwrap(res) ?? null;
+  } catch (error) {
+    onError(error);
+    return null;
   }
 };
