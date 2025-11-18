@@ -488,53 +488,147 @@ const Dashboard = () => {
         </div>
       </div>
       <Modal
-        title="Transaction Details"
+        title={
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold">Transaction Details</span>
+          </div>
+        }
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={null}
-        width={650}
+        width={700}
+        className="transaction-modal"
       >
         {selectedTransaction ? (
-          <Descriptions bordered column={1} size="small">
-            <Descriptions.Item label="Order Code">
-              {selectedTransaction.orderCode}
-            </Descriptions.Item>
-            <Descriptions.Item label="User ID">
-              {selectedTransaction.userId || selectedTransaction.userName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Plan ID / Package Name">
-              {selectedTransaction.planId} / {selectedTransaction.planName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Amount">
-              {selectedTransaction.currency}{' '}
-              {selectedTransaction.amount.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Descriptions.Item>
-            <Descriptions.Item label="Status">{selectedTransaction.status}</Descriptions.Item>
-            <Descriptions.Item label="Transaction Date">
-              {new Date(selectedTransaction.transactionDateTime).toLocaleString()}
-            </Descriptions.Item>
-            <Descriptions.Item label="Description">
-              {selectedTransaction.description}
-            </Descriptions.Item>
-            <Descriptions.Item label="Account Number">
-              {selectedTransaction.accountNumber}
-            </Descriptions.Item>
-            <Descriptions.Item label="Reference">{selectedTransaction.reference}</Descriptions.Item>
-            <Descriptions.Item label="Counter Account Name">
-              {selectedTransaction.counterAccountName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Counter Account Number">
-              {selectedTransaction.counterAccountNumber}
-            </Descriptions.Item>
-            <Descriptions.Item label="Payment Method">
-              {selectedTransaction.paymentMethod}
-            </Descriptions.Item>
-          </Descriptions>
+          <div className="space-y-4">
+            <div className="flex justify-end mb-4">
+              <span
+                className={`px-4 py-1.5 rounded-full text-sm font-medium ${
+                  selectedTransaction.status == 'Paid' || selectedTransaction.status == 'Success'
+                    ? 'bg-green-100 text-green-700'
+                    : selectedTransaction.status == 'Pending'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : selectedTransaction.status == 'Cancelled'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {selectedTransaction.status}
+              </span>
+            </div>
+
+            {/* Information */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Order Code</p>
+                  <p className="font-semibold text-gray-800">{selectedTransaction.orderCode}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Transaction Date</p>
+                  <p className="font-semibold text-gray-800">
+                    {new Date(selectedTransaction.transactionDateTime).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Amount Section */}
+            <div className="bg-white rounded-lg p-4 border-2 border-blue-200 shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">Amount</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {selectedTransaction.currency}{' '}
+                {selectedTransaction.amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
+
+            {/* User & Plan Information */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">
+                User & Package Information
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">User ID</p>
+                  <p className="text-sm text-gray-800">
+                    {selectedTransaction.userId || selectedTransaction.userName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Payment Method</p>
+                  <p className="text-sm text-gray-800">{selectedTransaction.paymentMethod}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Plan ID / Package Name</p>
+                <p className="text-sm text-gray-800">
+                  {selectedTransaction.planId} / {selectedTransaction.planName}
+                </p>
+              </div>
+              {selectedTransaction.description && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Description</p>
+                  <p className="text-sm text-gray-800">{selectedTransaction.description}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Banking Information */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">
+                Banking Information
+              </h4>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-xs text-gray-500">Account Number</span>
+                  <span className="text-sm font-medium text-gray-800">
+                    {selectedTransaction.accountNumber}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-xs text-gray-500">Reference</span>
+                  <span className="text-sm font-medium text-gray-800">
+                    {selectedTransaction.reference}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-xs text-gray-500">Counter Account Name</span>
+                  <span className="text-sm font-medium text-gray-800">
+                    {selectedTransaction.counterAccountName}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-xs text-gray-500">Counter Account Number</span>
+                  <span className="text-sm font-medium text-gray-800">
+                    {selectedTransaction.counterAccountNumber}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
-          <p className="text-center text-gray-400 py-4">No data available</p>
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+              <svg
+                className="w-8 h-8 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-500 font-medium">No data available</p>
+            <p className="text-gray-400 text-sm mt-1">Transaction details could not be loaded</p>
+          </div>
         )}
       </Modal>
     </>

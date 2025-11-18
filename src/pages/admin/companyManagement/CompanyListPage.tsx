@@ -15,7 +15,6 @@ import {
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import EditCompanyModal from './EditCompanyModal';
-import CompanyDetailDrawer from './CompanyDetailDrawer';
 import {
   getAllCompanies,
   getCompanyById,
@@ -565,13 +564,6 @@ export default function CompanyListPage() {
           </div>
         </div>
       </div>
-
-      {/* Detail Drawer */}
-      <CompanyDetailDrawer
-        row={selected}
-        loading={detailLoading}
-        onClose={() => setSelected(null)}
-      />
 
       {/* Edit Modal */}
       {modal.open && (
