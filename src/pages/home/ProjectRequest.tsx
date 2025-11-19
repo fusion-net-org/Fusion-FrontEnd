@@ -13,13 +13,13 @@ import type {
 } from '@/interfaces/ProjectRequest/projectRequest';
 import { useParams } from 'react-router-dom';
 import debounce from 'lodash/debounce';
-import { toast } from 'react-toastify';
-import { AcceptProjectRequest, RejectProjectRequest } from '@/services/projectRequest.js';
+
 import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import { useNavigate } from 'react-router-dom';
 import ContractModal from '@/components/ProjectRequest/ContractModal';
 import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
+import { Paging } from '@/components/Paging/Paging';
 const { RangePicker } = DatePicker;
 interface ContractNextData {
   contractId: string;
@@ -37,7 +37,6 @@ const ProjectRequestPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [viewMode, setViewMode] = useState<'AsRequester' | 'AsExecutor'>('AsRequester');
   //open popup
@@ -52,6 +51,11 @@ const ProjectRequestPage: React.FC = () => {
   const [contractDetailModalOpen, setContractDetailModalOpen] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [viewContractDetailModalOpen, setViewContractDetailModalOpen] = useState(false);
+
+  //filter status have project and is delete
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [haveProjectFilter, setHaveProjectFilter] = useState<'All' | 'Yes' | 'No'>('All');
+  const [deletedFilter, setDeletedFilter] = useState<'All' | 'Yes' | 'No'>('All');
 
   //handing open
   const openRejectModal = (id: string) => {
@@ -83,30 +87,48 @@ const ProjectRequestPage: React.FC = () => {
     companyIdParam = companyId,
     searchParam = searchTerm,
     statusParam = statusFilter,
+    haveIsDeletedParam = deletedFilter,
+    haveProjectParam = haveProjectFilter,
     dateParam = dateRange,
     pageParam = pageNumber,
+    sizeParam = pageSize,
   ) => {
     if (!companyIdParam) return;
     setLoading(true);
     try {
       const startDateStr = dateParam ? dateParam[0]?.format('YYYY-MM-DD') : null;
       const endDateStr = dateParam ? dateParam[1]?.format('YYYY-MM-DD') : null;
+
+      // Map haveProjectParam
+      let isHaveProject: boolean | null = null;
+      if (haveProjectParam === 'Yes') isHaveProject = true;
+      else if (haveProjectParam === 'No') isHaveProject = false;
+
+      // Map isDelete
+      let isDeleted: boolean | null = null;
+      if (haveIsDeletedParam === 'Yes') isDeleted = true;
+      else if (haveIsDeletedParam === 'No') isDeleted = false;
+
       const res: ProjectRequestResponse = await GetProjectRequestByCompanyId(
         companyIdParam,
         searchParam || null,
         statusParam === 'All' ? null : statusParam,
+        isDeleted,
+        isHaveProject,
         viewMode,
         'StartEndDate',
         startDateStr,
         endDateStr,
         pageParam,
-        pageSize,
+        sizeParam,
         'CreateAt',
         false,
       );
 
       setData(res.items || []);
       setTotalCount(res.totalCount || 0);
+      setPageNumber(pageParam);
+      setPageSize(sizeParam);
     } catch (error) {
       console.error(error);
     } finally {
@@ -117,7 +139,15 @@ const ProjectRequestPage: React.FC = () => {
   const debouncedFetch = useMemo(
     () =>
       debounce((text: string) => {
-        fetchData(companyId, text, statusFilter, dateRange, pageNumber);
+        fetchData(
+          companyId,
+          text,
+          statusFilter,
+          deletedFilter,
+          haveProjectFilter,
+          dateRange,
+          pageNumber,
+        );
       }, 500),
     [companyId, statusFilter, dateRange, pageNumber],
   );
@@ -131,7 +161,16 @@ const ProjectRequestPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [companyId, statusFilter, dateRange, pageNumber, pageSize, viewMode]);
+  }, [
+    companyId,
+    statusFilter,
+    deletedFilter,
+    haveProjectFilter,
+    dateRange,
+    pageNumber,
+    pageSize,
+    viewMode,
+  ]);
 
   const countStatus = (status: string) => data.filter((p) => p.status === status).length;
 
@@ -202,7 +241,7 @@ const ProjectRequestPage: React.FC = () => {
       </div>
 
       {/* VIEW MODE TABS */}
-      <div className="flex items-center justify-start mb-5">
+      <div className="flex items-center justify-start mb-2">
         <div className="flex bg-white/70 backdrop-blur-md border border-gray-200 rounded-full shadow-md overflow-hidden p-1 gap-1">
           {/* My Requests */}
           <button
@@ -251,13 +290,15 @@ const ProjectRequestPage: React.FC = () => {
       </div>
 
       {/* FILTER SECTION */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-80">
+      <div className="flex flex-wrap items-start justify-between gap-4 py-3 rounded-xl mb-2">
+        {/* Search */}
+        <div className="flex flex-col w-full sm:w-80">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Search</label>
+          <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search Project/Requester/Executor..."
+              placeholder="Project/Requester/Executor..."
               className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -265,41 +306,82 @@ const ProjectRequestPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Create Date:</span>
-            <RangePicker
-              format="DD/MM/YYYY"
-              className="border-gray-300 rounded-lg"
-              onChange={(dates) => setDateRange(dates as any)}
-            />
-          </div>
+        {/* Date Range */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Start Date To End Date</label>
+          <RangePicker
+            format="DD/MM/YYYY"
+            className="rounded-lg border border-gray-300 !h-[37.6px]"
+            onChange={(dates) => setDateRange(dates as any)}
+          />
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Status</label>
           <select
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="All">All</option>
             <option value="Pending">Pending</option>
             <option value="Accepted">Accepted</option>
+            <option value="Rejected">Rejected</option>
             <option value="Finished">Finished</option>
           </select>
-
-          <span className="text-sm text-gray-500">{data.length} results</span>
         </div>
+
+        {/* Have Project Filter */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Have Project</label>
+          <select
+            className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+            value={haveProjectFilter}
+            onChange={(e) => {
+              setHaveProjectFilter(e.target.value as 'All' | 'Yes' | 'No');
+              setPageNumber(1);
+            }}
+          >
+            <option value="All">All</option>
+            <option value="Yes">Have Project</option>
+            <option value="No">No Project</option>
+          </select>
+        </div>
+
+        {/* Deleted Filter */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Deleted</label>
+          <select
+            className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+            value={deletedFilter}
+            onChange={(e) => {
+              setDeletedFilter(e.target.value as 'All' | 'Yes' | 'No');
+              setPageNumber(1);
+            }}
+          >
+            <option value="All">All</option>
+            <option value="Yes">Deleted</option>
+            <option value="No">Not Deleted</option>
+          </select>
+        </div>
+
+        <span className="text-sm text-gray-500 flex items-center h-[37.6px] mt-[25px]">
+          {data.length} results
+        </span>
       </div>
 
       {/* TABLE */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-[1000px] w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600 text-left">
-            <tr>
+          <thead className="bg-blue-50 text-blue-800 uppercase text-left font-semibold">
+            <tr className="hover:bg-blue-100">
               <th className="px-4 py-3 font-medium text-center">Name</th>
               <th className="px-4 py-3 font-medium text-center">Request Company</th>
               <th className="px-4 py-3 font-medium text-center">Executor Company</th>
               <th className="px-4 py-3 font-medium text-center">Status</th>
-              {/* <th className="px-4 py-3 font-medium text-center">Start Date</th>
-              <th className="px-4 py-3 font-medium text-center">End Date</th> */}
+              <th className="px-4 py-3 font-medium text-center">Start Date</th>
+              <th className="px-4 py-3 font-medium text-center">End Date</th>
               <th className="px-4 py-3 font-medium text-center">Have Project</th>
               <th className="px-4 py-3 font-medium text-center">Deleted</th>
               <th className="px-4 py-3 font-medium text-center">Contract</th>
@@ -315,7 +397,12 @@ const ProjectRequestPage: React.FC = () => {
                 return (
                   <tr
                     key={item.id}
-                    className="border-t hover:bg-gray-50 transition-all duration-150 cursor-pointer"
+                    className="border-t hover:bg-blue-50 transition duration-200 cursor-pointer"
+                    onClick={() =>
+                      navigate(`/company/${companyId}/project-request/${item.id}`, {
+                        state: { viewMode, contractId: item.contractId },
+                      })
+                    }
                   >
                     {/* <td className="px-4 py-3 text-gray-800 font-medium">{item.code}</td> */}
                     <td className="px-4 py-3 text-gray-800 text-center">{item.projectName}</td>
@@ -334,12 +421,12 @@ const ProjectRequestPage: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-3 text-center">{getStatusBadge(item.status)}</td>
-                    {/* <td className="px-4 py-3 text-gray-600 text-center">
+                    <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.startDate).toLocaleDateString('vi-VN')}
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.endDate).toLocaleDateString('vi-VN')}
-                    </td> */}
+                    </td>
 
                     <td className="px-4 py-3 text-center">
                       {item.isHaveProject ? (
@@ -360,7 +447,10 @@ const ProjectRequestPage: React.FC = () => {
                     <td className="px-4 py-3 text-center">
                       {item.contractId ? (
                         <button
-                          onClick={() => handleViewContractClick(item.contractId, item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewContractClick(item.contractId, item.id);
+                          }}
                           className="text-blue-600 hover:underline text-sm"
                         >
                           View Contract
@@ -467,7 +557,7 @@ const ProjectRequestPage: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={11}>
                   <div className="flex flex-col items-center justify-center py-10 text-gray-500">
                     <p className="text-lg font-medium">No project requests found</p>
                     <p className="text-sm text-gray-400 mt-1">
@@ -481,22 +571,41 @@ const ProjectRequestPage: React.FC = () => {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex justify-end mt-6">
-        <Stack spacing={2} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-          <Pagination
-            count={Math.ceil(totalCount / pageSize) || 1}
-            page={pageNumber}
-            onChange={(_, value) => setPageNumber(value)}
-            color="primary"
-            variant="outlined"
-            shape="rounded"
-            size="medium"
-            showFirstButton
-            showLastButton
-          />
-        </Stack>
+      {/* Paging */}
+      <div className="mt-6">
+        <Paging
+          page={pageNumber}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={(page) => {
+            setPageNumber(page);
+            fetchData(
+              companyId,
+              searchTerm,
+              statusFilter,
+              deletedFilter,
+              haveProjectFilter,
+              dateRange,
+              page,
+              pageSize,
+            );
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            fetchData(
+              companyId,
+              searchTerm,
+              statusFilter,
+              deletedFilter,
+              haveProjectFilter,
+              dateRange,
+              1,
+              size,
+            );
+          }}
+        />
       </div>
+
       <RejectReasonModal
         open={rejectModalOpen}
         onClose={() => setRejectModalOpen(false)}

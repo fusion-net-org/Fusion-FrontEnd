@@ -4,6 +4,8 @@ export const GetProjectRequestByCompanyId = async (
   companyId,
   Keyword = null,
   Status = null,
+  Deleted,
+  IsHaveProject,
   ViewMode,
   DateFilterType = 'StartEndDate',
   DateRangeFrom = null,
@@ -18,6 +20,8 @@ export const GetProjectRequestByCompanyId = async (
       params: {
         Keyword,
         Status,
+        Deleted,
+        IsHaveProject,
         ViewMode,
         DateFilterType,
         'DateRange.From': DateRangeFrom,

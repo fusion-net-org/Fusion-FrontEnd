@@ -17,8 +17,6 @@ import {
   Trash,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
 import { getUserById } from '@/services/userService.js';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { User as IUser } from '@/interfaces/User/User';
@@ -31,9 +29,10 @@ import LoadingOverlay from '@/common/LoadingOverlay';
 import { getProjectMemberByCompanyIdAndUserId } from '@/services/projectMember.js';
 import type { IProjectMember } from '@/interfaces/ProjectMember/projectMember';
 import DeleteProjectMember from '@/components/ProjectMember/DeleteProjectMember';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useDebounce } from '@/hook/Debounce';
+import { Paging } from '@/components/Paging/Paging';
 
 const data = [
   { name: 'Productivity', value: 75 },
@@ -51,6 +50,11 @@ export default function CompanyMemberDetail() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
+  const [pagination, setPagination] = useState({
+    pageNumber: 1,
+    pageSize: 5,
+    totalCount: 0,
+  });
 
   //get companyid by use location of state
   const { state } = useLocation();
@@ -123,14 +127,17 @@ export default function CompanyMemberDetail() {
         statusFilter ?? '',
         null,
         null,
-        pageNumber,
-        pageSize,
+        pagination.pageNumber,
+        pagination.pageSize,
         null,
         null,
       );
       setListProjectMember(response.data.items[0]);
 
-      setTotalProjectCount(response.data.totalCount ?? 0);
+      setPagination((prev) => ({
+        ...prev,
+        totalCount: response.data.totalCount ?? 0,
+      }));
     } catch (error: any) {
       console.log(error);
       setListProjectMember(undefined);
@@ -176,7 +183,7 @@ export default function CompanyMemberDetail() {
   //paging
   useEffect(() => {
     fetchGetProjectMemberByCompanyIdAndUserId();
-  }, [pageNumber, pageSize]);
+  }, [pagination.pageNumber, pagination.pageSize]);
 
   return (
     <div className="relative">
@@ -376,24 +383,20 @@ export default function CompanyMemberDetail() {
                     )}
                   </tbody>
                 </table>
-                {/* Pagination */}
-                <div className="flex justify-end mt-3 w-full">
-                  <Stack
-                    spacing={2}
-                    className="bg-white p-3 rounded-xl shadow-sm border-2 border-gray-200"
-                  >
-                    <Pagination
-                      count={Math.ceil(totalProjectCount / pageSize) || 1}
-                      page={pageNumber}
-                      onChange={(e, value) => setPageNumber(value)}
-                      color="primary"
-                      variant="outlined"
-                      shape="rounded"
-                      size="medium"
-                      showFirstButton
-                      showLastButton
-                    />
-                  </Stack>
+                <div className="w-full mt-3">
+                  <Paging
+                    page={pagination.pageNumber}
+                    pageSize={pagination.pageSize}
+                    totalCount={pagination.totalCount}
+                    onPageChange={(page) => {
+                      setPagination((prev) => ({ ...prev, pageNumber: page }));
+                      fetchGetProjectMemberByCompanyIdAndUserId();
+                    }}
+                    onPageSizeChange={(size) => {
+                      setPagination((prev) => ({ ...prev, pageSize: size, pageNumber: 1 }));
+                      fetchGetProjectMemberByCompanyIdAndUserId();
+                    }}
+                  />
                 </div>
               </div>
             </div>

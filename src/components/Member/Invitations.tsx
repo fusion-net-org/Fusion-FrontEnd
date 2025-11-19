@@ -14,6 +14,7 @@ import {
 } from '@/services/companyMemberService.js';
 import type { CompanyMemberItem, CompanyMemberPagedResponse } from '@/interfaces/Company/member';
 import { useDebounce } from '@/hook/Debounce';
+import { Paging } from '../Paging/Paging';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -41,10 +42,10 @@ const InvitationPage: React.FC = () => {
 
   // Paging state
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState(8);
   const [totalItems, setTotalItems] = useState(0);
 
-  const fetchMembers = async (page: number = 1) => {
+  const fetchMembers = async (page: number = 1, size: number = pageSize) => {
     try {
       setLoading(true);
       const response: CompanyMemberPagedResponse = await GetCompanyMemberByUserId(
@@ -57,13 +58,14 @@ const InvitationPage: React.FC = () => {
         null,
         null,
         page,
-        pageSize,
+        size,
       );
 
       if (response.statusCode === 200) {
         setMembers(response.data.items);
         setTotalItems(response.data.totalCount);
         setPageNumber(page);
+        setPageSize(size);
       }
     } catch (error) {
       console.error(error);
@@ -71,7 +73,6 @@ const InvitationPage: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleAccept = async (memberId: number) => {
     try {
       setLoading(true);
@@ -294,29 +295,35 @@ const InvitationPage: React.FC = () => {
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-end mt-6">
-            <Pagination
-              current={pageNumber}
+          <div className="w-full">
+            <Paging
+              page={pageNumber}
               pageSize={pageSize}
-              total={totalItems}
-              onChange={(page) => fetchMembers(page)}
-              showSizeChanger={false}
+              totalCount={totalItems}
+              onPageChange={(page) => fetchMembers(page)}
+              onPageSizeChange={(size) => fetchMembers(1, size)}
             />
           </div>
         </div>
       ) : (
-        <Table
-          columns={columns}
-          dataSource={members}
-          rowKey="id"
-          pagination={{
-            current: pageNumber,
-            pageSize: pageSize,
-            total: totalItems,
-            onChange: (page) => fetchMembers(page),
-          }}
-          bordered
-        />
+        <></>
+      )}
+      {/* TABLE VIEW */}
+      {!viewGrid && (
+        <div>
+          <Table columns={columns} dataSource={members} rowKey="id" pagination={false} bordered />
+
+          {/* Pagination */}
+          <div className="w-full">
+            <Paging
+              page={pageNumber}
+              pageSize={pageSize}
+              totalCount={totalItems}
+              onPageChange={(page) => fetchMembers(page)}
+              onPageSizeChange={(size) => fetchMembers(1, size)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
