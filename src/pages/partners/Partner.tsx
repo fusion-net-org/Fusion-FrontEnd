@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Users, Check, X, Ban, Eye } from 'lucide-react';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
+import { UserPlus, Users, Check, X, Ban, Eye, Search } from 'lucide-react';
 import InvitePartners from '@/components/Partner/InvitePartner';
 import {
   GetCompanyPartnersByCompanyID,
@@ -21,6 +19,7 @@ import { toast } from 'react-toastify';
 import { useNavigate, useParams } from 'react-router-dom';
 import { debounce } from 'lodash';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import { Paging } from '@/components/Paging/Paging';
 
 const Partners: React.FC = () => {
   const { RangePicker } = DatePicker;
@@ -287,7 +286,7 @@ const Partners: React.FC = () => {
         </div>
 
         {/* STATUS SUMMARY */}
-        <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-2">
           <span className="px-4 py-1.5 bg-green-200 text-green-700 text-sm font-medium rounded-full">
             Active: {summaryStatusPartner?.active ?? 0}
           </span>
@@ -302,25 +301,35 @@ const Partners: React.FC = () => {
           </span>
         </div>
 
-        {/* Search & filters */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white p-4 rounded-xl shadow-md mb-6 gap-3 border border-gray-200">
-          <input
-            type="text"
-            placeholder="Search Company/Owner/Status..."
-            onChange={(e) => {
-              const value = e.target.value;
-              setSearchTerm(value);
-              handleSearch(value);
-            }}
-            className="w-full sm:w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
-          />
+        {/* Search & Filters */}
+        <div className="flex flex-wrap items-start justify-between gap-4 py-3 rounded-xl mb-2">
+          {/* Search (Left) */}
+          <div className="flex flex-col w-full sm:w-80">
+            <label className="font-semibold text-sm text-gray-600 mb-1">Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Company/Owner/Status..."
+                className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={searchTerm}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                  handleSearch(value);
+                }}
+              />
+            </div>
+          </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Create Date:</span>
+          {/* Filters (Right) */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* Date Range */}
+            <div className="flex flex-col">
+              <label className="font-semibold text-sm text-gray-600 mb-1">Create Date</label>
               <RangePicker
-                className="border border-gray-200 rounded-lg px-2 py-1"
                 format="DD/MM/YYYY"
+                className="rounded-lg border border-gray-300 !h-[37.6px]"
                 placeholder={['Date From', 'Date To']}
                 onChange={(dates) => {
                   if (!dates) {
@@ -333,21 +342,29 @@ const Partners: React.FC = () => {
               />
             </div>
 
-            <select
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-              value={filterStatus}
-              onChange={(e) => {
-                const value = e.target.value;
-                setFilterStatus(value);
-                handleFilterStatus(value);
-              }}
-            >
-              <option value="All">All</option>
-              <option value="Active">Active</option>
-              <option value="Pending">Pending</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-            <div className="text-sm text-gray-500">{pagination.totalCount} results</div>
+            {/* Status Filter */}
+            <div className="flex flex-col">
+              <label className="font-semibold text-sm text-gray-600 mb-1">Status</label>
+              <select
+                className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+                value={filterStatus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFilterStatus(value);
+                  handleFilterStatus(value);
+                }}
+              >
+                <option value="All">All</option>
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* Result Count */}
+            <div className="font-semibold text-sm text-gray-500 flex items-center h-[37.6px] mt-[25px]">
+              {pagination.totalCount} results
+            </div>
           </div>
         </div>
 
@@ -491,20 +508,20 @@ const Partners: React.FC = () => {
         </div>
 
         {/* Pagination */}
-        <div className="flex justify-end mt-6">
-          <Stack spacing={2} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-            <Pagination
-              count={Math.ceil(pagination.totalCount / pagination.pageSize) || 1}
-              page={currentPage}
-              onChange={handlePageChange}
-              color="primary"
-              variant="outlined"
-              shape="rounded"
-              size="medium"
-              showFirstButton
-              showLastButton
-            />
-          </Stack>
+        <div className="w-full">
+          <Paging
+            page={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalCount={pagination.totalCount}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              fetchPartners(page);
+            }}
+            onPageSizeChange={(size) => {
+              setPagination((prev) => ({ ...prev, pageSize: size }));
+              fetchPartners(1);
+            }}
+          />
         </div>
 
         <InvitePartners

@@ -29,7 +29,7 @@ import { getSprintByProjectId } from '@/services/sprintService.js';
 import type { ISprintResponse } from '@/interfaces/Sprint/sprint';
 
 const ProjectCompanyRequest = () => {
-  const rowsPerPage = 10;
+  const rowsPerPage = 2;
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
   const [sprints, setSprints] = useState<ISprintResponse>();
@@ -282,7 +282,7 @@ const ProjectCompanyRequest = () => {
         {activeTab === 'members' && (
           <div>
             <MemberCharts projectId={projectId!} />
-            <MembersTab projectId={projectId!} rowsPerPage={rowsPerPage} />
+            <MembersTab projectId={projectId!} />
           </div>
         )}
         {activeTab === 'tickets' && (

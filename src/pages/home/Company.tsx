@@ -12,8 +12,7 @@ import EmptyState from '@/utils/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import LoadingOverlay from '@/common/LoadingOverlay';
-import UserMenu from '@/components/UserMenu/UserMenu';
-import HomeHeader from '@/components/Header/HomeHeader';
+import { Paging } from '@/components/Paging/Paging';
 
 const Company: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +31,7 @@ const Company: React.FC = () => {
   const [filterRelationship, setFilterRelationship] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchCompanies = async (keyword = '', page = 1) => {
+  const fetchCompanies = async (keyword = '', page = 1, pageSize = pagination.pageSize) => {
     try {
       setLoading(true);
       const res = await getAllCompanies(
@@ -40,7 +39,7 @@ const Company: React.FC = () => {
         '',
         filterRelationship === 'All' ? '' : filterRelationship,
         page,
-        pagination.pageSize,
+        pageSize,
         sortColumn,
         sortDescending,
       );
@@ -120,7 +119,6 @@ const Company: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <p className="font-medium text-gray-500">Relationship:</p>
           <div className="flex gap-2">
             {['All', 'Owner', 'Member'].map((relation) => (
               <button
@@ -194,22 +192,20 @@ const Company: React.FC = () => {
             ))}
           </div>
 
-          {/* Pagination */}
-          <div className="flex justify-end mt-6 pr-3">
-            <Stack spacing={2}>
-              <Pagination
-                count={Math.ceil(pagination.totalCount / pagination.pageSize)}
-                page={currentPage}
-                onChange={handlePageChange}
-                color="primary"
-                variant="outlined"
-                shape="rounded"
-                size="medium"
-                showFirstButton
-                showLastButton
-              />
-            </Stack>
-          </div>
+          {/* //paging */}
+          <Paging
+            page={currentPage}
+            pageSize={pagination.pageSize}
+            totalCount={pagination.totalCount}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              fetchCompanies(searchTerm, page);
+            }}
+            onPageSizeChange={(size) => {
+              setPagination((prev) => ({ ...prev, pageSize: size }));
+              fetchCompanies(searchTerm, 1, size);
+            }}
+          />
         </>
       )}
       {loading && (

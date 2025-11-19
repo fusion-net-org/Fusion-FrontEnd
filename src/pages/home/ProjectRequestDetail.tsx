@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Building2,
-  Calendar,
   Mail,
   Phone,
   Globe,
@@ -14,6 +13,8 @@ import {
   XCircle,
   Navigation,
   Handshake,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { GetProjectRequestById, AcceptProjectRequest } from '@/services/projectRequest.js';
@@ -23,13 +24,12 @@ import { toast } from 'react-toastify';
 import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
 import type { IProjectRequset } from '@/interfaces/ProjectRequest/projectRequest';
 import type { CompanyRequest } from '@/interfaces/Company/company';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import EditProjectRequestModal from '@/components/ProjectRequest/EditProjectRequestModal';
 import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProjectModal';
 import { createProject } from '@/services/projectService.js';
-import { DeleteProjectRequest, RestoreProjectRequest } from '@/services/projectRequest.js';
+import { RestoreProjectRequest } from '@/services/projectRequest.js';
 import DeleteProjectRequestModal from '@/components/ProjectRequest/DeleteProjectRequestModal';
-
+import { getContractById } from '@/services/contractService.js';
 export default function ProjectRequestDetail() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -53,7 +53,8 @@ export default function ProjectRequestDetail() {
     setRejectModalOpen(true);
   };
   const isDeleted = projectRequest?.isDeleted ?? false;
-  console.log('contractId project request detail', contractId);
+  const [contract, setContract] = useState<any>();
+
   const handleAccept = async () => {
     try {
       setAccepting(true);
@@ -119,6 +120,22 @@ export default function ProjectRequestDetail() {
     if (id) fetchData();
   }, [id]);
 
+  useEffect(() => {
+    const load = async () => {
+      if (id) await fetchData();
+
+      if (contractId) {
+        try {
+          const contractRes = await getContractById(contractId);
+          setContract(contractRes.data);
+        } catch (err) {
+          console.error('Failed to fetch contract:', err);
+        }
+      }
+    };
+    load();
+  }, [id, contractId]);
+
   return (
     <>
       {loading ? (
@@ -128,28 +145,33 @@ export default function ProjectRequestDetail() {
           {accepting && <LoadingOverlay loading message="Accepting request..." />}
           <div className="mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
             {/* HEADER */}
-            <div className="bg-gradient-to-r from-[#2563eb] to-[#4f46e5] text-white px-10 py-8 rounded-b-3xl shadow-lg">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white px-8 py-6 md:py-8 rounded-b-3xl shadow-md relative">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-0">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight drop-shadow-sm">
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight drop-shadow-md">
                     {projectRequest?.projectName ?? 'Unnamed Project'}
                   </h1>
-                  <p className="text-indigo-100 mt-1 text-sm">
+                  <p className="text-indigo-200 mt-1 text-sm font-medium">
                     {projectRequest?.code ? `#${projectRequest.code}` : '—'}
                   </p>
                 </div>
+
+                {/* Status Badge */}
                 <span
-                  className={`mt-4 md:mt-0 px-6 py-2 text-sm font-bold rounded-full shadow-md
-                    ${
-                      projectRequest?.status === 'Accepted'
-                        ? 'bg-green-500 text-white'
-                        : projectRequest?.status === 'Rejected'
-                        ? 'bg-red-500 text-white'
-                        : projectRequest?.status === 'Pending'
-                        ? 'bg-yellow-400 text-gray-900'
-                        : 'bg-gray-300 text-gray-700'
-                    }`}
+                  className={`flex items-center gap-2 mt-2 md:mt-0 px-5 py-2 text-sm font-semibold rounded-full transition
+          ${
+            projectRequest?.status === 'Accepted'
+              ? 'bg-green-100 text-green-800'
+              : projectRequest?.status === 'Rejected'
+              ? 'bg-red-100 text-red-800'
+              : projectRequest?.status === 'Pending'
+              ? 'bg-yellow-100 text-yellow-800'
+              : 'bg-gray-100 text-gray-700'
+          }`}
                 >
+                  {projectRequest?.status === 'Accepted' && <CheckCircle2 className="w-4 h-4" />}
+                  {projectRequest?.status === 'Rejected' && <X className="w-4 h-4" />}
+                  {projectRequest?.status === 'Pending' && <Layers className="w-4 h-4" />}
                   {projectRequest?.status ?? 'Unknown'}
                 </span>
               </div>
@@ -157,18 +179,19 @@ export default function ProjectRequestDetail() {
 
             {/* BODY */}
             <div className="p-10 space-y-10">
-              {/* PROJECT INFO */}
+              {/* PROJECT INFO + OVERVIEW COMBINED */}
               <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
+                {/* Overview Header */}
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                    <ClipboardList className="text-indigo-500" />
-                    Project Information
-                  </h2>
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5 text-indigo-600" />
+                    Project Overview
+                  </h3>
 
                   {viewMode === 'AsRequester' && projectRequest?.status === 'Pending' && (
                     <button
                       onClick={() => setEditModalOpen(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full shadow-md transition transform hover:-translate-y-0.5"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full shadow-md transition"
                     >
                       <Layers className="w-4 h-4" />
                       Edit Request
@@ -176,19 +199,16 @@ export default function ProjectRequestDetail() {
                   )}
                 </div>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <InfoCard
-                    icon={<ClipboardList />}
-                    label="Project Code"
-                    value={projectRequest?.code}
-                  />
-                  <InfoCard
-                    icon={<User />}
-                    label="Created By"
-                    value={projectRequest?.createdName}
-                  />
-                  <InfoCard
-                    icon={<Calendar />}
+                {/* Overview Content */}
+                <p className="text-gray-700 font-semibold leading-relaxed mb-6">
+                  {projectRequest?.description || '—'}
+                </p>
+
+                {/* Compact Info List */}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm font-semibold">
+                  <InfoRow label="Project Code" value={projectRequest?.code} />
+                  <InfoRow label="Created By" value={projectRequest?.createdName} />
+                  <InfoRow
                     label="Start Date"
                     value={
                       projectRequest?.startDate
@@ -196,8 +216,7 @@ export default function ProjectRequestDetail() {
                         : '—'
                     }
                   />
-                  <InfoCard
-                    icon={<Calendar />}
+                  <InfoRow
                     label="End Date"
                     value={
                       projectRequest?.endDate
@@ -208,19 +227,86 @@ export default function ProjectRequestDetail() {
                 </div>
               </div>
 
-              {/* DESCRIPTION */}
-              <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition">
-                <h2 className="text-xl font-semibold mb-3 text-gray-800 flex items-center gap-2">
-                  <Layers className="text-indigo-500" />
-                  Project Overview
-                </h2>
-                <p className="text-gray-700 leading-relaxed">{projectRequest?.description}</p>
-              </div>
+              {/* CONTRACT INFORMATION - COMPACT MODE */}
+              {contractId && contract && (
+                <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <Handshake className="text-indigo-500 w-5 h-5" />
+                    Contract Information
+                  </h3>
 
-              {/* REQUESTER COMPANY */}
-              <div className="space-y-4">
-                <h3 className="text-gray-700 font-semibold uppercase tracking-wider text-sm flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-indigo-500" />
+                  {/* Contract Main Info */}
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 font-semibold text-sm">
+                    <InfoRow label="Contract Code" value={contract.contractCode} />
+                    <InfoRow label="Contract Name" value={contract.contractName} />
+                    <InfoRow
+                      label="Effective Date"
+                      value={new Date(contract.effectiveDate).toLocaleDateString('vi-VN')}
+                    />
+                    <InfoRow
+                      label="Expired Date"
+                      value={new Date(contract.expiredDate).toLocaleDateString('vi-VN')}
+                    />
+                    <InfoRow
+                      label="Budget"
+                      value={`${contract.budget?.toLocaleString('vi-VN')} VND`}
+                    />
+                    <InfoRow label="Status" value={contract.status} />
+                  </div>
+
+                  {/* Appendices */}
+                  <div className="mt-8">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <ClipboardList className="w-5 h-5 text-indigo-600" />
+                      Contract Appendices
+                    </h3>
+
+                    {contract.appendices?.length > 0 ? (
+                      <div className="space-y-4">
+                        {contract.appendices.map((item: any) => (
+                          <details
+                            key={item.id}
+                            className="group border border-gray-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 p-5"
+                          >
+                            <summary className="cursor-pointer font-semibold flex justify-between items-center text-md">
+                              <span>
+                                {item.appendixCode} — {item.appendixName}
+                              </span>
+
+                              <span className="transition-transform duration-300 group-open:rotate-180">
+                                <ChevronDown className="w-5 h-5" />
+                              </span>
+                            </summary>
+
+                            <div className="mt-4 space-y-2 text-gray-700 leading-relaxed border-t pt-3">
+                              <p className="whitespace-pre-line">{item.appendixDescription}</p>
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="italic text-gray-500 text-sm">No appendices found.</p>
+                    )}
+                  </div>
+
+                  {/* Attachment */}
+                  {contract.attachment && (
+                    <button
+                      onClick={() => window.open(contract.attachment, '_blank')}
+                      className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow transition"
+                    >
+                      <ClipboardList className="w-4 h-4" />
+                      View Contract Attachment
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* COMPANIES INFORMATION */}
+              <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
+                {/* Title */}
+                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-indigo-600" />
                   Requester Company
                 </h3>
                 <CompanyCard
@@ -228,13 +314,10 @@ export default function ProjectRequestDetail() {
                   gradient="from-gray-50 to-gray-100"
                   onClick={() => navigate(`/company/${projectRequest?.requesterCompanyId}`)}
                 />
-                {companyRequest && <CompanyPerformanceChart companyName={companyRequest.name} />}
-              </div>
 
-              {/* EXECUTOR COMPANY */}
-              <div className="space-y-4">
-                <h3 className="text-gray-700 font-semibold uppercase tracking-wider text-sm flex items-center gap-2">
-                  <Handshake className="w-4 h-4 text-indigo-500" />
+                {/* Executor */}
+                <h3 className="text-xl font-bold text-gray-800 mt-8 mb-6 flex items-center gap-2">
+                  <Handshake className="w-5 h-5 text-indigo-600" />
                   Executor Company
                 </h3>
                 <CompanyCard
@@ -242,10 +325,9 @@ export default function ProjectRequestDetail() {
                   gradient="from-gray-50 to-gray-100"
                   onClick={() => navigate(`/company/${projectRequest?.executorCompanyId}`)}
                 />
-                {companyExecutor && <CompanyPerformanceChart companyName={companyExecutor.name} />}
               </div>
 
-              <div className="flex justify-end gap-4 pt-6 border-t">
+              <div className="flex justify-end gap-4">
                 {/* Delete / Restore */}
                 {(viewMode === 'AsRequester' || viewMode === 'AsExecutor') &&
                   projectRequest &&
@@ -381,17 +463,11 @@ export default function ProjectRequestDetail() {
 }
 
 /* ---------------- SUB COMPONENTS ---------------- */
-
-const InfoCard = ({ icon, label, value }: any) => (
-  <div className="bg-white border rounded-2xl shadow-sm p-4 hover:shadow-lg transition transform hover:-translate-y-1">
-    <div className="flex items-center gap-3">
-      <div className="text-indigo-600 bg-indigo-50 p-2 rounded-xl">{icon}</div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="font-semibold text-gray-800">{value}</p>
-      </div>
-    </div>
-  </div>
+const InfoRow = ({ label, value }: any) => (
+  <p className="flex items-center text-gray-700 gap-2 border-b pb-2">
+    <span className="font-medium w-32">{label}:</span>
+    <span className="text-gray-900">{value || '—'}</span>
+  </p>
 );
 
 const CompanyCard = ({ data, gradient, onClick }: any) => (
@@ -435,44 +511,20 @@ const CompanyField = ({ icon, label, value }: any) => (
   </p>
 );
 
-const CompanyPerformanceChart = ({ companyName }: any) => {
-  const data = [
-    { name: 'On-Time Release', value: 85 },
-    { name: 'Violations', value: 3 },
-    { name: 'Completed Projects', value: 47 },
-  ];
-
-  return (
-    <div className="mt-6 bg-white rounded-2xl shadow-inner p-5 border border-gray-100">
-      <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">
-        {companyName} Performance Overview
-      </h4>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-          <YAxis />
-          <Tooltip />
-          <Bar dataKey="value" fill="#6366F1" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
-
 const ActionButton = ({ color, label, icon, onClick, disabled }: any) => {
   const colorClasses: any = {
-    green: 'bg-green-500 hover:bg-green-600',
-    red: 'bg-red-500 hover:bg-red-600',
-    blue: 'bg-blue-500 hover:bg-blue-600',
+    green: 'text-green-700 border-green-400 bg-green-50 hover:bg-green-100',
+    red: 'text-red-700 border-red-400 bg-red-50 hover:bg-red-100',
+    blue: 'text-blue-700 border-blue-400 bg-blue-50 hover:bg-blue-100',
   };
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-2 px-6 py-2.5 text-white font-semibold rounded-full shadow-md transition transform hover:-translate-y-0.5
-      ${colorClasses[color]} ${
-        disabled ? 'opacity-50 cursor-not-allowed hover:translate-y-0' : ''
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+        ${colorClasses[color]} ${
+        disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''
       }`}
     >
       {icon}
