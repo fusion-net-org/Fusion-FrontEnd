@@ -336,3 +336,32 @@ export const GetProjectByProjectId = async (projectId) => {
   }
 };
 
+// Gán member vào project
+export async function assignMemberToProject(projectId, memberId, companyId) {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(memberId)) throw new Error("Invalid memberId");
+  if (!isGuid(companyId)) throw new Error("Invalid companyId");
+
+  const dto = {
+    projectId,
+    companyId,
+    memberId,
+  };
+
+  // ⚠️ Nếu BE dùng route khác, chỉ cần chỉnh path dưới đây
+  const { data } = await axiosInstance.post("/projectmember", dto);
+  return data?.data ?? data;
+}
+
+// Kick member khỏi project
+export async function removeMemberFromProject(projectId, memberId) {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(memberId)) throw new Error("Invalid memberId");
+
+  // Ví dụ: DELETE /projectmember/project/{projectId}/member/{memberId}
+  // chỉnh lại cho khớp route BE của bạn
+  const { data } = await axiosInstance.delete(
+    `/projectmember/project/${projectId}/member/${memberId}`
+  );
+  return data?.data ?? data;
+}

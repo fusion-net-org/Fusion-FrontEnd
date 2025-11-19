@@ -10,6 +10,7 @@ import {
 import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm, StatusCategory } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
+import { useNavigate, useParams } from "react-router-dom";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -179,7 +180,16 @@ export default function KanbanBySprintBoard({
   const _onNext = onNext ?? noop;
   const _onSplit = onSplit ?? noop;
   const _onMoveNext = onMoveNext ?? noop;
+const { companyId, projectId } = useParams();
+const navigate = useNavigate();
 
+const handleOpenTicket = React.useCallback(
+  (taskId: string) => {
+    if (!companyId || !projectId) return;
+    navigate(`/companies/${companyId}/project/${projectId}/task/${taskId}`);
+  },
+  [navigate, companyId, projectId]
+);
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
@@ -318,7 +328,7 @@ export default function KanbanBySprintBoard({
                                           onNext={_onNext}
                                           onSplit={_onSplit}
                                           onMoveNext={_onMoveNext}
-                                          onOpenTicket={onOpenTicket}
+                                          onOpenTicket={handleOpenTicket }
                                           isNew={task.id === flashTaskId}
                                           // ★ status chỉ ở Kanban
                                           statusColorHex={meta?.color}

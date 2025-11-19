@@ -3,6 +3,7 @@ import { Search, Clock, Check, MoveRight, MoveDown, SplitSquareHorizontal } from
 import type { TaskVm, StatusCategory, SprintVm, MemberRef } from "@/types/projectBoard";
 import CreateTaskModal from "../Task/CreateTaskModal";
 import { useProjectBoard } from "@/context/ProjectBoardContext";
+import { useNavigate, useParams } from "react-router-dom";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
@@ -25,12 +26,14 @@ export default function ProjectTaskList({
   onNext,
   onSplit,
   onMoveNext,
+  onOpenTicket,
 }: {
   tasks: TaskVm[];
   onMarkDone?: (t: TaskVm) => void;
   onNext?: (t: TaskVm) => void;
   onSplit?: (t: TaskVm) => void;
   onMoveNext?: (t: TaskVm) => void;
+  onOpenTicket?: (taskId: string) => void;
 }) {
   // quick filter: search + category pills + pagination
   const [kw, setKw] = useState("");
@@ -57,6 +60,32 @@ const members: MemberRef[] = React.useMemo(() => {
   }
   return Array.from(map.values());
 }, [tasks]);
+  const { companyId, projectId } = useParams();
+  const navigate = useNavigate();
+
+  const handleOpenTask = React.useCallback(
+    (taskId: string) => {
+      // ưu tiên callback từ cha
+      if (onOpenTicket) {
+        onOpenTicket(taskId);
+        return;
+      }
+
+      // fallback: tự điều hướng
+      if (!companyId || !projectId) {
+        console.warn(
+          "[ProjectTaskList] Missing companyId/projectId in params",
+          { companyId, projectId, taskId }
+        );
+        return;
+      }
+
+      navigate(
+        `/companies/${companyId}/project/${projectId}/task/${taskId}`
+      );
+    },
+    [onOpenTicket, companyId, projectId, navigate]
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const slice = filtered.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
@@ -144,20 +173,42 @@ const members: MemberRef[] = React.useMemo(() => {
                   <tr key={t.id} className={cn("border-b last:border-0", isDone && "opacity-70")}>
                     {/* code + sprint */}
                     <td className="px-3 py-3 align-top">
-                      <div className="font-semibold text-slate-700">{t.code}</div>
-                      <div className="text-[11px] text-slate-500">Sprint {t.sprintId?.split("-")[1] ?? "—"}</div>
+                     <button
+                        type="button"
+                        onClick={() => handleOpenTask(t.id)}
+                        className="font-semibold text-xs text-blue-600 hover:underline"
+                      >
+                        {t.code}
+                      </button>
+                      <div className="text-[11px] text-slate-500">
+                        Sprint {t.sprintId?.split("-")[1] ?? "—"}
+                      </div>
                     </td>
 
                     {/* title + tags */}
                     <td className="px-3 py-3 align-top">
-                      <div className="font-medium">{t.title}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTask(t.id)}
+                        className={cn(
+                          "text-[13px] font-semibold text-left",
+                          "text-blue-600 underline decoration-blue-400 underline-offset-[3px]",
+                          "hover:text-blue-700 hover:decoration-blue-600 focus:outline-none",
+                        )}
+                      >
+                        {t.title}
+                      </button>
                       <div className="mt-1 flex items-center gap-2 flex-wrap">
-                        <span className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full border",
-                          t.priority === "Urgent" ? "bg-rose-50 text-rose-700 border-rose-200"
-                            : t.priority === "High" ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-slate-50 text-slate-700 border-slate-200"
-                        )}>
+                        <span
+                          className={cn(
+                            "text-[10px] px-2 py-0.5 rounded-full border",
+                            t.priority === "Urgent"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : t.priority === "High"
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-slate-50 text-slate-700 border-slate-200",
+                          )}
+                        >
                           {t.priority}
                         </span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full border bg-slate-50 text-slate-700 border-slate-200">
@@ -244,15 +295,7 @@ const members: MemberRef[] = React.useMemo(() => {
                             Done
                           </button>
                         )}
-                        {!isDone && (
-                          <button
-                            className="px-2 py-1 rounded-lg border text-xs hover:bg-blue-50 border-blue-300 text-blue-700"
-                            onClick={() => onNext?.(t)}
-                          >
-                            <MoveRight className="w-3 h-3 inline mr-1" />
-                            Next
-                          </button>
-                        )}
+                       
                         <button
                           className="px-2 py-1 rounded-lg border text-xs hover:bg-violet-50 border-violet-300 text-violet-700"
                           onClick={() => onSplit?.(t)}

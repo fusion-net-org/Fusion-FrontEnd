@@ -22,7 +22,11 @@ import {
 import {
   GetProjectByProjectId,
   getCompanyMembersPaged,
+ assignMemberToProject,
+ removeMemberFromProject,
 } from "@/services/projectService.js";
+import { getProjectMemberByProjectId } from "@/services/projectMember.js"; 
+
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
 
 // ===== Local types =====
@@ -222,7 +226,7 @@ export default function ProjectDetailPage() {
     ProjectMemberVm[]
   >([]);
 
- React.useEffect(() => {
+React.useEffect(() => {
   let alive = true;
 
   (async () => {
@@ -230,30 +234,43 @@ export default function ProjectDetailPage() {
     setLoading(true);
 
     try {
-      // 1) Gọi song song: project detail + sprint-board
-      const [detail, board] = await Promise.all<any>([
+      // 1) Gọi song song: project detail + sprint-board + project members
+      const [detailRaw, board, memberPaged] = await Promise.all<any>([
         GetProjectByProjectId(projectId),
         fetchSprintBoard(projectId),
+        getProjectMemberByProjectId(projectId, "", "", "", 1, 200),
       ]);
       if (!alive) return;
 
-      // 2) Map member trong project
-      const rawMembers: any[] =
+      // 2) Chuẩn hóa payload project detail (cũ)
+      const detail: any = detailRaw?.data ?? detailRaw ?? {};
+
+      // 3) Raw members từ project detail
+      const rawMembersFromProject: any[] =
         detail.members ??
         detail.projectMembers ??
         detail.projectMemberResults ??
         [];
 
+      // 4) Raw members từ API projectmember/paged
+      const memberPayload: any = memberPaged?.data ?? memberPaged ?? {};
+      const memberItems: any[] = Array.isArray(memberPayload.items)
+        ? memberPayload.items
+        : Array.isArray(memberPayload)
+        ? memberPayload
+        : [];
+
+      // Ưu tiên dùng list từ projectmember service, fallback sang detail.members
+      const rawMembers: any[] =
+        memberItems.length > 0 ? memberItems : rawMembersFromProject;
+
       const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
         ? rawMembers.map(mapProjectMember)
         : [];
 
-      // 3) Stats từ project-detail (nếu BE có)
+      // 5) Stats từ project-detail (nếu BE có)
       const rawStats =
-        detail.stats ??
-        detail.boardSnapshot ??
-        detail.boardStats ??
-        {};
+        detail.stats ?? detail.boardSnapshot ?? detail.boardStats ?? {};
 
       const statsFromDetail: ProjectDetailVm["stats"] = {
         totalSprints:
@@ -288,7 +305,7 @@ export default function ProjectDetailPage() {
           0,
       };
 
-      // 4) Stats từ sprint-board (dùng data bạn gửi)
+      // 6) Stats từ sprint-board
       const statsFromBoard = buildStatsFromBoard(board);
 
       // Ưu tiên số liệu từ board, nếu = 0 thì fallback statsFromDetail
@@ -304,12 +321,9 @@ export default function ProjectDetailPage() {
           statsFromDetail.totalStoryPoints,
       };
 
-      // 5) Creator + availableMembers (pool)
+      // 7) Creator + pool availableMembers (company members chưa join project)
       const creatorIdRaw =
-        detail.createdById ??
-        detail.createdByUserId ??
-        detail.createdBy ??
-        null;
+        detail.createdById ?? detail.createdByUserId ?? detail.createdBy ?? null;
 
       let createdByName: string =
         detail.createdByName ??
@@ -317,7 +331,6 @@ export default function ProjectDetailPage() {
         detail.createdByDisplayName ??
         "";
 
-      // 🔹 KHAI BÁO POOL Ở ĐÂY
       let pool: ProjectMemberVm[] = [];
 
       if (companyId) {
@@ -331,7 +344,7 @@ export default function ProjectDetailPage() {
           mappedMembers.map((x) => x.userId.toLowerCase())
         );
 
-        // build pool từ company members
+        // build pool từ company members (loại những người đã nằm trong project)
         pool = (res.items || [])
           .filter((m: any) => {
             const mid = String(
@@ -341,11 +354,9 @@ export default function ProjectDetailPage() {
           })
           .map(mapCompanyMemberToVm);
 
-        // nếu createdByName đang là GUID hoặc trống -> lookup sang company members
+        // lookup creator nếu currently là GUID hoặc rỗng
         if (!createdByName || isGuid(createdByName)) {
-          const creatorKey = (creatorIdRaw ?? createdByName) as
-            | string
-            | null;
+          const creatorKey = (creatorIdRaw ?? createdByName) as string | null;
           if (creatorKey) {
             const lower = creatorKey.toLowerCase();
             const found = (res.items || []).find((m: any) => {
@@ -371,10 +382,7 @@ export default function ProjectDetailPage() {
         isHired: !!detail.isHired,
         companyId: String(detail.companyId ?? companyId ?? ""),
         companyName:
-          detail.companyName ??
-          detail.ownerCompany ??
-          detail.company ??
-          "",
+          detail.companyName ?? detail.ownerCompany ?? detail.company ?? "",
         companyHiredId: detail.companyHiredId ?? null,
         companyHiredName:
           detail.companyHiredName ?? detail.hiredCompanyName ?? null,
@@ -386,12 +394,12 @@ export default function ProjectDetailPage() {
         createdAt: detail.createdAt ?? new Date().toISOString(),
         createdByName:
           (!isGuid(createdByName) && createdByName) || "",
-        stats,                // ✅ dùng stats đã merge từ board
+        stats,
         members: mappedMembers,
       };
 
       setProject(vm);
-      setAvailableMembers(pool); // ✅ lúc này pool đã có
+      setAvailableMembers(pool);
     } catch (err) {
       console.error("Load project detail failed", err);
       if (alive) {
@@ -410,6 +418,7 @@ export default function ProjectDetailPage() {
 
 
 
+
   const projectStats = project ? project.stats : null;
   const progress = projectStats ? progressPercent(projectStats) : 0;
 
@@ -425,19 +434,44 @@ export default function ProjectDetailPage() {
     );
   }, [project, memberSearch]);
 
-  const handleRemoveMember = (userId: string) => {
+    const handleRemoveMember = async (userId: string) => {
     if (!project) return;
+
+    const removed = project.members.find((m) => m.userId === userId);
+    if (!removed) return;
+
+    // Optimistic UI
     setProject({
       ...project,
       members: project.members.filter((m) => m.userId !== userId),
     });
-    // TODO: call API remove member from project
+
+    // người bị kick sẽ quay lại pool assign
+    setAvailableMembers((prev) => [
+      ...prev,
+      {
+        ...removed,
+        joinedAt: null, // trong pool không cần joinedAt
+        isPartner: false,
+        isViewAll: false,
+      },
+    ]);
+
+    try {
+      await removeMemberFromProject(project.id, userId);
+    } catch (err) {
+      console.error("Remove member failed", err);
+      alert("Remove member failed, please try again.");
+      // option: reload lại toàn bộ members nếu muốn chắc chắn
+    }
   };
 
-  const handleAddMember = (m: ProjectMemberVm) => {
+
+    const handleAddMember = async (m: ProjectMemberVm) => {
     if (!project) return;
     if (project.members.some((x) => x.userId === m.userId)) return;
 
+    // Optimistic UI
     setProject({
       ...project,
       members: [
@@ -449,8 +483,16 @@ export default function ProjectDetailPage() {
       ],
     });
     setAvailableMembers((prev) => prev.filter((x) => x.userId !== m.userId));
-    // TODO: call API assign member to project
+
+    try {
+      await assignMemberToProject(project.id, m.userId, project.companyId);
+    } catch (err) {
+      console.error("Assign member failed", err);
+      alert("Assign member failed, please try again.");
+      // option: reload lại members/pool nếu cần
+    }
   };
+
 
   if (loading || !project) {
     return (
