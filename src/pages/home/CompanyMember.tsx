@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
-import { Eye, Ban, UserPlus } from 'lucide-react';
+import { Eye, Ban, UserPlus, Search } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import LoadingOverlay from '@/common/LoadingOverlay';
@@ -16,6 +16,7 @@ import type { CompanyMemberInterface, CompanyMemberResponse } from '@/interfaces
 import { DatePicker } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import InviteMember from '@/components/Member/InviteMember';
+import { Paging } from '@/components/Paging/Paging';
 const CompanyMember: React.FC = () => {
   //#region state
   const navigate = useNavigate();
@@ -227,44 +228,54 @@ const CompanyMember: React.FC = () => {
         </div>
 
         {/* FILTER BAR */}
-        <div className="bg-white shadow-sm border border-gray-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          {/* Search input */}
-          <input
-            type="text"
-            placeholder="Search name, email..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="w-full sm:w-1/3 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
+        <div className="flex flex-wrap items-start justify-between gap-4 py-3 rounded-xl mb-4">
+          {/* Search Input */}
+          <div className="flex flex-col w-full sm:w-1/3 relative">
+            <label className="font-semibold text-sm text-gray-600 mb-1">Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Name, email..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="w-full border border-gray-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
 
           {/* Filters: Date + Status */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full sm:w-auto">
             {/* Date Range */}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>Create Date:</span>
+            <div className="flex flex-col">
+              <label className="font-semibold text-sm text-gray-600 mb-1">Create Date</label>
               <RangePicker
-                className="border border-gray-200 rounded-lg px-2 py-1"
                 format="DD/MM/YYYY"
+                className="rounded-lg border border-gray-300 !h-[37.6px]"
                 placeholder={['Date From', 'Date To']}
                 value={dateRange}
                 onChange={handleFilterByDate}
               />
             </div>
 
-            {/* Status select */}
-            <div className="flex items-center gap-2 text-sm">
+            {/* Status Filter */}
+            <div className="flex flex-col">
+              <label className="font-semibold text-sm text-gray-600 mb-1">Status</label>
               <select
                 value={statusFilter}
                 onChange={handleStatusFilterChange}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
               >
                 <option value="All">All</option>
                 <option value="Active">Active</option>
                 <option value="Pending">Pending</option>
                 <option value="Inactive">Inactive</option>
               </select>
+            </div>
 
-              <span className="text-gray-500">{pagination.totalCount} results</span>
+            {/* Result Count */}
+            <div className="font-semibold text-sm text-gray-500 flex items-center h-[37.6px] mt-6 sm:mt-0">
+              {pagination.totalCount} results
             </div>
           </div>
         </div>
@@ -341,20 +352,20 @@ const CompanyMember: React.FC = () => {
         </div>
 
         {/* PAGINATION */}
-        <div className="flex justify-end mt-6">
-          <Stack spacing={2}>
-            <Pagination
-              count={Math.ceil(pagination.totalCount / pagination.pageSize)}
-              page={currentPage}
-              onChange={handlePageChange}
-              color="primary"
-              variant="outlined"
-              shape="rounded"
-              size="medium"
-              showFirstButton
-              showLastButton
-            />
-          </Stack>
+        <div className="w-full mt-6">
+          <Paging
+            page={pagination.pageNumber}
+            pageSize={pagination.pageSize}
+            totalCount={pagination.totalCount}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              fetchMembers(searchTerm, page);
+            }}
+            onPageSizeChange={(size) => {
+              setPagination((prev) => ({ ...prev, pageSize: size }));
+              fetchMembers(searchTerm, 1);
+            }}
+          />
         </div>
       </div>
       <InviteMember

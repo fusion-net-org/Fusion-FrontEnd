@@ -67,11 +67,6 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
         return;
       }
 
-      // const appendicesData =
-      //   values.appendices?.map((a: any) => ({
-      //     title: a.type === 'OTHER' ? a.custom : a.type,
-      //     description: a.custom && a.type === 'OTHER' ? a.custom : null,
-      //   })) || [];
       const appendicesData =
         values.appendices?.map((a: any) => ({
           title: a.type,
