@@ -1,93 +1,117 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-} from 'recharts';
-import { Card } from 'antd';
-import { BarChart3 } from 'lucide-react';
-
-interface SprintChartsProps {
-  sprintData: { name: string; total: number; done: number }[];
-  sprintProgressData?: { sprint: string; completed: number; pending: number }[];
-  taskDistribution?: { name: string; value: number }[];
+import React, { useEffect, useState } from 'react';
+import Chart from 'react-apexcharts';
+import { Card, Spin } from 'antd';
+import { getSprintChartsByProjectId } from '@/services/sprintService.js';
+interface StatusDistribution {
+  status: string;
+  count: number;
 }
 
-const SprintCharts: React.FC<SprintChartsProps> = ({
-  sprintData,
-  sprintProgressData = [
-    { sprint: 'Sprint 1', completed: 8, pending: 2 },
-    { sprint: 'Sprint 2', completed: 6, pending: 4 },
-    { sprint: 'Sprint 3', completed: 10, pending: 0 },
-  ],
-  taskDistribution = [
-    { name: 'To Do', value: 12 },
-    { name: 'In Progress', value: 8 },
-    { name: 'Done', value: 15 },
-  ],
-}) => {
+interface SprintWorkload {
+  sprintName: string;
+  estimatedHours: number;
+  remainingHours: number;
+  todoCount: number;
+  inProgressCount: number;
+  doneCount: number;
+  review: number;
+}
+
+const SprintEntityCharts: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const [loading, setLoading] = useState(true);
+  const [statusDistribution, setStatusDistribution] = useState<StatusDistribution[]>([]);
+  const [sprintWorkload, setSprintWorkload] = useState<SprintWorkload[]>([]);
+  const statusLabels = ['Planning', 'Active', 'Completed', 'Closed'];
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const data = await getSprintChartsByProjectId(projectId);
+        setStatusDistribution(data.statusDistribution || []);
+        setSprintWorkload(data.sprintWorkload || []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [projectId]);
+
+  if (loading) return <Spin tip="Loading charts..." />;
+
   return (
-    <div className="mt-8 space-y-8">
-      {/* Sprint Task Overview */}
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-          <BarChart3 className="text-indigo-500 w-5 h-5" />
-          Sprint Task Overview
-        </h2>
-        <div className="bg-white border rounded-2xl shadow-inner p-4">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={sprintData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="total" fill="#CBD5E1" radius={[4, 4, 0, 0]} name="Total Tasks" />
-              <Bar dataKey="done" fill="#6366F1" radius={[4, 4, 0, 0]} name="Completed Tasks" />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-            <span>
-              🟦 <strong>{sprintData.reduce((a, b) => a + b.done, 0)}</strong> done tasks
-            </span>
-            <span>
-              📊 Total: <strong>{sprintData.reduce((a, b) => a + b.total, 0)}</strong> tasks
-            </span>
-          </div>
-        </div>
+    <div className="space-y-8 mt-8">
+      {/* Chart 1 - Doughnut */}
+      <Card title="Sprint Status Distribution">
+        <Chart
+          type="donut"
+          series={statusLabels.map(
+            (label) => statusDistribution.find((s) => s.status === label)?.count || 0,
+          )}
+          options={{
+            labels: statusLabels,
+            colors: ['#F87171', '#FBBF24', '#34D399', '#A78BFA'],
+            legend: { position: 'bottom' },
+            tooltip: { y: { formatter: (val: number) => `${val} sprints` } },
+          }}
+          height={300}
+        />
+      </Card>
+
+      <div className="flex flex-wrap gap-4">
+        {/* Chart 2 - Column Chart (Estimated vs Remaining) */}
+        <Card title="Sprint Workload (Estimate vs Remaining)" className="flex-1 min-w-[300px]">
+          <Chart
+            type="bar"
+            series={[
+              { name: 'Estimated', data: sprintWorkload.map((s) => s.estimatedHours) },
+              { name: 'Remaining', data: sprintWorkload.map((s) => s.remainingHours) },
+            ]}
+            options={{
+              chart: { stacked: false },
+              plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
+              xaxis: { categories: sprintWorkload.map((s) => s.sprintName) },
+              colors: ['#93C5FD', '#4F46E5'],
+              tooltip: { y: { formatter: (val: number) => `${val} hrs` } },
+              dataLabels: { enabled: true, formatter: (val: number) => `${val}` },
+            }}
+            height={300}
+          />
+        </Card>
+
+        {/* Chart 3 - Stacked AreaChart (Task Progress) */}
+        <Card title="Task Progress per Sprint" className="flex-1 min-w-[300px]">
+          <Chart
+            type="area"
+            series={[
+              { name: 'To Do', data: sprintWorkload.map((s) => s.todoCount) },
+              { name: 'In Progress', data: sprintWorkload.map((s) => s.inProgressCount) },
+              { name: 'Done', data: sprintWorkload.map((s) => s.doneCount) },
+              { name: 'Review', data: sprintWorkload.map((s) => s.review) },
+            ]}
+            options={{
+              chart: { stacked: true, toolbar: { show: true } },
+              xaxis: { categories: sprintWorkload.map((s) => s.sprintName) },
+              colors: ['#F87171', '#FBBF24', '#34D399', '#60A5FA'],
+              tooltip: { y: { formatter: (val: number) => `${val} tasks` } },
+              fill: {
+                type: 'gradient',
+                gradient: {
+                  shadeIntensity: 1,
+                  opacityFrom: 0.6,
+                  opacityTo: 0.1,
+                  stops: [0, 90, 100],
+                },
+              },
+            }}
+            height={300}
+          />
+        </Card>
       </div>
-
-      {/* Sprint Progress per Sprint */}
-      <Card title="Sprint Progress" variant="outlined">
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={sprintProgressData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="sprint" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="completed" fill="#4F46E5" name="Completed" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="pending" fill="#93C5FD" name="Pending" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
-
-      {/* Task Distribution */}
-      <Card title="Task Distribution" variant="outlined">
-        <ResponsiveContainer width="100%" height={250}>
-          <PieChart>
-            <Pie data={taskDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" label />
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
-      </Card>
     </div>
   );
 };
 
-export default SprintCharts;
+export default SprintEntityCharts;

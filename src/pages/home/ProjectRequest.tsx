@@ -13,13 +13,19 @@ import type {
 } from '@/interfaces/ProjectRequest/projectRequest';
 import { useParams } from 'react-router-dom';
 import debounce from 'lodash/debounce';
-import { toast } from 'react-toastify';
-import { AcceptProjectRequest, RejectProjectRequest } from '@/services/projectRequest.js';
+
 import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import { useNavigate } from 'react-router-dom';
+import ContractModal from '@/components/ProjectRequest/ContractModal';
+import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
+import { Paging } from '@/components/Paging/Paging';
 const { RangePicker } = DatePicker;
-
+interface ContractNextData {
+  contractId: string;
+  effectiveDate: string;
+  expiredDate: string;
+}
 const ProjectRequestPage: React.FC = () => {
   const navigate = useNavigate();
   const { companyId } = useParams();
@@ -31,14 +37,25 @@ const ProjectRequestPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [viewMode, setViewMode] = useState<'AsRequester' | 'AsExecutor'>('AsRequester');
-  console.log(data);
   //open popup
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [modalOpenInviteProjectRequest, setModalOpenInviteProjectRequest] = useState(false);
+  //contract
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractData, setContractData] = useState<ContractNextData>();
+
+  //contract side executor
+  const [contractDetailModalOpen, setContractDetailModalOpen] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [viewContractDetailModalOpen, setViewContractDetailModalOpen] = useState(false);
+
+  //filter status have project and is delete
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [haveProjectFilter, setHaveProjectFilter] = useState<'All' | 'Yes' | 'No'>('All');
+  const [deletedFilter, setDeletedFilter] = useState<'All' | 'Yes' | 'No'>('All');
 
   //handing open
   const openRejectModal = (id: string) => {
@@ -46,72 +63,72 @@ const ProjectRequestPage: React.FC = () => {
     setRejectModalOpen(true);
   };
   //popup invite
-  const handleNewClick = () => setModalOpenInviteProjectRequest(true);
-
+  // const handleNewClick = () => setModalOpenInviteProjectRequest(true);
+  const handleNewClick = () => setContractModalOpen(true);
+  const handleContractNext = (data: any) => {
+    setContractData(data);
+    setContractModalOpen(false);
+    setModalOpenInviteProjectRequest(true);
+  };
   const handleClose = () => setModalOpenInviteProjectRequest(false);
 
-  //handing accept and reject for company executor
-  const handleAccept = async (id: string) => {
-    setAcceptingId(id);
-    try {
-      const res = await AcceptProjectRequest(id);
-      if (res.succeeded) {
-        toast.success('Request accepted successfully!');
-        fetchData();
-      } else {
-        toast.error(res.message || 'Failed to accept request');
-      }
-    } catch (error) {
-      toast.error('Error while accepting request');
-    } finally {
-      setAcceptingId(null);
-    }
+  const handleAcceptClick = (contractId: string, projectRequestId: string) => {
+    setSelectedContractId(contractId);
+    setSelectedProjectId(projectRequestId);
+    setContractDetailModalOpen(true);
   };
-
-  const handleReject = async (id: string) => {
-    const reason = prompt('Enter reason:');
-    if (!reason) {
-      toast.info('Please enter reason!');
-      return;
-    }
-
-    const res = await RejectProjectRequest(id, reason);
-    if (res.succeeded) {
-      toast.success('Request rejected successfully!');
-      fetchData();
-    } else {
-      toast.error(res.message || 'Failed to reject request');
-    }
+  const handleViewContractClick = (contractId: string, projectRequestId: string) => {
+    setSelectedContractId(contractId);
+    setSelectedProjectId(projectRequestId);
+    setViewContractDetailModalOpen(true);
   };
 
   const fetchData = async (
     companyIdParam = companyId,
     searchParam = searchTerm,
     statusParam = statusFilter,
+    haveIsDeletedParam = deletedFilter,
+    haveProjectParam = haveProjectFilter,
     dateParam = dateRange,
     pageParam = pageNumber,
+    sizeParam = pageSize,
   ) => {
     if (!companyIdParam) return;
     setLoading(true);
     try {
       const startDateStr = dateParam ? dateParam[0]?.format('YYYY-MM-DD') : null;
       const endDateStr = dateParam ? dateParam[1]?.format('YYYY-MM-DD') : null;
+
+      // Map haveProjectParam
+      let isHaveProject: boolean | null = null;
+      if (haveProjectParam === 'Yes') isHaveProject = true;
+      else if (haveProjectParam === 'No') isHaveProject = false;
+
+      // Map isDelete
+      let isDeleted: boolean | null = null;
+      if (haveIsDeletedParam === 'Yes') isDeleted = true;
+      else if (haveIsDeletedParam === 'No') isDeleted = false;
+
       const res: ProjectRequestResponse = await GetProjectRequestByCompanyId(
         companyIdParam,
         searchParam || null,
         statusParam === 'All' ? null : statusParam,
+        isDeleted,
+        isHaveProject,
         viewMode,
         'StartEndDate',
         startDateStr,
         endDateStr,
         pageParam,
-        pageSize,
+        sizeParam,
         'CreateAt',
         false,
       );
 
       setData(res.items || []);
       setTotalCount(res.totalCount || 0);
+      setPageNumber(pageParam);
+      setPageSize(sizeParam);
     } catch (error) {
       console.error(error);
     } finally {
@@ -122,7 +139,15 @@ const ProjectRequestPage: React.FC = () => {
   const debouncedFetch = useMemo(
     () =>
       debounce((text: string) => {
-        fetchData(companyId, text, statusFilter, dateRange, pageNumber);
+        fetchData(
+          companyId,
+          text,
+          statusFilter,
+          deletedFilter,
+          haveProjectFilter,
+          dateRange,
+          pageNumber,
+        );
       }, 500),
     [companyId, statusFilter, dateRange, pageNumber],
   );
@@ -133,11 +158,19 @@ const ProjectRequestPage: React.FC = () => {
       debouncedFetch.cancel();
     };
   }, [searchTerm, debouncedFetch]);
-  console.log('🔄 Fetching with ViewMode:', viewMode);
 
   useEffect(() => {
     fetchData();
-  }, [companyId, statusFilter, dateRange, pageNumber, pageSize, viewMode]);
+  }, [
+    companyId,
+    statusFilter,
+    deletedFilter,
+    haveProjectFilter,
+    dateRange,
+    pageNumber,
+    pageSize,
+    viewMode,
+  ]);
 
   const countStatus = (status: string) => data.filter((p) => p.status === status).length;
 
@@ -208,7 +241,7 @@ const ProjectRequestPage: React.FC = () => {
       </div>
 
       {/* VIEW MODE TABS */}
-      <div className="flex items-center justify-start mb-5">
+      <div className="flex items-center justify-start mb-2">
         <div className="flex bg-white/70 backdrop-blur-md border border-gray-200 rounded-full shadow-md overflow-hidden p-1 gap-1">
           {/* My Requests */}
           <button
@@ -257,13 +290,15 @@ const ProjectRequestPage: React.FC = () => {
       </div>
 
       {/* FILTER SECTION */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-80">
+      <div className="flex flex-wrap items-start justify-between gap-4 py-3 rounded-xl mb-2">
+        {/* Search */}
+        <div className="flex flex-col w-full sm:w-80">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Search</label>
+          <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search Project/Requester/Executor..."
+              placeholder="Project/Requester/Executor..."
               className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -271,50 +306,76 @@ const ProjectRequestPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Create Date:</span>
-            <RangePicker
-              format="DD/MM/YYYY"
-              className="border-gray-300 rounded-lg"
-              onChange={(dates) => setDateRange(dates as any)}
-            />
-          </div>
+        {/* Date Range */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Start Date To End Date</label>
+          <RangePicker
+            format="DD/MM/YYYY"
+            className="rounded-lg border border-gray-300 !h-[37.6px]"
+            onChange={(dates) => setDateRange(dates as any)}
+          />
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Status</label>
           <select
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="All">All</option>
             <option value="Pending">Pending</option>
             <option value="Accepted">Accepted</option>
+            <option value="Rejected">Rejected</option>
             <option value="Finished">Finished</option>
           </select>
+        </div>
 
-          {/* <select
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={viewMode}
+        {/* Have Project Filter */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Have Project</label>
+          <select
+            className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+            value={haveProjectFilter}
             onChange={(e) => {
-              const value = e.target.value as 'AsRequester' | 'AsExecutor';
-              console.log('Change ViewMode:', value);
-              setViewMode(value);
+              setHaveProjectFilter(e.target.value as 'All' | 'Yes' | 'No');
               setPageNumber(1);
             }}
           >
-            <option value="AsRequester">My Requests</option>
-            <option value="AsExecutor">Requests To Me</option>
-          </select> */}
-
-          <span className="text-sm text-gray-500">{data.length} results</span>
+            <option value="All">All</option>
+            <option value="Yes">Have Project</option>
+            <option value="No">No Project</option>
+          </select>
         </div>
+
+        {/* Deleted Filter */}
+        <div className="flex flex-col">
+          <label className="font-semibold text-sm text-gray-600 mb-1">Deleted</label>
+          <select
+            className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+            value={deletedFilter}
+            onChange={(e) => {
+              setDeletedFilter(e.target.value as 'All' | 'Yes' | 'No');
+              setPageNumber(1);
+            }}
+          >
+            <option value="All">All</option>
+            <option value="Yes">Deleted</option>
+            <option value="No">Not Deleted</option>
+          </select>
+        </div>
+
+        <span className="text-sm text-gray-500 flex items-center h-[37.6px] mt-[25px]">
+          {data.length} results
+        </span>
       </div>
 
       {/* TABLE */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600 text-left">
-            <tr>
-              {/* <th className="px-4 py-3 font-medium">Code</th> */}
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-[1000px] w-full text-sm">
+          <thead className="bg-blue-50 text-blue-800 uppercase text-left font-semibold">
+            <tr className="hover:bg-blue-100">
               <th className="px-4 py-3 font-medium text-center">Name</th>
               <th className="px-4 py-3 font-medium text-center">Request Company</th>
               <th className="px-4 py-3 font-medium text-center">Executor Company</th>
@@ -323,6 +384,7 @@ const ProjectRequestPage: React.FC = () => {
               <th className="px-4 py-3 font-medium text-center">End Date</th>
               <th className="px-4 py-3 font-medium text-center">Have Project</th>
               <th className="px-4 py-3 font-medium text-center">Deleted</th>
+              <th className="px-4 py-3 font-medium text-center">Contract</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
               {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
               <th className="px-4 py-3 font-medium text-left">Detail</th>
@@ -335,24 +397,18 @@ const ProjectRequestPage: React.FC = () => {
                 return (
                   <tr
                     key={item.id}
-                    className="border-t hover:bg-gray-50 transition-all duration-150 cursor-pointer"
+                    className="border-t hover:bg-blue-50 transition duration-200 cursor-pointer"
+                    onClick={() =>
+                      navigate(`/company/${companyId}/project-request/${item.id}`, {
+                        state: { viewMode, contractId: item.contractId },
+                      })
+                    }
                   >
                     {/* <td className="px-4 py-3 text-gray-800 font-medium">{item.code}</td> */}
                     <td className="px-4 py-3 text-gray-800 text-center">{item.projectName}</td>
                     {/* Requester Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* {item.requesterCompanyLogoUrl ? (
-                          <img
-                            src={item.requesterCompanyLogoUrl}
-                            alt="Requester Logo"
-                            className="w-7 h-7 rounded-full object-cover border"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                            N
-                          </div>
-                        )} */}
                         <span>{item.requesterCompanyName}</span>
                       </div>
                     </td>
@@ -360,17 +416,6 @@ const ProjectRequestPage: React.FC = () => {
                     {/* Executor Company */}
                     <td className="px-4 py-3 text-gray-700 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* {item.executorCompanyLogoUrl ? (
-                          <img
-                            src={item.executorCompanyLogoUrl}
-                            alt="Executor Logo"
-                            className="w-7 h-7 rounded-full object-cover border"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                            N
-                          </div>
-                        )} */}
                         <span>{item.executorCompanyName}</span>
                       </div>
                     </td>
@@ -399,13 +444,29 @@ const ProjectRequestPage: React.FC = () => {
                         <span className="text-green-600 font-medium">No</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.contractId ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewContractClick(item.contractId, item.id);
+                          }}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View Contract
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
 
                     {showActionColumn && item.executorCompanyId === companyId && (
                       <td className="px-4 py-3 text-center">
                         {item.status === 'Pending' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleAccept(item.id)}
+                              // onClick={() => handleAccept(item.id)}
+                              onClick={() => handleAcceptClick(item.contractId, item.id)}
                               disabled={acceptingId === item.id}
                               className={`flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-lg transition min-w-[90px]
                                 ${
@@ -486,7 +547,7 @@ const ProjectRequestPage: React.FC = () => {
                         className="w-5 h-5 text-gray-500 hover:text-blue-600 cursor-pointer"
                         onClick={() =>
                           navigate(`/company/${companyId}/project-request/${item.id}`, {
-                            state: { viewMode },
+                            state: { viewMode, contractId: item.contractId },
                           })
                         }
                       />
@@ -496,7 +557,7 @@ const ProjectRequestPage: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={11}>
                   <div className="flex flex-col items-center justify-center py-10 text-gray-500">
                     <p className="text-lg font-medium">No project requests found</p>
                     <p className="text-sm text-gray-400 mt-1">
@@ -510,37 +571,82 @@ const ProjectRequestPage: React.FC = () => {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex justify-end mt-6">
-        <Stack spacing={2} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-          <Pagination
-            count={Math.ceil(totalCount / pageSize) || 1}
-            page={pageNumber}
-            onChange={(_, value) => setPageNumber(value)}
-            color="primary"
-            variant="outlined"
-            shape="rounded"
-            size="medium"
-            showFirstButton
-            showLastButton
-          />
-        </Stack>
+      {/* Paging */}
+      <div className="mt-6">
+        <Paging
+          page={pageNumber}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={(page) => {
+            setPageNumber(page);
+            fetchData(
+              companyId,
+              searchTerm,
+              statusFilter,
+              deletedFilter,
+              haveProjectFilter,
+              dateRange,
+              page,
+              pageSize,
+            );
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            fetchData(
+              companyId,
+              searchTerm,
+              statusFilter,
+              deletedFilter,
+              haveProjectFilter,
+              dateRange,
+              1,
+              size,
+            );
+          }}
+        />
       </div>
+
       <RejectReasonModal
         open={rejectModalOpen}
         onClose={() => setRejectModalOpen(false)}
         projectId={selectedProjectId}
         onSuccess={fetchData}
       />
+      <ContractModal
+        open={contractModalOpen}
+        onClose={() => setContractModalOpen(false)}
+        onNext={handleContractNext}
+      />
+
       <InviteProjectRequestModal
         open={modalOpenInviteProjectRequest}
         onClose={handleClose}
         requesterCompanyId={companyId || ''}
         executorCompanyId=""
+        contractId={contractData?.contractId}
+        effectiveDate={contractData?.effectiveDate}
+        expiredDate={contractData?.expiredDate}
         onSuccess={() => {
           fetchData();
           setRejectModalOpen(false);
         }}
+      />
+      <ContractModalDetail
+        open={contractDetailModalOpen}
+        contractId={selectedContractId || ''}
+        projectRequestId={selectedProjectId || ''}
+        onClose={() => setContractDetailModalOpen(false)}
+        onAccepted={() => {
+          fetchData();
+        }}
+      />
+      <ContractModalDetail
+        open={viewContractDetailModalOpen}
+        contractId={selectedContractId || ''}
+        projectRequestId={selectedProjectId || ''}
+        onClose={() => setViewContractDetailModalOpen(false)}
+        isView={true}
+        viewMode={viewMode}
       />
     </div>
   );

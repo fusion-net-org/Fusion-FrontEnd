@@ -1,7 +1,13 @@
 // src/context/ProjectBoardContext.tsx
 import React, { useEffect, useRef, useState } from "react";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
-
+import {
+  patchTaskStatusById,
+  putReorderTask,
+  postMoveTask,
+  postTaskMarkDone,
+  postTaskSplit,
+} from '@/services/taskService.js';
 /* ================== Context types ================== */
 type Ctx = {
   sprints: SprintVm[];
@@ -163,41 +169,60 @@ export function ProjectBoardProvider({
   useEffect(() => void (tRef.current = tasks), [tasks]);
 
   /** Cập nhật tasks bằng fn, rồi sync lại columns từ tasksNext */
-  const applyWithColumns = (tasksUpdater: (prev: TaskVm[]) => TaskVm[]) => {
-    setTasks(prev => {
-      const next = tasksUpdater(prev);
-      setSprints(prevS => syncColumns(prevS, next));
-      return next;
-    });
-  };
+  function dedupeById(arr: TaskVm[]) {
+  const m = new Map<string, TaskVm>();
+  for (const t of arr) m.set(t.id, t);
+  return Array.from(m.values());
+}
 
-  const changeStatus = async (_pid: string, t: TaskVm, nextStatusId: string) => {
-    const now = new Date().toISOString();
-    // lấy meta để cập nhật code/category
-    const sp = sRef.current.find(s => s.id === t.sprintId);
-    const meta = sp?.statusMeta?.[nextStatusId];
+// Thay thế applyWithColumns cũ:
+const applyWithColumns = (tasksUpdater: (prev: TaskVm[]) => TaskVm[]) => {
+  setTasks(prev => {
+    const nextRaw = tasksUpdater(prev);
+    const next = dedupeById(nextRaw);
+    setSprints(prevS => syncColumns(prevS, next));
+    return next;
+  });
+};
 
-    applyWithColumns(prev =>
-      prev.map(x =>
-        x.id === t.id
-          ? {
-              ...x,
-              workflowStatusId: nextStatusId,
-              statusCode: meta?.code ?? x.statusCode,
-              statusCategory: meta?.category ?? x.statusCategory,
-              updatedAt: now,
-            }
-          : x
-      )
-    );
-  };
+const changeStatus = async (pid: string, t: TaskVm, nextStatusId: string) => {
+  const now = new Date().toISOString();
+  const sp = sRef.current.find(s => s.id === t.sprintId);
+  const meta = sp?.statusMeta?.[nextStatusId];
+
+  // 1) optimistic
+  applyWithColumns(prev => prev.map(x => x.id === t.id ? {
+    ...x,
+    workflowStatusId: nextStatusId,
+    statusCode: meta?.code ?? x.statusCode,
+    statusCategory: meta?.category ?? x.statusCategory,
+    updatedAt: now,
+  } : x));
+
+  // 2) call API + sync từ DTO
+  try {
+    const dto = await patchTaskStatusById(t.id, nextStatusId, { flashColorHex: meta?.color });
+    attachTaskFromApi(dto);
+  } catch (e) {
+    console.error(e);
+    // (optional) TODO: rollback nếu muốn
+  }
+};
  // ⬇️ thay toàn bộ attachTaskVm hiện tại
 const attachTaskVm = React.useCallback((vm: TaskVm) => {
   const sp = sRef.current.find(s => s.id === vm.sprintId) ?? sRef.current[0];
   const normalized = sp ? normalizeTaskStatus(vm, sp) : vm;
+
   applyWithColumns(prev => {
-    const others = prev.filter(t => t.id !== normalized.id);
-    return [normalized, ...others];
+    const existed = prev.some(x => x.id === normalized.id);
+    const next = existed
+      ? prev.map(x => (x.id === normalized.id ? { ...x, ...normalized } : x))
+      : [normalized, ...prev];
+
+    if (!existed && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pb:new_task", { detail: { id: normalized.id } }));
+    }
+    return next;
   });
 }, []);
 
@@ -262,109 +287,78 @@ const attachTaskVm = React.useCallback((vm: TaskVm) => {
     applyWithColumns((prev) => [...prev, vm]);
   };
 
-  const reorder = async (_pid: string, sprintId: string, t: TaskVm, toStatusId: string, _toIndex: number) => {
-    // Ở tầng context chỉ cập nhật status; thứ tự sẽ build lại từ columns đã sync
-    return changeStatus(_pid, t, toStatusId);
-  };
+ const reorder = async (pid: string, sprintId: string, t: TaskVm, toStatusId: string, toIndex: number) => {
+  const sp = sRef.current.find(s => s.id === sprintId);
+  const meta = sp?.statusMeta?.[toStatusId];
 
-  const moveToNextSprint = async (_pid: string, t: TaskVm, toSprintId?: string) => {
-    const all = sRef.current;
-    const curIdx = all.findIndex(s => s.id === (t.sprintId ?? ""));
-    const fallbackNext = all[curIdx + 1];
+  // optimistic: chỉ đổi cột
+  applyWithColumns(prev => prev.map(x => x.id === t.id ? {
+    ...x,
+    workflowStatusId: toStatusId,
+    statusCode: meta?.code ?? x.statusCode,
+    statusCategory: meta?.category ?? x.statusCategory,
+    updatedAt: new Date().toISOString(),
+  } : x));
 
-    let target = toSprintId ? all.find(s => s.id === toSprintId) : fallbackNext;
+  try {
+    const dto = await putReorderTask(pid, sprintId, { taskId: t.id, toStatusId, toIndex }, { flashColorHex: meta?.color });
+    attachTaskFromApi(dto);
+  } catch (e) {
+    console.error(e);
+  }
+};
 
-    // nếu chưa có sprint kế -> tạo sprint mới clone workflow hiện tại
-    if (!target) {
-      const base = all[Math.max(0, curIdx)] ?? all[0];
-      const newSprint = makeNextSprintLike(base ?? all[0], all.length + 1);
-      setSprints(prev => [...prev, newSprint]);
-      target = newSprint;
-    }
+  const moveToNextSprint = async (pid: string, t: TaskVm, toSprintId?: string) => {
+  const all = sRef.current;
+  const curIdx = all.findIndex(s => s.id === (t.sprintId ?? ""));
+  const target = toSprintId ? all.find(s => s.id === toSprintId) : all[curIdx + 1];
+  const color = target ? target.statusMeta?.[t.workflowStatusId!]?.color : undefined; // màu theo status hiện tại ở sprint mới
 
-    const now = new Date().toISOString();
-    const targetId = target.id;
+  // optimistic
+  applyWithColumns(prev => prev.map(x => x.id === t.id ? {
+    ...x, sprintId: target?.id ?? x.sprintId, carryOverCount: (x.carryOverCount ?? 0) + 1,
+  } : x));
 
-    applyWithColumns(prev =>
-      prev.map(x =>
-        x.id === t.id
-          ? {
-              ...x,
-              sprintId: targetId,
-              // giữ nguyên statusId hiện tại
-              carryOverCount: (x.carryOverCount ?? 0) + 1,
-              updatedAt: now,
-            }
-          : x
-      )
-    );
-  };
+  try {
+    const dto = await postMoveTask(t.id, target?.id ?? toSprintId!, { flashColorHex: color });
+    attachTaskFromApi(dto);
+  } catch (e) {
+    console.error(e);
+  }
+};
 
-  const done = async (_pid: string, t: TaskVm) => {
-    const sp = sRef.current.find(s => s.id === t.sprintId);
-    if (!sp) return;
-    const finalId = sp.statusOrder.find(id => sp.statusMeta[id]?.isFinal) ?? sp.statusOrder[sp.statusOrder.length - 1];
-    if (t.workflowStatusId !== finalId) return changeStatus(_pid, t, finalId);
-  };
+  const done = async (pid: string, t: TaskVm) => {
+  const sp = sRef.current.find(s => s.id === t.sprintId);
+  if (!sp) return;
+  const finalId = sp.statusOrder.find(id => sp.statusMeta[id]?.isFinal) ?? sp.statusOrder[sp.statusOrder.length - 1];
+  const color = sp.statusMeta[finalId]?.color;
 
-  const split = async (_pid: string, t: TaskVm) => {
-    // Chia Part A/B; Part B sang sprint kế tiếp (tự tạo nếu chưa có), status = cột đầu
-    const spVal = Math.max(0, t.storyPoints ?? 0);
-    const rhVal = Math.max(0, t.remainingHours ?? 0);
-    if (spVal < 2 && rhVal < 2) return;
+  // optimistic
+  applyWithColumns(prev => prev.map(x => x.id === t.id ? {
+    ...x, workflowStatusId: finalId, statusCode: sp.statusMeta[finalId]?.code ?? x.statusCode, statusCategory: 'DONE',
+  } : x));
 
-    const all = sRef.current;
-    const curIdx = all.findIndex(s => s.id === (t.sprintId ?? ""));
-    let target = all[curIdx + 1];
+  try {
+    const dto = await postTaskMarkDone(t.id, { flashColorHex: color });
+    attachTaskFromApi(dto);
+  } catch (e) {
+    console.error(e);
+  }
+};
 
-    if (!target) {
-      const base = all[Math.max(0, curIdx)] ?? all[0];
-      const newSprint = makeNextSprintLike(base ?? all[0], all.length + 1);
-      setSprints(prev => [...prev, newSprint]);
-      target = newSprint;
-    }
-
-    const firstStatusId = target.statusOrder[0];
-    const firstMeta = target.statusMeta[firstStatusId];
-
-    const baseTitle = (t.title ?? "").replace(/\s*\(Part [AB]\)\s*$/i, "").trim();
-    const bPts = spVal >= 2 ? Math.floor(spVal / 2) : 0;
-    const aPts = spVal - bPts;
-    const bHrs = rhVal >= 2 ? Math.floor(rhVal / 2) : 0;
-    const aHrs = Math.max(0, rhVal - bHrs);
-
-    const nowIso = new Date().toISOString();
-    const partB: TaskVm = {
-      ...t,
-      id: uuid(),
-      title: `${baseTitle} (Part B)`,
-      storyPoints: bPts,
-      remainingHours: bHrs,
-      sprintId: target.id,
-      workflowStatusId: firstStatusId,
-      statusCode: firstMeta.code,
-      statusCategory: firstMeta.category,
-      parentTaskId: t.id,
-      carryOverCount: 0,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
-
-    applyWithColumns(prev => {
-      const updatedA = prev.map(x =>
-        x.id === t.id
-          ? {
-              ...x,
-              title: `${baseTitle} (Part A)`,
-              storyPoints: aPts,
-              remainingHours: aHrs,
-              updatedAt: nowIso,
-            }
-          : x
-      );
-      return (bPts > 0 || bHrs > 0) ? [...updatedA, partB] : updatedA;
+  const split = async (pid: string, t: TaskVm) => {
+  // optimistic (nhẹ): giữ như cũ, lát nữa attach từ API sẽ cập nhật đúng
+  try {
+    const dto = await postTaskSplit(t.id, {
+      flashColorHexA: sRef.current.find(s => s.id === t.sprintId)?.statusMeta?.[t.workflowStatusId!]?.color,
+      flashColorHexB: undefined, // để service tái sử dụng màu A cho part B
     });
-  };
+    if (dto?.partA) attachTaskFromApi(dto.partA);
+    if (dto?.partB) attachTaskFromApi(dto.partB);
+  } catch (e) {
+    console.error(e);
+  }
+};
 const createTask: Ctx["createTask"] = async (_pid, draft) => {
   const sp = sRef.current.find((x) => x.id === draft.sprintId);
   const statusId = draft.workflowStatusId && sp?.statusMeta[draft.workflowStatusId]

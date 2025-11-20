@@ -783,9 +783,14 @@ export default function CreateProjectModal({
 
         // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-       const result = await createProject(payloadToPost);
-try { await onSubmit?.(payloadToPost); } catch { /* callback lỗi cũng không ảnh hưởng tạo */ }
-onClose();
+         const res = await createProject(payloadToPost);
+
+    // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
+    if (onSubmit) {
+      await onSubmit(payloadToPost);
+    }
+
+        onClose(); // đóng modal sau khi tạo thành công
       } catch (err: any) {
         console.error('Create project failed:', err);
          toast.error(err?.response?.data?.message || err.message || "Create project failed");

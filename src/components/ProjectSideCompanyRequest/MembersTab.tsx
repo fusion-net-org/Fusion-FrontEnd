@@ -1,28 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useCallback } from 'react';
 import { Users, Search } from 'lucide-react';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
 import { Input, DatePicker, Spin } from 'antd';
 import type { IProjectMemberItemV2 } from '@/interfaces/ProjectMember/projectMember';
 import { getProjectMemberByProjectId } from '@/services/projectMember.js';
 import { useDebounce } from '@/hook/Debounce';
+import { Paging } from '@/components/Paging/Paging';
 
 const { RangePicker } = DatePicker;
 
 interface MembersTabProps {
   projectId: string;
-  rowsPerPage?: number;
 }
 
-const MembersTab: React.FC<MembersTabProps> = ({ projectId, rowsPerPage = 10 }) => {
+const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
   const [members, setMembers] = useState<IProjectMemberItemV2[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const debouncedSearch = useDebounce(memberSearch, 500); // debounce 500ms
   const [memberRange, setMemberRange] = useState<any>(null);
-  const [memberPage, setMemberPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  const [pagination, setPagination] = useState({
+    pageNumber: 1,
+    pageSize: 10,
+    totalCount: 0,
+  });
+
   const fetchMembers = useCallback(async () => {
     try {
       setLoading(true);
@@ -33,23 +36,31 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId, rowsPerPage = 10 }) 
         debouncedSearch,
         fromDate,
         toDate,
-        memberPage,
-        rowsPerPage,
+        pagination.pageNumber,
+        pagination.pageSize,
       );
+
       if (res?.succeeded) {
         setMembers(res.data.items || []);
+        setPagination((prev) => ({
+          ...prev,
+          totalCount: res.data.totalCount || 0,
+        }));
       }
-      setTotalPages(Math.ceil((res.data.totalCount || 0) / rowsPerPage));
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [projectId, debouncedSearch, memberRange, memberPage, rowsPerPage]);
+  }, [projectId, debouncedSearch, memberRange, pagination.pageNumber, pagination.pageSize]);
+
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageNumber: 1 }));
+  }, [debouncedSearch, memberRange]);
 
   useEffect(() => {
     fetchMembers();
-  }, [debouncedSearch, memberRange, memberPage]);
+  }, [fetchMembers]);
 
   return (
     <div>
@@ -65,17 +76,11 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId, rowsPerPage = 10 }) 
             prefix={<Search size={20} />}
             placeholder="Search by name, email, phone..."
             value={memberSearch}
-            onChange={(e) => {
-              setMemberSearch(e.target.value);
-              setMemberPage(1);
-            }}
+            onChange={(e) => setMemberSearch(e.target.value)}
             className="flex-1 min-w-[280px] max-w-[400px]"
           />
           <RangePicker
-            onChange={(val) => {
-              setMemberRange(val);
-              setMemberPage(1);
-            }}
+            onChange={(val) => setMemberRange(val)}
             placeholder={['Start date', 'End date']}
             className="min-w-[220px] ml-auto"
           />
@@ -121,7 +126,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId, rowsPerPage = 10 }) 
                 members.map((m, index) => (
                   <tr key={m.userId} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-3 font-medium text-gray-800">
-                      {(memberPage - 1) * rowsPerPage + index + 1}
+                      {(pagination.pageNumber - 1) * pagination.pageSize + index + 1}
                     </td>
                     <td className="px-6 py-3 font-medium text-gray-800">{m.userName}</td>
                     <td className="px-6 py-3 text-gray-600">{m.email}</td>
@@ -168,19 +173,17 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId, rowsPerPage = 10 }) 
         )}
       </div>
 
-      {/* Pagination */}
-      <div className="mt-4 flex justify-end">
-        <Stack spacing={2}>
-          <Pagination
-            count={totalPages}
-            page={memberPage}
-            onChange={(_, value) => setMemberPage(value)}
-            color="primary"
-            shape="rounded"
-            siblingCount={totalPages}
-            boundaryCount={totalPages}
-          />
-        </Stack>
+      {/* Paging */}
+      <div className="mt-4">
+        <Paging
+          page={pagination.pageNumber}
+          pageSize={pagination.pageSize}
+          totalCount={pagination.totalCount}
+          onPageChange={(page) => setPagination((prev) => ({ ...prev, pageNumber: page }))}
+          onPageSizeChange={(size) =>
+            setPagination((prev) => ({ ...prev, pageSize: size, pageNumber: 1 }))
+          }
+        />
       </div>
     </div>
   );

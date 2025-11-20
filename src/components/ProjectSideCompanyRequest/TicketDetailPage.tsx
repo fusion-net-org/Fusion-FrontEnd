@@ -132,7 +132,7 @@ const TicketDetailPage: React.FC = () => {
       try {
         setLoading(true);
         const data = await GetProjectByProjectId(ticket?.projectId ?? undefined);
-        setProject(data.data);
+        setProject(data);
       } catch (error) {
         console.error('Error fetching project:', error);
       } finally {
@@ -265,6 +265,7 @@ const TicketDetailPage: React.FC = () => {
               type="primary"
               icon={<Edit size={16} />}
               onClick={() => setIsEditModalOpen(true)}
+              disabled={ticket.isDeleted}
             >
               Edit
             </Button>
@@ -496,7 +497,7 @@ const TicketDetailPage: React.FC = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-semibold text-gray-800">{c.authorUserName}</span>
-                  {c.isOwner && (
+                  {c.isOwner && !ticket.isDeleted && (
                     <span className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5 rounded-full">
                       You
                     </span>
@@ -512,12 +513,14 @@ const TicketDetailPage: React.FC = () => {
                 {c.isOwner && (
                   <div className="absolute top-2 right-2 flex gap-2 opacity-100">
                     <Button
+                      disabled={ticket.isDeleted}
                       type="text"
                       icon={<Edit size={16} />}
                       className="text-blue-500 hover:text-blue-600 p-0"
                       onClick={() => setEditingComment(c)}
                     />
                     <Button
+                      disabled={ticket.isDeleted}
                       type="text"
                       icon={<Trash2 size={16} />}
                       className="text-red-500"
@@ -546,14 +549,20 @@ const TicketDetailPage: React.FC = () => {
             <div className="flex-1 flex flex-col gap-2">
               <Input.TextArea
                 rows={3}
-                placeholder="Write a comment..."
+                placeholder={
+                  ticket.isDeleted
+                    ? 'This ticket is deleted. Comments are disabled.'
+                    : 'Write a comment...'
+                }
                 value={newComment}
+                disabled={ticket.isDeleted}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="border rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 resize-none p-3 text-sm"
               />
               <div className="flex justify-end">
                 <Button
                   type="primary"
+                  disabled={ticket.isDeleted}
                   className="px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-md"
                   onClick={handleCreateComment}
                 >
