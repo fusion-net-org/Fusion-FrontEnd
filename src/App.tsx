@@ -70,7 +70,8 @@ function App() {
           <Route path="/company" element={<Company />} />
           <Route path="/invitation" element={<InvitationPage />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
-          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/calendar/calendar" element={<Calendar />} />
+          <Route path="/calendar/tasks" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
         </Route>
         {/* route company layout */}

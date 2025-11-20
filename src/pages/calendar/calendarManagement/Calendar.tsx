@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -34,6 +35,7 @@ const Calendar: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const navigate = useNavigate();
 
   // Task detail modal states
   const [openDetailModal, setOpenDetailModal] = useState(false);
@@ -78,6 +80,14 @@ const Calendar: React.FC = () => {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    if (location.pathname === '/calendar/tasks') {
+      setActiveTab('list');
+    } else {
+      setActiveTab('calendar');
+    }
+  }, [location.pathname]);
 
   const events = useMemo(() => {
     if (!Array.isArray(tasks) || tasks.length === 0) {
@@ -138,7 +148,11 @@ const Calendar: React.FC = () => {
           return (
             <button
               key={id}
-              onClick={() => setActiveTab(id)}
+              onClick={() => {
+                setActiveTab(id);
+                if (id === 'calendar') navigate('/calendar/calendar');
+                else navigate('/calendar/tasks');
+              }}
               className={[
                 'relative -mb-px inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium',
                 'border-b-2',
