@@ -1,326 +1,322 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Descriptions, Table, Tag, Spin, Input, Select, Button, Space } from 'antd';
-import { toast } from 'react-toastify';
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  getSubscriptionPlans,
-  createSubscriptionPlan,
-  updateSubscriptionPlan,
-  deleteSubscriptionPlan,
-  getSubscriptionPlanById,
-} from '@/services/subscriptionService.js';
-import SubscriptionPlanModal from './SubscriptionPlanModal';
-import { ArrowDown, ArrowUp, Plus, RotateCcw, Edit, Trash2, Package, Eye } from 'lucide-react';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
+  Button,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Spin,
+  Table,
+  Tag,
+  message,
+  Tooltip,
+} from "antd";
+import {
+  Eye,
+  Edit,
+  Trash2,
+  Package,
+  ArrowDown,
+  ArrowUp,
+  RotateCcw,
+  Plus,
+} from "lucide-react";
+import type {
+  GetPlansPagedParams,
+  SubscriptionPlanListItemResponse,
+  SubscriptionPlanDetailResponse,
+  LicenseScope,
+} from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
+import {
+  getPlansPaged,
+  getPlanById,
+  createPlan,
+  updatePlan,
+  deletePlan,
+} from "@/services/subscriptionPlanService.js";
+import SubscriptionPlanModal from "@/pages/admin/subcriptionManagement/SubscriptionPlanModal";
+import PlanDetailModal from "@/pages/admin/subcriptionManagement/PlanDetailModal";
 
 const { Search } = Input;
 const { Option } = Select;
 
-interface Feature {
-  featureKey: string;
-  limitValue: number;
-}
-interface Price {
-  billingPeriod: string;
-  periodCount: number;
-  price: number;
-  currency: string;
-  refundWindowDays: number;
-  refundFeePercent: number;
-}
-interface SubscriptionPlan {
-  id: string;
-  code: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  isActive: boolean;
-  features: Feature[];
-  price: Price;
-}
+// ===== helpers =====
+type SortCol = "name" | "createdAt";
+const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "—");
+
+const scopeTagColor = (s?: LicenseScope) =>
+  s === "Userlimits" ? "purple" : "geekblue";
+
+const chargeUnitLabel = (x?: "PerSubscription" | "PerSeat") =>
+  x === "PerSeat" ? "Per seat" : "Per subscription";
+
+const scopeLabel = (x?: LicenseScope) =>
+  x === "Userlimits" ? "User limits" : "Entire company";
+
+// ===================================================================
 
 export default function SubscriptionListPage() {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  // data
+  const [rows, setRows] = useState<SubscriptionPlanListItemResponse[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filter states
-  const [keyword, setKeyword] = useState('');
+  // filters & paging
+  const [keyword, setKeyword] = useState("");
   const [isActive, setIsActive] = useState<boolean | null>(null);
-  const [billingPeriod, setBillingPeriod] = useState<string | null>(null);
-  const [sortColumn, setSortColumn] = useState<'code' | 'name' | 'description'>('name');
-  const [sortDescending, setSortDescending] = useState<boolean>(true);
+  const [sortColumn, setSortColumn] = useState<SortCol>("name");
+  const [sortDescending, setSortDescending] = useState(true);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Pagination
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  // modals
+  const [openModal, setOpenModal] = useState(false);
+  const [editing, setEditing] = useState<SubscriptionPlanDetailResponse | null>(null);
 
-  // Modal
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // View detail
-  const [viewingPlan, setViewingPlan] = useState<SubscriptionPlan | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  // detail
+  const [detail, setDetail] = useState<SubscriptionPlanDetailResponse | null>(null);
+  const [openDetail, setOpenDetail] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const fetchPlans = async (page = pagination.current, pageSize = pagination.pageSize) => {
+  // -------- load ----------
+  const fetchPaged = async (page = pageNumber, size = pageSize) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await getSubscriptionPlans({
-        keyword,
-        isActive,
-        billingPeriod,
+      const params: GetPlansPagedParams = {
+        keyword: keyword || undefined,
+        isActive: isActive ?? undefined,
         sortColumn,
         sortDescending,
         pageNumber: page,
-        pageSize,
-      });
-      if (res?.succeeded && res?.data) {
-        setPlans(res.data.items || []);
-        setPagination({
-          current: res.data.pageNumber || page,
-          pageSize: res.data.pageSize || pageSize,
-          total: res.data.totalCount || 0,
-        });
-      } else {
-        toast.error(res?.message || 'Failed to load subscription plans');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Error fetching subscription plans');
+        pageSize: size,
+      } as any;
+      const paged = await getPlansPaged(params);
+      setRows(paged?.items ?? []);
+      setTotalCount(paged?.totalCount ?? 0);
+      setPageNumber(paged?.pageNumber ?? page);
+      setPageSize(paged?.pageSize ?? size);
+    } catch (e: any) {
+      message.error(e.message || "Failed to load plans");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPlans();
-  }, [keyword, isActive, billingPeriod, sortColumn, sortDescending]);
+    fetchPaged(1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyword, isActive, sortColumn, sortDescending]);
 
-  const handleCreatePlan = async (formData: any) => {
+  // -------- handlers ----------
+  const resetFilters = () => {
+    setKeyword("");
+    setIsActive(null);
+    setSortColumn("name");
+    setSortDescending(true);
+    fetchPaged(1, pageSize);
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    setOpenModal(true);
+  };
+
+  const openEdit = async (id: string) => {
+    setLoadingDetail(true);
     try {
-      await createSubscriptionPlan(formData);
-      toast.success('Subscription plan created successfully!');
-      closeModal();
-      fetchPlans();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create subscription plan.');
-    }
-  };
-
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
-
-  const openEditModal = (plan: SubscriptionPlan) => {
-    setEditingPlan(plan);
-    setIsModalOpen(true);
-  };
-
-  const handleUpdatePlan = async (formData: any) => {
-    try {
-      await updateSubscriptionPlan({ ...formData, id: editingPlan?.id });
-      toast.success('Subscription plan updated successfully!');
-      closeModal();
-      setEditingPlan(null);
-      fetchPlans();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update subscription plan.');
-    }
-  };
-
-  const handleDeletePlan = (id: string) => {
-    Modal.confirm({
-      title: 'Confirm Deletion',
-      content: 'Are you sure you want to delete this subscription plan?',
-      okText: 'Delete',
-      cancelText: 'Cancel',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        try {
-          await deleteSubscriptionPlan(id);
-          toast.success('Subscription plan deleted successfully!');
-          fetchPlans();
-        } catch (err: any) {
-          toast.error(err.message || 'Failed to delete subscription plan.');
-        }
-      },
-    });
-  };
-
-  const handleViewDetail = async (id: string) => {
-    try {
-      setLoadingDetail(true);
-      const res = await getSubscriptionPlanById(id);
-      if (res?.succeeded && res?.data) {
-        setViewingPlan(res.data);
-        setIsDetailModalOpen(true);
-      } else {
-        toast.error(res?.message || 'Failed to load subscription plan details');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Error fetching subscription plan details');
+      const res = await getPlanById(id);
+      setEditing(res);
+      setOpenModal(true);
+    } catch (e: any) {
+      message.error(e.message || "Cannot load plan");
     } finally {
       setLoadingDetail(false);
     }
   };
 
-  const columns = [
-    { title: 'Code', dataIndex: 'code', key: 'code' },
-    { title: 'Name', dataIndex: 'name', key: 'name' },
-    { title: 'Description', dataIndex: 'description', key: 'description' },
-    {
-      title: 'Billing Period',
-      dataIndex: ['price', 'billingPeriod'],
-      key: 'billingPeriod',
-      render: (val: string) => {
-        const color =
-          val === 'Week'
-            ? 'green'
-            : val === 'Month'
-            ? 'orange'
-            : val === 'Year'
-            ? 'blue'
-            : 'default';
-        return <Tag color={color}>{val || 'N/A'}</Tag>;
-      },
-    },
-    {
-      title: 'Price',
-      dataIndex: ['price', 'price'],
-      key: 'price',
-      render: (val: number | undefined, record: SubscriptionPlan) => {
-        if (!record.price) return <span>N/A</span>;
-        return (
-          <span>
-            {record.price.price.toLocaleString()} {record.price.currency}
-          </span>
-        );
-      },
-    },
-    {
-      title: 'Status',
-      dataIndex: 'isActive',
-      key: 'isActive',
-      render: (active: boolean) =>
-        active ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>,
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: any, record: SubscriptionPlan) => (
-        <Space>
-          <Button
-            icon={<Eye size={16} />}
-            onClick={() => handleViewDetail(record.id)}
-            type="link"
-            className="text-blue-600"
-          ></Button>
-
-          <Button
-            icon={<Edit size={16} />}
-            onClick={() => openEditModal(record)}
-            type="link"
-            className="text-indigo-600"
-          />
-          <Button
-            icon={<Trash2 size={16} />}
-            onClick={() => handleDeletePlan(record.id)}
-            type="link"
-            danger
-          />
-        </Space>
-      ),
-    },
-  ];
-
-  const toggleSortDirection = () => setSortDescending((prev) => !prev);
-
-  const handleResetFilters = () => {
-    setKeyword('');
-    setIsActive(null);
-    setBillingPeriod(null);
-    setSortColumn('name');
-    setSortDescending(true);
-    setPagination({ ...pagination, current: 1 });
-    fetchPlans(1, pagination.pageSize);
+  const handleSubmit = async (payload: any, isEdit: boolean) => {
+    try {
+      if (isEdit) await updatePlan(payload);
+      else await createPlan(payload);
+      message.success(isEdit ? "Updated" : "Created");
+      setOpenModal(false);
+      setEditing(null);
+      fetchPaged(pageNumber, pageSize);
+    } catch (e: any) {
+      message.error(e.message || "Failed");
+    }
   };
+
+  const confirmDelete = (id: string) => {
+    Modal.confirm({
+      title: "Delete plan?",
+      content: "This action cannot be undone.",
+      okText: "Delete",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deletePlan(id);
+          message.success("Deleted");
+          fetchPaged(pageNumber, pageSize);
+        } catch (e: any) {
+          message.error(e.message || "Failed to delete");
+        }
+      },
+    });
+  };
+
+  const viewDetail = async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const res = await getPlanById(id);
+      setDetail(res);
+      setOpenDetail(true);
+    } catch (e: any) {
+      message.error(e.message || "Cannot get detail");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  // -------- columns ----------
+  const columns = useMemo(
+    () => [
+      {
+        title: "Name",
+        dataIndex: "name",
+        key: "name",
+        render: (v: string) => <span className="font-medium text-gray-900">{v}</span>,
+      },
+      {
+        title: "Scope / Package",
+        key: "scope",
+        render: (_: any, r: SubscriptionPlanListItemResponse) => (
+          <Space size={6} wrap>
+            <Tag color={scopeTagColor(r.licenseScope)}>{scopeLabel(r.licenseScope)}</Tag>
+            {r.isFullPackage && <Tag color="blue">Full Feature</Tag>}
+          </Space>
+        ),
+      },
+      {
+        title: "Limits",
+        key: "limits",
+        render: (_: any, r: SubscriptionPlanListItemResponse) => {
+          const share = r.companyShareLimit == null ? "∞" : r.companyShareLimit;
+          const seats = r.seatsPerCompanyLimit == null ? "∞" : r.seatsPerCompanyLimit;
+          return (
+            <Space size={6} wrap>
+              <Tooltip title="Company share limit">
+                <Tag>share: {share}</Tag>
+              </Tooltip>
+              <Tooltip title="Seats per company">
+                <Tag>seats/company: {seats}</Tag>
+              </Tooltip>
+            </Space>
+          );
+        },
+      },
+      {
+        title: "Created",
+        dataIndex: "createdAt",
+        key: "createdAt",
+        render: (iso: string) => <span className="text-gray-700">{fmtDate(iso)}</span>,
+      },
+      {
+        title: "Updated",
+        dataIndex: "updatedAt",
+        key: "updatedAt",
+        render: (iso: string) => <span className="text-gray-700">{fmtDate(iso)}</span>,
+      },
+      {
+        title: "Status",
+        dataIndex: "isActive",
+        key: "isActive",
+        render: (v: boolean) =>
+          v ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>,
+      },
+      {
+        title: "Actions",
+        key: "actions",
+        render: (_: any, r: SubscriptionPlanListItemResponse) => (
+          <Space>
+            <Button type="link" onClick={() => viewDetail(r.id)} icon={<Eye size={16} />} />
+            <Button type="link" onClick={() => openEdit(r.id)} icon={<Edit size={16} />} />
+            <Button
+              type="link"
+              danger
+              onClick={() => confirmDelete(r.id)}
+              icon={<Trash2 size={16} />}
+            />
+          </Space>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
               <Package className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900 m-0">Subscription Management</h1>
-              <p className="text-sm text-gray-500 m-0">
-                Manage and edit all system subscription plans
-              </p>
+              <h1 className="text-xl font-semibold m-0">Subscription Plans</h1>
+              <p className="text-sm text-gray-500 m-0">Manage pricing & entitlements</p>
             </div>
           </div>
           <Button
             type="primary"
+            className="bg-indigo-600"
             icon={<Plus size={16} />}
-            className="bg-indigo-600 rounded-lg"
-            onClick={openModal}
+            onClick={openCreate}
           >
-            Add Subscription
+            New Plan
           </Button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex flex-wrap items-center gap-3">
             <Search
-              placeholder="Search by keyword..."
+              placeholder="Search keyword..."
               allowClear
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              style={{ width: 220 }}
+              style={{ width: 260 }}
             />
             <Select
-              placeholder="Is Active"
+              placeholder="Active?"
               allowClear
-              style={{ width: 130 }}
               value={isActive as any}
-              onChange={(val) => setIsActive(val === undefined ? null : val)}
+              onChange={(v) => setIsActive(v === undefined ? null : v)}
+              style={{ width: 140 }}
             >
               <Option value={true}>Active</Option>
               <Option value={false}>Inactive</Option>
             </Select>
-            <Select
-              placeholder="Billing Period"
-              allowClear
-              style={{ width: 150 }}
-              value={billingPeriod as any}
-              onChange={(val) => setBillingPeriod(val === undefined ? null : val)}
-            >
-              <Option value="Week">Week</Option>
-              <Option value="Month">Month</Option>
-              <Option value="Year">Year</Option>
-            </Select>
+
             <Select
               value={sortColumn}
-              onChange={(val) => setSortColumn(val)}
-              style={{ width: 160 }}
+              onChange={(v: SortCol) => setSortColumn(v)}
+              style={{ width: 180 }}
             >
-              <Option value="code">Sort by Code</Option>
               <Option value="name">Sort by Name</Option>
-              <Option value="description">Sort by Description</Option>
+              <Option value="createdAt">Sort by Created</Option>
             </Select>
+
             <Button
               icon={sortDescending ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
-              onClick={toggleSortDirection}
+              onClick={() => setSortDescending((x) => !x)}
             >
-              {sortDescending ? 'Descending' : 'Ascending'}
+              {sortDescending ? "Descending" : "Ascending"}
             </Button>
-            <Button
-              icon={<RotateCcw size={16} />}
-              onClick={handleResetFilters}
-              className="border-gray-300 text-gray-700"
-            >
+
+            <Button icon={<RotateCcw size={16} />} onClick={resetFilters}>
               Reset
             </Button>
           </div>
@@ -330,138 +326,43 @@ export default function SubscriptionListPage() {
         <div className="overflow-x-auto">
           <Spin spinning={loading}>
             <Table
-              columns={columns.map((col) => ({
-                ...col,
-                onHeaderCell: () => ({
-                  className: 'px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase',
-                }),
-              }))}
-              dataSource={plans}
               rowKey="id"
-              pagination={false}
+              columns={columns as any}
+              dataSource={rows}
+              pagination={{
+                current: pageNumber,
+                pageSize: pageSize,
+                total: totalCount,
+                showSizeChanger: true,
+                onChange: (p, s) => {
+                  setPageNumber(p);
+                  setPageSize(s);
+                  fetchPaged(p, s);
+                },
+              }}
             />
           </Spin>
         </div>
-
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-gray-600">
-                Showing <span className="font-semibold text-gray-900">{plans.length}</span> of{' '}
-                <span className="font-semibold text-gray-900">
-                  {pagination.total.toLocaleString()}
-                </span>{' '}
-                subscription plans
-              </span>
-
-              <label className="inline-flex items-center gap-2">
-                <span className="text-gray-600">Rows per page:</span>
-                <select
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
-                  value={pagination.pageSize}
-                  onChange={(e) => {
-                    const size = Math.max(1, parseInt(e.target.value || '10', 10));
-                    setPagination((prev) => ({ ...prev, pageSize: size, current: 1 }));
-                    fetchPlans(1, size);
-                  }}
-                >
-                  {[5, 10, 20, 50].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <Stack spacing={2}>
-              <Pagination
-                count={Math.max(1, Math.ceil(pagination.total / pagination.pageSize))}
-                page={pagination.current}
-                onChange={(_, p) => {
-                  setPagination((prev) => ({ ...prev, current: p }));
-                  fetchPlans(p, pagination.pageSize);
-                }}
-                color="primary"
-                variant="outlined"
-                shape="rounded"
-                showFirstButton
-                showLastButton
-              />
-            </Stack>
-          </div>
-        </div>
       </div>
 
-      {/* Modal */}
+      {/* Create / Edit */}
       <SubscriptionPlanModal
-        isOpen={isModalOpen}
-        handleCancel={() => {
-          closeModal();
-          setEditingPlan(null);
+        open={openModal}
+        onClose={() => {
+          setOpenModal(false);
+          setEditing(null);
         }}
-        onSubmit={editingPlan ? handleUpdatePlan : handleCreatePlan}
-        initialData={editingPlan}
+        initial={editing}
+        onSubmit={(payload) => handleSubmit(payload, !!editing)}
       />
-      <Modal
-        title="Subscription Plan Details"
-        open={isDetailModalOpen}
-        onCancel={() => setIsDetailModalOpen(false)}
-        footer={null}
-        width={700}
-        centered
-      >
-        {loadingDetail ? (
-          <div className="flex justify-center py-8">
-            <Spin />
-          </div>
-        ) : viewingPlan ? (
-          <Descriptions bordered column={1} size="middle">
-            <Descriptions.Item label="Code">{viewingPlan.code || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="Name">{viewingPlan.name || 'N/A'}</Descriptions.Item>
-            <Descriptions.Item label="Description">
-              {viewingPlan.description || 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Status">
-              {viewingPlan.isActive ? (
-                <Tag color="green">Active</Tag>
-              ) : (
-                <Tag color="red">Inactive</Tag>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Price">
-              {viewingPlan.price
-                ? `${viewingPlan.price.price.toLocaleString()} ${viewingPlan.price.currency} / ${
-                    viewingPlan.price.periodCount
-                  } ${viewingPlan.price.billingPeriod}`
-                : 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Refund Policy">
-              {viewingPlan.price
-                ? `${viewingPlan.price.refundFeePercent}% fee, window ${viewingPlan.price.refundWindowDays} days`
-                : 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Features">
-              {viewingPlan.features?.length
-                ? viewingPlan.features.map((f) => (
-                    <Tag key={f.featureKey} color="blue">
-                      {f.featureKey}: {f.limitValue}
-                    </Tag>
-                  ))
-                : 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Created At">
-              {viewingPlan.createdAt ? new Date(viewingPlan.createdAt).toLocaleString() : 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Updated At">
-              {viewingPlan.updatedAt ? new Date(viewingPlan.updatedAt).toLocaleString() : 'N/A'}
-            </Descriptions.Item>
-          </Descriptions>
-        ) : (
-          <p className="text-center text-gray-400 py-4">No data available</p>
-        )}
-      </Modal>
+
+      {/* Detail */}
+      <PlanDetailModal
+        open={openDetail}
+        onClose={() => setOpenDetail(false)}
+        data={detail}
+        loading={loadingDetail}
+      />
     </div>
   );
 }

@@ -95,6 +95,16 @@ export const changePassword = async (data) => {
     throw new Error(message);
   }
 };
+//https://localhost:7160/api/User/fa5aa664-0d66-4620-8fd1-4b42bfc18578
+export const getUserById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/User/${id}`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
+  }
+};
 
 export const getUserFullInfo = async (id) => {
   try {

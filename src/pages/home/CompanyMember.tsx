@@ -212,16 +212,16 @@ const CompanyMember: React.FC = () => {
         </div>
         {/* STATUS SUMMARY */}
         <div className="flex flex-wrap gap-3 mb-6">
-          <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-green-200 text-green-700 text-sm font-medium rounded-full">
             Active: {statusCounts.Active}
           </span>
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-yellow-200 text-yellow-700 text-sm font-medium rounded-full">
             Pending: {statusCounts.Pending}
           </span>
-          <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-red-200 text-red-700 text-sm font-medium rounded-full">
             Inactive: {statusCounts.Inactive}
           </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+          <span className="px-4 py-1.5 bg-blue-200 text-blue-700 text-sm font-medium rounded-full">
             Total: {pagination.totalCount}
           </span>
         </div>
@@ -274,7 +274,7 @@ const CompanyMember: React.FC = () => {
           <table className="w-full text-sm text-gray-700">
             <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 text-left">Member</th>
+                <th className="px-6 py-3 text-center w-[15%]">Member</th>
                 <th className="px-6 py-3 text-center">Role</th>
                 <th className="px-6 py-3 text-center">Phone</th>
                 <th className="px-6 py-3 text-center">Gender</th>
@@ -297,9 +297,11 @@ const CompanyMember: React.FC = () => {
                 members.map((m, i) => (
                   <tr
                     key={i}
-                    className="border-b text-center border-gray-100 hover:bg-blue-50/60 transition-all duration-150"
+                    className={`border-b text-center border-gray-100 hover:bg-blue-50/60 transition-all duration-150 ${
+                      m.status === 'Active' ? 'cursor-pointer' : 'cursor-not-allowed text-gray-300'
+                    }`}
                   >
-                    <td className="px-6 py-4 flex items-center gap-3 text-left">
+                    <td className="px-4 py-4 flex items-center gap-3 text-left">
                       <img
                         src={m.memberAvatar || 'https://via.placeholder.com/48?text=U'}
                         alt={m.memberName}
@@ -319,8 +321,16 @@ const CompanyMember: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <Eye
-                        className="w-5 h-5 mx-auto text-gray-500 hover:text-blue-600 cursor-pointer transition-transform hover:scale-110"
-                        onClick={() => navigate(`/company/members/${m.memberId}`)}
+                        className={`w-5 h-5 mx-auto transition-transform hover:scale-110 ${
+                          m.status === 'Active'
+                            ? 'text-gray-500 hover:text-blue-600 cursor-pointer'
+                            : 'text-gray-300 cursor-not-allowed'
+                        }`}
+                        onClick={() => {
+                          if (m.status === 'Active') {
+                            navigate(`/company/members/${m.memberId}`, { state: { companyId } });
+                          }
+                        }}
                       />
                     </td>
                   </tr>

@@ -39,6 +39,7 @@ export const getPagedCompanies = async (pageNumber = 1, pageSize = 8) => {
   }
 };
 
+
 export const searchCompanies = async (keyword, pageNumber = 1, pageSize = 8) => {
   try {
     const response = await axiosInstance.get(
@@ -130,6 +131,19 @@ export const deleteCompany = async (companyId) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+export const getCompaniesOfCurrentUser = async () => {
+  try {
+    const response = await axiosInstance.get("/Company/current-user");
+    return response?.data?.data ?? [];
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message ||
+        "Failed to load companies of current user!"
+    );
+  }
+};
+
 export const updateCompanyByAdmin = async (id, data) => {
   try {
     const response = await axiosInstance.put(`/company/admin/${id}`, data, {

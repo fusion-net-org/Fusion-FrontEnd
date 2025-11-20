@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
-import { login, loginGG } from '@/services/authService.js';
+import { login, loginGG, confirmAccount } from '@/services/authService.js';
 import { loginUser } from '@/redux/userSlice';
 import { GoogleLogin } from '@react-oauth/google';
 import loginIllustration from '@/assets/auth/login.png';
@@ -22,10 +22,35 @@ const Login: React.FC = () => {
   } = useForm<LoginFormInputs>();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('vtoken');
+
+    if (token) {
+      const confirmEmail = async () => {
+        setIsConfirming(true);
+        try {
+          const res = await confirmAccount(token);
+          console.log('API response:', res);
+          toast.success('Email confirmed successfully! You can log in now.');
+        } catch (err: any) {
+          console.error(err);
+          toast.error(err.message || 'Email confirmation failed!');
+        } finally {
+          setIsConfirming(false);
+        }
+      };
+      confirmEmail();
+    }
+  }, [location.search]);
 
   const onSubmit = async (data: LoginFormInputs) => {
     try {
       const response = await login(data);
+
       if (response && response.data?.accessToken) {
         const token = response.data.accessToken;
         const decodedToken: any = jwtDecode(token);
@@ -38,10 +63,14 @@ const Login: React.FC = () => {
           username: response.data.userName,
           role: decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
         };
-
         dispatch(loginUser({ user }));
+
         toast.success('Login successful!');
-        navigate('/company');
+        if (user.role === 'Admin') {
+          navigate('/admin');
+        } else {
+          navigate('/company');
+        }
       } else {
         toast.error('Login failed!');
       }
@@ -57,7 +86,6 @@ const Login: React.FC = () => {
         toast.error('Google Login failed!');
         return;
       }
-      console.log(idToken);
       const response = await loginGG({ idToken });
 
       if (response && response.data?.accessToken) {
@@ -91,6 +119,11 @@ const Login: React.FC = () => {
           {/* Left Form Section */}
           <div className="w-full md:w-1/2 p-10">
             <h2 className="text-3xl font-semibold text-gray-800 mb-6">Sign in</h2>
+
+            {isConfirming && (
+              <p className="text-blue-600 mb-4">Confirming your email, please wait...</p>
+            )}
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
               {/* Email */}
               <div>
