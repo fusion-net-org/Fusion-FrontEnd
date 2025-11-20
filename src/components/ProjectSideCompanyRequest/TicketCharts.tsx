@@ -2,30 +2,23 @@
 import React, { useEffect, useState } from 'react';
 import {
   ResponsiveContainer,
-  BarChart,
   Bar,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
-  PieChart,
-  Pie,
-  LineChart,
   Line,
   Legend,
-  Cell,
   ComposedChart,
 } from 'recharts';
 import { Card, Spin } from 'antd';
 import { GetTicketDashboard } from '@/services/TicketService.js';
+import Chart from 'react-apexcharts';
 
 interface TicketChartsProps {
   projectId: string;
   refreshKey?: number;
 }
-
-const COLORS = ['#3b82f6', '#facc15', '#22c55e', '#fb923c'];
-const COLORS2 = ['#22c55e', '#ef4444'];
 
 const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) => {
   const [loading, setLoading] = useState(true);
@@ -51,6 +44,7 @@ const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) =>
           };
         }) => {
           if (res?.data) {
+            console.log(res.data);
             setTicketStatusData(res.data.ticketStatusData || []);
             setBudgetByPriority(res.data.budgetByPriority || []);
             setTicketPriorityData(res.data.ticketPriorityData || []);
@@ -72,36 +66,55 @@ const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) =>
       </div>
     );
   }
+  const statusLabels = ticketStatusData.map((item) => item.name || item.status);
+  const statusSeries = ticketStatusData.map((item) => item.value);
+
+  const series = [
+    {
+      name: 'Budget',
+      data: budgetByPriority.map((item) => item.budget),
+    },
+  ];
+
+  const categories = budgetByPriority.map((item) => item.status);
 
   return (
     <div className="mt-8 space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card title="Ticket Status Overview" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie data={ticketStatusData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
-                {ticketStatusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+        <Card title="Ticket Status Overview">
+          <Chart
+            type="donut"
+            series={statusSeries}
+            options={{
+              labels: statusLabels,
+              colors: ['#3b82f6', '#facc15', '#22c55e', '#fb923c'],
+              legend: { position: 'bottom' },
+              tooltip: { y: { formatter: (val: number) => `${val} tickets` } },
+            }}
+            height={250}
+          />
         </Card>
 
-        <Card title="Budget by Ticket Status" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={budgetByPriority}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="status" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="budget" fill="#14b8a6" />
-            </BarChart>
-          </ResponsiveContainer>
+        <Card title="Budget by Ticket Status">
+          <Chart
+            type="bar"
+            series={series}
+            options={{
+              chart: { stacked: false, toolbar: { show: true } },
+              plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
+              xaxis: { categories },
+              colors: ['#14b8a6'],
+              tooltip: { y: { formatter: (val: number) => `${val.toLocaleString('vi-VN')} VND` } },
+              dataLabels: {
+                enabled: true,
+                formatter: (val: number) => `${val.toLocaleString('vi-VN')}`,
+              },
+            }}
+            height={250}
+          />
         </Card>
       </div>
-      /
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card title="Ticket Priority">
           <ResponsiveContainer width="100%" height={250}>
@@ -118,37 +131,49 @@ const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) =>
         </Card>
 
         <Card title="Resolved vs Closed Tickets">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={ResolvedAndClosedData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                dataKey="value"
-                label
-              >
-                {ResolvedAndClosedData.map((entry, index) => (
-                  <Cell key={`cell2-${index}`} fill={COLORS2[index % COLORS2.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          {ResolvedAndClosedData && ResolvedAndClosedData.length > 0 ? (
+            <Chart
+              type="donut"
+              series={ResolvedAndClosedData.map((item) => item.value)}
+              options={{
+                labels: ResolvedAndClosedData.map((item) => item.name),
+                colors: ['#22c55e', '#ef4444'],
+                legend: { position: 'bottom' },
+                tooltip: { y: { formatter: (val: number) => `${val} tickets` } },
+              }}
+              height={250}
+            />
+          ) : (
+            <div className="text-center py-8 text-gray-500">No data</div>
+          )}
         </Card>
       </div>
       <Card title="Resolved vs Closed Ticket Over Time">
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={resolvedClosedTimeline}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="resolved" stroke="#22c55e" />
-            <Line type="monotone" dataKey="closed" stroke="#3b82f6" />
-          </LineChart>
-        </ResponsiveContainer>
+        <Chart
+          type="line"
+          series={[
+            {
+              name: 'Resolved',
+              data: resolvedClosedTimeline.map((item) => item.resolved),
+            },
+            {
+              name: 'Closed',
+              data: resolvedClosedTimeline.map((item) => item.closed),
+            },
+          ]}
+          options={{
+            chart: { toolbar: { show: true } },
+            xaxis: {
+              categories: resolvedClosedTimeline.map((item) => item.date),
+            },
+            colors: ['#22c55e', '#3b82f6'],
+            dataLabels: { enabled: false },
+            stroke: { curve: 'smooth' },
+            tooltip: { shared: true, intersect: false },
+            legend: { position: 'bottom' },
+          }}
+          height={280}
+        />
       </Card>
     </div>
   );
