@@ -10,6 +10,7 @@ import {
   ChevronRight,
   FolderKanban,
   Bell,
+  Layers,
 } from 'lucide-react';
 import logo_fusion from '@/assets/logo_fusion.png';
 
@@ -99,6 +100,12 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
         { to: '/admin/subscriptions/overview', label: 'Overview' },
         { to: '/admin/subscriptions/list', label: 'Subscriptions list' },
       ],
+    },
+    {
+      to: '/admin/features',
+      label: 'Features',
+      icon: Layers,
+      children: [{ to: '/admin/features/list', label: 'Features list' }],
     },
     {
       to: '/admin/transactions',
