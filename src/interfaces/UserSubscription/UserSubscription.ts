@@ -36,7 +36,7 @@ export type EntitlementVm = {
 
 export type UserSubscriptionDetailResponse = UserSubscriptionResponse & {
   isFullPackage: boolean;
-  licenseScope: LicenseScope;       // "SeatBased" | "CompanyWide"
+  licenseScope: LicenseScope;        
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
 

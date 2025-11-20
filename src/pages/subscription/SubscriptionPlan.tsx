@@ -22,6 +22,7 @@ const cn = (...xs: Array<string | false | null | undefined>) =>
 /* =========================================================
  * Helpers
  * =======================================================*/
+
 function formatCurrency(amount: number, currency: string) {
   try {
     return amount.toLocaleString("vi-VN") + " " + currency;
@@ -69,7 +70,7 @@ function formatChargeUnit(
 }
 
 function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
-  if (scope === "CompanyWide") {
+  if (scope === "EntireCompany") {
     return "All members in the company";
   }
   if (!seats || seats <= 0) return "Unlimited seats per company";
@@ -86,6 +87,25 @@ function buildPriceLabel(price?: PlanPricePreviewResponse | null) {
   const main = formatCurrency(price.amount, price.currency);
   const period = formatBillingPeriod(price);
   return `${main} · ${period}`;
+}
+
+/** Label cho LicenseScope (bảng so sánh) */
+function licenseScopeShort(scope: LicenseScope) {
+  return scope === "Userlimits" ? "User-limits" : "Company-wide";
+}
+
+/** Label cho chip trên card */
+function licenseScopeChip(scope: LicenseScope) {
+  return scope === "Userlimits"
+    ? "Seat-based license"
+    : "Company-wide license";
+}
+
+/** Label cho chip trong checkout modal */
+function licenseScopeModalChip(scope: LicenseScope) {
+  return scope === "Userlimits"
+    ? "User-limits license"
+    : "Entire-company license";
 }
 
 /* =========================================================
@@ -185,8 +205,8 @@ export default function SubscriptionPlan() {
       typeof raw.amount === "number"
         ? raw.amount
         : typeof raw.price === "number"
-        ? raw.price
-        : 0;
+          ? raw.price
+          : 0;
 
     return {
       amount,
@@ -321,8 +341,8 @@ export default function SubscriptionPlan() {
               <th className="py-2 px-4 text-xs font-semibold text-slate-600">
                 Payment
               </th>
-             <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Number Of times
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Number of times
               </th>
             </tr>
           </thead>
@@ -350,9 +370,7 @@ export default function SubscriptionPlan() {
                     {plan.isFullPackage ? "Yes" : "No"}
                   </td>
                   <td className="py-2 px-4">
-                    {plan.licenseScope === "UserLimits"
-                      ? "User-limits"
-                      : "Company-wide"}
+                    {licenseScopeShort(plan.licenseScope)}
                   </td>
                   <td className="py-2 px-4">
                     {formatSeatsLimit(
@@ -367,12 +385,12 @@ export default function SubscriptionPlan() {
                     {price ? price.paymentMode : "—"}
                   </td>
                   <td className="py-2 px-4">
-                     {price
-                         ? price.paymentMode === "Installments"
-                         ? price.installmentCount
-                            : 1
-                            : "—"}
-                   </td>
+                    {price
+                      ? price.paymentMode === "Installments"
+                        ? price.installmentCount
+                        : 1
+                      : "—"}
+                  </td>
                 </tr>
               );
             })}
@@ -516,9 +534,7 @@ export default function SubscriptionPlan() {
                             )}
 
                             <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                              {plan.licenseScope === "Userlimits"
-                                ? "Seat-based license"
-                                : "Company-wide license"}
+                              {licenseScopeChip(plan.licenseScope)}
                             </span>
                           </div>
                         </div>
@@ -716,9 +732,7 @@ export default function SubscriptionPlan() {
                     if (!scope) return null;
                     return (
                       <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                        {scope === "UserLimits"
-                          ? "Seat-based license"
-                          : "Company-wide license"}
+                        {licenseScopeModalChip(scope)}
                       </span>
                     );
                   })()}
