@@ -1,6 +1,9 @@
 import React from "react";
 import { Modal, Descriptions, Tag, Space } from "antd";
-import type { SubscriptionPlanDetailResponse } from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
+import type {
+  SubscriptionPlanDetailResponse,
+  LicenseScope,
+} from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
 type Props = {
   open: boolean;
@@ -9,11 +12,14 @@ type Props = {
   loading?: boolean;
 };
 
-const niceScope = (s?: "SeatBased" | "CompanyWide") =>
-  s === "SeatBased" ? "Seat based" : s === "CompanyWide" ? "Company wide" : "—";
+const niceScope = (s?: LicenseScope) => {
+  if (s === "Userlimits") return "User limits";
+  if (s === "EntireCompany") return "Entire company";
+  return "—";
+};
 
-const scopeColor = (s?: "SeatBased" | "CompanyWide") =>
-  s === "SeatBased" ? "purple" : "geekblue";
+const scopeColor = (s?: LicenseScope) =>
+  s === "Userlimits" ? "purple" : "geekblue";
 
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "—");
 const money = (n?: number, c?: string) =>
@@ -67,11 +73,13 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
             </Descriptions.Item>
 
             <Descriptions.Item label="License scope">
-              <Tag color={scopeColor(data.licenseScope)}>{niceScope(data.licenseScope)}</Tag>
+              <Tag color={scopeColor(data.licenseScope)}>
+                {niceScope(data.licenseScope)}
+              </Tag>
             </Descriptions.Item>
 
             <Descriptions.Item label="Package">
-              {data.isFullPackage ? <Tag color="blue">Full package</Tag> : <Tag>Custom</Tag>}
+              {data.isFullPackage ? <Tag color="blue">Full feature</Tag> : <Tag>Custom</Tag>}
             </Descriptions.Item>
 
             <Descriptions.Item label="Limits">
@@ -135,66 +143,57 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
           </Descriptions>
 
           {/* 2b) Discounts (installments only) */}
-          {data.price &&
-            data.price.paymentMode === "Installments" && (
-              <div>
-                <div className="mb-3 text-base font-semibold">Discounts per installment</div>
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-gray-600 font-medium w-32">
-                          Installment
-                        </th>
-                        <th className="px-4 py-2 text-left text-gray-600 font-medium w-40">
-                          Discount
-                        </th>
-                        <th className="px-4 py-2 text-left text-gray-600 font-medium">
-                          Note
-                        </th>
+          {data.price && data.price.paymentMode === "Installments" && (
+            <div>
+              <div className="mb-3 text-base font-semibold">Discounts per installment</div>
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-gray-600 font-medium w-32">
+                        Installment
+                      </th>
+                      <th className="px-4 py-2 text-left text-gray-600 font-medium w-40">
+                        Discount
+                      </th>
+                      <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                        Note
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white">
+                    {(data.price.discounts && data.price.discounts.length > 0 ? (
+                      data.price.discounts
+                        .slice()
+                        .sort((a, b) => a.installmentIndex - b.installmentIndex)
+                        .map((d) => (
+                          <tr key={d.installmentIndex} className="border-t">
+                            <td className="px-4 py-2">Kỳ {d.installmentIndex}</td>
+                            <td className="px-4 py-2">
+                              {d.discountValue ?? 0}
+                              <span className="ml-1 text-xs text-gray-500">%</span>
+                            </td>
+                            <td className="px-4 py-2">
+                              {d.note && d.note.trim().length > 0 ? (
+                                d.note
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr className="border-t">
+                        <td colSpan={3} className="px-4 py-4 text-center text-gray-400">
+                          No discounts configured for this plan.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                      {/* Nếu BE đã trả discounts */}
-                      {(data.price.discounts && data.price.discounts.length > 0 ? (
-                        data.price.discounts
-                          .slice()
-                          .sort((a, b) => a.installmentIndex - b.installmentIndex)
-                          .map((d) => (
-                            <tr
-                              key={d.installmentIndex}
-                              className="border-t"
-                            >
-                              <td className="px-4 py-2">
-                                Kỳ {d.installmentIndex}
-                              </td>
-                              <td className="px-4 py-2">
-                                {d.discountValue ?? 0}
-                                <span className="ml-1 text-xs text-gray-500">%</span>
-                              </td>
-                              <td className="px-4 py-2">
-                                {d.note && d.note.trim().length > 0
-                                  ? d.note
-                                  : <span className="text-gray-400">—</span>}
-                              </td>
-                            </tr>
-                          ))
-                      ) : (
-                        // Nếu không có discounts, nhưng vẫn là installments
-                        <tr className="border-t">
-                          <td
-                            colSpan={3}
-                            className="px-4 py-4 text-center text-gray-400"
-                          >
-                            No discounts configured for this plan.
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
+          )}
 
           {/* 3) Features */}
           <div>

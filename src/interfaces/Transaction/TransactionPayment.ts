@@ -7,11 +7,11 @@ import type {
   PaymentMode,
 } from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
-// TODO: có thể refine lại thành union "Pending" | "Succeeded"...
-export type PaymentStatus = string;      // keep in sync với Fusion.Repository.Enums.PaymentStatus
-export type TransactionType = string;    // keep in sync với Fusion.Repository.Enums.TransactionType
+// keep in sync với Fusion.Repository.Enums
+export type PaymentStatus = string;
+export type TransactionType = string;
 
-// ----------- Requests -----------
+// ----------- Requests / filters -----------
 
 export type TransactionPaymentCreateRequest = {
   planId: Guid;
@@ -23,9 +23,23 @@ export type NextInstallmentParams = {
   userSubscriptionId?: Guid | null;
 };
 
+export type TransactionPaymentFilters = {
+  userName?: string;
+  planName?: string;
+  status?: PaymentStatus;
+  keyword?: string;
+  paymentDateFrom?: string; // ISO string
+  paymentDateTo?: string;   // ISO string
+  pageNumber?: number;
+  pageSize?: number;
+  sortColumn?: string;
+  sortDescending?: boolean;
+};
+
 // ----------- Responses -----------
 
-export type TransactionPaymentDetailResponse = {
+// ITEM cho list/paged (map với TransactionPaymentResponse trong BE)
+export type TransactionPaymentListItem = {
   id: Guid;
 
   // Navs
@@ -34,6 +48,8 @@ export type TransactionPaymentDetailResponse = {
 
   planId: Guid;
   planName?: string | null;
+
+  userSubscriptionId?: Guid | null;
 
   // Payment link / gateway
   orderCode?: number | null;
@@ -44,10 +60,6 @@ export type TransactionPaymentDetailResponse = {
   // Amount & currency
   amount: number;
   currency: string; // "VND", ...
-
-  // Descriptions / references
-  description?: string | null;
-  reference?: string | null;
 
   // Timestamps (ISO strings)
   createdAt: string;
@@ -68,6 +80,13 @@ export type TransactionPaymentDetailResponse = {
   billingPeriodSnapshot: BillingPeriod;
   periodCountSnapshot: number;
   paymentModeSnapshot: PaymentMode;
+};
+
+// DETAIL = list item + description / bank info
+export type TransactionPaymentDetailResponse = TransactionPaymentListItem & {
+  // Descriptions / references
+  description?: string | null;
+  reference?: string | null;
 
   // Bank / counter account info
   accountNumber?: string | null;            // receiving account
@@ -77,4 +96,136 @@ export type TransactionPaymentDetailResponse = {
   counterAccountNumber?: string | null;
 };
 
+// Paged + summary cho admin dashboard
+export type TransactionPaymentPagedSummaryResponse = {
+  items: TransactionPaymentListItem[];
+  pageNumber: number;
+  pageSize: number;
+  totalCount: number;
+
+  totalTransactions: number;
+  totalRevenue: number;
+  totalSuccess: number;
+  totalCancelled: number;
+  totalPending: number;
+};
+
 export type NextInstallmentResponse = TransactionPaymentDetailResponse | null;
+
+// ================= Monthly revenue overview ================
+// 1. Monthly revenue 
+export type MonthlyRevenuePoint = {
+  month: number;          // 1..12
+  totalAmount: number;    // sum Amount (Success)
+  transactionCount: number;
+};
+
+export type TransactionMonthlyRevenueResponse = {
+  year: number;
+  items: MonthlyRevenuePoint[];
+};
+
+//2 .Monthly revenue – 3-year comparison
+export type MonthlyRevenueComparisonPoint = {
+  month: number;                       // 1..12
+  yearMinus2Amount: number;
+  yearMinus2TransactionCount: number;
+  yearMinus1Amount: number;
+  yearMinus1TransactionCount: number;
+  yearAmount: number;
+  yearTransactionCount: number;
+};
+
+export type TransactionMonthlyRevenueThreeYearsResponse = {
+  year: number;        // base year, e.g. 2025
+  yearMinus1: number;  // 2024
+  yearMinus2: number;  // 2023
+  items: MonthlyRevenueComparisonPoint[];
+};
+
+//3.PaymentHealthChart
+export type TransactionMonthlyStatusItem = {
+  month: number;
+  successCount: number;
+  pendingCount: number;
+  failedCount: number;
+};
+
+export type TransactionMonthlyStatusResponse = {
+  year: number;
+  items: TransactionMonthlyStatusItem[];
+};
+
+//4.DAILY CASHFLOW (last N days)
+export type TransactionDailyCashflowPoint = {
+  date: string;        // ISO date "2025-11-18"
+  revenue: number;     // total amount (Success) in this day
+  successCount: number;
+};
+
+export type TransactionDailyCashflowResponse = {
+  from: string;        // ISO date
+  to: string;          // ISO date
+  items: TransactionDailyCashflowPoint[];
+};
+
+//5.INSTALLMENT AGING / OVERDUE
+export type TransactionInstallmentAgingItem = {
+  bucketKey: string;          // "NotDue", "1-7", "8-14", "15-30", "31-60", "60+"
+  installmentCount: number;
+  outstandingAmount: number;
+};
+
+export type TransactionInstallmentAgingResponse = {
+  asOf: string;               // ISO datetime
+  items: TransactionInstallmentAgingItem[];
+  totalInstallments: number;
+  totalOutstandingAmount: number;
+};
+
+//6. Top User 
+export type TransactionTopCustomerItem = {
+  userId: string;
+  userName?: string | null;
+  email?: string | null;
+  totalAmount: number;
+  successCount: number;
+  maxPayment: number;
+  lastPaymentAt?: string | null;
+};
+
+export type TransactionTopCustomersResponse = {
+  year: number;
+  topN: number;
+  items: TransactionTopCustomerItem[];
+};
+
+//7.Payment mode insight
+
+export type TransactionPaymentModeInsightItem = {
+  paymentMode: PaymentMode;        
+  transactionCount: number;
+  successCount: number;
+  pendingCount: number;
+  failedCount: number;
+  totalAmount: number;
+};
+
+export type TransactionPaymentModeInsightResponse = {
+  year: number;
+  items: TransactionPaymentModeInsightItem[];
+};
+
+//8.Plan revenue insight
+export type TransactionPlanRevenueInsightItem = {
+  planId: string;
+  planName: string;
+  transactionCount: number;
+  successCount: number;
+  totalAmount: number;
+};
+
+export type TransactionPlanRevenueInsightResponse = {
+  year: number;
+  items: TransactionPlanRevenueInsightItem[];
+};

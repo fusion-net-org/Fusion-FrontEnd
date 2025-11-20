@@ -54,8 +54,8 @@ function statusTagColor(status: string) {
 }
 
 function formatLicenseScope(scope: LicenseScope | string) {
-  if (scope === "SeatBased") return "Seat-based license";
-  if (scope === "CompanyWide") return "Company-wide license";
+  if (scope === "Userlimits") return "User-limits license";
+  if (scope === "EntireCompany") return "Entire-company license";
   return String(scope);
 }
 

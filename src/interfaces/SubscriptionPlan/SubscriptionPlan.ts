@@ -2,7 +2,8 @@
 export type Guid = string;
 
 // ---------- String unions (không dùng enum FE) ----------
-export type LicenseScope = "SeatBased" | "CompanyWide";
+// Khớp với enum BE: Userlimits / EntireCompany
+export type LicenseScope = "Userlimits" | "EntireCompany";
 export type BillingPeriod = "Week" | "Month" | "Year";
 export type ChargeUnit = "PerSubscription" | "PerSeat";
 export type PaymentMode = "Prepaid" | "Installments";
@@ -40,6 +41,7 @@ export type SubscriptionPlanPriceResponse = {
   paymentMode: PaymentMode;               // "Prepaid" | "Installments"
   installmentCount?: number | null;
   installmentInterval?: BillingPeriod | null;
+  discounts?: SubscriptionPlanPriceDiscountResponse[] | null;
 };
 
 // ---------- Detail (BE) ----------
@@ -48,7 +50,7 @@ export type SubscriptionPlanDetailResponse = {
   name: string;
   description?: string | null;            // detail có description
   isActive: boolean;
-  licenseScope: LicenseScope;
+  licenseScope: LicenseScope;             // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
@@ -62,7 +64,7 @@ export type SubscriptionPlanListItemResponse = {
   id: Guid;
   name: string;
   isActive: boolean;
-  licenseScope: LicenseScope;            // "SeatBased" | "CompanyWide"
+  licenseScope: LicenseScope;            // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
   companyShareLimit?: number | null;     // null = unlimited
   seatsPerCompanyLimit?: number | null;  // null = unlimited
@@ -70,20 +72,6 @@ export type SubscriptionPlanListItemResponse = {
   updatedAt: string;                     // ISO
 };
 
-export type SubscriptionPlanCreateRequest = {
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-  licenseScope: LicenseScope;          // "SeatBased" | "CompanyWide"
-  isFullPackage: boolean;
-  companyShareLimit?: number | null;
-  seatsPerCompanyLimit?: number | null;
-  price: SubscriptionPlanPriceInput;   // có billingPeriod, periodCount, chargeUnit, price, currency, paymentMode, installmentCount?, installmentInterval?
-  // undefined = để server tự xử lý theo isFullPackage; [] = clear; list = replace
-  featureIds?: Guid[] | null;
-};
-
-// ---------- Requests (FE typings để gửi lên API) ----------
 export type SubscriptionPlanPriceInput = {
   billingPeriod: BillingPeriod;
   periodCount: number;
@@ -93,23 +81,35 @@ export type SubscriptionPlanPriceInput = {
   paymentMode: PaymentMode;
   installmentCount?: number | null;
   installmentInterval?: BillingPeriod | null;
+  discounts?: SubscriptionPlanPriceDiscountInput[] | null;
 };
 
+export type SubscriptionPlanCreateRequest = {
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  licenseScope: LicenseScope;          // "Userlimits" | "EntireCompany"
+  isFullPackage: boolean;
+  companyShareLimit?: number | null;
+  seatsPerCompanyLimit?: number | null;
+  price: SubscriptionPlanPriceInput;   // có billingPeriod, periodCount, chargeUnit, price, currency, paymentMode, installmentCount?, installmentInterval?
+  // undefined = để server tự xử lý theo isFullPackage; [] = clear; list = replace
+  featureIds?: Guid[] | null;
+};
 
 export type SubscriptionPlanUpdateRequest = {
   id: Guid;
   name: string;
   description?: string | null;
   isActive: boolean;
-  licenseScope: LicenseScope;
+  licenseScope: LicenseScope;          // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
   price: SubscriptionPlanPriceInput;
-  // null = giữ như cũ, [] = clear, list = replace (nếu không full package)
+  // null = giữ như cũ, [] = clear, list = replace (nếu không full feature)
   featureIds?: Guid[] | null;
 };
-
 
 export type GetPlansPagedParams = {
   keyword?: string;
@@ -145,7 +145,7 @@ export type SubscriptionPlanCustomerResponse = {
   description?: string | null;
 
   isFullPackage: boolean;
-  licenseScope: LicenseScope;
+  licenseScope: LicenseScope;               // "Userlimits" | "EntireCompany"
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
 
@@ -163,4 +163,4 @@ export type SubscriptionPlanPriceDiscountInput = {
   installmentIndex: number;
   discountValue: number;        // 10 = 10%
   note?: string | null;
-}
+};

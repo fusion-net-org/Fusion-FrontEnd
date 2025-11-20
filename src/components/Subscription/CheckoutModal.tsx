@@ -44,7 +44,7 @@ function formatPaymentNote(p: PlanPricePreviewResponse) {
 }
 
 function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
-  if (scope === "CompanyWide") return "All members in the company";
+  if (scope === "EntireCompany") return "All members in the company";
   if (!seats || seats <= 0) return "Unlimited seats per company";
   return `Up to ${seats} seats per company`;
 }
@@ -209,9 +209,9 @@ export default function SubscriptionPlanCheckoutModal({
 
               {licenseScope && (
                 <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                  {licenseScope === "SeatBased"
-                    ? "Seat-based license"
-                    : "Company-wide license"}
+                  {licenseScope === "Userlimits"
+                    ? "User-limits license"
+                    : "Entire-company license"}
                 </span>
               )}
             </div>

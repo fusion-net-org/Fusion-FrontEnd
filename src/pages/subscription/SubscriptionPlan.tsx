@@ -307,7 +307,7 @@ export default function SubscriptionPlan() {
                 Plan
               </th>
               <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Full package
+                Full feature
               </th>
               <th className="py-2 px-4 text-xs font-semibold text-slate-600">
                 License scope
@@ -350,8 +350,8 @@ export default function SubscriptionPlan() {
                     {plan.isFullPackage ? "Yes" : "No"}
                   </td>
                   <td className="py-2 px-4">
-                    {plan.licenseScope === "SeatBased"
-                      ? "Seat-based"
+                    {plan.licenseScope === "UserLimits"
+                      ? "User-limits"
                       : "Company-wide"}
                   </td>
                   <td className="py-2 px-4">
@@ -516,7 +516,7 @@ export default function SubscriptionPlan() {
                             )}
 
                             <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                              {plan.licenseScope === "SeatBased"
+                              {plan.licenseScope === "Userlimits"
                                 ? "Seat-based license"
                                 : "Company-wide license"}
                             </span>
@@ -716,7 +716,7 @@ export default function SubscriptionPlan() {
                     if (!scope) return null;
                     return (
                       <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                        {scope === "SeatBased"
+                        {scope === "UserLimits"
                           ? "Seat-based license"
                           : "Company-wide license"}
                       </span>

@@ -25,7 +25,7 @@ const DEFAULT: SubscriptionPlanCreateRequest = {
   name: "",
   description: "",
   isActive: true,
-  licenseScope: "SeatBased",
+  licenseScope: "Userlimits", // default mới
   isFullPackage: false,
   companyShareLimit: null,
   seatsPerCompanyLimit: null,
@@ -106,7 +106,7 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
     Form.useWatch(["price", "paymentMode"], form) || "Prepaid";
   const isFullPackage: boolean = Form.useWatch("isFullPackage", form) ?? false;
   const licenseScope: LicenseScope =
-    Form.useWatch("licenseScope", form) || ("SeatBased" as LicenseScope);
+    (Form.useWatch("licenseScope", form) as LicenseScope) || "Userlimits";
   const installmentCount: number | null =
     Form.useWatch(["price", "installmentCount"], form) ?? null;
 
@@ -144,9 +144,9 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
       licenseScope: v.licenseScope as LicenseScope,
       isFullPackage: !!v.isFullPackage,
       companyShareLimit: v.companyShareLimit ?? null,
-      // CompanyWide => seatsPerCompanyLimit luôn null
+      // EntireCompany => seatsPerCompanyLimit luôn null
       seatsPerCompanyLimit:
-        v.licenseScope === "CompanyWide" ? null : v.seatsPerCompanyLimit ?? null,
+        v.licenseScope === "EntireCompany" ? null : v.seatsPerCompanyLimit ?? null,
       // FullPackage => không gửi featureIds (backend hiểu là full)
       featureIds: v.isFullPackage ? [] : v.featureIds ?? [],
       price: {
@@ -193,12 +193,7 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
         </div>
       }
     >
-      <Form
-        form={form}
-        layout="vertical"
-        colon={false}
-        className="mt-2 space-y-6"
-      >
+      <Form form={form} layout="vertical" colon={false} className="mt-2 space-y-6">
         {/* Header: Name + Status */}
         <section className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -222,16 +217,8 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
 
             <div className="flex flex-col items-start gap-1 md:items-end">
               <span className="text-xs font-medium text-slate-700">Status</span>
-              <Form.Item
-                name="isActive"
-                valuePropName="checked"
-                className="mb-0"
-              >
-                <Switch
-                  size="small"
-                  checkedChildren="Active"
-                  unCheckedChildren="Inactive"
-                />
+              <Form.Item name="isActive" valuePropName="checked" className="mb-0">
+                <Switch size="small" checkedChildren="Active" unCheckedChildren="Inactive" />
               </Form.Item>
             </div>
           </div>
@@ -277,18 +264,18 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
                   </span>
                 }
                 name="licenseScope"
-                initialValue="SeatBased"
+                initialValue="Userlimits"
               >
                 <Select>
-                  <Option value="SeatBased">Seat based</Option>
-                  <Option value="CompanyWide">Company wide</Option>
+                  <Option value="Userlimits">User limits</Option>
+                  <Option value="EntireCompany">Entire company</Option>
                 </Select>
               </Form.Item>
 
               <Form.Item
                 label={
                   <span className="text-xs font-medium text-slate-700">
-                    Full package
+                    Full feature
                   </span>
                 }
                 name="isFullPackage"
@@ -324,11 +311,11 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
                   min={0}
                   className="w-full"
                   placeholder={
-                    licenseScope === "CompanyWide"
-                      ? "Not applicable for company-wide"
+                    licenseScope === "EntireCompany"
+                      ? "Not applicable for entire-company plans"
                       : "null = unlimited"
                   }
-                  disabled={licenseScope === "CompanyWide"}
+                  disabled={licenseScope === "EntireCompany"}
                 />
               </Form.Item>
             </div>
@@ -347,7 +334,7 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
                 </span>
                 {isFullPackage && (
                   <span className="text-[11px] font-medium text-emerald-600">
-                    Full package &mdash; all features included
+                    Full feature &mdash; all features included
                   </span>
                 )}
               </div>
@@ -357,8 +344,7 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
                 extra={
                   !isFullPackage && (
                     <span className="text-[11px] text-slate-500">
-                      Leave empty to create a shell plan and attach features
-                      later.
+                      Leave empty to create a shell plan and attach features later.
                     </span>
                   )
                 }
@@ -370,7 +356,7 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
                   disabled={isFullPackage}
                   placeholder={
                     isFullPackage
-                      ? "Full package: feature selection disabled"
+                      ? "Full feature: feature selection disabled"
                       : "Select features included in this plan"
                   }
                 />
@@ -507,7 +493,10 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
                     name={["price", "installmentInterval"]}
                     initialValue="Month"
                     rules={[
-                      { required: true, message: "Installment interval is required" },
+                      {
+                        required: true,
+                        message: "Installment interval is required",
+                      },
                     ]}
                   >
                     <Select>
@@ -521,60 +510,60 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
             </div>
 
             {/* Discount per installment */}
-{paymentMode === "Installments" && installmentCount && installmentCount > 0 && (
-  <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-3">
-    <div className="mb-2 flex items-center justify-between">
-      <div className="text-xs font-medium text-slate-700">
-        Discounts per installment
-      </div>
-      <div className="text-[11px] text-slate-500">
-        Leave blank = no discount for that installment.
-      </div>
-    </div>
+            {paymentMode === "Installments" && installmentCount && installmentCount > 0 && (
+              <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-xs font-medium text-slate-700">
+                    Discounts per installment
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Leave blank = no discount for that installment.
+                  </div>
+                </div>
 
-    <div className="flex flex-col gap-2">
-      {Array.from({ length: installmentCount }, (_, idx) => {
-        const index = idx + 1;
-        return (
-          <div
-            key={index}
-            className="grid gap-3 rounded-md bg-white px-3 py-2 md:grid-cols-[80px_160px_minmax(0,1fr)]"
-          >
-            {/* Cột 1: label Kỳ i */}
-            <div className="flex items-center text-[11px] font-medium text-slate-600">
-              Kỳ {index}
-            </div>
+                <div className="flex flex-col gap-2">
+                  {Array.from({ length: installmentCount }, (_, idx) => {
+                    const index = idx + 1;
+                    return (
+                      <div
+                        key={index}
+                        className="grid gap-3 rounded-md bg-white px-3 py-2 md:grid-cols-[80px_160px_minmax(0,1fr)]"
+                      >
+                        {/* Cột 1: label Kỳ i */}
+                        <div className="flex items-center text-[11px] font-medium text-slate-600">
+                          Kỳ {index}
+                        </div>
 
-            {/* Cột 2: % discount */}
-            <Form.Item
-              name={["price", "discounts", idx, "discountValue"]}
-              className="mb-0"
-            >
-              <InputNumber
-                min={0}
-                max={100}
-                className="w-full"
-                addonAfter="%"
-                placeholder="0"
-              />
-            </Form.Item>
+                        {/* Cột 2: % discount */}
+                        <Form.Item
+                          name={["price", "discounts", idx, "discountValue"]}
+                          className="mb-0"
+                        >
+                          <InputNumber
+                            min={0}
+                            max={100}
+                            className="w-full"
+                            addonAfter="%"
+                            placeholder="0"
+                          />
+                        </Form.Item>
 
-            {/* Cột 3: Note rộng hơn */}
-            <Form.Item
-              name={["price", "discounts", idx, "note"]}
-              className="mb-0"
-            >
-              <Input
-                placeholder="Optional note for this installment"
-                maxLength={250}
-              />
-            </Form.Item>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-)}
+                        {/* Cột 3: Note rộng hơn */}
+                        <Form.Item
+                          name={["price", "discounts", idx, "note"]}
+                          className="mb-0"
+                        >
+                          <Input
+                            placeholder="Optional note for this installment"
+                            maxLength={250}
+                          />
+                        </Form.Item>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <p className="mt-3 text-[11px] text-slate-500">
               Prices are before tax. Additional tax rules and discounts can be

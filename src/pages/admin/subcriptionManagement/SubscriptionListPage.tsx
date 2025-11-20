@@ -10,13 +10,22 @@ import {
   Tag,
   message,
   Tooltip,
-  Descriptions,
 } from "antd";
-import { Eye, Edit, Trash2, Package, ArrowDown, ArrowUp, RotateCcw, Plus } from "lucide-react";
+import {
+  Eye,
+  Edit,
+  Trash2,
+  Package,
+  ArrowDown,
+  ArrowUp,
+  RotateCcw,
+  Plus,
+} from "lucide-react";
 import type {
   GetPlansPagedParams,
   SubscriptionPlanListItemResponse,
   SubscriptionPlanDetailResponse,
+  LicenseScope,
 } from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 import {
   getPlansPaged,
@@ -27,17 +36,22 @@ import {
 } from "@/services/subscriptionPlanService.js";
 import SubscriptionPlanModal from "@/pages/admin/subcriptionManagement/SubscriptionPlanModal";
 import PlanDetailModal from "@/pages/admin/subcriptionManagement/PlanDetailModal";
+
 const { Search } = Input;
 const { Option } = Select;
 
 // ===== helpers =====
 type SortCol = "name" | "createdAt";
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "—");
-const scopeTagColor = (s?: "SeatBased" | "CompanyWide") => (s === "SeatBased" ? "purple" : "geekblue");
+
+const scopeTagColor = (s?: LicenseScope) =>
+  s === "Userlimits" ? "purple" : "geekblue";
+
 const chargeUnitLabel = (x?: "PerSubscription" | "PerSeat") =>
   x === "PerSeat" ? "Per seat" : "Per subscription";
-const scopeLabel = (x?: "SeatBased" | "CompanyWide") =>
-  x === "SeatBased" ? "Seat based" : "Company wide";
+
+const scopeLabel = (x?: LicenseScope) =>
+  x === "Userlimits" ? "User limits" : "Entire company";
 
 // ===================================================================
 
@@ -179,7 +193,7 @@ export default function SubscriptionListPage() {
         render: (_: any, r: SubscriptionPlanListItemResponse) => (
           <Space size={6} wrap>
             <Tag color={scopeTagColor(r.licenseScope)}>{scopeLabel(r.licenseScope)}</Tag>
-            {r.isFullPackage && <Tag color="blue">Full package</Tag>}
+            {r.isFullPackage && <Tag color="blue">Full Feature</Tag>}
           </Space>
         ),
       },
@@ -217,7 +231,8 @@ export default function SubscriptionListPage() {
         title: "Status",
         dataIndex: "isActive",
         key: "isActive",
-        render: (v: boolean) => (v ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>),
+        render: (v: boolean) =>
+          v ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>,
       },
       {
         title: "Actions",
@@ -226,7 +241,12 @@ export default function SubscriptionListPage() {
           <Space>
             <Button type="link" onClick={() => viewDetail(r.id)} icon={<Eye size={16} />} />
             <Button type="link" onClick={() => openEdit(r.id)} icon={<Edit size={16} />} />
-            <Button type="link" danger onClick={() => confirmDelete(r.id)} icon={<Trash2 size={16} />} />
+            <Button
+              type="link"
+              danger
+              onClick={() => confirmDelete(r.id)}
+              icon={<Trash2 size={16} />}
+            />
           </Space>
         ),
       },
@@ -249,7 +269,12 @@ export default function SubscriptionListPage() {
               <p className="text-sm text-gray-500 m-0">Manage pricing & entitlements</p>
             </div>
           </div>
-          <Button type="primary" className="bg-indigo-600" icon={<Plus size={16} />} onClick={openCreate}>
+          <Button
+            type="primary"
+            className="bg-indigo-600"
+            icon={<Plus size={16} />}
+            onClick={openCreate}
+          >
             New Plan
           </Button>
         </div>
@@ -275,7 +300,11 @@ export default function SubscriptionListPage() {
               <Option value={false}>Inactive</Option>
             </Select>
 
-            <Select value={sortColumn} onChange={(v: SortCol) => setSortColumn(v)} style={{ width: 180 }}>
+            <Select
+              value={sortColumn}
+              onChange={(v: SortCol) => setSortColumn(v)}
+              style={{ width: 180 }}
+            >
               <Option value="name">Sort by Name</Option>
               <Option value="createdAt">Sort by Created</Option>
             </Select>
@@ -329,11 +358,11 @@ export default function SubscriptionListPage() {
 
       {/* Detail */}
       <PlanDetailModal
-  open={openDetail}
-  onClose={() => setOpenDetail(false)}
-  data={detail}
-  loading={loadingDetail}
-/>
+        open={openDetail}
+        onClose={() => setOpenDetail(false)}
+        data={detail}
+        loading={loadingDetail}
+      />
     </div>
   );
 }

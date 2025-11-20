@@ -60,9 +60,11 @@ import TransactionListPage from './pages/admin/transactionManagement/Transaction
 import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
 import ProjectListPage from './pages/admin/projectManagement/ProjectListPage';
 import ProjectDetailAdminPage from './pages/admin/projectManagement/ProjectDetailAdminPage';
-import UserProfile from './pages/userProfile/UserProfile';
 import FeatureListPage from './pages/admin/featureManagement/FeatureListPage';
 import CompanySubscriptionPage from './pages/home/CompanySubscriptionPage';
+import UserProfile from './pages/UserProfile/UserProfile';
+import TransactionOverviewPage from './pages/admin/transactionManagement/TransactionOverviewPage';
+import SubscriptionOverviewPage from './pages/admin/subcriptionManagement/SubscriptionOverviewPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -108,13 +110,14 @@ function App() {
           <Route path="/admin/companies/detail/:id" element={<CompanyDetailPage />} />
           <Route path="/admin/companies/detail" element={<CompanyDetailPage />} />
           <Route path="/admin/subscriptions/list" element={<SubcriptionListPage />} />
+          <Route path="/admin/subscriptions/overview" element={<SubscriptionOverviewPage />} />
           <Route path="/admin/transactions/list" element={<TransactionListPage />} />
+          <Route path="/admin/transactions/overview" element={<TransactionOverviewPage />} />
           <Route path="/admin/notifications/list" element={<NotificationListPage />} />
           <Route path="/admin/projects/list" element={<ProjectListPage />} />
           <Route path="/admin/projects/detail/:id" element={<ProjectDetailAdminPage />} />
           <Route path="/admin/projects/detail" element={<ProjectDetailAdminPage />} />
           <Route path="/admin/features/list" element={<FeatureListPage />} />
-          {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
         </Route>
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
