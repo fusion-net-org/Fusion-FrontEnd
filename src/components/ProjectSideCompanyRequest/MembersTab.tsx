@@ -65,30 +65,39 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col mb-2 gap-3">
+      <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mt-2">
           <Users className="text-indigo-500 w-5 h-5" /> Project Members
         </h2>
 
-        {/* Search & Date Range */}
-        <div className="flex items-center gap-3">
-          <Input
-            prefix={<Search size={20} />}
-            placeholder="Search by name, email, phone..."
-            value={memberSearch}
-            onChange={(e) => setMemberSearch(e.target.value)}
-            className="flex-1 min-w-[280px] max-w-[400px]"
-          />
-          <RangePicker
-            onChange={(val) => setMemberRange(val)}
-            placeholder={['Start date', 'End date']}
-            className="min-w-[220px] ml-auto"
-          />
+        {/* Search & Filter */}
+        <div className="flex items-end justify-between gap-6 mb-4">
+          {/* LEFT — Search */}
+          <div className="flex flex-col flex-1 max-w-[400px]">
+            <label className="text-sm font-semibold text-gray-600 mb-1">Search</label>
+            <Input
+              prefix={<Search size={20} />}
+              placeholder="Search by name, email, phone..."
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          {/* RIGHT — Filter (Date Range) */}
+          <div className="flex flex-col min-w-[240px]">
+            <label className="text-sm font-semibold text-gray-600 mb-1">Filter (Joined Date)</label>
+            <RangePicker
+              onChange={(val) => setMemberRange(val)}
+              placeholder={['Start date', 'End date']}
+              className="w-full"
+            />
+          </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm mt-3">
         {loading ? (
           <div className="flex justify-center p-4">
             <Spin />
