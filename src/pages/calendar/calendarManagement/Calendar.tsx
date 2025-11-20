@@ -331,12 +331,12 @@ const Calendar: React.FC = () => {
         loading={loadingTaskDetail}
         task={selectedTask}
         onClose={() => setOpenDetailModal(false)}
-        onEdit={(task) => {
-          setFormInitialValues(task);
-          setIsEditMode(true);
-          setOpenDetailModal(false);
-          setOpenModal(true);
-        }}
+        // onEdit={(task) => {
+        //   setFormInitialValues(task);
+        //   setIsEditMode(true);
+        //   setOpenDetailModal(false);
+        //   setOpenModal(true);
+        // }}
       />
     </div>
   );
