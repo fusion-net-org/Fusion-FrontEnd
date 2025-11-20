@@ -1,193 +1,79 @@
-// src/pages/project/SprintWorkspacePage.tsx
-// FUSION — Sprint page (Board / Analytics / Roadmap). Tailwind-only demo.
+// FUSION — Sprint page (Board / Analytics / Roadmap). Tailwind-only.
+// Dữ liệu & thao tác lấy từ ProjectBoardContext (workflow động).
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useProjectBoard } from "@/context/ProjectBoardContext";
 import {
-  AlertTriangle,
-  KanbanSquare,
-  CalendarDays,
-  CircleSlash2,
-  TrendingUp,
-  Search,
+  KanbanSquare, CalendarDays, CircleSlash2, TrendingUp, Search,
 } from "lucide-react";
 import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  type DropResult,
+  DragDropContext, Droppable, Draggable, type DropResult,
 } from "@hello-pangea/dnd";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
-  AreaChart, Area, // <-- thêm cho Burn-up
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, Legend, AreaChart, Area,
 } from "recharts";
-import TaskCard, {
-  type TaskVm as CardTaskVm,
-  type MemberRef as CardMemberRef,
-} from "@/components/Company/Projects/TaskCard";
+import TaskCard from "@/components/Company/Projects/TaskCard";
+import type { SprintVm, TaskVm } from "@/types/projectBoard";
+import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 
-/* ========= Types ========= */
 type Id = string;
-type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-type Priority = "Urgent" | "High" | "Medium" | "Low";
-type SprintState = "Planning" | "Active" | "Closed";
-
-interface SprintVm {
-  id: Id;
-  name: string;
-  start: string; // ISO
-  end: string;   // ISO
-  state: SprintState;
-  teamCapacityHours: number;
-  committedPoints: number;
-}
-type TaskVm = CardTaskVm;
-type MemberRef = CardMemberRef;
-
-interface SprintSnapshot {
-  sprintId: Id;
-  sprintName: string;
-  committed: number;
-  completed: number;
-  addedAfterStart: number;
-  closedAt: string;
-}
 
 const brand = "#2E8BFF";
-const WIP_LIMIT: Record<StatusKey, number> = {
-  todo: 999,
-  inprogress: 5,
-  inreview: 3,
-  done: 999,
-};
-const cn = (...xs: Array<string | false | null | undefined>) =>
-  xs.filter(Boolean).join(" ");
+const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
 
-/* ========= Seed (demo) ========= */
-function seedSprints(): SprintVm[] {
-  const base = new Date();
-  base.setDate(base.getDate() - base.getDay());
-  const s: SprintVm[] = [];
-  for (let i = 0; i < 6; i++) {
-    const start = new Date(base);
-    start.setDate(start.getDate() + i * 7);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    s.push({
-      id: `spr-${i + 1}`,
-      name: `Week ${i + 1}: Name task`,
-      start: start.toISOString(),
-      end: end.toISOString(),
-      state: i === 0 ? "Active" : "Planning",
-      teamCapacityHours: 160,
-      committedPoints: 0,
-    });
-  }
-  return s;
+/* ===== helpers màu từ API ===== */
+function hexToRgba(hex?: string, a = 1) {
+  if (!hex) return `rgba(148,163,184,${a})`; // slate-400 fallback
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return `rgba(148,163,184,${a})`;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
-const demoAvatars = [
-  "https://i.pravatar.cc/100?img=11",
-  "https://i.pravatar.cc/100?img=22",
-  "https://i.pravatar.cc/100?img=33",
-  "https://i.pravatar.cc/100?img=44",
-];
-function seedTasks(sprints: SprintVm[]): TaskVm[] {
-  const now = new Date();
-  const activeSprintId = sprints.find((x) => x.state === "Active")!.id;
-  const nextSprintId = sprints[1]?.id ?? null;
-  const m = (name: string, i = 0): MemberRef => ({
-    id: `mem-${name.toLowerCase().replace(/\s+/g, "-")}`,
-    name,
-    avatarUrl: demoAvatars[i % demoAvatars.length],
-  });
-  const mk = (i: number, o: Partial<TaskVm> = {}): TaskVm => ({
-    id: `T-${i}`,
-    code: `PRJ-${100 + i}`,
-    title: o.title ?? `Task ${i}`,
-    type: i % 4 === 0 ? "Bug" : i % 3 === 0 ? "Chore" : "Feature",
-    priority: i % 5 === 0 ? "Urgent" : i % 3 === 0 ? "High" : i % 2 === 0 ? "Medium" : "Low",
-    storyPoints: (i % 5) + 1,
-    estimateHours: 4 * ((i % 5) + 1),
-    remainingHours: 4 * ((i % 5) + 1),
-    dueDate: new Date(now.getTime() + 1000 * 3600 * (24 * ((i % 7) + 1))).toISOString(),
-    sprintId: activeSprintId,
-    status: i % 6 === 0 ? "inprogress" : "todo",
-    assignees: [m("Nguyen Duy", i), m("Cao Van Dung", i + 1)].slice(0, (i % 3) + 1),
-    dependsOn: [],
-    parentTaskId: null,
-    carryOverCount: 0,
-    openedAt: new Date(now.getTime() - 1000 * 3600 * (24 * ((i % 10) + 1))).toISOString(),
-    updatedAt: now.toISOString(),
-    createdAt: now.toISOString(),
-    stage: "IN_PROGRESS",
-    severity: "Low",
-    tags: i % 2 === 0 ? ["Payment", "Core"] : ["UI"],
-    sourceTicketId: null,
-    sourceTicketCode: null,
-    ...o,
-  });
-  const list: TaskVm[] = [
-    mk(1, { title: "Auth flow + refresh token", status: "inprogress", storyPoints: 5, estimateHours: 20, remainingHours: 12, tags: ["Auth", "Security"], sourceTicketId: "TK-1001", sourceTicketCode: "TK-1001" }),
-    mk(2, { title: "Fix payment webhook signature", type: "Bug", priority: "Urgent", sourceTicketId: "TK-1001", sourceTicketCode: "TK-1001" }),
-    mk(3, { title: "Task too big -> split", storyPoints: 8, estimateHours: 32, remainingHours: 28, sourceTicketId: "TK-1002", sourceTicketCode: "TK-1002" }),
-    mk(4, { title: "Design workflow edge states", sprintId: nextSprintId, status: "todo" }),
-    mk(5, { title: "Build project roadmap view" }),
-    mk(6, { title: "Refactor repository layer", status: "inreview" }),
-    mk(7, { title: "Migrate subscriptions data", priority: "High", assignees: [] }),
-  ];
-  const t6 = list.find((t) => t.id === "T-6")!;
-  const t7 = list.find((t) => t.id === "T-7")!;
-  t7.dependsOn.push(t6.id);
-  return list;
+function isDark(hex?: string) {
+  if (!hex) return false;
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return false;
+  const r = parseInt(m[1], 16)/255, g = parseInt(m[2], 16)/255, b = parseInt(m[3], 16)/255;
+  const L = 0.2126*r + 0.7152*g + 0.0722*b;
+  return L < 0.5;
 }
 
 /* ========= Board atoms ========= */
-const statusLabels: Record<StatusKey, string> = {
-  todo: "To do",
-  inprogress: "In progress",
-  inreview: "In review",
-  done: "Done",
-};
-const toneByStatus: Record<StatusKey, "amber" | "blue" | "purple" | "green"> = {
-  todo: "amber",
-  inprogress: "blue",
-  inreview: "purple",
-  done: "green",
-};
 function BoardColumnShell({
-  title,
-  tone,
-  right,
-  children,
+  title, tone, colorHex, right, children, 
 }: {
   title: string;
   tone: "amber" | "blue" | "purple" | "green";
+  colorHex?: string;                // <— màu từ API
   right?: React.ReactNode;
   children?: React.ReactNode;
 }) {
-  const topBar: Record<string, string> = {
-    amber: "bg-amber-500",
-    blue: "bg-blue-600",
-    purple: "bg-purple-600",
-    green: "bg-green-600",
+  const fallback: Record<string, string> = {
+    amber: "#F59E0B", blue: "#2563EB", purple: "#7C3AED", green: "#059669",
   };
-  const ring: Record<string, string> = {
-    amber: "ring-amber-200",
-    blue: "ring-blue-200",
-    purple: "ring-purple-200",
-    green: "ring-green-200",
-  };
+  const accent = colorHex || fallback[tone];
+  const labelBg = hexToRgba(accent, 0.08);
+  const labelBd = hexToRgba(accent, 0.25);
+  const labelTx = accent;
   return (
     <div
       className={cn(
         "rounded-2xl border border-slate-200 bg-white overflow-hidden ring-1 h-full flex flex-col",
-        ring[tone]
       )}
       style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}
     >
-      <div className={cn("h-2 w-full", topBar[tone])} />
+      <div className="h-2 w-full" style={{ backgroundColor: accent }} />
       <div className="p-4 pb-3 flex items-center justify-between">
-        <span className="inline-flex items-center text-[12px] font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+        <span
+          className="inline-flex items-center text-[12px] font-semibold px-2 py-0.5 rounded-full border"
+          style={{
+            background: labelBg,
+            borderColor: labelBd,
+            color: labelTx,
+          }}
+        >
           {title}
         </span>
         {right}
@@ -198,193 +84,153 @@ function BoardColumnShell({
 }
 
 /* ========= Page ========= */
-export default function SprintBoard() {
-  const initialSprints = useMemo(() => seedSprints(), []);
-  const [sprints, setSprints] = useState<SprintVm[]>(initialSprints);
-  const [tasks, setTasks] = useState<TaskVm[]>(() => seedTasks(initialSprints));
-  const [snapshots, setSnapshots] = useState<SprintSnapshot[]>([]);
-  const [activeSprintId, setActiveSprintId] = useState<Id>(
-    initialSprints.find((s) => s.state === "Active")!.id
-  );
+export default function SprintWorkspacePage() {
+  // ===== từ context =====
+  const {
+    sprints, tasks, changeStatus, moveToNextSprint, split, done, reorder,
+  } = useProjectBoard();
+const [flashTaskId, setFlashTaskId] = useState<Id | null>(null);
+
+useEffect(() => {
+  if (!flashTaskId) return;
+  const timer = setTimeout(() => setFlashTaskId(null), 800); // 0.8s
+  return () => clearTimeout(timer);
+}, [flashTaskId]);
+  // ===== UI State =====
+  const [activeSprintId, setActiveSprintId] = useState<Id>(sprints[0]?.id ?? "");
   const [view, setView] = useState<"Board" | "Analytics" | "Roadmap">("Board");
   const [closePanelOpen, setClosePanelOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
+  const [snapshots, setSnapshots] = useState<{ name: string; committed: number; completed: number }[]>([]);
 
-  const activeSprint = useMemo(
-    () => sprints.find((s) => s.id === activeSprintId)!,
+  // set sprint mặc định khi có dữ liệu
+  useEffect(() => {
+    if (!activeSprintId && sprints.length) setActiveSprintId(sprints[0].id);
+  }, [sprints, activeSprintId]);
+
+  const activeSprint: SprintVm | null = useMemo(
+    () => sprints.find((s) => s.id === activeSprintId) ?? null,
     [sprints, activeSprintId]
   );
 
-  const columns = useMemo(
-    () => ({
-      todo: tasks.filter(
-        (t) =>
-          t.sprintId === activeSprintId &&
-          t.status === "todo" &&
-          (!keyword ||
-            t.title.toLowerCase().includes(keyword.toLowerCase()) ||
-            (t.code ?? "").toLowerCase().includes(keyword.toLowerCase()))
-      ),
-      inprogress: tasks.filter(
-        (t) =>
-          t.sprintId === activeSprintId &&
-          t.status === "inprogress" &&
-          (!keyword ||
-            t.title.toLowerCase().includes(keyword.toLowerCase()) ||
-            (t.code ?? "").toLowerCase().includes(keyword.toLowerCase()))
-      ),
-      inreview: tasks.filter(
-        (t) =>
-          t.sprintId === activeSprintId &&
-          t.status === "inreview" &&
-          (!keyword ||
-            t.title.toLowerCase().includes(keyword.toLowerCase()) ||
-            (t.code ?? "").toLowerCase().includes(keyword.toLowerCase()))
-      ),
-      done: tasks.filter(
-        (t) =>
-          t.sprintId === activeSprintId &&
-          t.status === "done" &&
-          (!keyword ||
-            t.title.toLowerCase().includes(keyword.toLowerCase()) ||
-            (t.code ?? "").toLowerCase().includes(keyword.toLowerCase()))
-      ),
-    }),
-    [tasks, activeSprintId, keyword]
-  );
-
-  const committedPoints = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.sprintId === activeSprintId)
-        .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0),
-    [tasks, activeSprintId]
-  );
-  const completedPoints = useMemo(
-    () => columns.done.reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0),
-    [columns]
-  );
-  const completionPct =
-    committedPoints > 0
-      ? Math.round((100 * completedPoints) / committedPoints)
-      : 0;
-
-  function changeStatus(t: TaskVm, next: StatusKey) {
-    setTasks((prev) =>
-      prev.map((x) =>
-        x.id === t.id
-          ? { ...x, status: next, updatedAt: new Date().toISOString() }
-          : x
-      )
-    );
+  /* ===== resolver: status id hợp lệ theo sprint (id -> code -> category -> first) ===== */
+  function resolveStatusId(t: TaskVm, sp: SprintVm): string {
+    if (sp.statusMeta[t.workflowStatusId]) return t.workflowStatusId;
+    const code = (t.statusCode || "").toLowerCase();
+    const byCode = sp.statusOrder.find(id => (sp.statusMeta[id].code || "").toLowerCase() === code);
+    if (byCode) return byCode;
+    const byCat  = sp.statusOrder.find(id => sp.statusMeta[id].category === t.statusCategory);
+    return byCat || sp.statusOrder[0];
   }
-  function moveToNextSprint(t: TaskVm) {
-    const currentIdx = sprints.findIndex((s) => s.id === activeSprintId);
-    const next = sprints[currentIdx + 1];
-    setTasks((prev) =>
-      prev.map((x) =>
-        x.id === t.id
-          ? {
-              ...x,
-              sprintId: next ? next.id : null,
-              status: "todo",
-              carryOverCount: (x.carryOverCount || 0) + 1,
-            }
-          : x
-      )
-    );
-  }
-  function splitTask(t: TaskVm) {
-    const sp = Math.max(0, t.storyPoints || 0);
-    const rh = Math.max(0, t.remainingHours || 0);
-    if (sp < 2 && rh < 2) {
-      alert("Cannot split: task is too small (needs >=2 pts or >=2h remaining).");
-      return;
+
+  // ===== Columns động theo sprint đang chọn + search =====
+  const columns = useMemo(() => {
+    if (!activeSprint) return { order: [] as string[], byId: {} as Record<string, TaskVm[]> };
+    const order = activeSprint.statusOrder;
+    const byId: Record<string, TaskVm[]> = {};
+    const match = (t: TaskVm) =>
+      !keyword ||
+      t.title?.toLowerCase().includes(keyword.toLowerCase()) ||
+      (t.code ?? "").toLowerCase().includes(keyword.toLowerCase());
+
+    for (const stId of order) byId[stId] = [];
+
+    const validSprintIds = new Set(sprints.map(s => s.id));
+
+    for (const t of tasks) {
+      // Nếu task có sprintId lạ (demo) → coi như thuộc sprint đang active
+      const belongToActive =
+        (t.sprintId ?? "") === activeSprint.id ||
+        !validSprintIds.has(t.sprintId ?? "");
+
+      if (!belongToActive) continue;
+      if (!match(t)) continue;
+
+      const stId = resolveStatusId(t, activeSprint);
+      if (!byId[stId]) byId[stId] = [];
+      byId[stId].push({ ...t, sprintId: activeSprint.id, workflowStatusId: stId });
     }
-    const base = t.title.replace(/(\s*\(Part [AB]\)\s*)+$/g, "").trim();
-    const bPts = sp >= 2 ? Math.max(1, Math.floor(sp / 2)) : 0;
-    const aPts = sp - bPts;
-    const bHrs = rh >= 2 ? Math.max(1, Math.floor(rh / 2)) : 0;
-    const aHrs = Math.max(0, rh - bHrs);
-    const nextSprint =
-      sprints[sprints.findIndex((s) => s.id === t.sprintId) + 1]?.id ?? null;
+    return { order, byId };
+  }, [tasks, activeSprint, keyword, sprints]);
 
-    setTasks((prev) => [
-      ...prev.map((x) =>
-        x.id === t.id
-          ? { ...x, storyPoints: aPts, remainingHours: aHrs, title: base + " (Part A)" }
-          : x
-      ),
-      ...((bPts > 0 || bHrs > 0)
-        ? [
-            {
-              ...t,
-              id: `${t.id}-B`,
-              title: base + " (Part B)",
-              storyPoints: bPts,
-              remainingHours: bHrs,
-              status: "todo" as StatusKey,
-              sprintId: nextSprint,
-              parentTaskId: t.id,
-              carryOverCount: 0,
-              createdAt: new Date().toISOString(),
-            },
-          ]
-        : []),
-    ]);
+  // ===== Metrics =====
+  const committedPoints = useMemo(() => {
+    if (!activeSprint) return 0;
+    const validSprintIds = new Set(sprints.map(s => s.id));
+    return tasks
+      .filter((t) =>
+        (t.sprintId ?? "") === activeSprint.id ||
+        !validSprintIds.has(t.sprintId ?? "")
+      )
+      .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
+  }, [tasks, activeSprint, sprints]);
+
+  const completedPoints = useMemo(() => {
+    if (!activeSprint) return 0;
+    const validSprintIds = new Set(sprints.map(s => s.id));
+    return tasks
+      .filter((t) =>
+        ((t.sprintId ?? "") === activeSprint.id ||
+         !validSprintIds.has(t.sprintId ?? "")) &&
+        t.statusCategory === "DONE"
+      )
+      .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
+  }, [tasks, activeSprint, sprints]);
+
+  const completionPct = committedPoints > 0 ? Math.round((100 * completedPoints) / committedPoints) : 0;
+
+  // ===== Handlers =====
+  function toNextStatusId(t: TaskVm, sp: SprintVm): string | null {
+    const idx = sp.statusOrder.indexOf(resolveStatusId(t, sp));
+    return sp.statusOrder[Math.min(idx + 1, sp.statusOrder.length - 1)] ?? null;
   }
+  function onChangeStatus(t: TaskVm, nextStatusId: string) {
+    changeStatus((window as any).__projectId, t, nextStatusId);
+  }
+  function onMoveToNextSprint(t: TaskVm) {
+    const idx = sprints.findIndex((s) => s.id === (t.sprintId ?? activeSprintId));
+    const next = sprints[idx + 1];
+    if (next) moveToNextSprint((window as any).__projectId, t, next.id);
+  }
+  function onSplit(t: TaskVm) {
+    split((window as any).__projectId, t);
+  }
+  function onMarkDone(t: TaskVm) {
+    done((window as any).__projectId, t);
+  }
+
   function onDragEnd(result: DropResult) {
     const { source, destination, draggableId } = result;
-    if (!destination) return;
-    const src = source.droppableId as StatusKey;
-    const dst = destination.droppableId as StatusKey;
-    if (src === dst && source.index === destination.index) return;
-    if (["inprogress", "inreview"].includes(dst)) {
-      const dstCount = (columns[dst].length || 0) + (src === dst ? 0 : 1);
-      if (dstCount > WIP_LIMIT[dst]) {
-        alert(`WIP limit reached: ${dst} ${dstCount}/${WIP_LIMIT[dst]}`);
-        return;
-      }
-    }
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === draggableId
-          ? { ...t, status: dst, updatedAt: new Date().toISOString() }
-          : t
-      )
-    );
+    if (!destination || !activeSprint) return;
+    const [, s1, st1] = source.droppableId.split(":");
+    const [, s2, st2] = destination.droppableId.split(":");
+    if (s1 !== s2) return;
+    if (st1 === st2 && source.index === destination.index) return;
+    const t = tasks.find((x) => x.id === draggableId);
+    if (t) reorder((window as any).__projectId, activeSprint.id, t, st2, destination.index);
   }
+
+  // Close sprint (demo)
   function closeSprint() {
-    const sprint = activeSprint;
-    if (!sprint) return;
-    const currentTasks = tasks.filter((t) => t.sprintId === sprint.id);
+    if (!activeSprint) return;
+    const validSprintIds = new Set(sprints.map(s => s.id));
+    const currentTasks = tasks.filter(
+      (t) => (t.sprintId ?? "") === activeSprint.id || !validSprintIds.has(t.sprintId ?? "")
+    );
     const committed = currentTasks.reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
-    const completed = currentTasks.filter((t) => t.status === "done")
+    const completed = currentTasks.filter((t) => t.statusCategory === "DONE")
       .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
-    const snap: SprintSnapshot = {
-      sprintId: sprint.id,
-      sprintName: sprint.name,
-      committed,
-      completed,
-      addedAfterStart: 0,
-      closedAt: new Date().toISOString(),
-    };
-    const idx = sprints.findIndex((s) => s.id === sprint.id);
+
+    const idx = sprints.findIndex((s) => s.id === activeSprint.id);
     const next = sprints[idx + 1];
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.sprintId === sprint.id && t.status !== "done"
-          ? { ...t, sprintId: next ? next.id : null, status: "todo", carryOverCount: (t.carryOverCount || 0) + 1 }
-          : t
-      )
-    );
-    setSnapshots((p) => [...p, snap]);
-    setSprints((p) =>
-      p.map((s) =>
-        s.id === sprint.id ? { ...s, state: "Closed" } : s.id === next?.id ? { ...s, state: "Active" } : s
-      )
-    );
-    if (next) setActiveSprintId(next.id);
+
+    if (next) {
+      for (const t of currentTasks) {
+        if (t.statusCategory !== "DONE") moveToNextSprint((window as any).__projectId, t, next.id);
+      }
+      setActiveSprintId(next.id);
+    }
+    setSnapshots((p) => [...p, { name: activeSprint.name, committed, completed }]);
     setClosePanelOpen(false);
   }
 
@@ -402,19 +248,31 @@ export default function SprintBoard() {
             placeholder="Search tasks"
           />
         </div>
-        <button onClick={() => setView("Board")}
-          className={cn("px-3 h-9 rounded-full border text-sm flex items-center gap-1",
-            view === "Board" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50")}>
+        <button
+          onClick={() => setView("Board")}
+          className={cn(
+            "px-3 h-9 rounded-full border text-sm flex items-center gap-1",
+            view === "Board" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+          )}
+        >
           <KanbanSquare className="w-4 h-4" /> Board
         </button>
-        <button onClick={() => setView("Analytics")}
-          className={cn("px-3 h-9 rounded-full border text-sm flex items-center gap-1",
-            view === "Analytics" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50")}>
+        <button
+          onClick={() => setView("Analytics")}
+          className={cn(
+            "px-3 h-9 rounded-full border text-sm flex items-center gap-1",
+            view === "Analytics" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+          )}
+        >
           <TrendingUp className="w-4 h-4" /> Analytics
         </button>
-        <button onClick={() => setView("Roadmap")}
-          className={cn("px-3 h-9 rounded-full border text-sm flex items-center gap-1",
-            view === "Roadmap" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50")}>
+        <button
+          onClick={() => setView("Roadmap")}
+          className={cn(
+            "px-3 h-9 rounded-full border text-sm flex items-center gap-1",
+            view === "Roadmap" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+          )}
+        >
           <CalendarDays className="w-4 h-4" /> Roadmap
         </button>
       </div>
@@ -422,41 +280,31 @@ export default function SprintBoard() {
   );
 
   /* ===== Sprint tabs ===== */
-const SprintTabs = (
-  <div className="flex flex-wrap gap-2">
-    {sprints.map((s) => {
-      const selected = s.id === activeSprintId;
-      return (
-        <button
-          key={s.id}
-          onClick={() => setActiveSprintId(s.id)}
-          className={cn(
-            "px-4 py-2 rounded-full text-sm border flex items-center gap-2 transition-colors",
-            selected
-              ? "bg-blue-600 text-white border-blue-600"
-              : "border-slate-300 text-slate-700 hover:bg-slate-50"
-          )}
-          title={`${fmtDate(s.start)} - ${fmtDate(s.end)}`}
-        >
-          <span className={cn("font-semibold", selected && "text-white")}>
-            {s.name}
-          </span>
-          <span
+  const SprintTabs = (
+    <div className="flex flex-wrap gap-2">
+      {sprints.map((s) => {
+        const selected = s.id === activeSprintId;
+        return (
+          <button
+            key={s.id}
+            onClick={() => setActiveSprintId(s.id)}
             className={cn(
-              "ml-2 text-xs",
-              selected ? "text-blue-100/90" : "text-slate-500"
+              "px-4 py-2 rounded-full text-sm border flex items-center gap-2 transition-colors",
+              selected ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
             )}
+            title={`${fmtDate(s.start)} - ${fmtDate(s.end)}`}
           >
-            {fmtDate(s.start)} - {fmtDate(s.end)}
-          </span>
-        </button>
-      );
-    })}
-  </div>
-);
+            <span className={cn("font-semibold", selected && "text-white")}>{s.name}</span>
+            <span className={cn("ml-2 text-xs", selected ? "text-blue-100/90" : "text-slate-500")}>
+              {fmtDate(s.start)} - {fmtDate(s.end)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
-
-  /* ===== Summary + Burn-up (gộp) ===== */
+  /* ===== Summary + Burn-up ===== */
   function MetricCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string; }) {
     return (
       <div className="rounded-xl border border-slate-200 p-4 bg-white">
@@ -467,18 +315,19 @@ const SprintTabs = (
     );
   }
   function BurnUpCard() {
-    const base = snapshots.length
-      ? snapshots.map(s => ({ name: s.sprintName, scope: s.committed, done: s.completed }))
+    const base = snapshots.length > 0
+      ? snapshots
       : [
-          { name: "W-1", scope: 21, done: 9 },
-          { name: "W-2", scope: 18, done: 14 },
-          { name: "W-3", scope: 24, done: 12 },
+          { name: "W-1", committed: 21, completed: 9 },
+          { name: "W-2", committed: 18, completed: 14 },
+          { name: "W-3", committed: 24, completed: 12 },
         ];
     const data = base.map((p, i) => {
-      const prev = i === 0 ? { scope: 0, done: 0 } :
-        base.slice(0, i).reduce((a, b) => ({ scope: a.scope + b.scope, done: a.done + b.done }), { scope: 0, done: 0 });
-      return { name: p.name, scope: prev.scope + p.scope, completed: prev.done + p.done };
+      const prev = i === 0 ? { committed: 0, completed: 0 }
+        : base.slice(0, i).reduce((a, b) => ({ committed: a.committed + b.committed, completed: a.completed + b.completed }), { committed: 0, completed: 0 });
+      return { name: p.name, scope: prev.committed + p.committed, completed: prev.completed + p.completed };
     });
+
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="text-[15px] font-semibold mb-3">Burn-up (Scope vs Completed)</div>
@@ -487,12 +336,12 @@ const SprintTabs = (
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="gScope" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#93C5FD" stopOpacity={0.8}/>
-                  <stop offset="100%" stopColor="#93C5FD" stopOpacity={0.15}/>
+                  <stop offset="0%" stopColor="#93C5FD" stopOpacity={0.8} />
+                  <stop offset="100%" stopColor="#93C5FD" stopOpacity={0.15} />
                 </linearGradient>
                 <linearGradient id="gDone" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#86EFAC" stopOpacity={0.9}/>
-                  <stop offset="100%" stopColor="#86EFAC" stopOpacity={0.2}/>
+                  <stop offset="0%" stopColor="#86EFAC" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#86EFAC" stopOpacity={0.2} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" />
@@ -508,30 +357,33 @@ const SprintTabs = (
       </div>
     );
   }
+
   const SummaryAndChart = (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-[15px] font-semibold">{activeSprint.name}</div>
-        <div className="text-xs text-slate-500">
-          {fmtDate(activeSprint.start)} – {fmtDate(activeSprint.end)}
-        </div>
+        <div className="text-[15px] font-semibold">{activeSprint?.name ?? "Sprint"}</div>
+        <div className="text-xs text-slate-500">{fmtDate(activeSprint?.start)} – {fmtDate(activeSprint?.end)}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <MetricCard label="Committed pts" value={committedPoints} />
           <MetricCard label="Done pts" value={completedPoints} />
-          <MetricCard label="Team capacity"
-            value={`${activeSprint.teamCapacityHours}h`}
+          <MetricCard
+            label="Team capacity"
+            value={`${activeSprint?.capacityHours ?? 160}h`}
             sub={`Estimate sum: ${
-              tasks.filter((t) => t.sprintId === activeSprintId)
-                   .reduce((s, t) => s + (t.estimateHours || 0), 0)
-            }h`} />
-          <MetricCard label="Completion" value={
-            <div className="flex items-center gap-3">
-              <span className="font-semibold">{completionPct}%</span>
-              <div className="h-1.5 w-24 bg-slate-100 rounded-full">
-                <div className="h-1.5 rounded-full" style={{ width: `${completionPct}%`, background: brand }} />
+              tasks.filter((t) => (t.sprintId ?? "") === activeSprintId).reduce((s, t) => s + (t.estimateHours || 0), 0)
+            }h`}
+          />
+          <MetricCard
+            label="Completion"
+            value={
+              <div className="flex items-center gap-3">
+                <span className="font-semibold">{completionPct}%</span>
+                <div className="h-1.5 w-24 bg-slate-100 rounded-full">
+                  <div className="h-1.5 rounded-full" style={{ width: `${completionPct}%`, background: brand }} />
+                </div>
               </div>
-            </div>
-          } />
+            }
+          />
         </div>
       </div>
       <BurnUpCard />
@@ -540,70 +392,78 @@ const SprintTabs = (
 
   /* ===== Board ===== */
   function Board() {
+    if (!activeSprint) return null;
+
     const COL_W = "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
     const BOARD_H = `calc(100vh - 260px)`;
-    const renderCol = (k: StatusKey) => {
-      const items = columns[k];
-      const over = items.length > WIP_LIMIT[k];
-      const tone = toneByStatus[k];
+    const tones: Array<"amber" | "blue" | "purple" | "green"> = ["amber", "blue", "purple", "green"];
+
+    const renderCol = (statusId: string, idx: number) => {
+      const items = columns.byId[statusId] ?? [];
+      const meta = activeSprint.statusMeta[statusId];
+      const tone = tones[idx % 4];
+      const wip = meta?.wipLimit ?? 9999;
+      const over = items.length > wip;
+
       return (
-        <div key={k} className={`shrink-0 h-full ${COL_W}`}>
+        <div key={statusId} className={`shrink-0 h-full ${COL_W}  relative group`}>
           <BoardColumnShell
-            title={statusLabels[k]}
+            title={meta?.name ?? meta?.code ?? statusId}
             tone={tone}
+            colorHex={meta?.color}   // <— dùng màu API
             right={
               <div className="flex items-center gap-2 text-[12px]">
                 <span className="text-slate-500">{items.length} tasks</span>
-                {over && (
-                  <span className="text-[10px] text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    WIP {items.length}/{WIP_LIMIT[k]}
+                {wip !== 9999 && (
+                  <span
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded-full border",
+                      over ? "text-rose-700 bg-rose-50 border-rose-200" : "text-slate-600 bg-slate-50 border-slate-200"
+                    )}
+                  >
+                    WIP {items.length}/{wip}
                   </span>
                 )}
               </div>
             }
           >
-            <Droppable droppableId={k} type="task">
+           
+            <Droppable droppableId={`col:${activeSprint.id}:${statusId}`} type="task">
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className={cn("h-full overflow-y-auto overscroll-contain pr-1",
-                    snapshot.isDraggingOver && "bg-slate-50 rounded-xl")}
+                  className={cn("h-full overflow-y-auto overscroll-contain pr-1", snapshot.isDraggingOver && "bg-slate-50 rounded-xl")}
                   style={{ scrollbarWidth: "thin" }}
                 >
-                  <div className="h-1.5 w-full rounded-full bg-slate-100 mb-2">
-                    <div className="h-1.5 rounded-full"
-                      style={{
-                        width: `${
-                          Math.min(100,
-                            Math.round(
-                              ((items.filter((i) => i.status === "done").length || 0) /
-                                Math.max(1, items.length)) * 100))
-                        }%`,
-                        backgroundColor: brand,
-                      }} />
-                  </div>
+                  <ColumnHoverCreate
+  sprint={activeSprint}
+  statusId={statusId}
+  onCreatedVM={(vm) => {
+    setFlashTaskId(vm.id);   
+  }}
+/>
 
                   <div className="space-y-4">
-                    {items.map((t, idx) => {
+                    {items.map((t, index) => {
                       const siblings = t.sourceTicketId
-                        ? tasks.filter((x) => x.id !== t.id && x.sourceTicketId === t.sourceTicketId).length
+                        ? items.filter(x => x.id !== t.id && x.sourceTicketId === t.sourceTicketId).length
                         : 0;
                       return (
-                        <Draggable key={t.id} draggableId={t.id} index={idx}>
+                        <Draggable key={t.id} draggableId={t.id} index={index}>
                           {(drag, snap) => (
-                            <div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps}
-                              className={snap.isDragging ? "rotate-[0.5deg]" : ""}>
+                            <div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps} className={snap.isDragging ? "rotate-[0.5deg]" : ""}>
                               <TaskCard
                                 t={t}
                                 ticketSiblingsCount={siblings}
-                                onMarkDone={(x) => changeStatus(x, "done")}
-                                onNext={(x) =>
-                                  changeStatus(x, x.status === "todo" ? "inprogress" :
-                                                   x.status === "inprogress" ? "inreview" : "done")}
-                                onSplit={splitTask}
-                                onMoveNext={moveToNextSprint}
+                                onMarkDone={onMarkDone}
+                                isNew={t.id === flashTaskId}
+                                onNext={(x) => {
+                                  const nextId = toNextStatusId(x, activeSprint);
+                                  if (nextId && nextId !== x.workflowStatusId) onChangeStatus(x, nextId);
+                                }}
+                                onSplit={onSplit}
+                                onMoveNext={onMoveToNextSprint}
                                 onOpenTicket={(ticketId) => alert(`Open ticket: ${ticketId}`)}
                               />
                             </div>
@@ -626,7 +486,7 @@ const SprintTabs = (
         <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
           <div className="overflow-x-auto rounded-xl w-full" style={{ height: BOARD_H, overflowY: "hidden" }}>
             <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
-              {(["todo", "inprogress", "inreview", "done"] as StatusKey[]).map(renderCol)}
+              {columns.order.map((statusId, i) => renderCol(statusId, i))}
             </div>
           </div>
         </div>
@@ -634,18 +494,19 @@ const SprintTabs = (
     );
   }
 
-  /* ===== Roadmap (đã làm đầy đủ) ===== */
+  /* ===== Roadmap (nhẹ) ===== */
   function Roadmap() {
-    const sprintIds = sprints.map(s => s.id);
+    const sprintIds = sprints.map((s) => s.id);
     const byTypeBySprint: Record<string, Record<string, number>> = {};
-    tasks.forEach(t => {
+    tasks.forEach((t) => {
       if (!t.sprintId) return;
-      const type = t.type;
+      const type = t.type || "Task";
       byTypeBySprint[type] ||= {};
-      byTypeBySprint[type][t.sprintId] = (byTypeBySprint[type][t.sprintId] || 0) + Math.max(0, t.storyPoints || 0);
+      byTypeBySprint[type][t.sprintId] =
+        (byTypeBySprint[type][t.sprintId] || 0) + Math.max(0, t.storyPoints || 0);
     });
     const types = Object.keys(byTypeBySprint).length ? Object.keys(byTypeBySprint) : ["Feature", "Bug", "Chore"];
-    const rowMax = (type: string) => Math.max(1, ...sprintIds.map(id => byTypeBySprint[type]?.[id] || 0));
+    const rowMax = (type: string) => Math.max(1, ...sprintIds.map((id) => byTypeBySprint[type]?.[id] || 0));
 
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -656,14 +517,14 @@ const SprintTabs = (
 
         <div className="grid" style={{ gridTemplateColumns: `220px repeat(${sprintIds.length}, minmax(120px,1fr))` }}>
           <div className="text-xs text-slate-500 px-2 py-1">Epic / Type</div>
-          {sprints.map(s => (
+          {sprints.map((s) => (
             <div key={s.id} className="text-xs text-slate-500 px-2 py-1 truncate">{s.name}</div>
           ))}
 
-          {types.map(type => (
+          {types.map((type) => (
             <React.Fragment key={type}>
               <div className="px-2 py-2 border-t text-sm font-medium">{type}</div>
-              {sprintIds.map(sid => {
+              {sprintIds.map((sid) => {
                 const pts = byTypeBySprint[type]?.[sid] || 0;
                 const pct = Math.round((pts / rowMax(type)) * 100);
                 return (
@@ -692,9 +553,8 @@ const SprintTabs = (
       {view === "Board" && (
         <>
           <div className="flex items-center justify-between mt-2">
-            <div className="text-slate-600 text-sm">Sprint – {activeSprint.name}</div>
-            <button onClick={() => setClosePanelOpen(true)}
-              className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1">
+            <div className="text-slate-600 text-sm">Sprint – {activeSprint?.name ?? "..."}</div>
+            <button onClick={() => setClosePanelOpen(true)} className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1">
               <CircleSlash2 className="w-4 h-4" /> Close sprint
             </button>
           </div>
@@ -706,11 +566,13 @@ const SprintTabs = (
         <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="text-slate-600 text-sm mb-2">Velocity (last sprints)</div>
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={snapshots.length ? snapshots : [
-              { name: "W-1", committed: 22, completed: 10 },
-              { name: "W-2", committed: 18, completed: 14 },
-              { name: "W-3", committed: 25, completed: 12 },
-            ]}>
+            <LineChart
+              data={snapshots.length ? snapshots : [
+                { name: "W-1", committed: 22, completed: 10 },
+                { name: "W-2", committed: 18, completed: 14 },
+                { name: "W-3", committed: 25, completed: 12 },
+              ]}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis allowDecimals={false} />
@@ -725,25 +587,28 @@ const SprintTabs = (
 
       {view === "Roadmap" && <Roadmap />}
 
-      {/* Close sprint panel */}
+      {/* Close sprint panel (demo) */}
       {closePanelOpen && (
         <div className="fixed inset-0 bg-black/20 flex items-end md:items-center justify-center p-4 z-50">
           <div className="bg-white w-full md:max-w-2xl rounded-2xl p-4 border border-slate-200 shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="font-semibold">Close sprint – {activeSprint.name}</div>
+              <div className="font-semibold">Close sprint – {activeSprint?.name ?? "..."}</div>
               <button className="text-slate-500" onClick={() => setClosePanelOpen(false)}>x</button>
             </div>
             <div className="mt-3 text-sm text-slate-600">
-              All unfinished tasks will be moved to the next sprint (spillover). A snapshot will be stored for velocity analytics.
+              All unfinished tasks will be moved to the next sprint (spillover).
+              A snapshot will be stored for velocity analytics.
             </div>
             <div className="mt-4 bg-slate-50 rounded-xl p-3 max-h-56 overflow-auto">
-              {tasks.filter((t) => t.sprintId === activeSprintId && t.status !== "done").map((t) => (
-                <div key={t.id} className="flex items-center justify-between py-1.5">
-                  <div className="truncate">{t.title}</div>
-                  <div className="text-xs text-slate-500">{Math.max(0, t.storyPoints)} pts</div>
-                </div>
-              ))}
-              {tasks.filter((t) => t.sprintId === activeSprintId && t.status !== "done").length === 0 && (
+              {tasks
+                .filter((t) => (t.sprintId ?? "") === activeSprintId)
+                .map((t) => (
+                  <div key={t.id} className="flex items-center justify-between py-1.5">
+                    <div className="truncate">{t.title}</div>
+                    <div className="text-xs text-slate-500">{Math.max(0, t.storyPoints || 0)} pts</div>
+                  </div>
+                ))}
+              {tasks.filter((t) => (t.sprintId ?? "") === activeSprintId).length === 0 && (
                 <div className="text-sm text-slate-500">Everything is done</div>
               )}
             </div>

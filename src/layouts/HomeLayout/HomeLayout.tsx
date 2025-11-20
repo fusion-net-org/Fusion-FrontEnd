@@ -47,7 +47,7 @@ const HomeLayout = () => {
       <NavLeft isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} />
       <div className="flex flex-col flex-1">
         <HomeHeader toggleSidebar={toggleSidebar} />
-        <main className="flex-1 px-6 pb-6 overflow-y-auto bg-white dark:bg-gray-800 border-l-[2px] border-gray-200 dark:border-gray-700 transition-colors duration-500">
+        <main className="flex-1 px-3 pb-6 overflow-y-auto bg-white dark:bg-gray-800 border-l-[2px] border-gray-200 dark:border-gray-700 transition-colors duration-500">
           <Outlet />
         </main>
       </div>

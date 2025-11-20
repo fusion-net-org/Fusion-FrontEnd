@@ -13,7 +13,8 @@ import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import ProjectsPage from './pages/home/ProjectsPage';
-import Calendar from './pages/calendar/Calendar';
+import Calendar from './pages/calendar/calendarManagement/Calendar';
+import ResetPassword from './pages/resetPassword/ResetPassword';
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
@@ -43,8 +44,6 @@ import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
 import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
 import MySubscriptions from './pages/mysubscription/MySubscription';
 // import CompanySubscriptionsPage from './pages/home/CompanySubscriptionPage';
-
-import ResetPassword from './pages/resetPassword/ResetPassword';
 import OverviewUserPage from './pages/admin/userManagement/OverviewUserPage';
 import UserListPage from './pages/admin/userManagement/UserListPage';
 import OverviewCompanyPage from './pages/admin/companyManagement/OverviewCompanyPage';
@@ -62,6 +61,9 @@ import TransactionOverviewPage from './pages/admin/transactionManagement/Transac
 import SubscriptionOverviewPage from './pages/admin/subcriptionManagement/SubscriptionOverviewPage';
 import UserProfile from './pages/userProfile/UserProfile';
 import RequireAdmin from './components/RequireAdmin/RequireAdmin';
+import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetailPage';
+import TaskDetailPage from './pages/project/TaskDetailPage';
+import InvitationPage from './components/Member/Invitations';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -86,8 +88,9 @@ function App() {
           }
         >
           <Route path="/company" element={<Company />} />
-          {/* <Route path="/subscription" element={<SubscriptionPage />} /> */}
-          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/invitation" element={<InvitationPage />} />
+          <Route path="/calendar/calendar" element={<Calendar />} />
+          <Route path="/calendar/tasks" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
           <Route path="/subscription" element={<SubscriptionPlan />} />
           <Route path="/mysubscription" element={<MySubscriptions />} />
@@ -138,9 +141,11 @@ function App() {
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route path="/company/:companyId/subscription" element={<CompanySubscriptionPage />} />
           <Route
-            path="/companies/:companyId/project/:projectId"
+            path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
           />
+          <Route path="project/:projectId/tickets/:ticketId" element={<TicketDetailPage />} />
+
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route
             path="/company/:companyId/project-request/:id"
@@ -155,8 +160,14 @@ function App() {
           <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} />
           <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
-
-          {/* Payment result */}
+          <Route
+            path="/companies/:companyId/project/:projectId/task/:taskId"
+            element={<TaskDetailPage />}
+          />
+          <Route
+            path="/companies/:companyId/project/:projectId/detail"
+            element={<ProjectDetailPage />}
+          />
 
           {/* LIST */}
           {/* <Route path="/companies/:companyId/workflows" element={<WorkflowListPage />} /> */}
@@ -190,6 +201,7 @@ function App() {
         </Route>
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
+        {/* //ticket */}
       </Routes>
     </>
   );

@@ -133,7 +133,7 @@ const EditProjectRequestModal: React.FC<EditProjectRequestModalProps> = ({
               name="Description"
               value={form.Description}
               onChange={handleChange}
-              className="w-full p-2 border rounded-md"
+              className="w-full p-2 border rounded-md h-[150px]"
             />
           </div>
 

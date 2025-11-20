@@ -58,41 +58,96 @@ const toDateStr = (v) => {
 
 /* Map bất chấp DTO backend khác tên */
 const mapItemToProject = (r, currentCompanyId) => {
-   const hasCompanyRequest =
-     !!(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID);
-   const ptype =
-     r.ptype /* BE đã trả sẵn nếu bạn đã map */
-       ?? (hasCompanyRequest ? 'Outsourced' : 'Internal')
-       ?? (r.isHired ? 'Outsourced' : 'Internal'); // fallback cũ
+  const hasCompanyRequest = !!(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID);
+  const ptype =
+    r.ptype /* BE đã trả sẵn nếu bạn đã map */ ??
+    (hasCompanyRequest ? 'Outsourced' : 'Internal') ??
+    (r.isHired ? 'Outsourced' : 'Internal'); // fallback cũ
 
-   // Ưu tiên flag từ BE; fallback theo companyRequestId == currentCompanyId
-   const isRequest =
-     typeof r.isRequest === 'boolean'
-       ? r.isRequest
-       : (hasCompanyRequest &&
-          String(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID)
-            .toLowerCase() === String(currentCompanyId).toLowerCase());
+  // Ưu tiên flag từ BE; fallback theo companyRequestId == currentCompanyId
+  const isRequest =
+    typeof r.isRequest === 'boolean'
+      ? r.isRequest
+      : hasCompanyRequest &&
+        String(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID).toLowerCase() ===
+          String(currentCompanyId).toLowerCase();
 
-   return {
-     id: String(r.id),
-     code: r.code || '',
-     name: r.name || '',
-     description: r.description || '',
-     ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
-     hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
-     workflow:
-       r.workflow ||
-       r.workflowName ||
-       (r.workflowCompanyName && r.workflowName
-         ? `${r.workflowCompanyName} — ${r.workflowName}`
-         : null),
-     startDate: toDateStr(r.startDate),
-     endDate: toDateStr(r.endDate),
-     status: normStatus(r.status),
-     ptype,
-     isRequest: !!isRequest,
-   };
- };
+  return {
+    id: String(r.id),
+    code: r.code || '',
+    name: r.name || '',
+    description: r.description || '',
+    ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
+    hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
+    workflow:
+      r.workflow ||
+      r.workflowName ||
+      (r.workflowCompanyName && r.workflowName
+        ? `${r.workflowCompanyName} — ${r.workflowName}`
+        : null),
+    startDate: toDateStr(r.startDate),
+    endDate: toDateStr(r.endDate),
+    status: normStatus(r.status),
+    ptype,
+    isRequest: !!isRequest,
+  };
+};
+// ... các hàm ở trên (isGuid, getCompanyMembersPaged, normStatus, toDateStr, mapItemToProject) ...
+
+// Map DTO member trong project -> VM dùng cho FE
+const mapProjectMemberDto = (m) => ({
+  userId: String(m.userId ?? m.id ?? m.memberId ?? m.user_id ?? m.member_id ?? ''),
+  name: m.name ?? m.memberName ?? m.fullName ?? m.email ?? 'Unknown',
+  email: m.email ?? '',
+  roleName: m.roleName ?? m.projectRole ?? m.role ?? '',
+  isPartner: !!(m.isPartner ?? m.isExternal ?? m.isCompanyHiredMember),
+  isViewAll: !!(m.isViewAll ?? m.canViewAllTasks ?? m.isManager),
+  joinedAt: m.joinedAt ?? m.createdAt ?? m.created_at ?? null,
+});
+
+// Map DTO project detail từ BE -> ProjectDetailVm cho FE
+const mapProjectDetailDto = (r) => {
+  const stats = r.stats ?? r.summary ?? {};
+  const asNum = (v, fallback = 0) => (typeof v === 'number' && !Number.isNaN(v) ? v : fallback);
+
+  const membersRaw = r.members ?? r.projectMembers ?? r.memberList ?? r.memberResponses ?? [];
+
+  return {
+    id: String(r.id ?? r.projectId ?? r.project_id ?? ''),
+    code: r.code ?? r.projectCode ?? '',
+    name: r.name ?? r.projectName ?? '',
+    description: r.description ?? r.desc ?? null,
+    status: normStatus(r.status ?? r.projectStatus),
+    isHired: !!(r.isHired ?? r.is_hired ?? r.isOutsourced),
+    companyId: String(r.companyId ?? r.ownerCompanyId ?? r.company_id ?? ''),
+    companyName: r.companyName ?? r.ownerCompanyName ?? r.ownerCompany ?? '',
+    companyHiredId: r.companyHiredId ?? r.hiredCompanyId ?? null,
+    companyHiredName: r.companyHiredName ?? r.hiredCompanyName ?? null,
+    workflowId: String(r.workflowId ?? r.workflow_id ?? ''),
+    workflowName: r.workflowName ?? '',
+    sprintLengthWeeks: r.sprintLengthWeeks ?? r.sprintLength ?? 1,
+    startDate: toDateStr(r.startDate ?? r.start_date),
+    endDate: toDateStr(r.endDate ?? r.end_date),
+    createdAt: r.createdAt ?? r.created_at ?? new Date().toISOString(),
+    createdByName: r.createdByName ?? r.createdBy ?? r.createdByUserName ?? '',
+
+    stats: {
+      totalSprints: asNum(
+        stats.totalSprints ?? stats.sprintCount ?? r.totalSprints ?? r.sprintCount,
+      ),
+      activeSprints: asNum(
+        stats.activeSprints ?? stats.activeSprintCount ?? r.activeSprints ?? r.activeSprintCount,
+      ),
+      totalTasks: asNum(stats.totalTasks ?? stats.taskCount ?? r.totalTasks ?? r.taskCount),
+      doneTasks: asNum(stats.doneTasks ?? stats.doneTaskCount ?? r.doneTasks ?? r.doneTaskCount),
+      totalStoryPoints: asNum(
+        stats.totalStoryPoints ?? stats.storyPoints ?? r.totalStoryPoints ?? r.storyPoints,
+      ),
+    },
+
+    members: Array.isArray(membersRaw) ? membersRaw.map(mapProjectMemberDto) : [],
+  };
+};
 
 /**
  * Lấy danh sách project (server có thể filter/sort/paging).
@@ -134,7 +189,7 @@ export async function loadProjects({
     : [];
 
   return {
-   items: items.map((r) => mapItemToProject(r, companyId)),
+    items: items.map((r) => mapItemToProject(r, companyId)),
     totalCount: payload.totalCount ?? items.length,
     pageNumber: payload.pageNumber ?? pageNumber,
     pageSize: payload.pageSize ?? pageSize,
@@ -151,14 +206,14 @@ export async function getCompanyMemberOptions(companyId, params = {}) {
 const toDDMMYYYY = (v) => {
   if (!v) return undefined;
   const d = new Date(v);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 };
 export const mapSprintDto = (r) => ({
   id: String(r.id),
-  name: r.name || "",
+  name: r.name || '',
   startDate: toDDMMYYYY(r.startDate),
   endDate: toDDMMYYYY(r.endDate),
 });
@@ -171,16 +226,16 @@ export async function getSprintsByProject(
     dateFrom,
     dateTo,
     q,
-    sortColumn = "start_date",
+    sortColumn = 'start_date',
     sortDescending = false,
     pageNumber = 1,
     pageSize = 200,
-  } = {}
+  } = {},
 ) {
   const params = {
     Q: q,
-    "DateRange.From": dateFrom,
-    "DateRange.To": dateTo,
+    'DateRange.From': dateFrom,
+    'DateRange.To': dateTo,
     SortColumn: sortColumn,
     SortDescending: sortDescending,
     PageNumber: pageNumber,
@@ -189,9 +244,9 @@ export async function getSprintsByProject(
   const paramsSerializer = (p) => {
     const usp = new URLSearchParams();
     Object.entries(p).forEach(([k, v]) => {
-      if (v != null && v !== "") usp.append(k, String(v));
+      if (v != null && v !== '') usp.append(k, String(v));
     });
-    (statuses || []).forEach((s) => usp.append("Statuses", s));
+    (statuses || []).forEach((s) => usp.append('Statuses', s));
     return usp.toString();
   };
 
@@ -222,14 +277,14 @@ export async function createProject(payload) {
     status,
     startDate, // 'yyyy-MM-dd'
     endDate, // 'yyyy-MM-dd'
-    sprintLengthWeeks, // int >= 1 (bỏ nếu BE không dùng)
+    sprintLengthWeeks,
     workflowId, // GUID
     memberIds,
   } = payload;
 
   if (!isGuid(companyId)) throw new Error('Invalid companyId');
   if (!isGuid(workflowId)) throw new Error('Invalid workflowId');
-
+  console.log('a');
   const dto = {
     companyId,
     isHired: !!isHired,
@@ -250,7 +305,7 @@ export async function createProject(payload) {
   const { data } = await axiosInstance.post(`/companies/${companyId}/projects`, dto);
   return data?.data ?? data;
 }
-  
+
 // https://localhost:7160/api/projects/5E9AC255-E049-4106-85FB-43F0492D0637
 export const GetProjectByProjectId = async (id) => {
   try {
@@ -260,7 +315,7 @@ export const GetProjectByProjectId = async (id) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
-    
+
 export const getAllProjectByAdmin = async ({
   CompanyName = '',
   PageNumber = 1,
@@ -289,7 +344,11 @@ export const getProjectById = async (id) => {
   try {
     const response = await axiosInstance.get(`/admin/${id}`);
     return response.data;
+    const { data } = await axiosInstance.get(`/projects/${projectId}`);
+    // API có thể trả { succeeded, data: {...} } hoặc trả thẳng {...}
+    return data?.data ?? data ?? {};
   } catch (error) {
+    console.error('GetProjectByProjectId failed', error);
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };

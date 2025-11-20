@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -13,94 +13,85 @@ import {
   LineChart,
   Line,
   Legend,
+  Cell,
+  ComposedChart,
 } from 'recharts';
-import { Card } from 'antd';
+import { Card, Spin } from 'antd';
+import { GetTicketDashboard } from '@/services/TicketService.js';
 
 interface TicketChartsProps {
-  sprintData?: { name: string; done: number; total: number }[];
-  ticketsPerSprintData?: { name: string; created: number; done: number }[];
-
-  ticketStatusData?: { name: string; value: number }[];
-  budgetByStatus?: { status: string; budget: number }[];
-
-  ticketPriorityData?: { priority: string; value: number }[];
-  ticketUrgencyData?: { urgency: string; value: number }[];
-  billableData?: { name: string; value: number }[];
-  deleteStateData?: { name: string; value: number }[];
-  resolvedClosedTimeline?: { date: string; resolved: number; closed: number }[];
+  projectId: string;
+  refreshKey?: number;
 }
 
-const TicketCharts: React.FC<TicketChartsProps> = ({
-  ticketStatusData = [
-    { name: 'Open', value: 6 },
-    { name: 'In Progress', value: 4 },
-    { name: 'Resolved', value: 10 },
-    { name: 'Closed', value: 7 },
-  ],
+const COLORS = ['#3b82f6', '#facc15', '#22c55e', '#fb923c'];
+const COLORS2 = ['#22c55e', '#ef4444'];
 
-  budgetByStatus = [
-    { status: 'Open', budget: 1200 },
-    { status: 'In Progress', budget: 3000 },
-    { status: 'Resolved', budget: 4500 },
-    { status: 'Closed', budget: 2000 },
-  ],
+const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) => {
+  const [loading, setLoading] = useState(true);
+  const [ticketStatusData, setTicketStatusData] = useState<any[]>([]);
+  const [budgetByPriority, setBudgetByPriority] = useState<any[]>([]);
+  const [ticketPriorityData, setTicketPriorityData] = useState<any[]>([]);
+  const [ResolvedAndClosedData, setResolvedAndClosedData] = useState<any[]>([]);
+  const [resolvedClosedTimeline, setResolvedClosedTimeline] = useState<any[]>([]);
 
-  ticketPriorityData = [
-    { priority: 'Low', value: 3 },
-    { priority: 'Medium', value: 6 },
-    { priority: 'High', value: 10 },
-    { priority: 'Urgent', value: 8 },
-  ],
+  useEffect(() => {
+    if (!projectId) return;
 
-  ticketUrgencyData = [
-    { urgency: 'Low', value: 5 },
-    { urgency: 'Medium', value: 7 },
-    { urgency: 'High', value: 6 },
-    { urgency: 'Critical', value: 4 },
-  ],
+    setLoading(true);
+    GetTicketDashboard(projectId)
+      .then(
+        (res: {
+          data: {
+            ticketStatusData: any;
+            budgetByPriority: any;
+            ticketPriorityData: any;
+            resolvedAndClosedData: any;
+            resolvedClosedTimeline: any;
+          };
+        }) => {
+          if (res?.data) {
+            setTicketStatusData(res.data.ticketStatusData || []);
+            setBudgetByPriority(res.data.budgetByPriority || []);
+            setTicketPriorityData(res.data.ticketPriorityData || []);
+            setResolvedAndClosedData(res.data.resolvedAndClosedData || []);
+            setResolvedClosedTimeline(res.data.resolvedClosedTimeline || []);
+          }
+        },
+      )
+      .catch((err: any) => {
+        console.error('Error fetching ticket dashboard:', err);
+      })
+      .finally(() => setLoading(false));
+  }, [projectId, refreshKey]);
 
-  billableData = [
-    { name: 'Billable', value: 12 },
-    { name: 'Non-Billable', value: 7 },
-  ],
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
-  deleteStateData = [
-    { name: 'Active', value: 16 },
-    { name: 'Deleted', value: 3 },
-  ],
-
-  resolvedClosedTimeline = [
-    { date: 'Week 1', resolved: 2, closed: 1 },
-    { date: 'Week 2', resolved: 3, closed: 2 },
-    { date: 'Week 3', resolved: 4, closed: 2 },
-    { date: 'Week 4', resolved: 1, closed: 3 },
-  ],
-}) => {
   return (
     <div className="mt-8 space-y-8">
-      {/* 2 main charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 4️⃣ Ticket Status Overview */}
         <Card title="Ticket Status Overview" variant="outlined">
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
-              <Pie
-                data={ticketStatusData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                dataKey="value"
-                label
-              />
+              <Pie data={ticketStatusData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
+                {ticketStatusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* 5️⃣ Budget by Ticket Status */}
         <Card title="Budget by Ticket Status" variant="outlined">
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={budgetByStatus}>
+            <BarChart data={budgetByPriority}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="status" />
               <YAxis />
@@ -110,65 +101,42 @@ const TicketCharts: React.FC<TicketChartsProps> = ({
           </ResponsiveContainer>
         </Card>
       </div>
-
-      {/* 🔥 NEW CHARTS */}
+      /
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Priority */}
         <Card title="Ticket Priority">
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={ticketPriorityData}>
+            <ComposedChart data={ticketPriorityData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="priority" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="#fb923c" />
-            </BarChart>
+              <Legend />
+              <Bar dataKey="value" barSize={40} fill="#fb923c" name="Value" radius={[6, 6, 0, 0]} />
+              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
+            </ComposedChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* Urgency */}
-        <Card title="Ticket Urgency">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={ticketUrgencyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="urgency" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#f87171" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-
-      {/* Billable vs Non-Billable & Deleted */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card title="Billable Ticket Ratio">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie data={billableData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card title="Active vs Deleted Tickets">
+        <Card title="Resolved vs Closed Tickets">
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={deleteStateData}
+                data={ResolvedAndClosedData}
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
                 dataKey="value"
                 label
-              />
+              >
+                {ResolvedAndClosedData.map((entry, index) => (
+                  <Cell key={`cell2-${index}`} fill={COLORS2[index % COLORS2.length]} />
+                ))}
+              </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </Card>
       </div>
-
-      {/* Timeline */}
       <Card title="Resolved vs Closed Ticket Over Time">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={resolvedClosedTimeline}>

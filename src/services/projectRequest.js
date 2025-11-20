@@ -4,6 +4,8 @@ export const GetProjectRequestByCompanyId = async (
   companyId,
   Keyword = null,
   Status = null,
+  Deleted,
+  IsHaveProject,
   ViewMode,
   DateFilterType = 'StartEndDate',
   DateRangeFrom = null,
@@ -18,6 +20,8 @@ export const GetProjectRequestByCompanyId = async (
       params: {
         Keyword,
         Status,
+        Deleted,
+        IsHaveProject,
         ViewMode,
         DateFilterType,
         'DateRange.From': DateRangeFrom,
@@ -130,6 +134,8 @@ export const CreateProjectRequest = async (data) => {
       params.append('RequesterCompanyId', data.RequesterCompanyId);
     if (data.ExecutorCompanyId !== undefined && data.ExecutorCompanyId !== null)
       params.append('ExecutorCompanyId', data.ExecutorCompanyId);
+    if (data.ContractId !== undefined && data.ContractId !== null)
+      params.append('ContractId', data.ContractId);
     if (data.Name !== undefined && data.Name !== null) params.append('Name', data.Name);
     if (data.Description !== undefined && data.Description !== null)
       params.append('Description', data.Description);
