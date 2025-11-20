@@ -10,6 +10,8 @@ import {
   UserPlus,
   ChevronDown,
   ChevronRight,
+  CreditCard,
+  Folder,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -86,6 +88,8 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
         { name: 'My task', path: '/calendar/tasks' },
       ],
     },
+    { name: t('menu_item.subscription'), icon: CreditCard, path: '/subscription' },
+    { name: t('menu_item.mySubscription'), icon: Folder, path: '/mysubscription' },
     { name: t('menu_item.setting'), icon: Settings, path: '/setting' },
     { name: t('menu_item.logout'), icon: LogOut, onClick: handleLogout, danger: true },
   ];
