@@ -13,25 +13,23 @@ import HomeLayout from './layouts/HomeLayout/HomeLayout';
 import CompanyLayout from './layouts/Company/CompanyLayout';
 import AccessRolePage from './pages/home/AccessRolePage';
 import ProjectsPage from './pages/home/ProjectsPage';
-import Calendar from './pages/calendar/Calendar';
+import Calendar from './pages/calendar/calendarManagement/Calendar';
 import ResetPassword from './pages/resetPassword/ResetPassword';
 import Partners from '@/pages/partners/Partner';
 import PartnerDetails from '@/pages/partners/PartnerDetails';
 import PaymentSuccess from './pages/subscription/PaymentSuccessPage';
 import PaymentFailed from './pages/subscription/PaymentFailPage';
-import UserProfile from './pages/UserProfile/UserProfile';
 import Settings from './pages/setting/Setting';
 import CompanyDetail from './pages/home/CompanyDetail';
-import Workflow from './pages/home/Workflow';
 import CompanyMember from './pages/home/CompanyMember';
+import AdminLayout from './layouts/Admin/AdminLayout';
+import AdminDashboardPage from './pages/admin/dashboard/Dashboard';
+import AdminSubscriptionsPage from './pages/admin/Subscriptions';
 import CompanyMemberDetail from './pages/home/CompanyMemberDetail';
-import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import RequestResetPassword from './pages/resetPassword/RequestResetPassword';
 import RequireAuth from './components/RequireAuth/RequireAuth';
 import WorkflowPage from './pages/home/Workflow';
-import WorkflowCreatePage from './pages/home/Workflow';
 import WorkflowListPage from './pages/home/WorkflowListPage';
-import WorkflowEditPage from './pages/home/WorkflowDesignerPage';
 import WorkflowDesignerPage from './pages/home/WorkflowDesignerPage';
 import ProjectRequest from './pages/home/ProjectRequest';
 import ProjectDetailPage from './pages/project/ProjectDetailPage';
@@ -41,10 +39,32 @@ import NotificationPage from './pages/notification/NotificationPage';
 import CompanyHeader from './layouts/Company/CompanyHeader';
 import CompanyShell from './layouts/Company/CompanyShell';
 import { useFCMListener } from './hook/useFCM';
-import InvitationPage from './components/Member/Invitations';
 import ProjectsCompanyRequest from './pages/home/ProjectsCompanyRequest';
+
+import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
+import MySubscriptions from './pages/mysubscription/MySubscription';
+// import CompanySubscriptionsPage from './pages/home/CompanySubscriptionPage';
+import OverviewUserPage from './pages/admin/userManagement/OverviewUserPage';
+import UserListPage from './pages/admin/userManagement/UserListPage';
+import OverviewCompanyPage from './pages/admin/companyManagement/OverviewCompanyPage';
+import CompanyListPage from './pages/admin/companyManagement/CompanyListPage';
+import UserDetailPage from './pages/admin/userManagement/UserDetailPage';
+import CompanyDetailPage from './pages/admin/companyManagement/CompanyDetailPage';
+import SubcriptionListPage from './pages/admin/subcriptionManagement/SubscriptionListPage';
+import TransactionListPage from './pages/admin/transactionManagement/TransactionListPage';
+import NotificationListPage from './pages/admin/notificationManagement/NotificationListPage';
+import ProjectListAdminPage from './pages/admin/projectManagement/ProjectListAdminPage';
+import ProjectDetailAdminPage from './pages/admin/projectManagement/ProjectDetailAdminPage';
+import FeatureListPage from './pages/admin/featureManagement/FeatureListPage';
+import CompanySubscriptionPage from './pages/home/CompanySubscriptionPage';
+import TransactionOverviewPage from './pages/admin/transactionManagement/TransactionOverviewPage';
+import SubscriptionOverviewPage from './pages/admin/subcriptionManagement/SubscriptionOverviewPage';
+import UserProfile from './pages/userProfile/UserProfile';
+import RequireAdmin from './components/RequireAdmin/RequireAdmin';
 import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetailPage';
 import TaskDetailPage from './pages/project/TaskDetailPage';
+import InvitationPage from './components/Member/Invitations';
+
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -69,9 +89,46 @@ function App() {
         >
           <Route path="/company" element={<Company />} />
           <Route path="/invitation" element={<InvitationPage />} />
-          <Route path="/subscription" element={<SubscriptionPage />} />
-          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/calendar/calendar" element={<Calendar />} />
+          <Route path="/calendar/tasks" element={<Calendar />} />
           <Route path="/setting" element={<Settings />} />
+          <Route path="/subscription" element={<SubscriptionPlan />} />
+          <Route path="/mysubscription" element={<MySubscriptions />} />
+          {/* <Route path="/subscription" element={<SubscriptionPage />} /> */}
+        </Route>
+
+        {/* Route admin layout */}
+
+        <Route
+          path="/admin"
+          element={
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          }
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="/admin/users/overview" element={<OverviewUserPage />} />
+          <Route path="/admin/users/list" element={<UserListPage />} />
+          <Route path="/admin/users/detail/:id" element={<UserDetailPage />} />
+          <Route path="/admin/users/detail" element={<UserDetailPage />} />
+          <Route path="/admin/companies/overview" element={<OverviewCompanyPage />} />
+          <Route path="/admin/companies/list" element={<CompanyListPage />} />
+          <Route path="/admin/companies/detail/:id" element={<CompanyDetailPage />} />
+          <Route path="/admin/companies/detail" element={<CompanyDetailPage />} />
+          <Route path="/admin/subscriptions/list" element={<SubcriptionListPage />} />
+          <Route path="/admin/subscriptions/overview" element={<SubscriptionOverviewPage />} />
+          <Route path="/admin/transactions/list" element={<TransactionListPage />} />
+
+          <Route path="/admin/notifications/list" element={<NotificationListPage />} />
+          <Route path="/admin/projects/list" element={<ProjectListAdminPage />} />
+          <Route path="/admin/projects/detail/:id" element={<ProjectDetailAdminPage />} />
+          <Route path="/admin/projects/detail" element={<ProjectDetailAdminPage />} />
+
+          {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
+          <Route path="/admin/transactions/overview" element={<TransactionOverviewPage />} />
+          <Route path="/admin/notifications/list" element={<NotificationListPage />} />
+          <Route path="/admin/features/list" element={<FeatureListPage />} />
         </Route>
         {/* route company layout */}
         <Route element={<CompanyLayout />}>
@@ -82,6 +139,7 @@ function App() {
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
+          <Route path="/company/:companyId/subscription" element={<CompanySubscriptionPage />} />
           <Route
             path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
@@ -131,6 +189,7 @@ function App() {
             </RequireAuth>
           }
         />
+
         <Route path="*" element={<NotFound />} />
         {/*Route payment-result */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
@@ -140,6 +199,8 @@ function App() {
         <Route element={<CompanyShell />}>
           <Route path="/notifications" element={<NotificationPage />} />
         </Route>
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
         {/* //ticket */}
       </Routes>
     </>

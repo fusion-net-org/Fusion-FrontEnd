@@ -1,23 +1,22 @@
 import React from 'react';
-import { Modal, Descriptions, Tag, Space, Button, Spin } from 'antd';
+import { Modal, Descriptions, Tag, Space, Button, Spin, Modal as AntModal } from 'antd';
 import {
   CalendarOutlined,
   ClockCircleOutlined,
   UserOutlined,
   FlagOutlined,
   FileTextOutlined,
-  EditOutlined,
   DeleteOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import { formatDate } from '@/pages/calendar/event-utils';
+
+import { formatDate } from '@/pages/calendar/calendarManagement/event-utils';
 
 interface TaskDetailModalProps {
   open: boolean;
   loading?: boolean;
   task: any | null;
   onClose: () => void;
-  onEdit?: (task: any) => void;
   onDelete?: (taskId: string) => void;
 }
 
@@ -26,32 +25,37 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   loading = false,
   task,
   onClose,
-  onEdit,
   onDelete,
 }) => {
   if (!task && !loading) return null;
 
-  // Priority colors
+  // Map backend priority values
+  const priorityMap: Record<string, string> = {
+    '1': 'High',
+    '2': 'Medium',
+    '3': 'Low',
+  };
+
   const priorityColor: Record<string, string> = {
     High: 'red',
     Medium: 'orange',
     Low: 'green',
   };
 
-  // Type colors
   const typeColor: Record<string, string> = {
     Bug: 'volcano',
     Feature: 'blue',
     Task: 'cyan',
   };
 
-  // Status colors
   const statusColor: Record<string, string> = {
     'To Do': 'default',
     'In Progress': 'processing',
     Done: 'success',
     Review: 'warning',
   };
+
+  const priorityLabel = priorityMap[task?.priority] || 'Unknown';
 
   return (
     <Modal
@@ -61,24 +65,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       footer={
         <Space>
           <Button onClick={onClose}>Close</Button>
-          {onEdit && (
-            <Button
-              type="default"
-              icon={<EditOutlined />}
-              onClick={() => {
-                onEdit(task);
-                onClose();
-              }}
-            >
-              Edit
-            </Button>
-          )}
+
           {onDelete && (
             <Button
               danger
               icon={<DeleteOutlined />}
               onClick={() => {
-                Modal.confirm({
+                AntModal.confirm({
                   title: 'Delete Task',
                   content: 'Are you sure you want to delete this task?',
                   okText: 'Delete',
@@ -105,13 +98,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
       ) : task ? (
         <div className="space-y-6">
-          {/* Header */}
+          {/* HEADER */}
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-2xl font-semibold text-gray-900 flex-1">{task.title}</h2>
+
               <Space>
                 <Tag color={typeColor[task.type || 'Task']}>{task.type || 'Task'}</Tag>
-                <Tag color={priorityColor[task.priority || 'Low']}>{task.priority || 'Low'}</Tag>
+                <Tag color={priorityColor[priorityLabel]}>{priorityLabel}</Tag>
               </Space>
             </div>
 
@@ -126,7 +120,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             )}
           </div>
 
-          {/* Description */}
+          {/* DESCRIPTION */}
           {task.description && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-gray-600">
@@ -137,95 +131,84 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
           )}
 
-          {/* Details */}
+          {/* DETAILS SECTION */}
           <div className="space-y-4 border-t pt-4">
             <Descriptions column={1} size="small">
-              {/* Due Date */}
-              {task.dueDate && (
-                <Descriptions.Item
-                  label={
-                    <span className="flex items-center gap-2 text-gray-600">
-                      <CalendarOutlined />
-                      <span>Due Date</span>
-                    </span>
-                  }
-                >
-                  <span className="font-medium">{formatDate(task.dueDate)}</span>
-                </Descriptions.Item>
-              )}
+              {/* CODE */}
+              <Descriptions.Item label="Code">{task.code || '-'}</Descriptions.Item>
 
-              {/* Start Date */}
-              {task.startDate && (
-                <Descriptions.Item
-                  label={
-                    <span className="flex items-center gap-2 text-gray-600">
-                      <ClockCircleOutlined />
-                      <span>Start Date</span>
-                    </span>
-                  }
-                >
-                  {formatDate(task.startDate)}
-                </Descriptions.Item>
-              )}
+              {/* PROJECT */}
+              <Descriptions.Item label="Project ID">{task.projectId}</Descriptions.Item>
 
-              {/* End Date */}
-              {task.endDate && (
-                <Descriptions.Item
-                  label={
-                    <span className="flex items-center gap-2 text-gray-600">
-                      <ClockCircleOutlined />
-                      <span>End Date</span>
-                    </span>
-                  }
-                >
-                  {formatDate(task.endDate)}
-                </Descriptions.Item>
-              )}
+              {/* SPRINT */}
+              <Descriptions.Item label="Sprint ID">{task.sprintId}</Descriptions.Item>
 
-              {/* Assigned To */}
-              {task.assignedTo && (
-                <Descriptions.Item
-                  label={
-                    <span className="flex items-center gap-2 text-gray-600">
-                      <UserOutlined />
-                      <span>Assigned To</span>
-                    </span>
-                  }
-                >
-                  <Tag color="blue">{task.assignedTo}</Tag>
-                </Descriptions.Item>
-              )}
+              {/* SEVERITY */}
+              <Descriptions.Item label="Severity">{task.severity || '-'}</Descriptions.Item>
 
-              {/* Point */}
-              {task.point !== undefined && task.point !== null && (
-                <Descriptions.Item
-                  label={
-                    <span className="flex items-center gap-2 text-gray-600">
-                      <FlagOutlined />
-                      <span>Story Points</span>
-                    </span>
-                  }
-                >
-                  <Tag color="purple">{task.point} pts</Tag>
-                </Descriptions.Item>
-              )}
+              {/* POINTS */}
+              <Descriptions.Item
+                label={
+                  <span className="flex items-center gap-2">
+                    <FlagOutlined /> Story Points
+                  </span>
+                }
+              >
+                <Tag color="purple">{task.point} pts</Tag>
+              </Descriptions.Item>
 
-              {/* Source */}
-              {task.source && <Descriptions.Item label="Source">{task.source}</Descriptions.Item>}
+              {/* ESTIMATE */}
+              <Descriptions.Item label="Estimate Hours">
+                {task.estimateHours ?? '-'}
+              </Descriptions.Item>
 
-              {/* Is Backlog */}
-              {task.isBacklog !== undefined && (
-                <Descriptions.Item label="Backlog">
-                  {task.isBacklog ? <Tag color="default">Yes</Tag> : <Tag color="success">No</Tag>}
-                </Descriptions.Item>
-              )}
+              {/* REMAINING */}
+              <Descriptions.Item label="Remaining Hours">
+                {task.remainingHours ?? '-'}
+              </Descriptions.Item>
+
+              {/* ORDER */}
+              <Descriptions.Item label="Order in Sprint">{task.orderInSprint}</Descriptions.Item>
+
+              {/* STATUS ID */}
+              <Descriptions.Item label="Status ID">{task.currentStatusId || '-'}</Descriptions.Item>
+
+              {/* DUE DATE */}
+              <Descriptions.Item
+                label={
+                  <span className="flex items-center gap-2">
+                    <CalendarOutlined />
+                    Due Date
+                  </span>
+                }
+              >
+                {task.dueDate ? formatDate(task.dueDate) : '-'}
+              </Descriptions.Item>
+
+              {/* BACKLOG */}
+              <Descriptions.Item label="Backlog">
+                {task.isBacklog ? <Tag color="default">Yes</Tag> : <Tag color="green">No</Tag>}
+              </Descriptions.Item>
+
+              {/* DELETED */}
+              <Descriptions.Item label="Deleted">
+                {task.isDeleted ? <Tag color="red">Deleted</Tag> : <Tag color="green">Active</Tag>}
+              </Descriptions.Item>
+
+              {/* ASSIGNEES */}
+              <Descriptions.Item label="Assignees">
+                {task.assigneeIds && task.assigneeIds.length > 0
+                  ? task.assigneeIds.map((uid: string) => <Tag key={uid}>{uid}</Tag>)
+                  : '-'}
+              </Descriptions.Item>
             </Descriptions>
           </div>
 
-          {/* Footer Info */}
           <div className="border-t pt-4 space-y-2 text-xs text-gray-500">
             {task.createAt && <div>Created: {new Date(task.createAt).toLocaleString('vi-VN')}</div>}
+
             {task.updateAt && <div>Updated: {new Date(task.updateAt).toLocaleString('vi-VN')}</div>}
+
             {task.id && <div className="font-mono text-[10px]">ID: {task.id}</div>}
           </div>
         </div>

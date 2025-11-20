@@ -75,3 +75,13 @@ export interface CompanyResponseV2 {
   pageSize: number;
   totalCount: number;
 }
+
+export interface CompanyListResponse {
+  id: string | null;
+  companyName: string | null;
+}
+
+export interface CompanyListResponse {
+  id: string | null;
+  companyName: string | null;
+}

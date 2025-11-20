@@ -13,48 +13,38 @@ export interface Task {
   startDate?: string;
   endDate?: string;
   assignedTo?: string;
+  createAt?: string;
 }
 
 // Màu nền theo priority
 export const priorityColors: Record<string, string> = {
-  High: '#fee2e2',
-  Medium: '#fed7aa',
-  Low: '#dcfce7',
+  High: 'bg-red-500 text-white',
+  Medium: 'bg-yellow-400 text-black',
+  Low: 'bg-green-400 text-black',
 };
 
-// Màu viền theo type
-export const typeColors: Record<string, string> = {
-  Bug: '#ef4444',
-  Feature: '#3b82f6',
-  Task: '#06b6d4',
+// Màu tag theo type
+export const typeTagColors: Record<string, string> = {
+  Bug: 'bg-red-600',
+  Feature: 'bg-blue-600',
+  Task: 'bg-cyan-600',
 };
 
-// Màu avatar theo owner (có thể tùy chỉnh)
+// Màu owner
 export const ownerColors: Record<string, string> = {
   default: 'bg-slate-600',
   A: 'bg-blue-600',
   B: 'bg-green-600',
   C: 'bg-purple-600',
   D: 'bg-pink-600',
-  E: 'bg-yellow-600',
-};
-
-// Màu tag theo type (squares)
-export const typeTagColors: Record<string, string> = {
-  Bug: 'bg-red-500',
-  Feature: 'bg-blue-500',
-  Task: 'bg-cyan-500',
+  E: 'bg-yellow-500',
 };
 
 /**
  * Convert Task[] from API to FullCalendar EventInput[]
  */
 export function mapTasksToEvents(tasks: Task[]): EventInput[] {
-  // Validation: ensure tasks is an array
-  if (!Array.isArray(tasks)) {
-    console.error('mapTasksToEvents: tasks is not an array', tasks);
-    return [];
-  }
+  if (!Array.isArray(tasks)) return [];
 
   return tasks.map((task) => {
     const priority = task.priority || 'Low';
@@ -62,18 +52,19 @@ export function mapTasksToEvents(tasks: Task[]): EventInput[] {
     const owner = task.assignedTo || '';
     const ownerInitial = owner ? owner.charAt(0).toUpperCase() : '';
 
+    const start = task.createAt || task.startDate || task.dueDate;
+    const end = task.dueDate || task.startDate || task.createAt;
+
     return {
       id: task.id,
       title: task.title,
-      start: task.startDate || task.dueDate,
-      end: task.endDate || task.dueDate,
-      allDay: !task.startDate,
-
+      start,
+      end,
+      allDay: true,
       classNames: [`priority-${priority.toLowerCase()}`],
       extendedProps: {
         ...task,
-
-        pillClass: `pill-${priority.toLowerCase()}`,
+        pillClass: priorityColors[priority],
         owner: ownerInitial,
         ownerColor: ownerColors[ownerInitial] || ownerColors.default,
         tags: [typeTagColors[type]],
