@@ -32,3 +32,13 @@ export async function getUserSubscriptionDetail(id) {
     return null;
   }
 }
+
+export async function getUserActiveSubscriptions() {
+  try {
+    const res = await axiosInstance.get("/UserSubscription/allActive");
+    return unwrap(res) ?? null;
+  } catch (e) {
+    onError(e);
+    return null;
+  }
+}

@@ -57,3 +57,16 @@ export type UserSubscriptionPagedRequest = {
 };
 
 export type UserSubscriptionPagedResult = PagedResult<UserSubscriptionResponse>;
+
+
+//1.GetActiveUserSubscription
+export type UserSubscriptionActiveEntitlement = {
+  id: Guid;
+  featureName: string;
+};
+
+export type UserSubscriptionActiveResponse = {
+  id: Guid;
+  nameSubscription?: string | null;
+  userSubscriptionEntitlements: UserSubscriptionActiveEntitlement[];
+};

@@ -268,6 +268,7 @@ export async function getSprintsByProject(
 export async function createProject(payload) {
   const {
     companyId,
+    companySubscriptionId, 
     isHired,
     companyRequestId,
     projectRequestId,
@@ -287,6 +288,7 @@ export async function createProject(payload) {
   console.log('a');
   const dto = {
     companyId,
+    companySubscriptionId,
     isHired: !!isHired,
     companyRequestId: isGuid(companyRequestId) ? companyRequestId : null,
     projectRequestId: isGuid(projectRequestId) ? projectRequestId : null,
