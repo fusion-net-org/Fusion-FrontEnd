@@ -99,7 +99,6 @@ export default function ProjectRequestDetail() {
       setLoading(true);
       const projectRes = await GetProjectRequestById(id);
       const projectData = projectRes.data;
-      console.log(projectData);
       setProjectRequest(projectData);
 
       const [reqRes, exeRes] = await Promise.all([
@@ -145,34 +144,43 @@ export default function ProjectRequestDetail() {
           {accepting && <LoadingOverlay loading message="Accepting request..." />}
           <div className="mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
             {/* HEADER */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white px-8 py-6 md:py-8 rounded-b-3xl shadow-md relative">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-0">
+            <div
+              className="relative text-white px-10 py-12 rounded-b-[32px] shadow-xl overflow-hidden"
+              style={{
+                backgroundImage: `url('https://images.unsplash.com/photo-1556761175-4b46a572b786')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              {/* overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/30 backdrop-blur-[1px]"></div>
+
+              {/* Content */}
+              <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-6">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight drop-shadow-md">
+                  <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight drop-shadow-xl">
                     {projectRequest?.projectName ?? 'Unnamed Project'}
                   </h1>
-                  <p className="text-indigo-200 mt-1 text-sm font-medium">
+
+                  <p className="text-gray-300 mt-2 text-sm font-medium tracking-wide">
                     {projectRequest?.code ? `#${projectRequest.code}` : '—'}
                   </p>
                 </div>
 
-                {/* Status Badge */}
+                {/* STATUS BADGE */}
                 <span
-                  className={`flex items-center gap-2 mt-2 md:mt-0 px-5 py-2 text-sm font-semibold rounded-full transition
-          ${
-            projectRequest?.status === 'Accepted'
-              ? 'bg-green-100 text-green-800'
-              : projectRequest?.status === 'Rejected'
-              ? 'bg-red-100 text-red-800'
-              : projectRequest?.status === 'Pending'
-              ? 'bg-yellow-100 text-yellow-800'
-              : 'bg-gray-100 text-gray-700'
-          }`}
+                  className={`
+                      relative inline-flex items-center gap-2 px-6 py-2.5
+                      text-sm font-bold rounded-full
+                      shadow-lg backdrop-blur-xl border border-white/20
+                      -top-[3.20rem]
+                      ${projectRequest?.status === 'Pending' && 'bg-yellow-500/30 text-yellow-200'}
+                      ${projectRequest?.status === 'Accepted' && 'bg-green-500/30 text-green-200'}
+                      ${projectRequest?.status === 'Rejected' && 'bg-red-500/30 text-red-200'}
+                    `}
                 >
-                  {projectRequest?.status === 'Accepted' && <CheckCircle2 className="w-4 h-4" />}
-                  {projectRequest?.status === 'Rejected' && <X className="w-4 h-4" />}
-                  {projectRequest?.status === 'Pending' && <Layers className="w-4 h-4" />}
-                  {projectRequest?.status ?? 'Unknown'}
+                  <CheckCircle2 className="w-4 h-4 opacity-80" />
+                  {projectRequest?.status}
                 </span>
               </div>
             </div>

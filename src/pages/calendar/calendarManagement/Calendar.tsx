@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -14,11 +15,11 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { mapTasksToEvents } from './event-utils';
-import TaskPage from './TaskManagement/TaskPage';
+import TaskPage from '../TaskManagement/TaskPage';
 import { toast } from 'react-toastify';
-import TaskFormModal from './TaskManagement/TaskFormModal';
+import TaskFormModal from '../TaskManagement/TaskFormModal';
 import { getAllTask, postTask, putTask, getTaskById } from '@/services/taskService.js';
-import TaskDetailModal from './TaskManagement/TaskDetailModal';
+import TaskDetailModal from '../TaskManagement/TaskDetailModal';
 import '@/pages/calendar/css/calendar.css';
 
 const menuItems = [
@@ -34,6 +35,7 @@ const Calendar: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const navigate = useNavigate();
 
   // Task detail modal states
   const [openDetailModal, setOpenDetailModal] = useState(false);
@@ -78,6 +80,14 @@ const Calendar: React.FC = () => {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    if (location.pathname === '/calendar/tasks') {
+      setActiveTab('list');
+    } else {
+      setActiveTab('calendar');
+    }
+  }, [location.pathname]);
 
   const events = useMemo(() => {
     if (!Array.isArray(tasks) || tasks.length === 0) {
@@ -138,7 +148,11 @@ const Calendar: React.FC = () => {
           return (
             <button
               key={id}
-              onClick={() => setActiveTab(id)}
+              onClick={() => {
+                setActiveTab(id);
+                if (id === 'calendar') navigate('/calendar/calendar');
+                else navigate('/calendar/tasks');
+              }}
               className={[
                 'relative -mb-px inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium',
                 'border-b-2',
@@ -248,7 +262,25 @@ const Calendar: React.FC = () => {
                 events={events}
                 eventContent={EventPill}
                 datesSet={(arg) => setTitle(arg.view.title)}
-                eventDidMount={(info) => {}}
+                eventDidMount={(info) => {
+                  const el = info.el;
+                  el.classList.add(
+                    'transition-all',
+                    'duration-150',
+                    'ease-in-out',
+                    'cursor-pointer',
+                  );
+                  el.addEventListener('mouseenter', () => {
+                    el.style.transform = 'scale(1.03)';
+                    el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                    el.style.zIndex = '10';
+                  });
+                  el.addEventListener('mouseleave', () => {
+                    el.style.transform = '';
+                    el.style.boxShadow = '';
+                    el.style.zIndex = '';
+                  });
+                }}
                 eventClick={async (info) => {
                   const taskId = info.event.id;
 
@@ -299,12 +331,12 @@ const Calendar: React.FC = () => {
         loading={loadingTaskDetail}
         task={selectedTask}
         onClose={() => setOpenDetailModal(false)}
-        onEdit={(task) => {
-          setFormInitialValues(task);
-          setIsEditMode(true);
-          setOpenDetailModal(false);
-          setOpenModal(true);
-        }}
+        // onEdit={(task) => {
+        //   setFormInitialValues(task);
+        //   setIsEditMode(true);
+        //   setOpenDetailModal(false);
+        //   setOpenModal(true);
+        // }}
       />
     </div>
   );

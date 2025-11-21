@@ -60,6 +60,8 @@ export const getAllCompanies = async (
   keyword = '',
   ownerUserName = '',
   relationShipEnums = '',
+  DayFrom = null,
+  DayTo = null,
   pageNumber = 1,
   pageSize = 25,
   SortColumn = null,
@@ -75,6 +77,8 @@ export const getAllCompanies = async (
     if (relationShipEnums && typeof relationShipEnums === 'string' && relationShipEnums.trim()) {
       params.append('RelationShipEnums', relationShipEnums.trim());
     }
+    if (DayFrom) params.append('DayFrom', DayFrom.toString());
+    if (DayTo) params.append('DayTo', DayTo.toString());
     if (companyId && companyId.trim()) params.append('companyId', companyId);
     if (SortColumn) params.append('SortColumn', SortColumn);
     if (typeof SortDescending === 'boolean')
@@ -125,6 +129,37 @@ export const getCompanyById = async (id) => {
 export const deleteCompany = async (companyId) => {
   try {
     const response = await axiosInstance.delete(`/company/${companyId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const getCompaniesOfCurrentUser = async () => {
+  try {
+    const response = await axiosInstance.get('/Company/current-user');
+    return response?.data?.data ?? [];
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to load companies of current user!');
+  }
+};
+
+export const updateCompanyByAdmin = async (id, data) => {
+  try {
+    const response = await axiosInstance.put(`/company/admin/${id}`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Update fail!');
+  }
+};
+
+export const deleteCompanyByAdmin = async (companyId) => {
+  try {
+    const response = await axiosInstance.delete(`/company/admin/${companyId}`);
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');

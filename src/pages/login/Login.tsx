@@ -50,6 +50,7 @@ const Login: React.FC = () => {
   const onSubmit = async (data: LoginFormInputs) => {
     try {
       const response = await login(data);
+
       if (response && response.data?.accessToken) {
         const token = response.data.accessToken;
         const decodedToken: any = jwtDecode(token);
@@ -62,10 +63,14 @@ const Login: React.FC = () => {
           username: response.data.userName,
           role: decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
         };
-
         dispatch(loginUser({ user }));
+
         toast.success('Login successful!');
-        navigate('/company');
+        if (user.role === 'Admin') {
+          navigate('/admin');
+        } else {
+          navigate('/company');
+        }
       } else {
         toast.error('Login failed!');
       }

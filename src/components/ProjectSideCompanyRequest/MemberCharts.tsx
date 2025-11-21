@@ -1,20 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from 'antd';
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  BarChart,
-  Bar,
-} from 'recharts';
+import Chart from 'react-apexcharts';
 import { getProjectMemberCharts } from '@/services/projectMember.js';
 
 const COLORS = ['#6366f1', '#10b981', '#facc15', '#f472b6'];
@@ -43,73 +30,92 @@ const MemberCharts: React.FC<MemberChartsProps> = ({ projectId }) => {
     fetchCharts();
   }, [projectId]);
 
-  if (loading) return <Spin className="my-8" />;
+  if (loading) return <Spin className="my-8" size="large" />;
 
   if (!chartsData) return <div className="text-center py-8 text-gray-500">No chart data</div>;
 
   return (
     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Chart 1: Joined over time */}
+      {/* Chart 1: Joined over time → Area Chart */}
       <Card title="Members Joined Over Time" className="shadow-inner border rounded-2xl">
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={chartsData.joinedOverTime}>
-            <defs>
-              <linearGradient id="colorMember" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip />
-            <Area type="monotone" dataKey="members" stroke="#6366f1" fill="url(#colorMember)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        <Chart
+          type="area"
+          series={[
+            {
+              name: 'Members',
+              data: chartsData.joinedOverTime.map((item: any) => item.members),
+            },
+          ]}
+          options={{
+            chart: { toolbar: { show: true }, zoom: { enabled: false } },
+            xaxis: { categories: chartsData.joinedOverTime.map((item: any) => item.month) },
+            dataLabels: { enabled: false },
+            stroke: { curve: 'smooth' },
+            colors: ['#6366f1'],
+            tooltip: { shared: true, intersect: false },
+            yaxis: { title: { text: 'Members' } },
+          }}
+          height={250}
+        />
       </Card>
 
-      {/* Chart 2: Gender → PieChart */}
+      {/* Chart 2: Gender Distribution → Pie Chart */}
       <Card title="Gender Distribution" className="shadow-inner border rounded-2xl">
-        <ResponsiveContainer width="100%" height={250}>
-          <PieChart>
-            <Pie
-              data={chartsData.genderDistribution}
-              dataKey="count"
-              nameKey="gender"
-              outerRadius={80}
-              label
-            >
-              {chartsData.genderDistribution.map((_: any, index: number) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Legend />
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
+        <Chart
+          type="donut"
+          series={chartsData.genderDistribution.map((item: any) => item.count)}
+          options={{
+            labels: chartsData.genderDistribution.map((item: any) => item.gender),
+            colors: COLORS,
+            legend: { position: 'bottom' },
+            tooltip: { y: { formatter: (val: number) => `${val} members` } },
+          }}
+          height={250}
+        />
       </Card>
 
-      {/* Chart 3: Status → Horizontal Bar */}
+      {/* Chart 3: Status Distribution → Horizontal Bar */}
       <Card title="Status Distribution" className="shadow-inner border rounded-2xl">
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart layout="vertical" data={chartsData.statusDistribution}>
-            <XAxis type="number" />
-            <YAxis dataKey="status" type="category" />
-            <Tooltip />
-            <Bar dataKey="count" fill="#10b981" />
-          </BarChart>
-        </ResponsiveContainer>
+        <Chart
+          type="bar"
+          series={[
+            {
+              name: 'Count',
+              data: chartsData.statusDistribution.map((item: any) => item.count),
+            },
+          ]}
+          options={{
+            chart: { stacked: false, toolbar: { show: true } },
+            plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
+            xaxis: { categories: chartsData.statusDistribution.map((item: any) => item.status) },
+            colors: ['#10b981'],
+            dataLabels: { enabled: true },
+            tooltip: { y: { formatter: (val: number) => `${val} members` } },
+          }}
+          height={250}
+        />
       </Card>
 
-      {/* Chart 4: Partner → Column Chart */}
+      {/* Chart 4: Partner Distribution → Column Chart */}
       <Card title="Partner Distribution" className="shadow-inner border rounded-2xl">
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={chartsData.partnerDistribution}>
-            <XAxis dataKey="type" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="count" fill="#f472b6" />
-          </BarChart>
-        </ResponsiveContainer>
+        <Chart
+          type="bar"
+          series={[
+            {
+              name: 'Count',
+              data: chartsData.partnerDistribution.map((item: any) => item.count),
+            },
+          ]}
+          options={{
+            chart: { stacked: false, toolbar: { show: true } },
+            plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
+            xaxis: { categories: chartsData.partnerDistribution.map((item: any) => item.type) },
+            colors: ['#f472b6'],
+            dataLabels: { enabled: true },
+            tooltip: { y: { formatter: (val: number) => `${val} partners` } },
+          }}
+          height={250}
+        />
       </Card>
     </div>
   );

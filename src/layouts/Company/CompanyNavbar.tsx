@@ -97,6 +97,12 @@ const defaultItems: Item[] = [
   },
   { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
   { key: 'member-detail', label: 'Member Detail', to: '/company/members/:Id', icon: 'users' },
+  {
+    key: 'subscription',
+    label: 'Subscription',
+    to: '/company/:companyId/subscription',
+    icon: 'doc',
+  },
 ];
 
 export default function CompanyNavbar({

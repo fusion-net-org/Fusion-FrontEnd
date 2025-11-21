@@ -8,10 +8,11 @@ import { useParams } from 'react-router-dom';
 import type { ITask } from '@/interfaces/Task/task';
 import { getUserById } from '@/services/userService.js';
 import { DatePicker, Input, Select } from 'antd';
-import { Pagination, Stack } from '@mui/material';
+import { useDebounce } from '@/hook/Debounce';
+import { Paging } from '@/components/Paging/Paging'; // import Paging
+
 const { RangePicker } = DatePicker;
 const { Option } = Select;
-import { useDebounce } from '@/hook/Debounce';
 
 const SprintTab: React.FC = () => {
   const { projectId } = useParams();
@@ -24,9 +25,13 @@ const SprintTab: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [dateRange, setDateRange] = useState<any | null>(null);
   const debouncedSearch = useDebounce(search, 500);
-  const [sprintPage, setSprintPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const pageSize = 10;
+
+  // Paging state
+  const [pagination, setPagination] = useState({
+    pageNumber: 1,
+    pageSize: 10,
+    totalCount: 0,
+  });
 
   useEffect(() => {
     const fetchSprints = async () => {
@@ -43,38 +48,15 @@ const SprintTab: React.FC = () => {
 
   const handleSelectSprint = async (sprint: ISprint) => {
     setSelectedSprint(sprint);
-    setSprintPage(1);
-    try {
-      const response = await GetTaskBySprintId(sprint.id);
-      const tasksData = response.data.items;
-      setTasks(tasksData);
-
-      const namesMap: Record<string, string[]> = {};
-
-      await Promise.all(
-        tasksData.map(async (task: ITask) => {
-          const names = await Promise.all(
-            task.assigneeIds.map(async (userId: string) => {
-              try {
-                const userResponse = await getUserById(userId);
-                return userResponse.data.userName;
-              } catch {
-                return 'Unknown';
-              }
-            }),
-          );
-          namesMap[task.id] = names;
-        }),
-      );
-
-      setAssigneeNames(namesMap);
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-      setTasks([]);
-      setAssigneeNames({});
-    }
+    setPagination((prev) => ({ ...prev, pageNumber: 1 }));
+    await fetchTasks(sprint.id, 1, pagination.pageSize);
   };
-  const fetchTasks = async (sprintId: string) => {
+
+  const fetchTasks = async (
+    sprintId: string,
+    pageNumber: number = pagination.pageNumber,
+    pageSize: number = pagination.pageSize,
+  ) => {
     try {
       const response = await GetTaskBySprintId(
         sprintId,
@@ -83,7 +65,7 @@ const SprintTab: React.FC = () => {
         priorityFilter === 'All' ? '' : priorityFilter,
         dateRange?.[0] ? dateRange[0].format('YYYY-MM-DD') : '',
         dateRange?.[1] ? dateRange[1].format('YYYY-MM-DD') : '',
-        sprintPage,
+        pageNumber,
         pageSize,
         '',
         null,
@@ -91,9 +73,6 @@ const SprintTab: React.FC = () => {
 
       const tasksData = response.data.items;
       setTasks(tasksData);
-
-      const calculatedPages = Math.ceil((response.data.totalCount || 0) / pageSize);
-      setTotalPages(calculatedPages);
 
       const namesMap: Record<string, string[]> = {};
       await Promise.all(
@@ -112,16 +91,24 @@ const SprintTab: React.FC = () => {
         }),
       );
       setAssigneeNames(namesMap);
+
+      // Update total count for paging
+      setPagination((prev) => ({
+        ...prev,
+        totalCount: response.data.totalCount || 0,
+      }));
     } catch (err) {
       console.error(err);
       setTasks([]);
     }
   };
+
   useEffect(() => {
     if (selectedSprint) {
-      fetchTasks(selectedSprint.id);
+      setPagination((prev) => ({ ...prev, pageNumber: 1 }));
+      fetchTasks(selectedSprint.id, 1, pagination.pageSize);
     }
-  }, [debouncedSearch, statusFilter, priorityFilter, dateRange, sprintPage]);
+  }, [debouncedSearch, statusFilter, priorityFilter, dateRange]);
 
   return (
     <div className="space-y-6">
@@ -149,32 +136,38 @@ const SprintTab: React.FC = () => {
         </select>
       </div>
 
-      {/* Search, Date Range, Status, Priority */}
+      {/* Filters */}
       <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 mb-4">
-        <div className="flex-1">
+        <div className="flex flex-col flex-1 min-w-[200px]">
+          <label className="text-gray-700 text-sm mb-1">Search Title Task</label>
           <Input
             placeholder="Search Title Task..."
             onChange={(e) => setSearch(e.target.value)}
             className="w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
-        <div className="flex gap-2 items-center">
-          <label className="text-gray-700 text-sm">Date Range:</label>
+
+        <div className="flex flex-col min-w-[220px]">
+          <label className="text-gray-700 text-sm mb-1">Date Range</label>
           <RangePicker
-            className="border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             onChange={(dates) => setDateRange(dates)}
           />
         </div>
-        <div className="flex gap-2 items-center">
-          <label className="text-gray-700 text-sm">Status:</label>
-          <Select defaultValue="All" className="w-32" onChange={(v) => setStatusFilter(v)}>
+
+        <div className="flex flex-col min-w-[140px]">
+          <label className="text-gray-700 text-sm mb-1">Status</label>
+          <Select defaultValue="All" className="w-full" onChange={(v) => setStatusFilter(v)}>
             <Option value="All">All</Option>
             <Option value="Done">Done</Option>
             <Option value="In Progress">In Progress</Option>
             <Option value="Review">Review</Option>
           </Select>
-          <label className="text-gray-700 text-sm">Priority:</label>
-          <Select defaultValue="All" className="w-32" onChange={(v) => setPriorityFilter(v)}>
+        </div>
+
+        <div className="flex flex-col min-w-[140px]">
+          <label className="text-gray-700 text-sm mb-1">Priority</label>
+          <Select defaultValue="All" className="w-full" onChange={(v) => setPriorityFilter(v)}>
             <Option value="All">All</Option>
             <Option value="High">High</Option>
             <Option value="Medium">Medium</Option>
@@ -222,8 +215,9 @@ const SprintTab: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-3 text-gray-600">
-                      {(assigneeNames[task.id] || []).join(', ')}
+                      {assigneeNames[task.id]?.length ? assigneeNames[task.id].join(', ') : 'None'}
                     </td>
+
                     <td className="px-6 py-3 text-center text-gray-500">
                       {new Date(task.createAt).toLocaleDateString()}
                     </td>
@@ -273,16 +267,17 @@ const SprintTab: React.FC = () => {
             </table>
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <Stack spacing={2}>
-              {totalPages > 1 && (
-                <Pagination
-                  count={totalPages}
-                  page={sprintPage}
-                  onChange={(_, value) => setSprintPage(value)}
-                />
-              )}
-            </Stack>
+          {/* Paging */}
+          <div className="mt-4">
+            <Paging
+              page={pagination.pageNumber}
+              pageSize={pagination.pageSize}
+              totalCount={pagination.totalCount}
+              onPageChange={(page) => setPagination((prev) => ({ ...prev, pageNumber: page }))}
+              onPageSizeChange={(size) =>
+                setPagination((prev) => ({ ...prev, pageSize: size, pageNumber: 1 }))
+              }
+            />
           </div>
         </div>
       )}
