@@ -8,7 +8,7 @@ import type { ITicketResponse, ITicket } from '@/interfaces/Ticket/Ticket';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
-import { Paging } from '@/components/Paging/Paging'; // dùng paging custom
+import { Paging } from '@/components/Paging/Paging';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -102,34 +102,48 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
           <MessageSquare className="text-indigo-500 w-5 h-5" /> Project Tickets
         </h2>
 
-        <div className="flex flex-wrap justify-between items-center gap-3">
-          <Input
-            prefix={<Search size={20} />}
-            placeholder="Search by ticket title..."
-            value={ticketSearch}
-            onChange={(e) => setTicketSearch(e.target.value)}
-            className="flex-1 min-w-[200px] max-w-[300px]"
-          />
-
-          <div className="flex items-center gap-2">
-            <Select
-              value={ticketPriority || 'All'}
-              onChange={(val) => setTicketPriority(val === 'All' ? '' : val)}
-              placeholder="Select priority"
-              className="min-w-[120px]"
-            >
-              <Option value="All">All</Option>
-              <Option value="High">High</Option>
-              <Option value="Medium">Medium</Option>
-              <Option value="Low">Low</Option>
-            </Select>
-
-            <RangePicker
-              onChange={(val) => setTicketRange(val)}
-              placeholder={['Create From', 'Create To']}
-              className="min-w-[220px]"
+        <div className="flex flex-wrap justify-between items-end gap-3">
+          {/* LEFT — Search */}
+          <div className="flex flex-col flex-1 max-w-[300px]">
+            <label className="text-sm font-semibold text-gray-600 mb-1">Search</label>
+            <Input
+              prefix={<Search size={20} />}
+              placeholder="Search by ticket title..."
+              value={ticketSearch}
+              onChange={(e) => setTicketSearch(e.target.value)}
+              className="w-full"
             />
+          </div>
 
+          {/* RIGHT — Filters */}
+          <div className="flex flex-wrap items-end gap-2">
+            {/* Priority */}
+            <div className="flex flex-col min-w-[120px]">
+              <label className="text-sm font-semibold text-gray-600 mb-1">Priority</label>
+              <Select
+                value={ticketPriority || 'All'}
+                onChange={(val) => setTicketPriority(val === 'All' ? '' : val)}
+                placeholder="Select priority"
+                className="w-full"
+              >
+                <Option value="All">All</Option>
+                <Option value="High">High</Option>
+                <Option value="Medium">Medium</Option>
+                <Option value="Low">Low</Option>
+              </Select>
+            </div>
+
+            {/* Date Range */}
+            <div className="flex flex-col min-w-[220px]">
+              <label className="text-sm font-semibold text-gray-600 mb-1">Created Date</label>
+              <RangePicker
+                onChange={(val) => setTicketRange(val)}
+                placeholder={['Create From', 'Create To']}
+                className="w-full"
+              />
+            </div>
+
+            {/* Create Ticket Button */}
             <button
               onClick={() => setShowCreatePopup(true)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-full shadow-md transition"
