@@ -298,30 +298,30 @@ const CompanyDetails: React.FC = () => {
               </div>
             </div>
           </div>
-
           {/* Projects Info */}
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6">
             <div className="flex items-center gap-2 mb-4">
               <Contact className="w-5 h-5 text-gray-500" />
               <h2 className="text-lg font-semibold text-gray-800 mb-auto">Projects Information</h2>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: 'Total Member', value: company?.totalMember, icon: UserIcon },
-                { label: 'Total Project', value: company?.totalProject, icon: Folder },
-                { label: 'Total Partner', value: company?.totalPartners, icon: Handshake },
-                { label: 'Total Approved', value: company?.totalApproved, icon: CheckCircle },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col items-center justify-center bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition"
-                >
-                  <item.icon className="w-6 h-6 text-blue-500 mb-1" />
-                  <p className="text-sm text-gray-500">{item.label}</p>
-                  <p className="text-xl font-bold text-gray-800">{item.value}</p>
-                </div>
-              ))}
-            </div>
+            <Card className="bg-white-500 p-0 rounded-xl border-none">
+              <Chart
+                type="donut"
+                height={300}
+                series={[
+                  company?.totalMember ?? 0,
+                  company?.totalProject ?? 0,
+                  company?.totalPartners ?? 0,
+                  company?.totalApproved ?? 0,
+                ]}
+                options={{
+                  labels: ['Members', 'Projects', 'Partners', 'Approved'],
+                  colors: ['#3B82F6', '#10B981', '#F59E0B', '#6366F1'],
+                  legend: { position: 'bottom' },
+                  dataLabels: { enabled: true },
+                }}
+              />
+            </Card>
           </div>
 
           {/* ===Dashboard === */}

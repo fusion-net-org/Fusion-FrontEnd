@@ -188,18 +188,15 @@ const Company: React.FC = () => {
                 key={relation}
                 onClick={() => handleFilterRelationship(relation)}
                 className={`
-          relative px-5 py-1.5 rounded-full text-sm font-medium transition-all
-          ${
-            filterRelationship === relation
-              ? 'bg-blue-600 text-white shadow-lg'
-              : 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 hover:text-blue-700'
-          }
-        `}
+    relative px-5 py-1.5 rounded-full text-sm font-medium transition-all
+    ${
+      filterRelationship === relation
+        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-300/30'
+        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+    }
+  `}
               >
                 {relation}
-                {filterRelationship === relation && (
-                  <span className="absolute bottom-0 left-1/2 w-6 h-0.5 bg-white rounded-full transform -translate-x-1/2"></span>
-                )}
               </button>
             ))}
           </div>

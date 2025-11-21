@@ -569,9 +569,15 @@ export default function CreateProjectModal({
       setCompanyLabel('(Error loading company)');
     }
   };
+  // React.useEffect(() => {
+  //   fetchGetCompanyByIdFromProjectRequest();
+  // });
   React.useEffect(() => {
-    fetchGetCompanyByIdFromProjectRequest();
-  });
+    if (companyId) {
+      fetchGetCompanyByIdFromProjectRequest();
+    }
+  }, [companyId]);
+
   // Lấy tên company khi mở modal / đổi companyId
   React.useEffect(() => {
     let alive = true;
@@ -617,6 +623,7 @@ export default function CreateProjectModal({
         companyId: defaultValues.companyId ?? prev.companyId,
         companyRequestId: defaultValues.companyRequestId ?? prev.companyRequestId,
         projectRequestId: defaultValues.projectRequestId ?? prev.projectRequestId,
+        isHired: defaultValues.isHire ?? prev.isHired,
         // companyHiredId: defaultValues.companyHiredId ?? prev.companyHiredId,
         code: defaultValues.code ?? prev.code,
         name: defaultValues.name ?? prev.name,
@@ -783,17 +790,17 @@ export default function CreateProjectModal({
 
         // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-         const res = await createProject(payloadToPost);
+        // const res = await createProject(payloadToPost);
 
-    // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
-    if (onSubmit) {
-      await onSubmit(payloadToPost);
-    }
+        // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
+        if (onSubmit) {
+          await onSubmit(payloadToPost);
+        }
 
         onClose(); // đóng modal sau khi tạo thành công
       } catch (err: any) {
         console.error('Create project failed:', err);
-         toast.error(err?.response?.data?.message || err.message || "Create project failed");
+        toast.error(err?.response?.data?.message || err.message || 'Create project failed');
       } finally {
         setSaving(false);
       }
