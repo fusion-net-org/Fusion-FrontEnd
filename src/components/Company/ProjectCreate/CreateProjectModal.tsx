@@ -688,13 +688,16 @@ export default function CreateProjectModal({
       console.error("Error fetching company:", err);
     }
   };
-
+  // React.useEffect(() => {
+  //   fetchGetCompanyByIdFromProjectRequest();
+  // });
   React.useEffect(() => {
-    fetchGetCompanyByIdFromProjectRequest();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (companyId) {
+      fetchGetCompanyByIdFromProjectRequest();
+    }
+  }, [companyId]);
 
-  // load company name (nếu cha không truyền)
+  // Lấy tên company khi mở modal / đổi companyId
   React.useEffect(() => {
     let alive = true;
 
@@ -723,7 +726,32 @@ export default function CreateProjectModal({
     };
   }, [companyId, canUseCompany, companyName]);
 
-  // members
+  // React.useEffect(() => {
+  //   document.body.style.overflow = open ? 'hidden' : '';
+  //   return () => {
+  //     document.body.style.overflow = '';
+  //   };
+  // }, [open]);
+
+  React.useEffect(() => {
+    if (defaultValues) {
+      setForm((prev) => ({
+        ...prev,
+        companyId: defaultValues.companyId ?? prev.companyId,
+        companyRequestId: defaultValues.companyRequestId ?? prev.companyRequestId,
+        projectRequestId: defaultValues.projectRequestId ?? prev.projectRequestId,
+        isHired: defaultValues.isHire ?? prev.isHired,
+        // companyHiredId: defaultValues.companyHiredId ?? prev.companyHiredId,
+        code: defaultValues.code ?? prev.code,
+        name: defaultValues.name ?? prev.name,
+        description: defaultValues.description ?? prev.description,
+        startDate: defaultValues.startDate ?? prev.startDate,
+        endDate: defaultValues.endDate ?? prev.endDate,
+      }));
+    }
+  }, [defaultValues]);
+
+  // mock people
   const [people, setPeople] = React.useState<Option[]>([]);
   const [members, setMembers] = React.useState<any[]>([]);
   const [loadingMembers, setLoadingMembers] = React.useState(false);
@@ -989,22 +1017,19 @@ export default function CreateProjectModal({
         delete payloadToPost.workflowMode;
         delete payloadToPost.workflowName;
 
-        // === Commit: tạo project ===
-        const res = await createProject(payloadToPost);
+        // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-        // callback từ cha (nếu có)
+        // const res = await createProject(payloadToPost);
+
+        // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
         if (onSubmit) {
           await onSubmit(payloadToPost);
         }
 
         onClose();
       } catch (err: any) {
-        console.error("Create project failed:", err);
-        toast.error(
-          err?.response?.data?.message ||
-          err.message ||
-          "Create project failed"
-        );
+        console.error('Create project failed:', err);
+        toast.error(err?.response?.data?.message || err.message || 'Create project failed');
       } finally {
         setSaving(false);
       }
