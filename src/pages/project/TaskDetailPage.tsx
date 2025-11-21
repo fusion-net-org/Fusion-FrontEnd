@@ -26,6 +26,8 @@ import {
   updateTaskChecklistItem,
   deleteTaskChecklistItem,
 } from "@/services/taskService.js";
+import { toast } from "react-toastify";
+import { getProjectMembersWithRole } from "@/services/projectMember.js";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -36,6 +38,15 @@ type CommentItem = {
   author: string;
   createdAt: string;
   message: string;
+};
+type ProjectMemberOption = {
+  id: string;
+  name: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+  roleName?: string | null; // role trong company
+  isPartner?: boolean;
+  isViewAll?: boolean;
 };
 
 type RoleAssignments = Record<string, string | null>;
@@ -204,6 +215,10 @@ function TicketDetailLayout({
   const [newComment, setNewComment] = useState("");
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>({});
+  const [projectMembers, setProjectMembers] = useState<ProjectMemberOption[]>(
+    []
+  );
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   // trạng thái chọn trước khi apply
   const [draftStatusId, setDraftStatusId] = useState<string | null>(null);
@@ -225,31 +240,16 @@ function TicketDetailLayout({
     }
   }, [task]);
 
-  // ===== load detail thật từ /tasks/{id} =====
-// ===== load detail thật từ /tasks/{id} + checklist =====
-useEffect(() => {
-  let cancelled = false;
+  // ===== load tất cả members của project (để assign) =====
+  useEffect(() => {
+    if (!projectId) return;
 
-  async function loadDetail() {
-    try {
-      setLoadingDetail(true);
+    let cancelled = false;
 
-      // 1) Lấy chi tiết task
-      const raw = await getTaskById(task.id);
-      const dto: any = raw?.data ?? raw ?? {};
-
-      if (cancelled) return;
-
-      // 2) Lấy checklist thực tế
-      let checklistItems: ChecklistItem[] = [];
+    async function loadMembers() {
       try {
-        const res = await getTaskChecklist(task.id);
-
-        // res có thể là:
-        //  - mảng trực tiếp
-        //  - { data: [...] }
-        //  - { data: { items: [...] } }
-        //  - { checklist: [...] }
+        setLoadingMembers(true);
+        const res = await getProjectMembersWithRole(projectId);
         const payload: any = res?.data ?? res ?? [];
         let list: any[] = [];
 
@@ -257,41 +257,74 @@ useEffect(() => {
           list = payload;
         } else if (Array.isArray(payload.items)) {
           list = payload.items;
-        } else if (Array.isArray(payload.checklist)) {
-          list = payload.checklist;
         } else if (Array.isArray(payload.data)) {
-          // phòng trường hợp BE lồng thêm 1 lớp data nữa
           list = payload.data;
         }
 
-        checklistItems = list.map((x: any, idx: number) => ({
-          id: String(x.id ?? x.checklistItemId ?? idx),
-          label: String(
-            x.label ?? x.title ?? x.name ?? x.req ?? `Item ${idx + 1}`
-          ),
-          done: !!(x.done ?? x.completed ?? x.isDone),
-          orderIndex: x.orderIndex ?? idx,
-          createdAt: x.createdAt ?? null,
+        const mapped: ProjectMemberOption[] = list.map((x: any) => ({
+          id: String(x.userId ?? x.id),
+          name:
+            x.userName ??
+            x.fullName ??
+            x.name ??
+            x.email ??
+            "Unknown member",
+          email: x.email ?? null,
+          avatarUrl: x.avatarUrl ?? null,
+          roleName: x.companyRoleName ?? x.roleName ?? null,
+          isPartner: !!x.isPartner,
+          isViewAll: !!x.isViewAll,
         }));
+
+        if (!cancelled) {
+          setProjectMembers(mapped);
+        }
       } catch (err) {
-        console.warn(
-          "[TaskDetail] getTaskChecklist failed – fallback sang dto.checklist",
-          err
-        );
+        console.error("[TaskDetail] load project members failed", err);
+      } finally {
+        if (!cancelled) setLoadingMembers(false);
       }
+    }
 
-      // 3) Description
-      if (typeof dto.description === "string") {
-        setDescription(dto.description);
-      } else if (typeof dto.detail === "string") {
-        setDescription(dto.detail);
-      }
+    loadMembers();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
-      // 4) Nếu checklistItems vẫn rỗng, fallback sang dto.checklist cũ
-      if (!checklistItems.length) {
-        const clRaw = dto.checklistItems ?? dto.checklist ?? [];
-        if (Array.isArray(clRaw) && clRaw.length) {
-          checklistItems = clRaw.map((x: any, idx: number) => ({
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDetail() {
+      try {
+        setLoadingDetail(true);
+
+        // 1) Lấy chi tiết task
+        const raw = await getTaskById(task.id);
+        const dto: any = raw?.data ?? raw ?? {};
+
+        if (cancelled) return;
+
+        // 2) Lấy checklist thực tế
+        let checklistItems: ChecklistItem[] = [];
+        try {
+          const res = await getTaskChecklist(task.id);
+
+          const payload: any = res?.data ?? res ?? [];
+          let list: any[] = [];
+
+          if (Array.isArray(payload)) {
+            list = payload;
+          } else if (Array.isArray(payload.items)) {
+            list = payload.items;
+          } else if (Array.isArray(payload.checklist)) {
+            list = payload.checklist;
+          } else if (Array.isArray(payload.data)) {
+            // phòng trường hợp BE lồng thêm 1 lớp data nữa
+            list = payload.data;
+          }
+
+          checklistItems = list.map((x: any, idx: number) => ({
             id: String(x.id ?? x.checklistItemId ?? idx),
             label: String(
               x.label ?? x.title ?? x.name ?? x.req ?? `Item ${idx + 1}`
@@ -300,76 +333,138 @@ useEffect(() => {
             orderIndex: x.orderIndex ?? idx,
             createdAt: x.createdAt ?? null,
           }));
+        } catch (err) {
+          console.warn(
+            "[TaskDetail] getTaskChecklist failed – fallback sang dto.checklist",
+            err
+          );
         }
-      }
 
-      // không còn demo cứng, nếu không có thì để rỗng luôn
-      setChecklist(checklistItems);
+        // 3) Description
+        if (typeof dto.description === "string") {
+          setDescription(dto.description);
+        } else if (typeof dto.detail === "string") {
+          setDescription(dto.detail);
+        }
 
-      // 5) Comments / activity
-      const cmRaw = dto.comments ?? dto.activities ?? [];
-      if (Array.isArray(cmRaw) && cmRaw.length) {
-        setComments(
-          cmRaw.map((c: any, idx: number) => ({
-            id: String(c.id ?? idx),
-            author:
-              c.authorName ??
-              c.author ??
-              c.createdByName ??
-              task.assignees[0]?.name ??
-              "System",
-            createdAt:
-              c.createdAt ??
-              c.time ??
-              c.created_at ??
-              new Date().toISOString(),
-            message: String(c.message ?? c.content ?? ""),
-          }))
-        );
-      } else {
-        setComments([
-          {
-            id: "c1",
-            author: task.assignees[0]?.name || "System",
-            createdAt: task.createdAt,
-            message: `Ticket created with status "${
-              task.StatusName || task.statusCode
-            }"`,
-          },
-          {
-            id: "c2",
-            author: task.assignees[0]?.name || "System",
-            createdAt: task.updatedAt,
-            message: `Last updated – status "${
-              task.StatusName || task.statusCode
-            }"`,
-          },
-        ]);
-      }
+        // 4) Nếu checklistItems vẫn rỗng, fallback sang dto.checklist cũ
+        if (!checklistItems.length) {
+          const clRaw = dto.checklistItems ?? dto.checklist ?? [];
+          if (Array.isArray(clRaw) && clRaw.length) {
+            checklistItems = clRaw.map((x: any, idx: number) => ({
+              id: String(x.id ?? x.checklistItemId ?? idx),
+              label: String(
+                x.label ?? x.title ?? x.name ?? x.req ?? `Item ${idx + 1}`
+              ),
+              done: !!(x.done ?? x.completed ?? x.isDone),
+              orderIndex: x.orderIndex ?? idx,
+              createdAt: x.createdAt ?? null,
+            }));
+          }
+        }
 
-      // 6) Role assignments
-      if (dto.roleAssignments && typeof dto.roleAssignments === "object") {
-        setRoleAssignments(dto.roleAssignments as RoleAssignments);
+        // không còn demo cứng, nếu không có thì để rỗng luôn
+        setChecklist(checklistItems);
+
+        // 5) Comments / activity
+        const cmRaw = dto.comments ?? dto.activities ?? [];
+        if (Array.isArray(cmRaw) && cmRaw.length) {
+          setComments(
+            cmRaw.map((c: any, idx: number) => ({
+              id: String(c.id ?? idx),
+              author:
+                c.authorName ??
+                c.author ??
+                c.createdByName ??
+                task.assignees[0]?.name ??
+                "System",
+              createdAt:
+                c.createdAt ??
+                c.time ??
+                c.created_at ??
+                new Date().toISOString(),
+              message: String(c.message ?? c.content ?? ""),
+            }))
+          );
+        } else {
+          setComments([
+            {
+              id: "c1",
+              author: task.assignees[0]?.name || "System",
+              createdAt: task.createdAt,
+              message: `Ticket created with status "${
+                (task as any).StatusName || task.statusCode
+              }"`,
+            },
+            {
+              id: "c2",
+              author: task.assignees[0]?.name || "System",
+              createdAt: task.updatedAt,
+              message: `Last updated – status "${
+                (task as any).StatusName || task.statusCode
+              }"`,
+            },
+          ]);
+        }
+
+        // 6) Workflow assignments -> RoleAssignments
+        if (dto.workflowAssignments && sprint && sprint.statusMeta) {
+          const wf = dto.workflowAssignments;
+          const items: any[] = Array.isArray(wf.items) ? wf.items : [];
+          const map: RoleAssignments = {};
+
+          items.forEach((it: any) => {
+            const statusId = String(
+              it.workflowStatusId || it.statusId || ""
+            );
+            if (!statusId) return;
+
+            const meta: any = sprint.statusMeta[statusId];
+            if (!meta) return;
+
+            const roles: string[] = Array.isArray(meta.roles)
+              ? meta.roles
+              : [];
+            if (!roles.length) return;
+
+            const uid = it.assignUserId ? String(it.assignUserId) : null;
+            if (!uid) return;
+
+            roles.forEach((rk) => {
+              if (!rk) return;
+              // role nào chưa có thì gán user đầu tiên gặp
+              if (!map[rk]) {
+                map[rk] = uid;
+              }
+            });
+          });
+
+          setRoleAssignments(map);
+        } else if (
+          dto.roleAssignments &&
+          typeof dto.roleAssignments === "object"
+        ) {
+          // fallback cho dữ liệu cũ nếu BE vẫn còn trả roleAssignments
+          setRoleAssignments(dto.roleAssignments as RoleAssignments);
+        }
+      } catch (err) {
+        console.error("[TaskDetail] load detail failed", err);
+      } finally {
+        if (!cancelled) setLoadingDetail(false);
       }
-    } catch (err) {
-      console.error("[TaskDetail] load detail failed", err);
-    } finally {
-      if (!cancelled) setLoadingDetail(false);
     }
-  }
 
-  loadDetail();
-  return () => {
-    cancelled = true;
-  };
-}, [task.id, task.assignees, task.createdAt, task.updatedAt]);
-
-
+    loadDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [task.id, task.assignees, task.createdAt, task.updatedAt, sprint]);
 
   /* ===== derived data ===== */
 
   const statusList =
-    sprint.statusOrder.map((id) => sprint.statusMeta[id]).filter(Boolean) ?? [];
+    sprint.statusOrder.map((id) => sprint.statusMeta[id]).filter(Boolean) ??
+    [];
 
   const activeStatusId = model.workflowStatusId;
   const activeMeta = sprint.statusMeta[activeStatusId];
@@ -542,7 +637,7 @@ useEffect(() => {
     try {
       if (id.startsWith("local-")) {
         // item mới -> gọi create
-        const res = await createTaskChecklistItem(model.id,  label );
+        const res = await createTaskChecklistItem(model.id, label);
         const dto: any = res?.data ?? res ?? {};
         const realId =
           dto.id ?? dto.checklistId ?? dto.itemId ?? dto.checklistItemId;
@@ -568,9 +663,7 @@ useEffect(() => {
   // toggle done: update local + gọi API toggle
   async function toggleChecklist(id: string) {
     setChecklist((prev) =>
-      prev.map((i) =>
-        i.id === id ? { ...i, done: !i.done } : i
-      )
+      prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i))
     );
     try {
       // item mới local chưa save thì không gọi API
@@ -581,9 +674,7 @@ useEffect(() => {
       console.error("[TaskDetail] toggle checklist failed", err);
       // rollback nếu cần
       setChecklist((prev) =>
-        prev.map((i) =>
-          i.id === id ? { ...i, done: !i.done } : i
-        )
+        prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i))
       );
     }
   }
@@ -630,6 +721,42 @@ useEffect(() => {
 
   async function handleSave() {
     try {
+      // build workflowAssignments từ roleAssignments + sprint.statusMeta
+      let workflowAssignments: any[] | undefined = undefined;
+
+      if (sprint && sprint.statusOrder && sprint.statusMeta) {
+        const items: any[] = [];
+
+        (sprint.statusOrder || []).forEach((statusId) => {
+          const meta: any = sprint.statusMeta[statusId];
+          if (!meta) return;
+
+          const roles: string[] = Array.isArray(meta.roles)
+            ? meta.roles
+            : [];
+
+          // tìm user đầu tiên được gán cho bất kỳ role nào của status này
+          let assignUserId: string | null = null;
+          for (const rk of roles) {
+            const uid = roleAssignments[rk];
+            if (uid) {
+              assignUserId = uid;
+              break;
+            }
+          }
+
+          // chỉ quan tâm các status có roles
+          if (roles.length > 0) {
+            items.push({
+              workflowStatusId: statusId,
+              assignUserId, // null => unassign trên BE
+            });
+          }
+        });
+
+        workflowAssignments = items;
+      }
+
       const payload: any = {
         title: model.title?.trim(),
         type: model.type,
@@ -646,21 +773,22 @@ useEffect(() => {
         sourceTaskId:
           (model as any).sourceTaskId ?? model.sourceTicketId ?? null,
         description,
-        // roleAssignments cho TẤT CẢ roles
-        roleAssignments: Object.fromEntries(
-          Object.entries(roleAssignments).filter(([, v]) => v)
-        ),
       };
+
+      if (workflowAssignments && workflowAssignments.length) {
+        payload.workflowAssignments = workflowAssignments;
+      }
 
       const raw = await putTask(model.id, payload);
       const dto: any = raw?.data ?? raw ?? {};
       if (dto && dto.id) {
-        // nếu cần, bạn có thể refresh lại model từ dto
+        // optional: sync lại model nếu cần
       }
-      alert("Ticket saved successfully.");
+      console.log(payload)
+      toast.success("Ticket saved successfully.");
     } catch (err: any) {
       console.error("[TaskDetail] save failed", err);
-      alert(err?.message || "Save failed");
+      toast.error(err?.message || "Save failed");
     }
   }
 
@@ -786,9 +914,7 @@ useEffect(() => {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setStatusPickerOpen((prev) => !prev)
-                    }
+                    onClick={() => setStatusPickerOpen((prev) => !prev)}
                     className="h-8 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                   >
                     {statusPickerOpen ? "Hide steps" : "View all steps"}
@@ -1145,27 +1271,31 @@ useEffect(() => {
 
             {/* Assignee */}
             <Field label="Assignee">
-              <select
-                className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
-                value={primaryAssignee?.id ?? ""}
-                onChange={(e) => {
-                  const id = e.target.value;
+              <UserAssignDropdown
+                users={projectMembers}
+                value={primaryAssignee?.id ?? null}
+                onChange={(id) => {
                   if (!id) {
                     updateField("assignees", []);
                     return;
                   }
-                  const found =
-                    model.assignees.find((a) => a.id === id) || primaryAssignee;
-                  updateField("assignees", found ? [found] : []);
+                  const u = projectMembers.find((m) => m.id === id);
+                  if (!u) return;
+
+                  const mem: MemberRef = {
+                    id: u.id,
+                    name: u.name,
+                    // 2 field dưới tuỳ định nghĩa MemberRef của bạn, có thể bỏ nếu không có
+                    avatarUrl: u.avatarUrl,
+                    email: u.email,
+                  } as any;
+
+                  updateField("assignees", [mem]);
                 }}
-              >
-                <option value="">Unassigned</option>
-                {model.assignees.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+                placeholder={
+                  loadingMembers ? "Loading members…" : "Unassigned"
+                }
+              />
             </Field>
 
             {/* Workflow roles – show TẤT CẢ roles của workflow */}
@@ -1178,7 +1308,7 @@ useEffect(() => {
                   {workflowRoles.map((role) => {
                     const assignedId = roleAssignments[role.key] ?? null;
                     const assignedMember = assignedId
-                      ? model.assignees.find((m) => m.id === assignedId)
+                      ? projectMembers.find((m) => m.id === assignedId)
                       : undefined;
 
                     return (
@@ -1218,28 +1348,25 @@ useEffect(() => {
                             </div>
                           </div>
 
-                          <div className="w-[150px] shrink-0 text-right">
+                          <div className="w-[180px] shrink-0 text-right">
                             {role.editable ? (
-                              <select
-                                className="h-8 w-full rounded-xl border border-slate-300 px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
-                                value={assignedId ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value || null;
+                              <UserAssignDropdown
+                                users={projectMembers}
+                                value={assignedId}
+                                onChange={(val) => {
                                   setRoleAssignments((prev) => ({
                                     ...prev,
                                     [role.key]: val,
                                   }));
                                 }}
-                              >
-                                <option value="">Unassigned</option>
-                                {model.assignees.map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.name}
-                                  </option>
-                                ))}
-                              </select>
+                                placeholder={
+                                  loadingMembers
+                                    ? "Loading members…"
+                                    : "Unassigned"
+                                }
+                              />
                             ) : (
-                              <div className="text-[11px] text-slate-500">
+                              <div className="text-[11px] text-slate-500 text-left">
                                 <div className="font-medium text-slate-700 truncate">
                                   {assignedMember?.name ||
                                     "Auto-assigned at start"}
@@ -1464,4 +1591,155 @@ function categoryChipClasses(category?: string) {
   if (c === "DONE")
     return "bg-emerald-50 border-emerald-200 text-emerald-700";
   return "bg-slate-50 border-slate-200 text-slate-600";
+}
+
+function UserAssignDropdown({
+  users,
+  value,
+  onChange,
+  placeholder = "Unassigned",
+}: {
+  users: ProjectMemberOption[];
+  value: string | null;
+  onChange: (id: string | null) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const selected = useMemo(
+    () => users.find((u) => u.id === value) || null,
+    [users, value]
+  );
+
+  const filtered = useMemo(() => {
+    const kw = search.trim().toLowerCase();
+    if (!kw) return users;
+    return users.filter((u) => {
+      const haystack =
+        (u.name || "") + " " + (u.email || "") + " " + (u.roleName || "");
+      return haystack.toLowerCase().includes(kw);
+    });
+  }, [users, search]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "h-9 w-full rounded-xl border border-slate-300 px-3 text-sm bg-white flex items-center justify-between gap-2",
+          "hover:border-blue-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+        )}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-medium text-slate-600 overflow-hidden">
+            {selected?.avatarUrl ? (
+              <img
+                src={selected.avatarUrl}
+                alt={selected.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (selected?.name?.[0] || "?").toUpperCase()
+            )}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-xs font-medium text-slate-800 truncate">
+              {selected?.name || placeholder}
+            </div>
+            <div className="text-[10px] text-slate-500 truncate">
+              {selected?.roleName || selected?.email || ""}
+            </div>
+          </div>
+        </div>
+        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <input
+              className="w-full h-8 rounded-xl border border-slate-200 px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              placeholder="Search member by name, email, role…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1">
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className={cn(
+                "w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-left text-xs",
+                !value
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-700 hover:bg-slate-50"
+              )}
+            >
+              <div className="w-7 h-7 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-[11px]">
+                —
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">Unassigned</div>
+                <div className="text-[10px] text-slate-400 truncate">
+                  No primary owner
+                </div>
+              </div>
+            </button>
+
+            {filtered.map((u) => {
+              const isActive = value === u.id;
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(u.id);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-left",
+                    isActive
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-slate-700 hover:bg-slate-50"
+                  )}
+                >
+                  <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-medium text-slate-600 overflow-hidden">
+                    {u.avatarUrl ? (
+                      <img
+                        src={u.avatarUrl}
+                        alt={u.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (u.name[0] || "?").toUpperCase()
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">
+                      {u.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500 truncate">
+                      {u.roleName || u.email || "Member"}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+
+            {filtered.length === 0 && (
+              <div className="px-2 py-2 text-[11px] text-slate-400">
+                No members found.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

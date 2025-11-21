@@ -22,9 +22,11 @@ import {
 import {
   GetProjectByProjectId,
   getCompanyMembersPaged,
- assignMemberToProject,
- removeMemberFromProject,
 } from "@/services/projectService.js";
+import {
+  addProjectMember,
+  removeProjectMember,
+} from "@/services/projectMember.js";
 import { getProjectMemberByProjectId } from "@/services/projectMember.js"; 
 
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
@@ -434,64 +436,69 @@ React.useEffect(() => {
     );
   }, [project, memberSearch]);
 
-    const handleRemoveMember = async (userId: string) => {
-    if (!project) return;
+const handleRemoveMember = async (userId: string) => {
+  if (!project) return;
+  const removed = project.members.find((m) => m.userId === userId);
+  if (!removed) return;
 
-    const removed = project.members.find((m) => m.userId === userId);
-    if (!removed) return;
+  const prevProject = project;
+  const prevAvailable = availableMembers;
 
-    // Optimistic UI
-    setProject({
-      ...project,
-      members: project.members.filter((m) => m.userId !== userId),
-    });
+  // Optimistic UI
+  setProject({
+    ...project,
+    members: project.members.filter((m) => m.userId !== userId),
+  });
+  setAvailableMembers((prev) => [
+    ...prev,
+    { ...removed, joinedAt: null }, // trả về pool
+  ]);
 
-    // người bị kick sẽ quay lại pool assign
-    setAvailableMembers((prev) => [
-      ...prev,
-      {
-        ...removed,
-        joinedAt: null, // trong pool không cần joinedAt
-        isPartner: false,
-        isViewAll: false,
-      },
-    ]);
+  try {
+    await removeProjectMember(project.id, userId);
+  } catch (err) {
+    console.error("Remove project member failed", err);
+    // rollback nếu lỗi
+    setProject(prevProject);
+    setAvailableMembers(prevAvailable);
+  }
+};
 
-    try {
-      await removeMemberFromProject(project.id, userId);
-    } catch (err) {
-      console.error("Remove member failed", err);
-      alert("Remove member failed, please try again.");
-      // option: reload lại toàn bộ members nếu muốn chắc chắn
-    }
+const handleAddMember = async (m: ProjectMemberVm) => {
+  if (!project) return;
+  if (project.members.some((x) => x.userId === m.userId)) return;
+
+  const prevProject = project;
+  const prevAvailable = availableMembers;
+
+  const newMember: ProjectMemberVm = {
+    ...m,
+    joinedAt: new Date().toISOString(),
   };
 
+  // Optimistic UI
+  setProject({
+    ...project,
+    members: [...project.members, newMember],
+  });
+  setAvailableMembers((prev) => prev.filter((x) => x.userId !== m.userId));
 
-    const handleAddMember = async (m: ProjectMemberVm) => {
-    if (!project) return;
-    if (project.members.some((x) => x.userId === m.userId)) return;
-
-    // Optimistic UI
-    setProject({
-      ...project,
-      members: [
-        ...project.members,
-        {
-          ...m,
-          joinedAt: new Date().toISOString(),
-        },
-      ],
+  try {
+    await addProjectMember({
+      projectId: project.id,
+      companyId: project.companyId,
+      userId: m.userId,
+      isPartner: m.isPartner ?? false,
+      isViewAll: m.isViewAll ?? false,
     });
-    setAvailableMembers((prev) => prev.filter((x) => x.userId !== m.userId));
+  } catch (err) {
+    console.error("Add project member failed", err);
+    // rollback nếu lỗi
+    setProject(prevProject);
+    setAvailableMembers(prevAvailable);
+  }
+};
 
-    try {
-      await assignMemberToProject(project.id, m.userId, project.companyId);
-    } catch (err) {
-      console.error("Assign member failed", err);
-      alert("Assign member failed, please try again.");
-      // option: reload lại members/pool nếu cần
-    }
-  };
 
 
   if (loading || !project) {
