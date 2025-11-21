@@ -298,7 +298,8 @@ export default function TaskCard({
           "text-blue-600 underline decoration-blue-400 underline-offset-[3px]",
           "hover:text-blue-700 hover:decoration-blue-600 focus:outline-none"
         )}
-        onClick={() => onOpenTicket?.(t.id)}
+        onClick={() => {
+          onOpenTicket?.(t.id)}}
       >
         {t.title}
       </button>

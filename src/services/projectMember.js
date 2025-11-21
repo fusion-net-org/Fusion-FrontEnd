@@ -32,6 +32,32 @@ export const getProjectMemberByCompanyIdAndUserId = async (
     throw new Error(error.response?.data?.message || 'Fail!');
   }
 };
+export async function addProjectMember({
+  projectId,
+  companyId,
+  userId,
+  isPartner = false,
+  isViewAll = false,
+}) {
+  const payload = { projectId, companyId, userId, isPartner, isViewAll };
+  const { data } = await axiosInstance.post("/projectmember", payload);
+  return data?.data ?? data;
+}
+
+export async function removeProjectMember(projectId, userId) {
+  const { data } = await axiosInstance.delete(
+    `/projectmember/project/${projectId}/member/${userId}`,
+  );
+  return data?.data ?? data;
+}
+
+export async function getProjectMembersWithRole(projectId) {
+  const res = await axiosInstance.get(
+    `/projectmember/project/${projectId}/members-with-role`
+  );
+
+  return res.data?.data ?? [];
+}
 
 export const getProjectMemberByProjectId = async (
   projectId,

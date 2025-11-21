@@ -1,4 +1,3 @@
-// src/mappers/projectBoardMapper.ts
 import type { SprintVm, TaskVm, MemberRef } from "@/types/projectBoard";
 
 /* ===========================================================
@@ -37,25 +36,96 @@ const inferCategory = (codeOrName: string): TaskVm["statusCategory"] => {
   return "TODO";
 };
 
+// Parse roles từ m.roles hoặc m.rolesJson (JSON string / comma)
+const parseRoles = (raw: any): string[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map((x) => String(x).trim())
+      .filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const txt = raw.trim();
+    if (!txt) return [];
+    // ưu tiên JSON
+    try {
+      const arr = JSON.parse(txt);
+      if (Array.isArray(arr)) {
+        return arr
+          .map((x: any) => String(x).trim())
+          .filter(Boolean);
+      }
+    } catch {
+      // ignore
+    }
+    // fallback: "Dev, QA"
+    return txt
+      .split(/[;,]/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 // Workflow mặc định 4 cột (có isStart ở cột đầu)
 function defaultStatuses() {
   const defs = [
-    { id: "st-todo", code: "todo",        name: "To do",      order: 1, category: "TODO",        color: "#F59E0B", isStart: true  },
-    { id: "st-inp",  code: "inprogress",  name: "In progress",order: 2, category: "IN_PROGRESS", color: "#3B82F6"                  },
-    { id: "st-rev",  code: "inreview",    name: "In review",  order: 3, category: "REVIEW",      color: "#8B5CF6"                  },
-    { id: "st-done", code: "done",        name: "Done",       order: 4, category: "DONE",        color: "#10B981", isFinal: true   },
+    {
+      id: "st-todo",
+      code: "todo",
+      name: "To do",
+      order: 1,
+      category: "TODO",
+      color: "#F59E0B",
+      isStart: true,
+      isFinal: false,
+      roles: [] as string[],
+    },
+    {
+      id: "st-inp",
+      code: "inprogress",
+      name: "In progress",
+      order: 2,
+      category: "IN_PROGRESS",
+      color: "#3B82F6",
+      isStart: false,
+      isFinal: false,
+      roles: [] as string[],
+    },
+    {
+      id: "st-rev",
+      code: "inreview",
+      name: "In review",
+      order: 3,
+      category: "REVIEW",
+      color: "#8B5CF6",
+      isStart: false,
+      isFinal: false,
+      roles: [] as string[],
+    },
+    {
+      id: "st-done",
+      code: "done",
+      name: "Done",
+      order: 4,
+      category: "DONE",
+      color: "#10B981",
+      isStart: false,
+      isFinal: true,
+      roles: [] as string[],
+    },
   ] as const;
 
-  const statusOrder = defs.map(s => s.id);
+  const statusOrder = defs.map((s) => s.id);
   const statusMeta: SprintVm["statusMeta"] = {};
-  defs.forEach(s => (statusMeta[s.id] = { ...s }));
+  defs.forEach((s) => (statusMeta[s.id] = { ...s }));
 
   return { statusOrder, statusMeta };
 }
 
 // Lấy id status bắt đầu của sprint (ưu tiên flag isStart)
 const getStartStatusId = (s: SprintVm): string => {
-  const byFlag = s.statusOrder.find(id => s.statusMeta?.[id]?.isStart === true);
+  const byFlag = s.statusOrder.find((id) => s.statusMeta?.[id]?.isStart === true);
   return byFlag ?? s.statusOrder[0] ?? Object.keys(s.columns ?? {})[0] ?? "";
 };
 
@@ -78,12 +148,15 @@ export function mapSprint(dto: Any): SprintVm {
         id: String(m.id ?? id),
         code: String(m.code ?? m.name ?? id).toLowerCase(),
         name: String(m.name ?? m.code ?? id),
-        category: (m.category as TaskVm["statusCategory"]) ?? inferCategory(String(m.code ?? m.name ?? "")),
+        category:
+          (m.category as TaskVm["statusCategory"]) ??
+          inferCategory(String(m.code ?? m.name ?? "")),
         order: Number(m.order ?? 0),
         color: m.color ?? undefined,
         wipLimit: m.wipLimit ?? undefined,
         isFinal: !!m.isFinal,
-        isStart: !!m.isStart, // <— NEW
+        isStart: !!m.isStart,
+        roles: parseRoles((m as any).roles ?? (m as any).rolesJson),
       };
     }
   } else if (ws.length) {
@@ -91,23 +164,26 @@ export function mapSprint(dto: Any): SprintVm {
       id: String(s.id ?? `st-${i + 1}`),
       code: String(s.code ?? s.name ?? `status-${i + 1}`).toLowerCase(),
       name: String(s.name ?? s.code ?? `Status ${i + 1}`),
-      category: (s.category as TaskVm["statusCategory"]) ?? inferCategory(String(s.code ?? s.name ?? "")),
+      category:
+        (s.category as TaskVm["statusCategory"]) ??
+        inferCategory(String(s.code ?? s.name ?? "")),
       order: Number(s.order ?? i + 1),
       color: s.color ?? undefined,
       wipLimit: s.wipLimit ?? undefined,
       isFinal: !!s.isFinal,
-      isStart: !!s.isStart, // <— NEW
+      isStart: !!s.isStart,
+      roles: parseRoles(s.roles ?? s.rolesJson),
     }));
-    statusOrder = [...metas].sort((a, b) => a.order - b.order).map(m => m.id);
+    statusOrder = [...metas].sort((a, b) => a.order - b.order).map((m) => m.id);
     statusMeta = {};
-    metas.forEach(m => (statusMeta[m.id] = m));
+    metas.forEach((m) => (statusMeta[m.id] = m));
   } else {
     // fallback 4 cột
     ({ statusOrder, statusMeta } = defaultStatuses());
   }
 
   // build columns rỗng theo statusOrder
-  const emptyCols = Object.fromEntries(statusOrder.map(id => [id, [] as TaskVm[]]));
+  const emptyCols = Object.fromEntries(statusOrder.map((id) => [id, [] as TaskVm[]]));
 
   return {
     id: String(dto?.id ?? dto?.sprintId ?? rid()),
@@ -115,7 +191,8 @@ export function mapSprint(dto: Any): SprintVm {
     start: dto?.start ?? dto?.startDate ? iso(dto?.start ?? dto?.startDate) : undefined,
     end: dto?.end ?? dto?.endDate ? iso(dto?.end ?? dto?.endDate) : undefined,
     state: dto?.state, // "Planning" | "Active" | "Closed" (nếu có)
-    capacityHours: dto?.capacityHours ?? dto?.teamCapacityHours ?? dto?.capacity ?? undefined,
+    capacityHours:
+      dto?.capacityHours ?? dto?.teamCapacityHours ?? dto?.capacity ?? undefined,
     committedPoints: dto?.committedPoints ?? undefined,
 
     workflowId: dto?.workflowId ?? dto?.workflow?.id ?? undefined,
@@ -134,9 +211,13 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
   const stMeta = sprint?.statusMeta?.[incomingId];
 
   // API cũ trả status string -> normalize code
-  const legacyStatusStr = String(dto?.status ?? "").toLowerCase().replace(/[\s_-]/g, "");
+  const legacyStatusStr = String(dto?.status ?? "")
+    .toLowerCase()
+    .replace(/[\s_-]/g, "");
   const codeGuess = stMeta?.code || legacyStatusStr || "todo";
-  const stIdByCode = sprint?.statusOrder.find(id => sprint!.statusMeta[id].code === codeGuess);
+  const stIdByCode = sprint?.statusOrder.find(
+    (id) => sprint!.statusMeta[id].code === codeGuess
+  );
 
   // Fallback: id start theo isStart, nếu không có thì cột đầu
   const startId = sprint ? getStartStatusId(sprint) : "st-todo";
@@ -169,8 +250,8 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
     assignees: Array.isArray(dto?.assignees)
       ? dto.assignees.map(toMember)
       : dto?.assignee
-        ? [toMember(dto.assignee)]
-        : [],
+      ? [toMember(dto.assignee)]
+      : [],
 
     dependsOn: Array.isArray(dto?.dependsOn) ? dto.dependsOn.map(String) : [],
     parentTaskId: dto?.parentTaskId ?? null,
@@ -187,22 +268,22 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
 
 /* ===========================================================
  * Chuẩn hoá input
- * - Chấp nhận:
- *   { sprints:[], tasks:[] }
- *   { sprints:[{..., tasks:[]}, ...] }
- *   { weeks:[], tasks:[] } hoặc chỉ { tasks:[] } có sprintId/weekId/statusId
  * =========================================================== */
-export function normalizeBoardInput(input: Any): { sprints: SprintVm[]; tasks: TaskVm[] } {
+export function normalizeBoardInput(
+  input: Any
+): { sprints: SprintVm[]; tasks: TaskVm[] } {
   const rawSprints: Any[] = input?.sprints ?? input?.weeks ?? [];
   const rawTasks: Any[] = input?.tasks ?? [];
 
   // map sprint trước (có workflow)
   const sprints: SprintVm[] = rawSprints.map(mapSprint);
-  const sprintById = new Map<string, SprintVm>(sprints.map(s => [s.id, s]));
+  const sprintById = new Map<string, SprintVm>(sprints.map((s) => [s.id, s]));
 
   // nếu sprint có embed tasks → gom ra ngoài
   const embedded: Any[] = [];
-  rawSprints.forEach(s => { if (Array.isArray(s?.tasks)) embedded.push(...s.tasks); });
+  rawSprints.forEach((s) => {
+    if (Array.isArray(s?.tasks)) embedded.push(...s.tasks);
+  });
 
   const allRawTasks = rawTasks.length ? rawTasks : embedded;
 
@@ -213,19 +294,24 @@ export function normalizeBoardInput(input: Any): { sprints: SprintVm[]; tasks: T
   });
 
   // nếu chưa có sprint list nhưng task có sprintId ⇒ sinh sprint “ảo” + workflow mặc định
-  if (!sprints.length && tasks.some(t => t.sprintId)) {
+  if (!sprints.length && tasks.some((t) => t.sprintId)) {
     const fakeMap = new Map<string, SprintVm>();
     for (const t of tasks) {
       if (!t.sprintId) continue;
       if (!fakeMap.has(t.sprintId)) {
         const { statusOrder, statusMeta } = defaultStatuses();
-        fakeMap.set(t.sprintId, {
-          id: t.sprintId,
-          name: `Week ${t.sprintId}`,
-          statusOrder,
-          statusMeta,
-          columns: Object.fromEntries(statusOrder.map(id => [id, [] as TaskVm[]])),
-        } as SprintVm);
+        fakeMap.set(
+          t.sprintId,
+          {
+            id: t.sprintId,
+            name: `Week ${t.sprintId}`,
+            statusOrder,
+            statusMeta,
+            columns: Object.fromEntries(
+              statusOrder.map((id) => [id, [] as TaskVm[]])
+            ),
+          } as SprintVm
+        );
       }
     }
     return { sprints: [...fakeMap.values()], tasks };
@@ -239,11 +325,11 @@ export function normalizeBoardInput(input: Any): { sprints: SprintVm[]; tasks: T
  * =========================================================== */
 export function fillSprintColumns(sprints: SprintVm[], tasks: TaskVm[]): SprintVm[] {
   const byId = new Map<string, SprintVm>(
-    sprints.map(s => [
+    sprints.map((s) => [
       s.id,
       {
         ...s,
-        columns: Object.fromEntries(s.statusOrder.map(id => [id, [] as TaskVm[]])),
+        columns: Object.fromEntries(s.statusOrder.map((id) => [id, [] as TaskVm[]])),
       },
     ])
   );
@@ -255,7 +341,9 @@ export function fillSprintColumns(sprints: SprintVm[], tasks: TaskVm[]): SprintV
 
     // statusId hợp lệ? nếu không, đẩy về start (isStart) rồi mới tới cột đầu
     const fallbackStart = getStartStatusId(s);
-    const stId = s.statusMeta[t.workflowStatusId] ? t.workflowStatusId : (fallbackStart || s.statusOrder[0]);
+    const stId = s.statusMeta[t.workflowStatusId]
+      ? t.workflowStatusId
+      : fallbackStart || s.statusOrder[0];
     (s.columns[stId] ||= []).push(t);
   }
 
