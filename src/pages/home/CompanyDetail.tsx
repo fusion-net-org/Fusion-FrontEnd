@@ -227,7 +227,7 @@ const CompanyDetails: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-2 self-start">Banner</p>
                 <img
                   src={company?.imageCompany}
-                  className="rounded-xl w-full h-44 object-cover border shadow-sm"
+                  className="rounded-xl w-full h-44 object-cover border-4 border-gray-400 shadow-sm"
                   alt="banner"
                 />
               </div>
@@ -236,7 +236,7 @@ const CompanyDetails: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-2 self-start">Avatar</p>
                 <img
                   src={company?.avatarCompany}
-                  className="rounded-xl w-full h-44 object-contain border shadow-sm"
+                  className="rounded-xl w-full h-44 object-contain border-4 border-gray-400 shadow-sm"
                   alt="avatar"
                 />
               </div>
