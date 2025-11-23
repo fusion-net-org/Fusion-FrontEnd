@@ -250,7 +250,6 @@ export async function getSprintsByProject(
     return usp.toString();
   };
 
-  // ✅ đúng route mới
   const { data } = await axiosInstance.get(`/sprints/projects/${projectId}`, {
     params,
     paramsSerializer,
@@ -263,12 +262,12 @@ export async function getSprintsByProject(
     ? payload
     : [];
 
-  return items.map(mapSprintDto); // ⬅️ KHÔNG còn ReferenceError
+  return items.map(mapSprintDto);
 }
 export async function createProject(payload) {
   const {
     companyId,
-    companySubscriptionId, 
+    companySubscriptionId,
     isHired,
     companyRequestId,
     projectRequestId,
@@ -352,5 +351,15 @@ export const getProjectById = async (id) => {
   } catch (error) {
     console.error('GetProjectByProjectId failed', error);
     throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const getProjectByCompanyId = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/companies/${id}/projects`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
   }
 };
