@@ -354,3 +354,23 @@ export const getProjectById = async (id) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+//================  Over view ====================
+// 1. Project Growth And Completion
+export const getProjectGrowthAndCompletionOverview = async (params = {}) => {
+  const response = await axiosInstance.get("/growth-and-completion", {
+    params,
+  });
+
+  const payload = response?.data ?? {};
+  return payload.data ?? payload;
+};
+
+//2. Project Execution Overview (tasks & sprints)
+export const getProjectExecutionOverview = async (params = {}) => {
+  const response = await axiosInstance.get("/project-execution-overview", {
+    params,
+  });
+  const payload = response?.data ?? {};
+  return payload.data ?? payload;
+};  

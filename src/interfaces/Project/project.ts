@@ -43,3 +43,69 @@ export interface ProjectDetailResponse {
   createAt: string; // ISO datetime string
   updateAt: string; // ISO datetime string
 }
+// Generic cho ResponseModel<T> backend đang trả về (nếu cần)
+export interface ApiResponse<T> {
+  succeeded: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+
+// ========= Overview
+
+// 1. Project Growth & Completion
+export interface ProjectGrowthPoint {
+  year: number;
+  month: number; // 1-12
+
+  newProjects: number;
+  completedProjects: number;
+  cumulativeProjects: number;
+}
+
+export interface ProjectGrowthOverview {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  newProjectsLast30Days: number;
+  growth: ProjectGrowthPoint[];
+}
+
+
+// ===== 2. Execution overview (tasks & sprints) =====
+
+export interface TaskFlowPoint {
+  year: number;
+  month: number; // 1-12
+
+  createdTasks: number;
+  completedTasks: number;
+}
+
+export interface SprintVelocityPoint {
+  sprintId: string;
+  sprintName: string;
+
+  startDate?: string | null;
+  endDate?: string | null;
+
+  committedPoints: number;
+  completedPoints: number;
+}
+
+export interface ProjectExecutionOverview {
+  // Task stats
+  totalTasks: number;
+  completedTasks: number;
+  overdueTasks: number;
+
+  // Sprint stats
+  totalSprints: number;
+  activeSprints: number;
+  completedSprints: number;
+
+  // Time series
+  taskFlow: TaskFlowPoint[];
+  sprintVelocity: SprintVelocityPoint[];
+}
