@@ -170,3 +170,15 @@ export const RejectJoinMemberById = async (memberId) => {
     throw new Error(error.response?.data?.message || 'Failed to reject member');
   }
 };
+
+// https://localhost:7160/api/companymember/{companyId}/users/roles
+export const AddUserRolesToCompany = async (companyId, payload) => {
+ try {
+      const response = await axiosInstance.post(`/companymember/${companyId}/users/roles`, payload);
+      return response.data;
+  } catch (error) {
+      console.error('Error adding user roles:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to Add Role member');
+  }
+
+};
