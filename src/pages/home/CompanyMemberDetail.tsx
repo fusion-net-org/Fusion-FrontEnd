@@ -142,7 +142,7 @@ export default function CompanyMemberDetail() {
       navigate(-1);
     } catch (error: any) {
       console.error(error);
-      alert(error.message || 'Failed to remove member.');
+      toast(error.message || 'Failed to remove member.');
     } finally {
       setLoadingDelete(false);
     }

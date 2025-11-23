@@ -268,6 +268,7 @@ export async function getSprintsByProject(
 export async function createProject(payload) {
   const {
     companyId,
+    companySubscriptionId, 
     isHired,
     companyRequestId,
     projectRequestId,
@@ -287,6 +288,7 @@ export async function createProject(payload) {
   console.log('a');
   const dto = {
     companyId,
+    companySubscriptionId,
     isHired: !!isHired,
     companyRequestId: isGuid(companyRequestId) ? companyRequestId : null,
     projectRequestId: isGuid(projectRequestId) ? projectRequestId : null,
@@ -352,3 +354,34 @@ export const getProjectById = async (id) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+// Gán member vào project
+export async function assignMemberToProject(projectId, memberId, companyId) {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(memberId)) throw new Error("Invalid memberId");
+  if (!isGuid(companyId)) throw new Error("Invalid companyId");
+
+  const dto = {
+    projectId,
+    companyId,
+    memberId,
+  };
+
+  // ⚠️ Nếu BE dùng route khác, chỉ cần chỉnh path dưới đây
+  const { data } = await axiosInstance.post("/projectmember", dto);
+  return data?.data ?? data;
+}
+
+// Kick member khỏi project
+export async function removeMemberFromProject(projectId, memberId) {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(memberId)) throw new Error("Invalid memberId");
+
+  // Ví dụ: DELETE /projectmember/project/{projectId}/member/{memberId}
+  // chỉnh lại cho khớp route BE của bạn
+  const { data } = await axiosInstance.delete(
+    `/projectmember/project/${projectId}/member/${memberId}`
+  );
+  return data?.data ?? data;
+}
+

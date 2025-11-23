@@ -29,7 +29,6 @@ import { getSprintByProjectId } from '@/services/sprintService.js';
 import type { ISprintResponse } from '@/interfaces/Sprint/sprint';
 
 const ProjectCompanyRequest = () => {
-  const rowsPerPage = 2;
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
   const [sprints, setSprints] = useState<ISprintResponse>();
@@ -50,8 +49,8 @@ const ProjectCompanyRequest = () => {
     const fetchProject = async () => {
       try {
         const res = await GetProjectByProjectId(projectId);
-        console.log(res);
-        setProject(res);
+        console.log(res.data);
+        setProject(res.data);
       } catch (error) {
         console.log(error);
         toast.error('Failed to fetch project');
@@ -136,56 +135,69 @@ const ProjectCompanyRequest = () => {
           </span>
         </div>
         {/* PROJECT INFO */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <InfoItem
-            icon={<Calendar />}
-            label="Start Date"
-            value={
-              project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '-'
-            }
-          />
-          <InfoItem
-            icon={<Calendar />}
-            label="End Date"
-            value={project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '-'}
-          />
-          <InfoItem icon={<User />} label="Created By" value={project?.createByName || '-'} />
-          <InfoItem
-            icon={<Calendar />}
-            label="Created At"
-            value={project?.createAt ? new Date(project.createAt).toLocaleDateString('vi-VN') : '-'}
-          />
-          <InfoItem
-            icon={<User />}
-            label="Company Request"
-            value={project?.companyRequestName || '-'}
-          />
-          <InfoItem
-            icon={<User />}
-            label="Company Executor"
-            value={project?.companyExecutorName || '-'}
-          />
+        <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
+          {/* Overview Header */}
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-indigo-600" />
+              Project Overview
+            </h3>
+          </div>
+
+          {/* Overview Content */}
+          <p className="text-gray-700 font-semibold leading-relaxed mb-6">
+            {project?.description || '—'}
+          </p>
+
+          {/* Compact Info List */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm font-semibold">
+            <InfoRow label="Project Code" value={project?.code} />
+            <InfoRow label="Created By" value={project?.createByName} />
+            <InfoRow
+              label="Start Date"
+              value={
+                project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '—'
+              }
+            />
+            <InfoRow
+              label="End Date"
+              value={project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '—'}
+            />
+            <InfoRow label="Company Request" value={project?.companyRequestName} />
+            <InfoRow label="Company Executor" value={project?.companyExecutorName} />
+          </div>
         </div>
 
-        {/* DESCRIPTION */}
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-            <ClipboardList className="text-indigo-500 w-5 h-5" />
-            Description
-          </h2>
-          <p className="text-gray-700 leading-relaxed">{project?.description}</p>
-        </div>
         {/* PROGRESS */}
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-4">
             <CheckCircle2 className="text-green-500 w-5 h-5" />
             Project Progress
           </h2>
-          <div className="flex items-center gap-4">
-            <Progress value={95} className="w-full h-4 bg-gray-200" />
-            <span className="font-semibold text-gray-700">{96}%</span>
+
+          {/* Horizontal Progress Bar */}
+          <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden shadow-sm">
+            <div
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 ease-in-out"
+              style={{ width: `${96}%` }}
+            ></div>
+            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 font-semibold text-gray-900">
+              96%
+            </span>
+          </div>
+
+          {/* Optional: Small info row below */}
+          <div className="flex justify-between mt-2 text-sm text-gray-500">
+            <span>
+              Start:{' '}
+              {project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '—'}
+            </span>
+            <span>
+              End: {project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '—'}
+            </span>
           </div>
         </div>
+
         {/*  TABS */}
         <div className="flex items-center gap-4 border-b pb-3 mb-8">
           {/* MEMBERS TAB */}
@@ -288,11 +300,7 @@ const ProjectCompanyRequest = () => {
         {activeTab === 'tickets' && (
           <div>
             <TicketCharts projectId={projectId!} refreshKey={refreshChartKey} />
-            <TicketsTab
-              projectId={projectId!}
-              rowsPerPage={rowsPerPage}
-              onTicketCreated={handleTicketCreated}
-            />
+            <TicketsTab projectId={projectId!} onTicketCreated={handleTicketCreated} />
           </div>
         )}
 
@@ -304,14 +312,9 @@ const ProjectCompanyRequest = () => {
 
 export default ProjectCompanyRequest;
 
-const InfoItem = ({ icon, label, value }: any) => (
-  <div className="bg-gradient-to-br from-gray-50 to-white border rounded-2xl p-4 hover:shadow-md transition">
-    <div className="flex items-center gap-3">
-      <div className="text-indigo-600 bg-indigo-50 p-2 rounded-xl">{icon}</div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="font-semibold text-gray-800">{value}</p>
-      </div>
-    </div>
-  </div>
+const InfoRow = ({ label, value }: any) => (
+  <p className="flex items-center text-gray-700 gap-2 border-b pb-2">
+    <span className="font-medium w-32">{label}:</span>
+    <span className="text-gray-900">{value || '—'}</span>
+  </p>
 );

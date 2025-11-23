@@ -238,3 +238,96 @@ export const GetTaskBySprintId = async (
     throw new Error(error.response?.data?.message || 'Fail!');
   }
 };
+/* =========================
+ * CHECKLIST APIs
+ * ========================= */
+
+export const getTaskChecklist = async (taskId) => {
+  try {
+    const res = await axiosInstance.get(`/tasks/${taskId}/checklist`);
+    // BE trả ResponseModel<List<...>> => data.data
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in getTaskChecklist:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching checklist items',
+    );
+  }
+};
+
+export const createTaskChecklistItem = async (taskId, label) => {
+  try {
+    const payload = { label };
+    const res = await axiosInstance.post(
+      `/tasks/${taskId}/checklist`,
+      payload,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in createTaskChecklistItem:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error creating checklist item',
+    );
+  }
+};
+
+export const updateTaskChecklistItem = async (
+  taskId,
+  { id, label, done, orderIndex },
+) => {
+  try {
+    const payload = {
+      label,
+      isDone: done,
+      orderIndex,
+    };
+    const res = await axiosInstance.put(
+      `/tasks/${taskId}/checklist/${id}`,
+      payload,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in updateTaskChecklistItem:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error updating checklist item',
+    );
+  }
+};
+
+export const toggleTaskChecklistItemDone = async (
+  taskId,
+  checklistId,
+  isDone,
+) => {
+  try {
+    const payload =
+      typeof isDone === 'boolean'
+        ? { isDone }
+        : {}; // null => toggle server-side
+
+    const res = await axiosInstance.patch(
+      `/tasks/${taskId}/checklist/${checklistId}/done`,
+      payload,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in toggleTaskChecklistItemDone:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error toggling checklist item',
+    );
+  }
+};
+
+export const deleteTaskChecklistItem = async (taskId, checklistId) => {
+  try {
+    const res = await axiosInstance.delete(
+      `/tasks/${taskId}/checklist/${checklistId}`,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in deleteTaskChecklistItem:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error deleting checklist item',
+    );
+  }
+};

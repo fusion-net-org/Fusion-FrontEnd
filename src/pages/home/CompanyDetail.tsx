@@ -16,7 +16,6 @@ import {
   Image,
   Contact,
   ClipboardList,
-  Check,
   XCircle,
   Clock,
 } from 'lucide-react';
@@ -31,6 +30,8 @@ import InvitePartner from '@/components/Partner/InvitePartner';
 import DeleteCompany from '@/components/Company/DeleteCompany';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import type { CompanyRole } from '@/interfaces/Company/company';
+import Chart from 'react-apexcharts';
+import { Card } from 'antd';
 
 const CompanyDetails: React.FC = () => {
   const [company, setCompany] = useState<CompanyRequest>();
@@ -297,136 +298,165 @@ const CompanyDetails: React.FC = () => {
               </div>
             </div>
           </div>
-
           {/* Projects Info */}
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6">
             <div className="flex items-center gap-2 mb-4">
               <Contact className="w-5 h-5 text-gray-500" />
               <h2 className="text-lg font-semibold text-gray-800 mb-auto">Projects Information</h2>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: 'Total Member', value: company?.totalMember, icon: UserIcon },
-                { label: 'Total Project', value: company?.totalProject, icon: Folder },
-                { label: 'Total Partner', value: company?.totalPartners, icon: Handshake },
-                { label: 'Total Approved', value: company?.totalApproved, icon: CheckCircle },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col items-center justify-center bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition"
-                >
-                  <item.icon className="w-6 h-6 text-blue-500 mb-1" />
-                  <p className="text-sm text-gray-500">{item.label}</p>
-                  <p className="text-xl font-bold text-gray-800">{item.value}</p>
-                </div>
-              ))}
-            </div>
+            <Card className="bg-white-500 p-0 rounded-xl border-none">
+              <Chart
+                type="donut"
+                height={300}
+                series={[
+                  company?.totalMember ?? 0,
+                  company?.totalProject ?? 0,
+                  company?.totalPartners ?? 0,
+                  company?.totalApproved ?? 0,
+                ]}
+                options={{
+                  labels: ['Members', 'Projects', 'Partners', 'Approved'],
+                  colors: ['#3B82F6', '#10B981', '#F59E0B', '#6366F1'],
+                  legend: { position: 'bottom' },
+                  dataLabels: { enabled: true },
+                }}
+              />
+            </Card>
           </div>
 
           {/* ===Dashboard === */}
           <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Chart 1 Performance project */}
-            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
-              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
-                {company?.name} Project Performance Overview
-              </h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={[
-                    { name: 'On-Time', value: company?.onTimeRelease ?? 0 },
-                    { name: 'Ongoing', value: company?.totalOngoingProjects ?? 0 },
-                    { name: 'Completed', value: company?.totalCompletedProjects ?? 0 },
-                    { name: 'Closed', value: company?.totalClosedProjects ?? 0 },
-                    { name: 'Late', value: company?.totalLateProjects ?? 0 },
-                  ]}
-                  margin={{ top: 5, right: 20, left: 0, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#6366F1" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
-              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
-                Company Members by Role
-              </h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={
-                    company?.companyRoles?.map((role: any) => ({
-                      role: role.roleName,
-                      count: role.totalMembers,
-                    })) ?? []
-                  }
-                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="role" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10B981" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Chart 3 project create and hired */}
-            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
-              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
-                Projects Created vs Hired
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart
-                  data={[
-                    { type: 'Created', count: company?.totalProjectCreated ?? 0 },
-                    { type: 'Hired', count: company?.totalProjectHired ?? 0 },
-                  ]}
-                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="type" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Chart 4 project request send and receive */}
-            <div className="bg-gray-50 rounded-xl p-5 shadow-inner border border-gray-100">
-              <h3 className="text-base font-semibold text-gray-700 text-center mb-4">
-                Project Requests Sent vs Received
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart
-                  data={[
+            {/* Chart 1: Project Performance Overview */}
+            <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100">
+              <Card
+                title={`${company?.name} Project Performance Overview`}
+                className="shadow-inner border rounded-2xl p-4"
+              >
+                <Chart
+                  type="line"
+                  height={300}
+                  series={[
                     {
-                      type: 'Sent',
-                      count: company?.totalProjectRequestSent ?? 0,
-                      accepted: company?.totalProjectRequestAcceptSent ?? 0,
-                      rejected: company?.totalProjectRequestRejectSent ?? 0,
-                      pending: company?.totalProjectRequestPendingSent ?? 0,
-                    },
-                    {
-                      type: 'Received',
-                      count: company?.totalProjectRequestReceive ?? 0,
-                      accepted: company?.totalProjectRequestAcceptReceive ?? 0,
-                      rejected: company?.totalProjectRequestRejectReceive ?? 0,
-                      pending: company?.totalProjectRequestPendingReceive ?? 0,
+                      name: 'Projects',
+                      data: [
+                        company?.onTimeRelease ?? 0,
+                        company?.totalOngoingProjects ?? 0,
+                        company?.totalCompletedProjects ?? 0,
+                        company?.totalClosedProjects ?? 0,
+                        company?.totalLateProjects ?? 0,
+                      ],
                     },
                   ]}
-                  margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="type" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                  options={{
+                    chart: { toolbar: { show: true }, zoom: { enabled: false } },
+                    xaxis: { categories: ['On-Time', 'Ongoing', 'Completed', 'Closed', 'Late'] },
+                    colors: ['#6366F1'],
+                    stroke: { curve: 'smooth', width: 3 },
+                    dataLabels: { enabled: true },
+                    markers: { size: 5 },
+                    tooltip: { y: { formatter: (val: number) => `${val} projects` } },
+                  }}
+                />
+              </Card>
+            </div>
+
+            {/* Chart 2: Company Members by Role */}
+            <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100">
+              <Card title="Company Members by Role" className="shadow-inner border rounded-2xl p-4">
+                <Chart
+                  type="bar"
+                  height={300}
+                  series={[
+                    {
+                      name: 'Members',
+                      data: company?.companyRoles?.map((role: any) => role.totalMembers) ?? [],
+                    },
+                  ]}
+                  options={{
+                    chart: { toolbar: { show: true }, zoom: { enabled: false } },
+                    xaxis: {
+                      categories: company?.companyRoles?.map((role: any) => role.roleName) ?? [],
+                    },
+                    colors: ['#10B981'],
+                    stroke: { curve: 'smooth', width: 3 },
+                    dataLabels: { enabled: true },
+                    markers: { size: 5 },
+                    tooltip: { y: { formatter: (val: number) => `${val} members` } },
+                  }}
+                />
+              </Card>
+            </div>
+
+            {/* Chart 3: Projects Created vs Hired */}
+            <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100">
+              <Card
+                title="Projects Created vs Hired"
+                className="shadow-inner border rounded-2xl p-4"
+              >
+                <Chart
+                  type="donut"
+                  height={300}
+                  series={[company?.totalProjectCreated ?? 0, company?.totalProjectHired ?? 0]}
+                  options={{
+                    labels: ['Created', 'Hired'],
+                    colors: ['#F59E0B', '#3B82F6'],
+                    legend: { position: 'bottom' },
+                    dataLabels: { enabled: true },
+                  }}
+                />
+              </Card>
+            </div>
+
+            {/* Chart 4: Project Requests Sent vs Received */}
+            <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100">
+              <Card
+                title="Project Requests Sent vs Received"
+                className="shadow-inner border rounded-2xl p-4"
+              >
+                <Chart
+                  type="bar"
+                  height={300}
+                  series={[
+                    {
+                      name: 'Total',
+                      data: [
+                        company?.totalProjectRequestSent ?? 0,
+                        company?.totalProjectRequestReceive ?? 0,
+                      ],
+                    },
+                    {
+                      name: 'Accepted',
+                      data: [
+                        company?.totalProjectRequestAcceptSent ?? 0,
+                        company?.totalProjectRequestAcceptReceive ?? 0,
+                      ],
+                    },
+                    {
+                      name: 'Rejected',
+                      data: [
+                        company?.totalProjectRequestRejectSent ?? 0,
+                        company?.totalProjectRequestRejectReceive ?? 0,
+                      ],
+                    },
+                    {
+                      name: 'Pending',
+                      data: [
+                        company?.totalProjectRequestPendingSent ?? 0,
+                        company?.totalProjectRequestPendingReceive ?? 0,
+                      ],
+                    },
+                  ]}
+                  options={{
+                    chart: { toolbar: { show: true }, stacked: true },
+                    xaxis: { categories: ['Sent', 'Received'] },
+                    colors: ['#3B82F6', '#10B981', '#EF4444', '#F59E0B'],
+                    dataLabels: { enabled: true },
+                    plotOptions: { bar: { borderRadius: 6 } },
+                    tooltip: { y: { formatter: (val: number) => `${val} requests` } },
+                    legend: { position: 'top' },
+                  }}
+                />
+              </Card>
             </div>
           </div>
 
