@@ -10,6 +10,8 @@ export interface CompanyMemberInterface {
   gender: string;
   numberProductJoin: number;
   numberCompanyJoin: number;
+  score: number;
+  hoursPerWeek: number;
   status: string;
   isDeleted: boolean;
   joinedAt: string;
