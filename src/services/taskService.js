@@ -331,3 +331,52 @@ export const deleteTaskChecklistItem = async (taskId, checklistId) => {
     );
   }
 };
+/* =========================
+ * ATTACHMENT APIs
+ * ========================= */
+
+export const getTaskAttachments = async (taskId) => {
+  try {
+    const res = await axiosInstance.get(`/tasks/${taskId}/attachments`);
+    const payload = res?.data?.data ?? res?.data ?? [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.items)) return payload.items;
+    if (Array.isArray(payload.attachments)) return payload.attachments;
+    return [];
+  } catch (error) {
+    console.error('Error in getTaskAttachments:', error);
+    throw new Error(error.response?.data?.message || 'Error fetching attachments');
+  }
+};
+
+export const uploadTaskAttachments = async (taskId, files, description) => {
+  try {
+    const formData = new FormData();
+    Array.from(files).forEach((f) => {
+      if (f) formData.append('files', f); // trùng với TaskAttachmentUploadRequest.Files
+    });
+    if (description) formData.append('description', description);
+
+    const res = await axiosInstance.post(
+      `/tasks/${taskId}/attachments`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in uploadTaskAttachments:', error);
+    throw new Error(error.response?.data?.message || 'Error uploading attachments');
+  }
+};
+
+export const deleteTaskAttachment = async (taskId, attachmentId) => {
+  try {
+    const res = await axiosInstance.delete(
+      `/tasks/${taskId}/attachments/${attachmentId}`,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in deleteTaskAttachment:', error);
+    throw new Error(error.response?.data?.message || 'Error deleting attachment');
+  }
+};

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -25,6 +25,9 @@ import {
   toggleTaskChecklistItemDone,
   updateTaskChecklistItem,
   deleteTaskChecklistItem,
+  getTaskAttachments,
+  uploadTaskAttachments,
+  deleteTaskAttachment,
 } from "@/services/taskService.js";
 import { toast } from "react-toastify";
 import { getProjectMembersWithRole } from "@/services/projectMember.js";
@@ -39,6 +42,7 @@ type CommentItem = {
   createdAt: string;
   message: string;
 };
+
 type ProjectMemberOption = {
   id: string;
   name: string;
@@ -60,7 +64,7 @@ type WorkflowRoleDef = {
     isStart?: boolean;
     isFinal?: boolean;
   }[];
-  editable: boolean; // false nếu gắn với bất kỳ status isStart
+  editable: boolean; // false nếu gắn với bất kỳ status isStart (theo main assignee)
 };
 
 type ChecklistItem = {
@@ -69,6 +73,17 @@ type ChecklistItem = {
   done: boolean;
   orderIndex?: number;
   createdAt?: string;
+};
+
+type AttachmentItem = {
+  id: string;
+  fileName: string;
+  url: string;
+  contentType?: string | null;
+  size?: number | null;
+  description?: string | null;
+  uploadedAt?: string | null;
+  uploadedByName?: string | null;
 };
 
 const fmtDateTime = (iso?: string) =>
@@ -219,6 +234,12 @@ function TicketDetailLayout({
     []
   );
   const [loadingMembers, setLoadingMembers] = useState(false);
+
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // trạng thái chọn trước khi apply
   const [draftStatusId, setDraftStatusId] = useState<string | null>(null);
@@ -407,16 +428,14 @@ function TicketDetailLayout({
           ]);
         }
 
-        // 6) Workflow assignments -> RoleAssignments
+        // 6) Workflow assignments -> RoleAssignments (chỉ cho các role không phải start)
         if (dto.workflowAssignments && sprint && sprint.statusMeta) {
           const wf = dto.workflowAssignments;
           const items: any[] = Array.isArray(wf.items) ? wf.items : [];
           const map: RoleAssignments = {};
 
           items.forEach((it: any) => {
-            const statusId = String(
-              it.workflowStatusId || it.statusId || ""
-            );
+            const statusId = String(it.workflowStatusId || it.statusId || "");
             if (!statusId) return;
 
             const meta: any = sprint.statusMeta[statusId];
@@ -432,7 +451,6 @@ function TicketDetailLayout({
 
             roles.forEach((rk) => {
               if (!rk) return;
-              // role nào chưa có thì gán user đầu tiên gặp
               if (!map[rk]) {
                 map[rk] = uid;
               }
@@ -446,6 +464,26 @@ function TicketDetailLayout({
         ) {
           // fallback cho dữ liệu cũ nếu BE vẫn còn trả roleAssignments
           setRoleAssignments(dto.roleAssignments as RoleAssignments);
+        }
+
+        // 7) Attachments
+        try {
+          const attRaw = await getTaskAttachments(task.id);
+          const list: any[] = Array.isArray(attRaw)
+            ? attRaw
+            : Array.isArray((attRaw as any)?.items)
+            ? (attRaw as any).items
+            : Array.isArray((attRaw as any)?.attachments)
+            ? (attRaw as any).attachments
+            : [];
+          const mapped = list.map((x: any, idx: number) =>
+            mapAttachmentDto(x, idx)
+          );
+          if (!cancelled) {
+            setAttachments(mapped);
+          }
+        } catch (err) {
+          console.error("[TaskDetail] load attachments failed", err);
         }
       } catch (err) {
         console.error("[TaskDetail] load detail failed", err);
@@ -496,20 +534,21 @@ function TicketDetailLayout({
     setStatusPickerOpen(false);
   }, [activeStatusId]);
 
-  // ==== gom tất cả roles của workflow, đánh dấu role nào là fixed (có xuất hiện ở status isStart) ====
+  // ==== gom tất cả roles của workflow, đánh dấu role nào là start (theo main assignee) ====
   const workflowRoles: WorkflowRoleDef[] = useMemo(() => {
     const map: Record<string, WorkflowRoleDef> = {};
 
     (sprint.statusOrder || []).forEach((statusId) => {
       const st: any = sprint.statusMeta[statusId];
       if (!st) return;
-      const roles: string[] = (st.roles as string[]) ?? [];
+      const roles: string[] = Array.isArray(st.roles) ? st.roles : [];
       roles.forEach((roleKey) => {
+        if (!roleKey) return;
         if (!map[roleKey]) {
           const label =
             roleKey
-              ?.replace(/_/g, " ")
-              ?.replace(/\b\w/g, (c) => c.toUpperCase()) || roleKey;
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (c: string) => c.toUpperCase()) || roleKey;
           map[roleKey] = {
             key: roleKey,
             label,
@@ -520,10 +559,10 @@ function TicketDetailLayout({
         map[roleKey].statuses.push({
           id: statusId,
           name: st.name,
-          isStart: st.isStart,
-          isFinal: st.isFinal,
+          isStart: !!st.isStart,
+          isFinal: !!st.isFinal,
         });
-        // nếu role gắn với bất kỳ status isStart => coi là fixed/auto-assign
+        // role xuất hiện ở bất kỳ status isStart => controlled by main assignee
         if (st.isStart) {
           map[roleKey].editable = false;
         }
@@ -532,6 +571,36 @@ function TicketDetailLayout({
 
     return Object.values(map).sort((a, b) => a.label.localeCompare(b.label));
   }, [sprint]);
+
+  const startRoles = useMemo(
+    () => workflowRoles.filter((r) => r.statuses.some((s) => s.isStart)),
+    [workflowRoles]
+  );
+
+  const nonStartRoles = useMemo(
+    () => workflowRoles.filter((r) => !r.statuses.some((s) => s.isStart)),
+    [workflowRoles]
+  );
+
+  // đồng bộ: main assignee chính là người cho các role start
+  useEffect(() => {
+    if (!startRoles.length) return;
+    const mainId = primaryAssignee?.id ?? null;
+
+    setRoleAssignments((prev) => {
+      const next: RoleAssignments = { ...prev };
+      let changed = false;
+
+      startRoles.forEach((r) => {
+        if (next[r.key] !== mainId) {
+          next[r.key] = mainId;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [primaryAssignee?.id, startRoles]);
 
   /* ===== handlers ===== */
 
@@ -543,9 +612,9 @@ function TicketDetailLayout({
   function handleStatusClick(statusId: string) {
     if (statusId === activeStatusId) {
       setDraftStatusId(null);
-      return;
+    } else {
+      setDraftStatusId(statusId);
     }
-    setDraftStatusId(statusId);
   }
 
   async function commitStatusChange(statusId: string) {
@@ -593,7 +662,6 @@ function TicketDetailLayout({
 
   // ===== CHECKLIST HANDLERS =====
 
-  // bấm Add item -> thêm 1 dòng checklist mới (local) ở TOP và mở ô input ngay đó
   function startAddChecklistItem() {
     if (editingChecklistId) return; // đang edit rồi thì không thêm cái mới
     const tempId = `local-${Math.random().toString(36).slice(2)}`;
@@ -650,13 +718,10 @@ function TicketDetailLayout({
         }
       } else {
         // nếu sau này cho edit item cũ -> dùng update
-        await updateTaskChecklistItem(model.id, id, { label });
+        await updateTaskChecklistItem(model.id, { id, label });
       }
     } catch (err) {
       console.error("[TaskDetail] save checklist item failed", err);
-      // optional: reload checklist từ BE nếu muốn chắc chắn
-      // const res = await getTaskChecklist(model.id);
-      // ...
     }
   }
 
@@ -719,6 +784,87 @@ function TicketDetailLayout({
     setNewComment("");
   }
 
+  // ===== ATTACHMENT HANDLERS =====
+
+  async function handleUploadFiles(filesList: FileList | null) {
+    if (!filesList || filesList.length === 0) return;
+
+    try {
+      setUploadingAttachments(true);
+
+      const res = await uploadTaskAttachments(model.id, filesList, "");
+      const payload: any = res ?? [];
+      const list: any[] = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload.items)
+        ? payload.items
+        : Array.isArray(payload.attachments)
+        ? payload.attachments
+        : [];
+
+      const mapped = list.map((x: any, idx: number) =>
+        mapAttachmentDto(x, idx)
+      );
+
+      setAttachments((prev) => {
+        const ids = new Set(prev.map((a) => a.id));
+        const merged = [...prev];
+        mapped.forEach((m) => {
+          if (!ids.has(m.id)) merged.push(m);
+        });
+        return merged;
+      });
+
+      toast.success("Attachments uploaded.");
+    } catch (err: any) {
+      console.error("[TaskDetail] upload attachments failed", err);
+      toast.error(err?.message || "Upload attachments failed");
+    } finally {
+      setUploadingAttachments(false);
+    }
+  }
+
+  async function handleFileInputChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const filesList = e.target.files;
+    await handleUploadFiles(filesList);
+    // reset input để lần sau chọn lại cùng file vẫn trigger change
+    e.target.value = "";
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    await handleUploadFiles(e.dataTransfer?.files ?? null);
+  }
+
+  async function handleDeleteAttachmentClick(id: string) {
+    const prev = attachments;
+    setAttachments((curr) => curr.filter((a) => a.id !== id));
+    try {
+      await deleteTaskAttachment(model.id, id);
+      toast.success("Attachment removed.");
+    } catch (err: any) {
+      console.error("[TaskDetail] delete attachment failed", err);
+      toast.error(err?.message || "Delete attachment failed");
+      setAttachments(prev); // rollback
+    }
+  }
+
   async function handleSave() {
     try {
       // build workflowAssignments từ roleAssignments + sprint.statusMeta
@@ -726,6 +872,8 @@ function TicketDetailLayout({
 
       if (sprint && sprint.statusOrder && sprint.statusMeta) {
         const items: any[] = [];
+        const mainAssigneeId: string | null =
+          (model.assignees && model.assignees[0]?.id) || null;
 
         (sprint.statusOrder || []).forEach((statusId) => {
           const meta: any = sprint.statusMeta[statusId];
@@ -735,13 +883,19 @@ function TicketDetailLayout({
             ? meta.roles
             : [];
 
-          // tìm user đầu tiên được gán cho bất kỳ role nào của status này
           let assignUserId: string | null = null;
-          for (const rk of roles) {
-            const uid = roleAssignments[rk];
-            if (uid) {
-              assignUserId = uid;
-              break;
+
+          if (meta.isStart) {
+            // nghiệp vụ: main assignee = người của bước start
+            assignUserId = mainAssigneeId;
+          } else {
+            // các bước khác: lấy theo roleAssignments
+            for (const rk of roles) {
+              const uid = roleAssignments[rk];
+              if (uid) {
+                assignUserId = uid;
+                break;
+              }
             }
           }
 
@@ -784,7 +938,7 @@ function TicketDetailLayout({
       if (dto && dto.id) {
         // optional: sync lại model nếu cần
       }
-      console.log(payload)
+      console.log(payload);
       toast.success("Ticket saved successfully.");
     } catch (err: any) {
       console.error("[TaskDetail] save failed", err);
@@ -873,7 +1027,7 @@ function TicketDetailLayout({
       <div className="mt-2 flex flex-col lg:flex-row gap-6">
         {/* LEFT SIDE */}
         <div className="flex-1 min-w-0 space-y-4">
-          {/* STATUS AREA – summary + quick next + dropdown panel */}
+          {/* STATUS AREA */}
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.45)]">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div className="text-xs text-slate-600">
@@ -934,7 +1088,7 @@ function TicketDetailLayout({
               </div>
             )}
 
-            {/* Panel chọn status – dạng dọc, nhiều status vẫn ổn */}
+            {/* Panel chọn status */}
             {statusPickerOpen && statusList.length > 0 && (
               <div className="mt-3 rounded-2xl border border-slate-100 bg-white/80 p-3 max-h-64 overflow-y-auto space-y-1.5">
                 {statusList.map((st, idx) => {
@@ -1206,14 +1360,99 @@ function TicketDetailLayout({
                 Images, documents, video…
               </div>
             </div>
-            <div className="border border-dashed border-slate-300 rounded-xl p-4 text-center text-sm text-slate-500">
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
+
+            <div
+              className={cn(
+                "border border-dashed rounded-xl p-4 text-center text-sm text-slate-500 transition-colors",
+                "border-slate-300 bg-slate-50/40",
+                isDragging && "bg-blue-50 border-blue-400"
+              )}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <Paperclip className="w-5 h-5 mx-auto mb-1 text-slate-400" />
               Drag & drop files here or{" "}
-              <span className="text-blue-600 font-medium cursor-pointer">
+              <button
+                type="button"
+                className="text-blue-600 font-medium underline-offset-2 hover:underline"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 browse
-              </span>
+              </button>
               .
+              {uploadingAttachments && (
+                <div className="mt-1 text-[11px] text-slate-400">
+                  Uploading…
+                </div>
+              )}
             </div>
+
+            {attachments.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {attachments.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[13px] font-medium text-blue-700 hover:underline truncate"
+                        >
+                          {a.fileName}
+                        </a>
+                        <div className="text-[10px] text-slate-500 truncate">
+                          {formatBytes(a.size)}{" "}
+                          {a.contentType ? `• ${a.contentType}` : ""}
+                          {a.uploadedByName
+                            ? ` • by ${a.uploadedByName}`
+                            : ""}
+                          {a.uploadedAt
+                            ? ` • ${fmtDateTime(a.uploadedAt)}`
+                            : ""}
+                        </div>
+                        {a.description && (
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {a.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-slate-400 ml-2">
+                      <button
+                        type="button"
+                        onClick={() => window.open(a.url, "_blank")}
+                        className="text-[11px] hover:text-blue-700"
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachmentClick(a.id)}
+                        className="p-1 rounded-full hover:bg-red-50 hover:text-red-600"
+                        title="Remove attachment"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* COMMENTS & ACTIVITY */}
@@ -1269,47 +1508,55 @@ function TicketDetailLayout({
               In production only project owner / PM can change these.
             </div>
 
-            {/* Assignee */}
+            {/* Assignee = main owner at start */}
             <Field label="Assignee">
-              <UserAssignDropdown
-                users={projectMembers}
-                value={primaryAssignee?.id ?? null}
-                onChange={(id) => {
-                  if (!id) {
-                    updateField("assignees", []);
-                    return;
+              <div className="space-y-1">
+                <UserAssignDropdown
+                  users={projectMembers}
+                  value={primaryAssignee?.id ?? null}
+                  onChange={(id) => {
+                    if (!id) {
+                      updateField("assignees", []);
+                      return;
+                    }
+                    const u = projectMembers.find((m) => m.id === id);
+                    if (!u) return;
+
+                    const mem: MemberRef = {
+                      id: u.id,
+                      name: u.name,
+                      avatarUrl: u.avatarUrl,
+                      email: u.email,
+                    } as any;
+
+                    updateField("assignees", [mem]);
+                  }}
+                  placeholder={
+                    loadingMembers ? "Loading members…" : "Unassigned"
                   }
-                  const u = projectMembers.find((m) => m.id === id);
-                  if (!u) return;
-
-                  const mem: MemberRef = {
-                    id: u.id,
-                    name: u.name,
-                    // 2 field dưới tuỳ định nghĩa MemberRef của bạn, có thể bỏ nếu không có
-                    avatarUrl: u.avatarUrl,
-                    email: u.email,
-                  } as any;
-
-                  updateField("assignees", [mem]);
-                }}
-                placeholder={
-                  loadingMembers ? "Loading members…" : "Unassigned"
-                }
-              />
+                />
+                {startRoles.length > 0 && (
+                  <div className="text-[10px] text-slate-400">
+                    Main assignee is used for start role
+                    {startRoles.length > 1 ? "s" : ""}:{" "}
+                    <span className="font-medium">
+                      {startRoles.map((r) => r.label).join(", ")}
+                    </span>
+                    .
+                  </div>
+                )}
+              </div>
             </Field>
 
-            {/* Workflow roles – show TẤT CẢ roles của workflow */}
-            {workflowRoles.length > 0 && (
+            {/* Workflow roles – chỉ hiển thị các role KHÔNG phải start */}
+            {nonStartRoles.length > 0 && (
               <div className="mt-3 border-t border-dashed border-slate-200 pt-3">
                 <div className="text-[11px] text-slate-500 mb-2">
                   Workflow roles for this ticket
                 </div>
                 <div className="space-y-2">
-                  {workflowRoles.map((role) => {
+                  {nonStartRoles.map((role) => {
                     const assignedId = roleAssignments[role.key] ?? null;
-                    const assignedMember = assignedId
-                      ? projectMembers.find((m) => m.id === assignedId)
-                      : undefined;
 
                     return (
                       <div
@@ -1321,23 +1568,14 @@ function TicketDetailLayout({
                             <div className="text-xs font-medium text-slate-700">
                               {role.label}
                             </div>
+                            {/* list các status mà role này phụ trách (không có START nữa) */}
                             <div className="mt-1 flex flex-wrap gap-1">
                               {role.statuses.map((st) => (
                                 <span
                                   key={st.id}
-                                  className={cn(
-                                    "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px]",
-                                    st.isStart
-                                      ? "bg-slate-50 border-slate-300 text-slate-600"
-                                      : "bg-blue-50 border-blue-200 text-blue-700"
-                                  )}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] bg-blue-50 border-blue-200 text-blue-700"
                                 >
                                   {st.name}
-                                  {st.isStart && (
-                                    <span className="ml-1 text-[9px] uppercase text-slate-400">
-                                      START
-                                    </span>
-                                  )}
                                   {st.isFinal && (
                                     <span className="ml-1 text-[9px] uppercase text-emerald-500">
                                       FINAL
@@ -1349,33 +1587,19 @@ function TicketDetailLayout({
                           </div>
 
                           <div className="w-[180px] shrink-0 text-right">
-                            {role.editable ? (
-                              <UserAssignDropdown
-                                users={projectMembers}
-                                value={assignedId}
-                                onChange={(val) => {
-                                  setRoleAssignments((prev) => ({
-                                    ...prev,
-                                    [role.key]: val,
-                                  }));
-                                }}
-                                placeholder={
-                                  loadingMembers
-                                    ? "Loading members…"
-                                    : "Unassigned"
-                                }
-                              />
-                            ) : (
-                              <div className="text-[11px] text-slate-500 text-left">
-                                <div className="font-medium text-slate-700 truncate">
-                                  {assignedMember?.name ||
-                                    "Auto-assigned at start"}
-                                </div>
-                                <div className="text-[10px] text-slate-400">
-                                  Fixed on start step
-                                </div>
-                              </div>
-                            )}
+                            <UserAssignDropdown
+                              users={projectMembers}
+                              value={assignedId}
+                              onChange={(val) => {
+                                setRoleAssignments((prev) => ({
+                                  ...prev,
+                                  [role.key]: val,
+                                }));
+                              }}
+                              placeholder={
+                                loadingMembers ? "Loading members…" : "Unassigned"
+                              }
+                            />
                           </div>
                         </div>
                       </div>
@@ -1742,4 +1966,35 @@ function UserAssignDropdown({
       )}
     </div>
   );
+}
+
+function mapAttachmentDto(x: any, idx: number = 0): AttachmentItem {
+  return {
+    id: String(
+      x.id ??
+        x.attachmentId ??
+        x.taskAttachmentId ??
+        x.key ??
+        `att-${idx + 1}`
+    ),
+    fileName: x.fileName ?? x.name ?? `Attachment-${idx + 1}`,
+    url: x.url ?? x.link ?? "#",
+    contentType: x.contentType ?? x.mimeType ?? null,
+    size: x.size ?? x.sizeBytes ?? null,
+    description: x.description ?? null,
+    uploadedAt: x.uploadedAt ?? x.createdAt ?? x.created_at ?? null,
+    uploadedByName:
+      x.uploadedByName ?? x.createdByName ?? x.uploaderName ?? null,
+  };
+}
+
+function formatBytes(bytes?: number | null): string {
+  const n = typeof bytes === "number" ? bytes : 0;
+  if (!n) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(n) / Math.log(k));
+  const val = n / Math.pow(k, i);
+  const fixed = val >= 100 ? 0 : val >= 10 ? 1 : 2;
+  return `${val.toFixed(fixed)} ${sizes[i]}`;
 }

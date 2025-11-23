@@ -15,19 +15,25 @@ import type { TaskVm, MemberRef } from "@/types/projectBoard";
 /** ==== Local helpers ==== */
 type TaskType = "Feature" | "Bug" | "Chore";
 
+const isGuid = (s?: string | null) =>
+  !!s &&
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+    s,
+  );
+
 const SLA_POLICIES: Array<{
   type: TaskType;
   priority: "Urgent" | "High" | "Medium" | "Low";
   targetHours: number;
 }> = [
-  { type: "Bug",     priority: "Urgent", targetHours: 24 },
-  { type: "Bug",     priority: "High",   targetHours: 48 },
-  { type: "Bug",     priority: "Medium", targetHours: 72 },
+  { type: "Bug", priority: "Urgent", targetHours: 24 },
+  { type: "Bug", priority: "High", targetHours: 48 },
+  { type: "Bug", priority: "Medium", targetHours: 72 },
   { type: "Feature", priority: "Urgent", targetHours: 72 },
-  { type: "Feature", priority: "High",   targetHours: 120 },
+  { type: "Feature", priority: "High", targetHours: 120 },
   { type: "Feature", priority: "Medium", targetHours: 168 },
-  { type: "Feature", priority: "Low",    targetHours: 336 },
-  { type: "Chore",   priority: "Low",    targetHours: 336 },
+  { type: "Feature", priority: "Low", targetHours: 336 },
+  { type: "Chore", priority: "Low", targetHours: 336 },
 ];
 
 function getSlaTarget(type: string, priority: TaskVm["priority"]): number | null {
@@ -40,31 +46,43 @@ function getSlaTarget(type: string, priority: TaskVm["priority"]): number | null
 }
 
 function hoursBetween(aIso: string, bIso: string): number {
-  return (new Date(bIso).getTime() - new Date(aIso).getTime()) / 36e5;
+  const a = new Date(aIso);
+  const b = new Date(bIso);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return NaN;
+  return (b.getTime() - a.getTime()) / 36e5;
 }
-const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
+
+const fmtDate = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString() : "N/A";
+
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 
 /** ==== Avatars ==== */
 function Initials({ name }: { name: string }) {
-  const parts = name.trim().split(/\s+/);
+  const parts = (name || "").trim().split(/\s+/);
   const initials = (
     (parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")
   ).toUpperCase();
   return <span>{initials || "?"}</span>;
 }
+
 function Avatar({ m }: { m: MemberRef }) {
   return (
     <div className="w-6 h-6 rounded-full ring-2 ring-white overflow-hidden bg-slate-200 flex items-center justify-center text-[10px] font-semibold text-slate-700">
       {m.avatarUrl ? (
-        <img alt={m.name} src={m.avatarUrl} className="w-full h-full object-cover" />
+        <img
+          alt={m.name}
+          src={m.avatarUrl}
+          className="w-full h-full object-cover"
+        />
       ) : (
         <Initials name={m.name} />
       )}
     </div>
   );
 }
+
 function AvatarGroup({ members }: { members: MemberRef[] }) {
   const shown = (members ?? []).slice(0, 3);
   const more = (members ?? []).length - shown.length;
@@ -86,7 +104,7 @@ function AvatarGroup({ members }: { members: MemberRef[] }) {
 
 /** ==== Props ==== */
 type Props = {
-  t: TaskVm;
+  t: TaskVm & { isAiDraft?: boolean };
   ticketSiblingsCount?: number;
   onMarkDone: (t: TaskVm) => void;
   onNext: (t: TaskVm) => void;
@@ -102,9 +120,9 @@ function hexToRgba(hex?: string, a = 1) {
   if (!hex) return `rgba(148,163,184,${a})`; // slate-400 fallback
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex?.trim() ?? "");
   if (!m) return `rgba(148,163,184,${a})`;
-  const r = parseInt(m[1], 16),
-    g = parseInt(m[2], 16),
-    b = parseInt(m[3], 16);
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
   return `rgba(${r},${g},${b},${a})`;
 }
 
@@ -120,25 +138,40 @@ export default function TaskCard({
   statusColorHex,
   statusLabel,
 }: Props) {
+  const isAiDraft =
+    (t as any).isAiDraft ||
+    (t as any).source === "AI_DRAFT" ||
+    ((t as any).source === "AI" && !isGuid(t.id));
+
+  const isPersisted = isGuid(t.id);
   const nowIso = new Date().toISOString();
   const slaTarget = getSlaTarget(t.type, t.priority);
 
   // ===== SLA / Due logic =====
+  const isDone = t.statusCategory === "DONE";
   const usingDueDate = !!t.dueDate;
+
   let remaining: number | null = null;
 
-  if (t.dueDate) {
-    // hours until due date (negative => overdue)
-    remaining = Math.ceil(hoursBetween(nowIso, t.dueDate));
-  } else if (slaTarget != null) {
-    const elapsed = Math.max(0, hoursBetween(t.openedAt, nowIso));
-    remaining = Math.ceil(slaTarget - elapsed);
+  if (!isAiDraft) {
+    if (t.dueDate) {
+      // hours until due date (negative => overdue)
+      const diff = hoursBetween(nowIso, t.dueDate);
+      if (Number.isFinite(diff)) {
+        remaining = Math.ceil(diff);
+      }
+    } else if (slaTarget != null && (t as any).openedAt) {
+      const openedAt = (t as any).openedAt as string;
+      const elapsed = hoursBetween(openedAt, nowIso);
+      if (Number.isFinite(elapsed)) {
+        remaining = Math.ceil(slaTarget - Math.max(0, elapsed));
+      }
+    }
   }
 
-  const isDone = t.statusCategory === "DONE";
   const overdue = remaining != null && remaining < 0;
   const urgent = t.priority === "Urgent";
-  const blocked = (t.dependsOn || []).length > 0;
+  const blocked = ((t as any).dependsOn || []).length > 0;
 
   const showSla = !isDone && remaining != null;
 
@@ -170,11 +203,11 @@ export default function TaskCard({
   // Badge text
   let slaLabel = "";
   if (showSla && remaining != null) {
+    const abs = Math.abs(remaining);
     if (overdue) {
-      const lateHours = Math.abs(remaining);
       slaLabel = usingDueDate
-        ? `Overdue by ${lateHours}h`
-        : `SLA overdue by ${lateHours}h`;
+        ? `Overdue by ${abs}h`
+        : `SLA overdue by ${abs}h`;
     } else {
       slaLabel = usingDueDate
         ? `Due in ${remaining}h`
@@ -189,7 +222,11 @@ export default function TaskCard({
       const el = document.createElement("style");
       el.id = "fuse-pop-style";
       el.textContent = `
-@keyframes fusePop { 0% {transform:scale(0.92);} 55%{transform:scale(1.08);} 100%{transform:scale(1);} }
+@keyframes fusePop { 
+  0% {transform:scale(0.92);} 
+  55%{transform:scale(1.08);} 
+  100%{transform:scale(1);} 
+}
 `;
       document.head.appendChild(el);
     }
@@ -212,6 +249,8 @@ export default function TaskCard({
   const statusTextColor = statusColorHex || "#0f172a";
   const statusText = (statusLabel ?? t.statusCode ?? "").trim();
 
+  const points = (t as any).point ?? (t as any).storyPoints ?? 0;
+
   return (
     <div
       data-task-id={t.id}
@@ -220,7 +259,8 @@ export default function TaskCard({
         "transition-all duration-300 relative hover:shadow-md hover:-translate-y-[1px]",
         !isNew && "border",
         !isNew && cardBorderColorClass,
-        !isNew && urgent && "ring-1 ring-rose-200"
+        !isNew && urgent && "ring-1 ring-rose-200",
+        isAiDraft && "opacity-95"
       )}
       style={{
         ...(isNew
@@ -247,7 +287,7 @@ export default function TaskCard({
         </>
       )}
 
-      {/* Header: code + status + priority + spillover */}
+      {/* Header: code + status + priority + spillover + AI draft */}
       <div className="flex items-start justify-between gap-2">
         <div className="text-[11px] text-slate-500 leading-5">{t.code}</div>
         <div className="flex items-center gap-1 flex-wrap justify-end">
@@ -268,6 +308,11 @@ export default function TaskCard({
               Blocked
             </span>
           )}
+          {isAiDraft && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-sky-400 bg-sky-50 text-sky-700">
+              AI draft
+            </span>
+          )}
           <span
             className={cn(
               "text-[10px] px-2 py-0.5 rounded-full border bg-white",
@@ -277,7 +322,7 @@ export default function TaskCard({
                 ? "border-amber-500 text-amber-700"
                 : t.priority === "Medium"
                 ? "border-sky-500 text-sky-700"
-                : "border-slate-300 text-slate-700"
+                : "border-slate-300 text-slate-700",
             )}
           >
             {t.priority}
@@ -290,16 +335,20 @@ export default function TaskCard({
         </div>
       </div>
 
-      {/* Title: blue + underline (clickable) */}
+      {/* Title: clickable chỉ khi task đã persist (Guid & không phải AI draft) */}
       <button
         type="button"
         className={cn(
           "mt-1 text-[13px] font-semibold leading-6 text-left",
-          "text-blue-600 underline decoration-blue-400 underline-offset-[3px]",
-          "hover:text-blue-700 hover:decoration-blue-600 focus:outline-none"
+          isPersisted && !isAiDraft
+            ? "text-blue-600 underline decoration-blue-400 underline-offset-[3px] hover:text-blue-700 hover:decoration-blue-600"
+            : "text-slate-800 cursor-default",
+          "focus:outline-none",
         )}
         onClick={() => {
-          onOpenTicket?.(t.id)}}
+          if (!isPersisted || isAiDraft) return;
+          onOpenTicket?.(t.id);
+        }}
       >
         {t.title}
       </button>
@@ -310,7 +359,11 @@ export default function TaskCard({
           <button
             type="button"
             className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-white border-sky-500 text-sky-700 hover:bg-slate-50"
-            onClick={() => t.sourceTicketId && onOpenTicket?.(t.sourceTicketId)}
+            onClick={() =>
+              t.sourceTicketId &&
+              isGuid(t.sourceTicketId) &&
+              onOpenTicket?.(t.sourceTicketId)
+            }
             title="Open source ticket"
           >
             <LinkIcon className="w-3 h-3" />
@@ -330,7 +383,7 @@ export default function TaskCard({
           <Flag className="w-3 h-3" /> {t.type}
         </div>
         <div className="flex items-center gap-1">
-          <TimerReset className="w-3 h-3" /> {Math.max(0, t.storyPoints ?? 0)} pts
+          <TimerReset className="w-3 h-3" /> {Math.max(0, points ?? 0)} pts
         </div>
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours ?? 0)}/
@@ -338,16 +391,17 @@ export default function TaskCard({
         </div>
         <div className="flex items-center gap-1">
           <CalendarDays className="w-3 h-3" />
-          <span>Due: {fmtDate(t.dueDate)}</span>
+          <span>Due: {fmtDate(t.dueDate as any)}</span>
         </div>
       </div>
 
       {/* Assignees + SLA */}
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <AvatarGroup members={t.assignees || []} />
+          <AvatarGroup members={(t.assignees as any) || []} />
           <div className="text-[11px] text-slate-600 truncate max-w-[200px]">
-            {(t.assignees || []).map((a) => a.name).join(", ") || "Unassigned"}
+            {((t.assignees as any[]) || []).map((a) => a.name).join(", ") ||
+              "Unassigned"}
           </div>
         </div>
 
@@ -355,14 +409,14 @@ export default function TaskCard({
           <span
             className={cn(
               "text-[11px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
-              slaTone
+              slaTone,
             )}
             title={
               usingDueDate && t.dueDate
                 ? `Due date: ${new Date(t.dueDate).toLocaleString()}`
-                : slaTarget != null
+                : slaTarget != null && (t as any).openedAt
                 ? `SLA: ${slaTarget}h from opened (${new Date(
-                    t.openedAt
+                    (t as any).openedAt,
                   ).toLocaleString()})`
                 : undefined
             }
@@ -375,27 +429,35 @@ export default function TaskCard({
 
       {/* Actions */}
       <div className="mt-3 flex items-center gap-2 flex-wrap">
-        {!isDone && (
-          <button
-            className="text-[11px] px-2 py-1 rounded-lg border hover:bg-emerald-50 border-emerald-300 text-emerald-700 flex items-center gap-1"
-            onClick={() => onMarkDone(t)}
-          >
-            <Check className="w-3 h-3" /> Mark done
-          </button>
-        )}
+        {isAiDraft || !isPersisted ? (
+          <span className="text-[11px] text-slate-500 italic">
+            AI draft – will be created when you Save board.
+          </span>
+        ) : (
+          <>
+            {!isDone && (
+              <button
+                className="text-[11px] px-2 py-1 rounded-lg border hover:bg-emerald-50 border-emerald-300 text-emerald-700 flex items-center gap-1"
+                onClick={() => onMarkDone(t)}
+              >
+                <Check className="w-3 h-3" /> Mark done
+              </button>
+            )}
 
-        <button
-          className="text-[11px] px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
-          onClick={() => onSplit(t)}
-        >
-          <SplitSquareHorizontal className="w-3 h-3" /> Split
-        </button>
-        <button
-          className="text-[11px] px-2 py-1 rounded-lg border hover:bg-slate-50 border-slate-300 text-slate-600 flex items-center gap-1"
-          onClick={() => onMoveNext(t)}
-        >
-          <MoveDown className="w-3 h-3" /> Move next
-        </button>
+            <button
+              className="text-[11px] px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
+              onClick={() => onSplit(t)}
+            >
+              <SplitSquareHorizontal className="w-3 h-3" /> Split
+            </button>
+            <button
+              className="text-[11px] px-2 py-1 rounded-lg border hover:bg-slate-50 border-slate-300 text-slate-600 flex items-center gap-1"
+              onClick={() => onMoveNext(t)}
+            >
+              <MoveDown className="w-3 h-3" /> Move next
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

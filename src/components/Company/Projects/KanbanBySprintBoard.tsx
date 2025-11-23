@@ -18,6 +18,11 @@ import AiGenerateTasksModal from "@/components/AiGenerate/AiGenerateTasksModal";
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
+const isGuid = (s?: string | null) =>
+  !!s &&
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+    s,
+  );
 
 /* ===== CSS-inject: animations & effects (mount once) ===== */
 function useFuseKanbanStyles() {
@@ -43,7 +48,7 @@ function useFuseKanbanStyles() {
   100% { transform: scale(.9); opacity: 0; max-height: 0; margin-bottom: 0; }
 }
 
-/* ==== NEW: card xuất hiện mượt, pop-in ==== */
+/* ==== card xuất hiện mượt, pop-in ==== */
 @keyframes fuseCardPopIn {
   0% {
     transform: translateY(10px) scale(.97);
@@ -211,6 +216,24 @@ type Props = {
   }) => Promise<void> | void;
 };
 
+/* ====== Kiểu draft từ AI ====== */
+type AiDraft = {
+  title: string;
+  description?: string | null;
+  type?: TaskVm["type"];
+  priority?: string | null;
+  severity?: string | null;
+  sprintId?: string | null;
+  sprintName?: string | null;
+  statusCategory?: string | null;
+  statusCode?: string | null;
+  estimateHours?: number | null;
+  storyPoints?: number | null;
+  dueDate?: string | null;
+  module?: string | null;
+  checklist?: string[] | null;
+};
+
 export default function KanbanBySprintBoard({
   sprints,
   filterCategory = "ALL",
@@ -244,8 +267,17 @@ export default function KanbanBySprintBoard({
   const [stagedDeletes, setStagedDeletes] = useState<TaskVm[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Có task AI draft (id không phải GUID hoặc isAiDraft) thì cũng coi như có thay đổi
+  const hasAiDrafts =
+    draftTasksBySprint != null &&
+    Object.values(draftTasksBySprint).some((list) =>
+      (list ?? []).some(
+        (t) => !isGuid(t.id) || (t as any).isAiDraft,
+      ),
+    );
+
   const hasStagedChanges =
-    stagedMoves.length > 0 || stagedDeletes.length > 0;
+    stagedMoves.length > 0 || stagedDeletes.length > 0 || hasAiDrafts;
 
   // ==== track card mới sinh ra để animate pop-in ====
   const [enteringIds, setEnteringIds] = useState<Record<string, number>>({});
@@ -340,15 +372,19 @@ export default function KanbanBySprintBoard({
 
   const handleOpenTicket = React.useCallback(
     (taskId: string) => {
+      if (onOpenTicket) {
+        onOpenTicket(taskId);
+        return;
+      }
       if (!companyId || !projectId) return;
       navigate(`/companies/${companyId}/project/${projectId}/task/${taskId}`);
     },
-    [navigate, companyId, projectId],
+    [onOpenTicket, navigate, companyId, projectId],
   );
 
   const [aiOpen, setAiOpen] = useState(false);
 
-  // Tất cả task trên board (mọi sprint, mọi status)
+  // Tất cả task trên board (mọi sprint, mọi status) – dùng cho AI tránh trùng
   const allTasksFlat = React.useMemo(() => {
     const acc: TaskVm[] = [];
     for (const sp of sprints) {
@@ -396,28 +432,22 @@ export default function KanbanBySprintBoard({
       sprintId: string,
       draft: any,
     ): { statusCategory: StatusCategory; workflowStatusId?: string } => {
-      const list =
-        workflowMetaBySprint[sprintId] ??
-        [];
+      const list = workflowMetaBySprint[sprintId] ?? [];
 
       if (!list.length) {
         return { statusCategory: "TODO", workflowStatusId: undefined };
       }
 
       const rawCode = String(
-        draft.statusCode ??
-          draft.status_code ??
-          "",
+        draft.statusCode ?? draft.status_code ?? "",
       ).trim();
       const rawCat = String(
-        draft.statusCategory ??
-          draft.status_category ??
-          "",
+        draft.statusCategory ?? draft.status_category ?? "",
       )
         .trim()
         .toUpperCase();
 
-      let statusMeta =
+      const statusMeta =
         (rawCode &&
           list.find(
             (st) =>
@@ -601,54 +631,94 @@ export default function KanbanBySprintBoard({
         )
       : null;
 
-  /* ====== NHẬN TASK TỪ AI & ĐƯA VÀO TỪNG SPRINT ====== */
+  /* ====== NHẬN TASK TỪ AI & ĐƯA VÀO TỪNG SPRINT (DRAFT, KHÔNG LƯU DB) ====== */
 
-// Ở đầu file, giữ nguyên các useState, useEffect...
+  const handleAiGenerated = React.useCallback(
+    (aiDrafts: AiDraft[], meta: { defaultSprintId: string }) => {
+      if (!Array.isArray(aiDrafts) || aiDrafts.length === 0) return;
 
-const handleAiGenerated = React.useCallback(
-  (newServerTasks: TaskVm[], meta: { defaultSprintId: string }) => {
-    if (!Array.isArray(newServerTasks) || newServerTasks.length === 0) return;
+      // Bật update mode nếu chưa bật
+      setUpdateMode(true);
 
-    const newIds: string[] = [];
+      setDraftTasksBySprint((prev) => {
+        // base = board hiện tại nếu chưa có draft
+        const base: Record<string, TaskVm[]> =
+          prev ??
+          sprints.reduce<Record<string, TaskVm[]>>((acc, sp) => {
+            acc[sp.id] = flattenSprintTasks(sp, "ALL");
+            return acc;
+          }, {});
 
-    setDraftTasksBySprint((prev) => {
-      // Nếu chưa ở updateMode hoặc chưa có draft → build base từ props.sprints
-      const base: Record<string, TaskVm[]> =
-        prev ??
-        sprints.reduce<Record<string, TaskVm[]>>((acc, sp) => {
-          acc[sp.id] = flattenSprintTasks(sp, "ALL");
-          return acc;
-        }, {});
+        const next: Record<string, TaskVm[]> = { ...base };
+        const now = Date.now();
 
-      const next: Record<string, TaskVm[]> = { ...base };
+        aiDrafts.forEach((draft, idx) => {
+          // 1. Chọn sprint target
+          const aiSprintId = draft.sprintId ?? meta?.defaultSprintId ?? null;
+          const sprintId =
+            (aiSprintId && sprints.some((sp) => sp.id === aiSprintId)
+              ? aiSprintId
+              : meta?.defaultSprintId) || sprints[0]?.id;
 
-      for (const t of newServerTasks) {
-        // sprintId từ BE; fallback về defaultSprintId nếu BE trả null
-        const targetSprintId =
-          (t.sprintId as any) ||
-          meta?.defaultSprintId ||
-          sprints[0]?.id;
+          if (!sprintId) return;
 
-        if (!targetSprintId) continue;
+          // 2. Map status từ draft -> workflow thật
+          const { statusCategory, workflowStatusId } = resolveStatusForAiDraft(
+            sprintId,
+            draft,
+          );
 
-        const currentList = next[targetSprintId] ?? [];
+          // 3. Tạo id giả + gán cờ draft
+          const fakeId = `AI-${now}-${idx}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
 
-        // tránh duplicate nếu sau đó refetch board
-        if (currentList.some((x) => x.id === t.id)) continue;
+          const vm: TaskVm & { isAiDraft?: boolean } = {
+            // bắt buộc
+            id: fakeId,
+            sprintId,
+            title: draft.title,
+            description: draft.description ?? "",
+            type: (draft.type as any) ?? "Feature",
+            priority: normalizePriority(draft.priority),
+            severity: (draft.severity as any) ?? null,
+            statusCategory,
+            workflowStatusId,
 
-        next[targetSprintId] = [...currentList, t];
-        if (t.id) newIds.push(t.id);
-      }
+            // các field khác để TaskCard không bị lỗi
+            projectId: (sprints[0] as any)?.projectId ?? "",
+            statusCode: draft.statusCode ?? undefined,
+            sourceTicketId: undefined,
+            source: "AI_DRAFT",
+            code: "AI generate",
+            estimateHours: draft.estimateHours ?? null,
+            remainingHours: draft.estimateHours ?? null,
+            point:
+              (draft as any).storyPoints ??
+              draft.storyPoints ??
+              null,
+            dueDate: draft.dueDate ?? null,
+            module: (draft as any).module ?? null,
 
-      return next;
-    });
+            // cho UI checklist (nếu có)
+            checklist:
+              draft.checklist && Array.isArray(draft.checklist)
+                ? draft.checklist
+                : [],
 
-    if (newIds.length > 0) {
-      setFlashTaskId(newIds[newIds.length - 1]);
-    }
-  },
-  [sprints],
-);
+            // flag để TaskCard biết là task giả
+            isAiDraft: true,
+          } as any;
+
+          const list = next[sprintId] ?? [];
+          next[sprintId] = [...list, vm];
+        });
+
+        return next;
+      });
+    },
+    [resolveStatusForAiDraft, sprints],
+  );
 
   return (
     <DragDropContext onDragEnd={handleDragEndInternal}>
@@ -819,7 +889,7 @@ const handleAiGenerated = React.useCallback(
                                 onNext={_onNext}
                                 onSplit={_onSplit}
                                 onMoveNext={_onMoveNext}
-                                onOpenTicket={onOpenTicket}
+                                onOpenTicket={handleOpenTicket}
                                 isNew={t.id === flashTaskId}
                                 statusColorHex={meta?.color}
                                 statusLabel={meta?.name ?? meta?.code ?? ""}
@@ -854,7 +924,7 @@ const handleAiGenerated = React.useCallback(
                               allowStatusPicker
                               onCreatedVM={(vm) => {
                                 setFlashTaskId(vm.id);
-                                // nếu đang update mode thì push vào draft
+                                // nếu đang update mode thì push vào draft để layout nhất quán
                                 if (updateMode && draftTasksBySprint) {
                                   setDraftTasksBySprint((prev) => {
                                     if (!prev) return prev;
@@ -886,73 +956,72 @@ const handleAiGenerated = React.useCallback(
                                   task.workflowStatusId ?? ""
                                 ];
 
+                                const delayIndex = enteringIds[task.id];
+                                const isEntering =
+                                  typeof delayIndex === "number";
+
                                 return (
                                   <Draggable
                                     key={task.id}
                                     draggableId={task.id}
                                     index={idx}
                                   >
-                                    {(drag, snap) => {
-                                      const delayIndex =
-                                        enteringIds[task.id];
-                                      const isEntering =
-                                        !snap.isDragging &&
-                                        typeof delayIndex === "number";
-
-                                      return (
-                                        <div
-                                          ref={drag.innerRef}
-                                          {...drag.draggableProps}
-                                          {...drag.dragHandleProps}
-                                          style={{
-                                            ...drag.draggableProps.style,
-                                            zIndex: snap.isDragging
-                                              ? 9999
-                                              : undefined,
-                                            animationDelay: isEntering
+                                    {(drag, snap) => (
+                                      <div
+                                        ref={drag.innerRef}
+                                        {...drag.draggableProps}
+                                        {...drag.dragHandleProps}
+                                        style={{
+                                          ...drag.draggableProps.style,
+                                          zIndex: snap.isDragging
+                                            ? 9999
+                                            : undefined,
+                                          animationDelay:
+                                            !snap.isDragging && isEntering
                                               ? `${delayIndex * 60}ms`
                                               : undefined,
-                                          }}
-                                          className={cn(
-                                            "group",
-                                            snap.isDragging &&
-                                              "rotate-[0.5deg]",
-                                            isRemoving(task.id) &&
-                                              "fuse-card-removing",
-                                            isEntering && "fuse-card-enter",
-                                          )}
-                                        >
-                                          <div className="relative">
-                                            {updateMode && (
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  handleRequestDelete(task)
-                                                }
-                                                className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-500 shadow-sm opacity-0 transition group-hover:opacity-100"
-                                              >
-                                                <Trash2 className="h-3 w-3" />
-                                              </button>
-                                            )}
-
-                                            <TaskCard
-                                              t={task}
-                                              ticketSiblingsCount={sibs}
-                                              onMarkDone={_onMarkDone}
-                                              onNext={_onNext}
-                                              onSplit={_onSplit}
-                                              onMoveNext={_onMoveNext}
-                                              onOpenTicket={handleOpenTicket}
-                                              isNew={task.id === flashTaskId}
-                                              statusColorHex={meta?.color}
-                                              statusLabel={
-                                                meta?.name ?? meta?.code ?? ""
+                                        }}
+                                        className={cn(
+                                          "group",
+                                          snap.isDragging &&
+                                            "rotate-[0.5deg]",
+                                          isRemoving(task.id) &&
+                                            "fuse-card-removing",
+                                          !snap.isDragging &&
+                                            isEntering &&
+                                            "fuse-card-enter",
+                                        )}
+                                      >
+                                        <div className="relative">
+                                          {updateMode && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                handleRequestDelete(task)
                                               }
-                                            />
-                                          </div>
+                                              className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-500 shadow-sm opacity-0 transition group-hover:opacity-100"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </button>
+                                          )}
+
+                                          <TaskCard
+                                            t={task}
+                                            ticketSiblingsCount={sibs}
+                                            onMarkDone={_onMarkDone}
+                                            onNext={_onNext}
+                                            onSplit={_onSplit}
+                                            onMoveNext={_onMoveNext}
+                                            onOpenTicket={handleOpenTicket}
+                                            isNew={task.id === flashTaskId}
+                                            statusColorHex={meta?.color}
+                                            statusLabel={
+                                              meta?.name ?? meta?.code ?? ""
+                                            }
+                                          />
                                         </div>
-                                      );
-                                    }}
+                                      </div>
+                                    )}
                                   </Draggable>
                                 );
                               })}
@@ -972,16 +1041,15 @@ const handleAiGenerated = React.useCallback(
 
       {aiOpen && (
         <AiGenerateTasksModal
-  open={aiOpen}
-  onClose={() => setAiOpen(false)}
-  projectId={projectId!}
-  projectName={"FUSION - Project Board"}
-  sprints={sprints}
-  existingTasks={allTasksFlat}
-  workflowMetaBySprint={workflowMetaBySprint}
-  onGenerated={handleAiGenerated} // vẫn dùng callback này
-/>
-
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          projectId={projectId!}
+          projectName={"FUSION - Project Board"}
+          sprints={sprints}
+          existingTasks={allTasksFlat}
+          workflowMetaBySprint={workflowMetaBySprint}
+          onGenerated={handleAiGenerated} // nhận AiDraft[], meta.defaultSprintId
+        />
       )}
     </DragDropContext>
   );

@@ -101,7 +101,20 @@ export const generateAiTasks = async (clientRequest) => {
     throw new Error(message);
   }
 };
+// Preview – chỉ generate, không lưu DB
+export async function generateAiTasksPreview(payload) {
+  const projectId = payload?.projectId;
+  if (!projectId) throw new Error("projectId is required");
 
+  const { data } = await axiosInstance.post(
+    `/projects/${projectId}/ai/tasks/preview`,
+    payload,
+  );
+
+  // BE trả { succeeded, data: { tasks: [...] } } hoặc trả thẳng { tasks: [...] }
+  const payloadData = data?.data ?? data ?? {};
+  return payloadData; // { tasks: [...] }
+}
 /**
  * Gọi AI generate & LƯU luôn vào DB.
  * Trả về: List<ProjectTaskResponse> (FE dùng như TaskVm).
