@@ -96,6 +96,48 @@ export const getAllCompanies = async (
   }
 };
 
+export const getAllCompaniesV2 = async (
+  keyword = '',
+  ownerUserName = '',
+  relationShipEnums = '',
+  DayFrom = null,
+  DayTo = null,
+  pageNumber = 1,
+  pageSize = 25,
+  SortColumn = null,
+  SortDescending = null,
+  companyId = '',
+) => {
+  try {
+    const params = new URLSearchParams();
+
+    if (keyword && keyword.trim()) params.append('Keyword', encodeURIComponent(keyword.trim()));
+    if (ownerUserName && ownerUserName.trim())
+      params.append('OwnerUserName', encodeURIComponent(ownerUserName.trim()));
+    if (relationShipEnums && typeof relationShipEnums === 'string' && relationShipEnums.trim()) {
+      params.append('RelationShipEnums', relationShipEnums.trim());
+    }
+    if (DayFrom) params.append('DayFrom', DayFrom.toString());
+    if (DayTo) params.append('DayTo', DayTo.toString());
+    if (companyId && companyId.trim()) params.append('companyId', companyId);
+    if (SortColumn) params.append('SortColumn', SortColumn);
+    if (typeof SortDescending === 'boolean')
+      params.append('SortDescending', SortDescending.toString());
+    params.append('PageNumber', pageNumber.toString());
+    params.append('PageSize', pageSize.toString());
+
+    const queryString = params.toString().replace(/%25/g, '%');
+
+    const response = await axiosInstance.get(
+      `/company/all-companies-including-all-companies?${queryString}`,
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw new Error(error.response?.data?.message || 'Error fetching companies!');
+  }
+};
+
 export const filterAndSortCompanies = async (
   SortColumn,
   SortDescending,

@@ -248,7 +248,7 @@ const CompanyMember: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full sm:w-auto">
             {/* Date Range */}
             <div className="flex flex-col">
-              <label className="font-semibold text-sm text-gray-600 mb-1">Create Date</label>
+              <label className="font-semibold text-sm text-gray-600 mb-1">Joined Date </label>
               <RangePicker
                 format="DD/MM/YYYY"
                 className="rounded-lg border border-gray-300 !h-[37.6px]"
