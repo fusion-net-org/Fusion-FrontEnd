@@ -40,3 +40,34 @@ export interface PagedResult<T> {
    pageNumber: number; 
    pageSize: number; 
 }
+
+// ========== OverView Chart ============
+//1. Growth & Active Status
+export interface UserGrowthPoint {
+  period: string;
+  newUsers: number;
+}
+export interface UserGrowthAndStatusOverview {
+  growth: UserGrowthPoint[];
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+}
+
+// 2. User distribution by company (top companies)
+export interface UserCompanyDistributionPoint {
+  companyId: string;
+  companyName: string;
+  userCount: number;
+}
+
+// 3. User by permission level
+export interface UserPermissionLevelPoint {
+  level: string; // "System admin" | "Company owner" | ...
+  count: number;
+}
+
+export interface UserPermissionLevelOverview {
+  totalUsers: number;
+  levels: UserPermissionLevelPoint[];
+}

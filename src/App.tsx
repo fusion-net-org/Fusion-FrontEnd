@@ -59,11 +59,12 @@ import FeatureListPage from './pages/admin/featureManagement/FeatureListPage';
 import CompanySubscriptionPage from './pages/home/CompanySubscriptionPage';
 import TransactionOverviewPage from './pages/admin/transactionManagement/TransactionOverviewPage';
 import SubscriptionOverviewPage from './pages/admin/subcriptionManagement/SubscriptionOverviewPage';
-import UserProfile from './pages/userProfile/UserProfile';
 import RequireAdmin from './components/RequireAdmin/RequireAdmin';
 import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetailPage';
 import TaskDetailPage from './pages/project/TaskDetailPage';
 import InvitationPage from './components/Member/Invitations';
+import UserProfile from './pages/UserProfile/UserProfile';
+import ProjectOverviewPage from './pages/admin/projectManagement/ProjectOverviewPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -124,7 +125,7 @@ function App() {
           <Route path="/admin/projects/list" element={<ProjectListAdminPage />} />
           <Route path="/admin/projects/detail/:id" element={<ProjectDetailAdminPage />} />
           <Route path="/admin/projects/detail" element={<ProjectDetailAdminPage />} />
-
+          <Route path="/admin/projects/overview" element={<ProjectOverviewPage />} />
           {/* <Route path="transactions" element={<AdminTransactionsPage />} /> */}
           <Route path="/admin/transactions/overview" element={<TransactionOverviewPage />} />
           <Route path="/admin/notifications/list" element={<NotificationListPage />} />

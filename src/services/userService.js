@@ -1,5 +1,4 @@
 import { axiosInstance } from '../apiConfig';
-//https://localhost:7160/api/User/self-user
 export const getSelfUser = async () => {
   try {
     const response = await axiosInstance.get('/User/self-user');
@@ -143,5 +142,62 @@ export const getAllMemberCompanyByUser = async (userId) => {
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error fetching member companies!');
+  }
+};
+
+//=========== OverView Chart ===========
+//1.Growth & Active Status
+export const getUserGrowthAndStatusOverview = async (months) => {
+  try {
+    const params =
+      typeof months === "number" ? { months } : undefined;
+
+    const response = await axiosInstance.get(
+      "/User/overview/growth-and-status",
+      { params }
+    );
+
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.message ||
+        "Error fetching user growth and status!"
+    );
+  }
+};
+
+// 2. User distribution by company (top companies)
+export const getTopCompanyUserDistribution = async (top) => {
+  try {
+    const params =
+      typeof top === "number" ? { top } : undefined;
+
+    const response = await axiosInstance.get(
+      "/User/overview/company-distribution",
+      { params }
+    );
+
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.message ||
+        "Error fetching company user distribution!"
+    );
+  }
+};
+
+// 3. User by permission level
+export const getUserPermissionLevelOverview = async () => {
+  try {
+    const response = await axiosInstance.get(
+      "/User/overview/permission-levels"
+    );
+    // ResponseModel<UserPermissionLevelOverviewResponse>
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.message ||
+        "Error fetching user permission level overview!"
+    );
   }
 };
