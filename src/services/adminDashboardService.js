@@ -62,7 +62,7 @@ export const getUserStatusCounts = async () => {
 
 export const getTotalsDashboard = async () => {
   try {
-    const response = await axiosInstance.get(`/dashboard/totals`);
+    const response = await axiosInstance.get(`/DashBoard/total_entities`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';
@@ -82,7 +82,7 @@ export const getMonthlyStats = async () => {
 
 export const getPlanRate = async () => {
   try {
-    const response = await axiosInstance.get(`/dashboard/plan-rate`);
+    const response = await axiosInstance.get(`/DashBoard/purchase-ratio`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';

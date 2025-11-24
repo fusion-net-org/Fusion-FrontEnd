@@ -292,8 +292,8 @@ export default function CompanyListPage() {
                   <Building2 className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-900">Company Management</h1>
-                  <p className="text-sm text-gray-500">Manage and monitor all companies</p>
+                  <h1 className="text-xl font-semibold text-gray-900 m-0">Company Management</h1>
+                  <p className="text-sm text-gray-500 m-0">Manage and monitor all companies</p>
                 </div>
               </div>
               <button

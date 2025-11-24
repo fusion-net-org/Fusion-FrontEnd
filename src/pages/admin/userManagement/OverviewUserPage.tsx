@@ -1,23 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { Card, Segmented } from "antd";
-import { Users as UsersIcon, TrendingUp } from "lucide-react";
+import React, { useEffect, useState } from 'react';
+import { Card, Segmented } from 'antd';
+import { Users as UsersIcon, TrendingUp } from 'lucide-react';
 
-import UserGrowthAndStatusChart from "@/pages/admin/userManagement/Chart/UserGrowthAndStatusChart";
-import UserCompanyDistributionChart from "@/pages/admin/userManagement/Chart/UserCompanyDistributionChart";
-import UserPermissionLevelChart from "@/pages/admin/userManagement/Chart/UserPermissionLevelChart";
+import UserGrowthAndStatusChart from '@/pages/admin/userManagement/Chart/UserGrowthAndStatusChart';
+import UserCompanyDistributionChart from '@/pages/admin/userManagement/Chart/UserCompanyDistributionChart';
+import UserPermissionLevelChart from '@/pages/admin/userManagement/Chart/UserPermissionLevelChart';
 
 import {
   getUserGrowthAndStatusOverview,
   getTopCompanyUserDistribution,
   getUserPermissionLevelOverview,
-} from "@/services/userService.js";
+} from '@/services/userService.js';
 
 import type {
   ApiResponse,
   UserGrowthAndStatusOverview as OverviewModel,
   UserCompanyDistributionPoint,
   UserPermissionLevelOverview,
-} from "@/interfaces/User/User";
+} from '@/interfaces/User/User';
 
 const OverviewUserPage: React.FC = () => {
   /* ========= 1. Growth & active status ========= */
@@ -27,15 +27,13 @@ const OverviewUserPage: React.FC = () => {
   const [months, setMonths] = useState<number>(12);
 
   /* ========= 2. User distribution by company ========= */
-  const [companyData, setCompanyData] =
-    useState<UserCompanyDistributionPoint[] | null>(null);
+  const [companyData, setCompanyData] = useState<UserCompanyDistributionPoint[] | null>(null);
   const [companyLoading, setCompanyLoading] = useState<boolean>(true);
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [top, setTop] = useState<number>(10);
 
   /* ========= 3. Users by permission level ========= */
-  const [permOverview, setPermOverview] =
-    useState<UserPermissionLevelOverview | null>(null);
+  const [permOverview, setPermOverview] = useState<UserPermissionLevelOverview | null>(null);
   const [permLoading, setPermLoading] = useState<boolean>(true);
   const [permError, setPermError] = useState<string | null>(null);
 
@@ -47,19 +45,14 @@ const OverviewUserPage: React.FC = () => {
         setOverviewLoading(true);
         setOverviewError(null);
 
-        const res =
-          (await getUserGrowthAndStatusOverview(
-            months
-          )) as ApiResponse<OverviewModel>;
+        const res = (await getUserGrowthAndStatusOverview(months)) as ApiResponse<OverviewModel>;
 
         if (!mounted) return;
         setOverview(res.data);
       } catch (err: any) {
         if (!mounted) return;
-        console.error("OverviewUserPage (overview) error:", err);
-        setOverviewError(
-          err?.message || "Error loading user overview data"
-        );
+        console.error('OverviewUserPage (overview) error:', err);
+        setOverviewError(err?.message || 'Error loading user overview data');
       } finally {
         if (mounted) setOverviewLoading(false);
       }
@@ -70,23 +63,16 @@ const OverviewUserPage: React.FC = () => {
         setCompanyLoading(true);
         setCompanyError(null);
 
-        const res =
-          (await getTopCompanyUserDistribution(
-            top
-          )) as ApiResponse<UserCompanyDistributionPoint[]>;
+        const res = (await getTopCompanyUserDistribution(top)) as ApiResponse<
+          UserCompanyDistributionPoint[]
+        >;
 
         if (!mounted) return;
         setCompanyData(res.data);
       } catch (err: any) {
         if (!mounted) return;
-        console.error(
-          "OverviewUserPage (company distribution) error:",
-          err
-        );
-        setCompanyError(
-          err?.message ||
-            "Error loading company user distribution data"
-        );
+        console.error('OverviewUserPage (company distribution) error:', err);
+        setCompanyError(err?.message || 'Error loading company user distribution data');
       } finally {
         if (mounted) setCompanyLoading(false);
       }
@@ -104,14 +90,8 @@ const OverviewUserPage: React.FC = () => {
         setPermOverview(res.data);
       } catch (err: any) {
         if (!mounted) return;
-        console.error(
-          "OverviewUserPage (permission overview) error:",
-          err
-        );
-        setPermError(
-          err?.message ||
-            "Error loading user permission level overview"
-        );
+        console.error('OverviewUserPage (permission overview) error:', err);
+        setPermError(err?.message || 'Error loading user permission level overview');
       } finally {
         if (mounted) setPermLoading(false);
       }
@@ -136,10 +116,10 @@ const OverviewUserPage: React.FC = () => {
               <UsersIcon size={20} />
             </div>
             <div>
-              <h1 className="text-base md:text-lg font-semibold text-slate-900">
+              <h2 className="text-base md:text-lg font-semibold text-slate-900 m-0">
                 User overview
-              </h1>
-              <p className="mt-0.5 text-xs md:text-sm text-slate-500">
+              </h2>
+              <p className="mt-0.5 text-xs md:text-sm text-slate-500 m-0">
                 High-level metrics and growth trends for your system users.
               </p>
             </div>
@@ -156,9 +136,7 @@ const OverviewUserPage: React.FC = () => {
                 <TrendingUp size={18} className="text-blue-500" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-900">
-                  User growth & status
-                </span>
+                <span className="text-sm font-semibold text-slate-900">User growth & status</span>
                 <span className="text-[11px] text-slate-500">
                   Monthly new users and active / inactive distribution.
                 </span>
@@ -173,9 +151,9 @@ const OverviewUserPage: React.FC = () => {
                 value={months}
                 onChange={(value) => setMonths(value as number)}
                 options={[
-                  { label: "Last 3 months", value: 3 },
-                  { label: "Last 6 months", value: 6 },
-                  { label: "Last 12 months", value: 12 },
+                  { label: 'Last 3 months', value: 3 },
+                  { label: 'Last 6 months', value: 6 },
+                  { label: 'Last 12 months', value: 12 },
                 ]}
               />
             </div>

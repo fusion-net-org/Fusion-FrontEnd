@@ -1,21 +1,21 @@
 // src/pages/admin/subcriptionManagement/SubscriptionOverviewPage.tsx
 
-import React, { useEffect, useState } from "react";
-import { BarChart3, CalendarDays } from "lucide-react";
-import { Select } from "antd";
+import React, { useEffect, useState } from 'react';
+import { BarChart3, CalendarDays } from 'lucide-react';
+import { Select } from 'antd';
 
 import {
   getPaymentModeInsightForAdmin,
   getPlanRevenueInsightForAdmin,
-} from "@/services/transactionService.js";
+} from '@/services/transactionService.js';
 
 import type {
   TransactionPaymentModeInsightResponse,
   TransactionPlanRevenueInsightResponse,
-} from "@/interfaces/Transaction/TransactionPayment";
+} from '@/interfaces/Transaction/TransactionPayment';
 
-import PaymentModeInsightChart from "@/pages/admin/subcriptionManagement/Chart/PaymentModeInsightChart";
-import PlanRevenueInsightChart from "@/pages/admin/subcriptionManagement/Chart/PlanRevenueInsightChart";
+import PaymentModeInsightChart from '@/pages/admin/subcriptionManagement/Chart/PaymentModeInsightChart';
+import PlanRevenueInsightChart from '@/pages/admin/subcriptionManagement/Chart/PlanRevenueInsightChart';
 
 const { Option } = Select;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -25,13 +25,11 @@ const SubscriptionOverviewPage: React.FC = () => {
 
   // Payment mode
   const [loadingMode, setLoadingMode] = useState(false);
-  const [modeData, setModeData] =
-    useState<TransactionPaymentModeInsightResponse | null>(null);
+  const [modeData, setModeData] = useState<TransactionPaymentModeInsightResponse | null>(null);
 
   // Plan revenue
   const [loadingPlan, setLoadingPlan] = useState(false);
-  const [planData, setPlanData] =
-    useState<TransactionPlanRevenueInsightResponse | null>(null);
+  const [planData, setPlanData] = useState<TransactionPlanRevenueInsightResponse | null>(null);
 
   const loadPaymentModeInsight = async (y: number) => {
     setLoadingMode(true);
@@ -77,10 +75,10 @@ const SubscriptionOverviewPage: React.FC = () => {
             <BarChart3 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-semibold text-slate-900">
+            <h1 className="text-lg md:text-xl font-semibold text-slate-900 m-0">
               Subscription overview
             </h1>
-            <p className="text-xs md:text-sm text-slate-500">
+            <p className="text-xs md:text-sm text-slate-500 m-0">
               Insight by payment mode &amp; plan for subscription revenue.
             </p>
           </div>
