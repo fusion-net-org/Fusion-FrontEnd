@@ -1,18 +1,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation, useParams, matchPath } from 'react-router-dom';
+import { useLocation, useParams, useNavigate, matchPath } from 'react-router-dom';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+
 import { getOwnerUser } from '@/services/userService.js';
 import type { User } from '@/interfaces/User/User';
 import { getCompanyById } from '@/services/companyService.js';
 import logo_fusion from '@/assets/logo_fusion.png';
 
 type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners';
-type Item = { key: string; label: string; to: string; icon?: PresetIcon | React.ReactNode };
+
+type SubItem = {
+  name: string;
+  to: string;
+};
+
+type Item = {
+  key: string;
+  label: string;
+  to?: string;
+  icon?: PresetIcon | React.ReactNode;
+  children?: SubItem[];
+};
+
+type CompanyNavbarProps = {
+  items?: Item[];
+  ownerUserId?: string;
+  isCollapsed?: boolean;
+};
 
 const Preset: Record<PresetIcon, React.ReactNode> = {
   grid: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <path
         d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"
         stroke="currentColor"
@@ -21,24 +41,24 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
     </svg>
   ),
   doc: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <path d="M7 4h7l4 4v12H7zM14 4v4h4" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
   layers: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <path d="M12 4l8 4-8 4-8-4 8-4z" stroke="currentColor" strokeWidth="1.6" />
       <path d="M4 12l8 4 8-4" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
   users: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <path d="M16 11a4 4 0 1 0-8 0" stroke="currentColor" strokeWidth="1.6" />
       <path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
   shield: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <path
         d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"
         stroke="currentColor"
@@ -47,7 +67,7 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
     </svg>
   ),
   settings: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" strokeWidth="1.6" />
       <path
         d="M19.4 15a7.9 7.9 0 0 0 0-6M4.6 9a7.9 7.9 0 0 0 0 6"
@@ -57,7 +77,7 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
     </svg>
   ),
   partners: (
-    <svg viewBox="0 0 24 24" className="cmp-nav__svg" fill="none">
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
       <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.6" />
       <circle cx="16" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.6" />
       <path
@@ -77,7 +97,16 @@ const defaultItems: Item[] = [
     to: '/companies/:companyId/access-role',
     icon: 'grid',
   },
-  { key: 'projects', label: 'Projects', to: '/companies/:companyId/project', icon: 'layers' },
+  {
+    key: 'projects',
+    label: 'Projects',
+    to: '/companies/:companyId/project',
+    icon: 'layers',
+    children: [
+      { name: 'All project', to: '/companies/:companyId/project' },
+      { name: 'Project detail', to: '/companies/:companyId/projectId' },
+    ],
+  },
   {
     key: 'project-request',
     label: 'Project Request',
@@ -98,7 +127,12 @@ const defaultItems: Item[] = [
     icon: 'partners',
   },
   { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
-  { key: 'member-detail', label: 'Member Detail', to: '/company/members/:Id', icon: 'users' },
+  {
+    key: 'member-detail',
+    label: 'Member Detail',
+    to: '/company/members/:id',
+    icon: 'users',
+  },
   {
     key: 'subscription',
     label: 'Subscription',
@@ -107,33 +141,53 @@ const defaultItems: Item[] = [
   },
 ];
 
-export default function CompanyNavbar({
+const isPresetIcon = (value: unknown): value is PresetIcon => {
+  return typeof value === 'string' && value in Preset;
+};
+
+const CompanyNavbar: React.FC<CompanyNavbarProps> = ({
   items = defaultItems,
-}: {
-  items?: Item[];
-  ownerUserId?: string;
-}) {
+  ownerUserId: ownerUserIdProp,
+  isCollapsed = false,
+}) => {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { companyId, id } = useParams();
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
+
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(ownerUserIdProp ?? null);
+  const [company, setCompany] = useState<any>(null);
+  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userIdLogin = user?.id;
-  const [company, setCompany] = useState<any>(null);
+  const userIdLogin = user?.id as string | undefined;
+
+  const toggleMenu = (key: string) => {
+    setOpenMenus((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (ownerUserIdProp) {
+      setOwnerUserId(ownerUserIdProp);
+    }
+  }, [ownerUserIdProp]);
 
   useEffect(() => {
     const fetchOwnerUser = async () => {
       try {
-        if (!userIdLogin) return;
+        if (!userIdLogin || !companyId || ownerUserIdProp) return;
         const response = await getOwnerUser(companyId);
         const data: User = response?.data || null;
-        setOwnerUserId(data.id || null);
+        setOwnerUserId(data?.id || null);
       } catch (err) {
         console.error('Error fetching owner user:', err);
       }
     };
     fetchOwnerUser();
-  }, [userIdLogin, companyId]);
+  }, [userIdLogin, companyId, ownerUserIdProp]);
 
   useEffect(() => {
     const fetchCompany = async () => {
@@ -148,13 +202,13 @@ export default function CompanyNavbar({
     fetchCompany();
   }, [companyId]);
 
-  const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
+  const isOwner = !!(userIdLogin && ownerUserId && userIdLogin === ownerUserId);
 
   const isPartnerDetailPage = /^\/company\/partners\/[^/]+$/.test(pathname);
   const isMemberDetailPage = /^\/company\/members\/[^/]+$/.test(pathname);
   const isProjectRequestDetailPage = /^\/company\/[^/]+\/project-request\/[^/]+$/.test(pathname);
 
-  let visibleItems;
+  let visibleItems: Item[] = [];
 
   if (isPartnerDetailPage) {
     visibleItems = items.filter((i) => i.key === 'partner-detail');
@@ -173,70 +227,158 @@ export default function CompanyNavbar({
     visibleItems = items.filter((i) => i.key === 'company-detail');
   }
 
-  const activeIdx = Math.max(
-    0,
-    visibleItems.findIndex((i) => {
-      let routePath = i.to;
+  const resolvePath = (template?: string) => {
+    if (!template) return '';
+    let result = template;
+    if (companyId) result = result.replace(':companyId', companyId);
+    if (id) result = result.replace(':id', id).replace(':Id', id);
+    return result;
+  };
 
-      if (
-        i.key === 'partner-detail' ||
-        i.key === 'member-detail' ||
-        i.key === 'project-request-detail'
-      ) {
-        routePath = routePath.replace(':id', id || '');
-      } else {
-        routePath = routePath.replace(':companyId', companyId || '');
-      }
+  const renderIcon = (icon: Item['icon'], active: boolean) => {
+    if (!icon) return null;
 
-      return matchPath({ path: routePath, end: true }, pathname) !== null;
-    }),
-  );
+    const baseCls = `w-5 h-5 flex-shrink-0 transition-colors duration-200 ${
+      active ? 'text-blue-600' : 'text-gray-500'
+    }`;
+
+    if (isPresetIcon(icon)) {
+      return <span className={baseCls}>{Preset[icon]}</span>;
+    }
+
+    if (React.isValidElement(icon)) {
+      return React.cloneElement(icon as React.ReactElement<any>, {
+        className: `${baseCls} ${(icon.props as any)?.className ?? ''}`.trim(),
+      });
+    }
+
+    return <span className={baseCls}>{icon}</span>;
+  };
 
   return (
-    <aside className="cmp-nav">
-      {company && (
-        <div className="cmp-nav__company">
-          <img
-            src={company.avatarCompany || logo_fusion}
-            className="cmp-nav__companyLogo"
-            alt="Company Logo"
-          />
+    <aside
+      className={`flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 h-screen ${
+        isCollapsed ? 'w-20' : 'w-64'
+      }`}
+    >
+      <div className="p-4 flex flex-col h-full">
+        {/* Header / logo */}
+        {company && (
+          <div className="cmp-nav__company">
+            <img
+              src={company.avatarCompany || logo_fusion}
+              className="cmp-nav__companyLogo"
+              alt="Logo công ty"
+            />
 
-          <div className="cmp-nav__companyName">{company.name}</div>
-        </div>
-      )}
+            <div className="cmp-nav__companyName">{company.name}</div>
+          </div>
+        )}
 
-      <nav className="cmp-nav__menu">
-        <div className="cmp-nav__groupTitle">Menu</div>
-        <div className="cmp-nav__items" style={{ ['--active-index' as any]: activeIdx }}>
-          <div className="cmp-nav__indicator" />
+        <hr />
+
+        {/* Menu */}
+        <nav className="flex-1 flex flex-col space-y-1">
+          <div
+            style={{
+              padding: '10px 12px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              color: '#6b7280',
+              textTransform: 'uppercase',
+            }}
+          >
+            Menu
+          </div>
+
           {visibleItems.map((it) => {
-            let routePath = it.to;
+            const hasChildren = !!it.children?.length;
+            const isOpen = openMenus.has(it.key);
 
-            if (
-              it.key === 'partner-detail' ||
-              it.key === 'member-detail' ||
-              it.key === 'project-request-detail'
-            ) {
-              routePath = routePath.replace(':id', id || '');
-            } else if (companyId) {
-              routePath = routePath.replace(':companyId', companyId);
-            }
+            const routePath = resolvePath(it.to);
+            const active =
+              routePath && matchPath({ path: routePath, end: true }, pathname) !== null;
+
+            const handleClick = () => {
+              if (hasChildren) {
+                toggleMenu(it.key);
+              } else if (routePath) {
+                navigate(routePath);
+              }
+            };
 
             return (
-              <NavLink
-                key={it.key}
-                to={routePath}
-                end
-                className={({ isActive }) => `cmp-nav__item ${isActive ? 'is-active' : ''}`}
-              >
-                <span className="cmp-nav__glyph">{Preset[it.icon as PresetIcon]}</span>
-                <span>{it.label}</span>
-              </NavLink>
+              <div key={it.key}>
+                {/* Parent row */}
+                <button
+                  onClick={handleClick}
+                  className={`
+                    relative flex items-center w-full gap-3 px-3 py-2 rounded-lg text-sm font-medium 
+                    transition-all duration-200 select-none
+                    ${
+                      active
+                        ? 'bg-blue-600/10 text-blue-700 ring-1 ring-blue-500'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                  title={isCollapsed ? it.label : undefined}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-blue-500 rounded-r-full" />
+                  )}
+
+                  {renderIcon(it.icon, !!active)}
+
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 text-left">{it.label}</span>
+
+                      {hasChildren &&
+                        (isOpen ? (
+                          <ChevronDown className="w-4 h-4 opacity-70 transition-transform duration-200 rotate-180" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 opacity-70 transition-transform duration-200" />
+                        ))}
+                    </>
+                  )}
+                </button>
+
+                {/* Submenu – KHÔNG có bg, chỉ đổi màu text */}
+                {!isCollapsed && hasChildren && isOpen && (
+                  <div className="ml-6 mt-1 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-1">
+                    {it.children?.map((sub) => {
+                      const subPath = resolvePath(sub.to);
+                      if (!subPath) return null;
+
+                      const subActive = pathname.startsWith(subPath);
+
+                      return (
+                        <button
+                          key={sub.to}
+                          onClick={() => navigate(subPath)}
+                          className={`
+                             w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200
+                            ${
+                              subActive
+                                ? 'text-blue-600 dark:text-blue-400 font-medium'
+                                : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                            }
+                          `}
+                        >
+                          {sub.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
-        </div>
-      </nav>
+        </nav>
+      </div>
     </aside>
   );
-}
+};
+
+export default CompanyNavbar;
