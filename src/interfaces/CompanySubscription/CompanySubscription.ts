@@ -55,6 +55,13 @@ export type CompanySubscriptionActiveResponse = {
   companySubscriptionEntitlements: CompanySubscriptionEntitlementDropdownResponse[];
 };
 
+export type CompanySubscriptionUserUsageItem = {
+  userId: Guid;
+  userName?: string | null;
+  email?: string | null;
+  avatar?: string | null;
+  firstUsedAt: string;
+};
 // ====== PAGED REQUEST / RESULT ======
 export type CompanySubscriptionPagedRequest = {
   keyword?: string;

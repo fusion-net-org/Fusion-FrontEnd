@@ -1,8 +1,8 @@
 // src/pages/admin/transactionManagement/TransactionOverviewPage.tsx
 
-import React, { useEffect, useState } from "react";
-import { BarChart3, CalendarDays } from "lucide-react";
-import { Select } from "antd";
+import React, { useEffect, useState } from 'react';
+import { BarChart3, CalendarDays } from 'lucide-react';
+import { Select } from 'antd';
 
 import {
   getMonthlyRevenueForAdmin,
@@ -11,7 +11,7 @@ import {
   getDailyCashflowForAdmin,
   getInstallmentAgingForAdmin,
   getTopCustomersForAdmin,
-} from "@/services/transactionService.js";
+} from '@/services/transactionService.js';
 
 import type {
   TransactionMonthlyRevenueResponse,
@@ -20,14 +20,14 @@ import type {
   TransactionDailyCashflowResponse,
   TransactionInstallmentAgingResponse,
   TransactionTopCustomersResponse,
-} from "@/interfaces/Transaction/TransactionPayment";
+} from '@/interfaces/Transaction/TransactionPayment';
 
-import MonthlyRevenueChart from "@/pages/admin/transactionManagement/Chart/MonthlyRevenueChart";
-import MonthlyRevenueCompareChart from "@/pages/admin/transactionManagement/Chart/MonthlyRevenueCompareChart";
-import PaymentHealthChart from "@/pages/admin/transactionManagement/Chart/PaymentHealthChart";
-import DailyCashflowChart from "@/pages/admin/transactionManagement/Chart/DailyCashflowChart";
-import InstallmentAgingChart from "@/pages/admin/transactionManagement/Chart/InstallmentAgingChart";
-import TopCustomersChart from "@/pages/admin/transactionManagement/Chart/TopCustomersChart";
+import MonthlyRevenueChart from '@/pages/admin/transactionManagement/Chart/MonthlyRevenueChart';
+import MonthlyRevenueCompareChart from '@/pages/admin/transactionManagement/Chart/MonthlyRevenueCompareChart';
+import PaymentHealthChart from '@/pages/admin/transactionManagement/Chart/PaymentHealthChart';
+import DailyCashflowChart from '@/pages/admin/transactionManagement/Chart/DailyCashflowChart';
+import InstallmentAgingChart from '@/pages/admin/transactionManagement/Chart/InstallmentAgingChart';
+import TopCustomersChart from '@/pages/admin/transactionManagement/Chart/TopCustomersChart';
 
 const { Option } = Select;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -36,28 +36,23 @@ const TransactionOverviewPage: React.FC = () => {
   const [year, setYear] = useState<number>(CURRENT_YEAR);
 
   const [loadingMonthly, setLoadingMonthly] = useState(false);
-  const [monthlyData, setMonthlyData] =
-    useState<TransactionMonthlyRevenueResponse | null>(null);
+  const [monthlyData, setMonthlyData] = useState<TransactionMonthlyRevenueResponse | null>(null);
 
   const [loadingCompare, setLoadingCompare] = useState(false);
   const [compareData, setCompareData] =
     useState<TransactionMonthlyRevenueThreeYearsResponse | null>(null);
 
   const [loadingHealth, setLoadingHealth] = useState(false);
-  const [healthData, setHealthData] =
-    useState<TransactionMonthlyStatusResponse | null>(null);
+  const [healthData, setHealthData] = useState<TransactionMonthlyStatusResponse | null>(null);
 
   const [loadingDaily, setLoadingDaily] = useState(false);
-  const [dailyData, setDailyData] =
-    useState<TransactionDailyCashflowResponse | null>(null);
+  const [dailyData, setDailyData] = useState<TransactionDailyCashflowResponse | null>(null);
 
   const [loadingAging, setLoadingAging] = useState(false);
-  const [agingData, setAgingData] =
-    useState<TransactionInstallmentAgingResponse | null>(null);
+  const [agingData, setAgingData] = useState<TransactionInstallmentAgingResponse | null>(null);
 
   const [loadingTop, setLoadingTop] = useState(false);
-  const [topData, setTopData] =
-    useState<TransactionTopCustomersResponse | null>(null);
+  const [topData, setTopData] = useState<TransactionTopCustomersResponse | null>(null);
 
   // Top N users cho chart "Top customers"
   const [topN, setTopN] = useState<number>(5);
@@ -158,10 +153,10 @@ const TransactionOverviewPage: React.FC = () => {
             <BarChart3 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-semibold text-slate-900">
+            <h1 className="text-lg md:text-xl font-semibold text-slate-900 m-0">
               Transaction overview
             </h1>
-            <p className="text-xs md:text-sm text-slate-500">
+            <p className="text-xs md:text-sm text-slate-500 m-0">
               High-level metrics and revenue trends for your subscription payments.
             </p>
           </div>
@@ -188,10 +183,7 @@ const TransactionOverviewPage: React.FC = () => {
       {/* Row 1: revenue charts */}
       <div className="grid gap-5 md:grid-cols-2">
         <MonthlyRevenueChart data={monthlyData} loading={loadingMonthly} />
-        <MonthlyRevenueCompareChart
-          data={compareData}
-          loading={loadingCompare}
-        />
+        <MonthlyRevenueCompareChart data={compareData} loading={loadingCompare} />
       </div>
 
       {/* Row 2: payment health + daily cashflow */}
@@ -203,12 +195,7 @@ const TransactionOverviewPage: React.FC = () => {
       {/* Row 3: installment aging + top customers */}
       <div className="grid gap-5 md:grid-cols-2">
         <InstallmentAgingChart data={agingData} loading={loadingAging} />
-        <TopCustomersChart
-          data={topData}
-          loading={loadingTop}
-          topN={topN}
-          onTopNChange={setTopN}
-        />
+        <TopCustomersChart data={topData} loading={loadingTop} topN={topN} onTopNChange={setTopN} />
       </div>
     </div>
   );

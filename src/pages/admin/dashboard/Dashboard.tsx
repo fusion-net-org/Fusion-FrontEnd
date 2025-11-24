@@ -16,7 +16,7 @@ import icTotalRevenue from '@/assets/admin/ic_total_revenue.png';
 import icTotalUser from '@/assets/admin/ic_total_user.png';
 import {
   getTotalsDashboard,
-  getMonthlyStats,
+  //getMonthlyStats,
   getPlanRate,
 } from '@/services/adminDashboardService.js';
 import { getAllTransactionForAdmin, getTransactionById } from '@/services/transactionService.js';
@@ -77,11 +77,11 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         const totalsRes = await getTotalsDashboard();
-        const monthlyRes = await getMonthlyStats();
+        //const monthlyRes = await getMonthlyStats();
         const res = await getPlanRate();
-
+        console.log('totals:', totalsRes);
         setTotals(totalsRes.data);
-        setMonthlyStats(monthlyRes.data);
+        //setMonthlyStats(monthlyRes.data);
         if (res?.data) setPlanRate(res.data);
 
         const transRes = await getAllTransactionForAdmin({
@@ -387,7 +387,7 @@ const Dashboard = () => {
               {planRate.length > 0 ? (
                 <PolarArea data={chartPlanData} options={chartOptions} />
               ) : (
-                <p className="text-gray-400 text-sm">Loading...</p>
+                <p className="text-gray-400 text-sm">No data...</p>
               )}
             </div>
           </div>

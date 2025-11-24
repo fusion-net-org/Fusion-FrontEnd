@@ -207,3 +207,38 @@ export const deleteCompanyByAdmin = async (companyId) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+// =============== Over view ====================
+//1.growth & status (chart)
+export const getCompanyGrowthAndStatusOverview = async (params = {}) => {
+  try {
+    const response = await axiosInstance.get(
+      "/company/growth-and-status",
+      { params }
+    );
+
+    return response?.data?.data ?? null;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message ||
+        "Failed to load company growth & status overview!"
+    );
+  }
+};
+
+// 2. Company project load distribution
+export const getCompanyProjectLoadOverview = async () => {
+  try {
+    const response = await axiosInstance.get(
+      "/company/project-load-distribution"
+    );
+     return response?.data?.data ?? null;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message ||
+      error?.response?.data?.message ||
+        "Failed to load company project load distribution!"
+    );
+  }
+};
+

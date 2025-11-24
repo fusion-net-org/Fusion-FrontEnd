@@ -81,3 +81,17 @@ export async function getActiveCompanySubscriptions(companyId) {
     return [];
   }
 }
+
+/** GET /CompanySubscription/{companySubscriptionId}/user-usage */
+export async function getCompanySubscriptionUserUsage(companySubscriptionId) {
+  try {
+    const res = await axiosInstance.get(
+      `/CompanySubscription/${companySubscriptionId}/user-usage`
+    );
+    // BE trả ResponseModel<List<CompanySubscriptionUserUsageItem>>
+    return unwrap(res) ?? [];
+  } catch (e) {
+    onError(e);
+    return [];
+  }
+}

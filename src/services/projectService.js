@@ -92,62 +92,6 @@ const mapItemToProject = (r, currentCompanyId) => {
     isRequest: !!isRequest,
   };
 };
-// ... các hàm ở trên (isGuid, getCompanyMembersPaged, normStatus, toDateStr, mapItemToProject) ...
-
-// Map DTO member trong project -> VM dùng cho FE
-const mapProjectMemberDto = (m) => ({
-  userId: String(m.userId ?? m.id ?? m.memberId ?? m.user_id ?? m.member_id ?? ''),
-  name: m.name ?? m.memberName ?? m.fullName ?? m.email ?? 'Unknown',
-  email: m.email ?? '',
-  roleName: m.roleName ?? m.projectRole ?? m.role ?? '',
-  isPartner: !!(m.isPartner ?? m.isExternal ?? m.isCompanyHiredMember),
-  isViewAll: !!(m.isViewAll ?? m.canViewAllTasks ?? m.isManager),
-  joinedAt: m.joinedAt ?? m.createdAt ?? m.created_at ?? null,
-});
-
-// Map DTO project detail từ BE -> ProjectDetailVm cho FE
-const mapProjectDetailDto = (r) => {
-  const stats = r.stats ?? r.summary ?? {};
-  const asNum = (v, fallback = 0) => (typeof v === 'number' && !Number.isNaN(v) ? v : fallback);
-
-  const membersRaw = r.members ?? r.projectMembers ?? r.memberList ?? r.memberResponses ?? [];
-
-  return {
-    id: String(r.id ?? r.projectId ?? r.project_id ?? ''),
-    code: r.code ?? r.projectCode ?? '',
-    name: r.name ?? r.projectName ?? '',
-    description: r.description ?? r.desc ?? null,
-    status: normStatus(r.status ?? r.projectStatus),
-    isHired: !!(r.isHired ?? r.is_hired ?? r.isOutsourced),
-    companyId: String(r.companyId ?? r.ownerCompanyId ?? r.company_id ?? ''),
-    companyName: r.companyName ?? r.ownerCompanyName ?? r.ownerCompany ?? '',
-    companyHiredId: r.companyHiredId ?? r.hiredCompanyId ?? null,
-    companyHiredName: r.companyHiredName ?? r.hiredCompanyName ?? null,
-    workflowId: String(r.workflowId ?? r.workflow_id ?? ''),
-    workflowName: r.workflowName ?? '',
-    sprintLengthWeeks: r.sprintLengthWeeks ?? r.sprintLength ?? 1,
-    startDate: toDateStr(r.startDate ?? r.start_date),
-    endDate: toDateStr(r.endDate ?? r.end_date),
-    createdAt: r.createdAt ?? r.created_at ?? new Date().toISOString(),
-    createdByName: r.createdByName ?? r.createdBy ?? r.createdByUserName ?? '',
-
-    stats: {
-      totalSprints: asNum(
-        stats.totalSprints ?? stats.sprintCount ?? r.totalSprints ?? r.sprintCount,
-      ),
-      activeSprints: asNum(
-        stats.activeSprints ?? stats.activeSprintCount ?? r.activeSprints ?? r.activeSprintCount,
-      ),
-      totalTasks: asNum(stats.totalTasks ?? stats.taskCount ?? r.totalTasks ?? r.taskCount),
-      doneTasks: asNum(stats.doneTasks ?? stats.doneTaskCount ?? r.doneTasks ?? r.doneTaskCount),
-      totalStoryPoints: asNum(
-        stats.totalStoryPoints ?? stats.storyPoints ?? r.totalStoryPoints ?? r.storyPoints,
-      ),
-    },
-
-    members: Array.isArray(membersRaw) ? membersRaw.map(mapProjectMemberDto) : [],
-  };
-};
 
 /**
  * Lấy danh sách project (server có thể filter/sort/paging).
@@ -268,7 +212,6 @@ export async function getSprintsByProject(
 export async function createProject(payload) {
   const {
     companyId,
-    companySubscriptionId, 
     isHired,
     companyRequestId,
     projectRequestId,
@@ -278,17 +221,16 @@ export async function createProject(payload) {
     status,
     startDate, // 'yyyy-MM-dd'
     endDate, // 'yyyy-MM-dd'
-    sprintLengthWeeks,
+    sprintLengthWeeks, // int >= 1 (bỏ nếu BE không dùng)
     workflowId, // GUID
     memberIds,
   } = payload;
 
   if (!isGuid(companyId)) throw new Error('Invalid companyId');
   if (!isGuid(workflowId)) throw new Error('Invalid workflowId');
-  console.log('a');
+
   const dto = {
     companyId,
-    companySubscriptionId,
     isHired: !!isHired,
     companyRequestId: isGuid(companyRequestId) ? companyRequestId : null,
     projectRequestId: isGuid(projectRequestId) ? projectRequestId : null,
@@ -346,20 +288,35 @@ export const getProjectById = async (id) => {
   try {
     const response = await axiosInstance.get(`/admin/${id}`);
     return response.data;
-    const { data } = await axiosInstance.get(`/projects/${projectId}`);
-    // API có thể trả { succeeded, data: {...} } hoặc trả thẳng {...}
-    return data?.data ?? data ?? {};
   } catch (error) {
-    console.error('GetProjectByProjectId failed', error);
     throw new Error(error.response?.data?.message || 'Error!');
   }
+};
+//================  Over view ====================
+// 1. Project Growth And Completion
+export const getProjectGrowthAndCompletionOverview = async (params = {}) => {
+  const response = await axiosInstance.get('/growth-and-completion', {
+    params,
+  });
+
+  const payload = response?.data ?? {};
+  return payload.data ?? payload;
+};
+
+//2. Project Execution Overview (tasks & sprints)
+export const getProjectExecutionOverview = async (params = {}) => {
+  const response = await axiosInstance.get('/project-execution-overview', {
+    params,
+  });
+  const payload = response?.data ?? {};
+  return payload.data ?? payload;
 };
 
 // Gán member vào project
 export async function assignMemberToProject(projectId, memberId, companyId) {
-  if (!isGuid(projectId)) throw new Error("Invalid projectId");
-  if (!isGuid(memberId)) throw new Error("Invalid memberId");
-  if (!isGuid(companyId)) throw new Error("Invalid companyId");
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+  if (!isGuid(memberId)) throw new Error('Invalid memberId');
+  if (!isGuid(companyId)) throw new Error('Invalid companyId');
 
   const dto = {
     projectId,
@@ -368,20 +325,19 @@ export async function assignMemberToProject(projectId, memberId, companyId) {
   };
 
   // ⚠️ Nếu BE dùng route khác, chỉ cần chỉnh path dưới đây
-  const { data } = await axiosInstance.post("/projectmember", dto);
+  const { data } = await axiosInstance.post('/projectmember', dto);
   return data?.data ?? data;
 }
 
 // Kick member khỏi project
 export async function removeMemberFromProject(projectId, memberId) {
-  if (!isGuid(projectId)) throw new Error("Invalid projectId");
-  if (!isGuid(memberId)) throw new Error("Invalid memberId");
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+  if (!isGuid(memberId)) throw new Error('Invalid memberId');
 
   // Ví dụ: DELETE /projectmember/project/{projectId}/member/{memberId}
   // chỉnh lại cho khớp route BE của bạn
   const { data } = await axiosInstance.delete(
-    `/projectmember/project/${projectId}/member/${memberId}`
+    `/projectmember/project/${projectId}/member/${memberId}`,
   );
   return data?.data ?? data;
 }
-
