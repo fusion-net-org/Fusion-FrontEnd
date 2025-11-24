@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import NotificationItem from '@/components/Notification/NotificationItem';
 import { useFCMListener } from '@/hook/useFCM';
+import { toast } from 'react-toastify';
 
 dayjs.extend(relativeTime);
 
@@ -188,7 +189,7 @@ const NotificationPage: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => alert('Go to notification settings')}
+                  onClick={() => toast('Go to notification settings')}
                   className="w-full flex items-center px-4 py-2 text-sm text-gray-800 hover:bg-gray-50"
                 >
                   <Settings className="w-4 h-4 mr-2 text-gray-500" />

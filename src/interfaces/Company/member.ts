@@ -5,11 +5,14 @@ export interface CompanyMemberInterface {
   memberId: string;
   memberName: string;
   memberAvatar: string;
+  roleName: string;
   email: string;
   phone: string;
   gender: string;
   numberProductJoin: number;
   numberCompanyJoin: number;
+  score: number;
+  hoursPerWeek: number;
   status: string;
   isDeleted: boolean;
   joinedAt: string;

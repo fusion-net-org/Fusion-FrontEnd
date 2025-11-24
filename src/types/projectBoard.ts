@@ -19,6 +19,7 @@ export type StatusMeta = {
   color?: string;
   isFinal?: boolean;
   isStart?: boolean;
+  roles?: string[];    
 };
 
 export type SprintVm = {

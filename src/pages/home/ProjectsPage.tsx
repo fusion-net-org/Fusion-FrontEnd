@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 // src/pages/home/ProjectsPage.tsx
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -116,8 +117,7 @@ export default function ProjectsPage() {
   const pageSize = 8;
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const { companyId: routeCompanyId } = useParams();
-  const companyId = routeCompanyId || localStorage.getItem("currentCompanyId"); // ✅
-
+  const companyId = routeCompanyId || localStorage.getItem('currentCompanyId'); // ✅
 
   React.useEffect(() => {
     let alive = true;
@@ -138,8 +138,9 @@ export default function ProjectsPage() {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
- 
+    return () => {
+      alive = false;
+    };
   }, [companyId]);
   const uniq = <K extends keyof Project>(k: K) =>
     Array.from(new Set(all.map((p) => (p[k] ?? '') as string))).filter(Boolean);
@@ -173,13 +174,23 @@ export default function ProjectsPage() {
   }, [filtered, page, mode]);
 
   const [openCreate, setOpenCreate] = React.useState(false);
-
+  console.log('current', current);
   // thay createProject:
   const createProject = () => setOpenCreate(true);
+
+  // const openProject = (p: Project) => {
+  //   setSelectedId(p.id);
+  //   // Navigate directly to project (adjust route to your app)
+  //   nav(`/companies/${companyId}/project/${p.id}`);
+  // };
   const openProject = (p: Project) => {
     setSelectedId(p.id);
-    // Navigate directly to project (adjust route to your app)
-    nav(`/companies/${companyId}/project/${p.id}`);
+
+    if (p.isRequest) {
+      nav(`/companies/${companyId}/projectRequest/${p.id}`);
+    } else {
+      nav(`/companies/${companyId}/project/${p.id}`);
+    }
   };
 
   // Kanban groups
@@ -443,7 +454,12 @@ export default function ProjectsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {current.map((p) => (
-                    <tr key={p.id} className={["hover:bg-slate-50", p.isRequest ? "bg-amber-50/40" : ""].join(" ")}>
+                    <tr
+                      key={p.id}
+                      className={['hover:bg-slate-50', p.isRequest ? 'bg-amber-50/40' : ''].join(
+                        ' ',
+                      )}
+                    >
                       <td className="px-4">
                         <input
                           type="radio"

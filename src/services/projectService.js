@@ -58,41 +58,40 @@ const toDateStr = (v) => {
 
 /* Map bất chấp DTO backend khác tên */
 const mapItemToProject = (r, currentCompanyId) => {
-   const hasCompanyRequest =
-     !!(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID);
-   const ptype =
-     r.ptype /* BE đã trả sẵn nếu bạn đã map */
-       ?? (hasCompanyRequest ? 'Outsourced' : 'Internal')
-       ?? (r.isHired ? 'Outsourced' : 'Internal'); // fallback cũ
+  const hasCompanyRequest = !!(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID);
+  const ptype =
+    r.ptype /* BE đã trả sẵn nếu bạn đã map */ ??
+    (hasCompanyRequest ? 'Outsourced' : 'Internal') ??
+    (r.isHired ? 'Outsourced' : 'Internal'); // fallback cũ
 
-   // Ưu tiên flag từ BE; fallback theo companyRequestId == currentCompanyId
-   const isRequest =
-     typeof r.isRequest === 'boolean'
-       ? r.isRequest
-       : (hasCompanyRequest &&
-          String(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID)
-            .toLowerCase() === String(currentCompanyId).toLowerCase());
+  // Ưu tiên flag từ BE; fallback theo companyRequestId == currentCompanyId
+  const isRequest =
+    typeof r.isRequest === 'boolean'
+      ? r.isRequest
+      : hasCompanyRequest &&
+        String(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID).toLowerCase() ===
+          String(currentCompanyId).toLowerCase();
 
-   return {
-     id: String(r.id),
-     code: r.code || '',
-     name: r.name || '',
-     description: r.description || '',
-     ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
-     hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
-     workflow:
-       r.workflow ||
-       r.workflowName ||
-       (r.workflowCompanyName && r.workflowName
-         ? `${r.workflowCompanyName} — ${r.workflowName}`
-         : null),
-     startDate: toDateStr(r.startDate),
-     endDate: toDateStr(r.endDate),
-     status: normStatus(r.status),
-     ptype,
-     isRequest: !!isRequest,
-   };
- };
+  return {
+    id: String(r.id),
+    code: r.code || '',
+    name: r.name || '',
+    description: r.description || '',
+    ownerCompany: r.ownerCompany || r.companyName || r.owner || r.company || '',
+    hiredCompany: r.hiredCompany || r.companyHiredName || r.hiredCompanyName || null,
+    workflow:
+      r.workflow ||
+      r.workflowName ||
+      (r.workflowCompanyName && r.workflowName
+        ? `${r.workflowCompanyName} — ${r.workflowName}`
+        : null),
+    startDate: toDateStr(r.startDate),
+    endDate: toDateStr(r.endDate),
+    status: normStatus(r.status),
+    ptype,
+    isRequest: !!isRequest,
+  };
+};
 
 /**
  * Lấy danh sách project (server có thể filter/sort/paging).
@@ -134,7 +133,7 @@ export async function loadProjects({
     : [];
 
   return {
-   items: items.map((r) => mapItemToProject(r, companyId)),
+    items: items.map((r) => mapItemToProject(r, companyId)),
     totalCount: payload.totalCount ?? items.length,
     pageNumber: payload.pageNumber ?? pageNumber,
     pageSize: payload.pageSize ?? pageSize,
@@ -151,14 +150,14 @@ export async function getCompanyMemberOptions(companyId, params = {}) {
 const toDDMMYYYY = (v) => {
   if (!v) return undefined;
   const d = new Date(v);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 };
 export const mapSprintDto = (r) => ({
   id: String(r.id),
-  name: r.name || "",
+  name: r.name || '',
   startDate: toDDMMYYYY(r.startDate),
   endDate: toDDMMYYYY(r.endDate),
 });
@@ -171,16 +170,16 @@ export async function getSprintsByProject(
     dateFrom,
     dateTo,
     q,
-    sortColumn = "start_date",
+    sortColumn = 'start_date',
     sortDescending = false,
     pageNumber = 1,
     pageSize = 200,
-  } = {}
+  } = {},
 ) {
   const params = {
     Q: q,
-    "DateRange.From": dateFrom,
-    "DateRange.To": dateTo,
+    'DateRange.From': dateFrom,
+    'DateRange.To': dateTo,
     SortColumn: sortColumn,
     SortDescending: sortDescending,
     PageNumber: pageNumber,
@@ -189,9 +188,9 @@ export async function getSprintsByProject(
   const paramsSerializer = (p) => {
     const usp = new URLSearchParams();
     Object.entries(p).forEach(([k, v]) => {
-      if (v != null && v !== "") usp.append(k, String(v));
+      if (v != null && v !== '') usp.append(k, String(v));
     });
-    (statuses || []).forEach((s) => usp.append("Statuses", s));
+    (statuses || []).forEach((s) => usp.append('Statuses', s));
     return usp.toString();
   };
 
@@ -250,7 +249,7 @@ export async function createProject(payload) {
   const { data } = await axiosInstance.post(`/companies/${companyId}/projects`, dto);
   return data?.data ?? data;
 }
-  
+
 // https://localhost:7160/api/projects/5E9AC255-E049-4106-85FB-43F0492D0637
 export const GetProjectByProjectId = async (id) => {
   try {
@@ -260,7 +259,7 @@ export const GetProjectByProjectId = async (id) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
-    
+
 export const getAllProjectByAdmin = async ({
   CompanyName = '',
   PageNumber = 1,
@@ -296,7 +295,7 @@ export const getProjectById = async (id) => {
 //================  Over view ====================
 // 1. Project Growth And Completion
 export const getProjectGrowthAndCompletionOverview = async (params = {}) => {
-  const response = await axiosInstance.get("/growth-and-completion", {
+  const response = await axiosInstance.get('/growth-and-completion', {
     params,
   });
 
@@ -306,9 +305,39 @@ export const getProjectGrowthAndCompletionOverview = async (params = {}) => {
 
 //2. Project Execution Overview (tasks & sprints)
 export const getProjectExecutionOverview = async (params = {}) => {
-  const response = await axiosInstance.get("/project-execution-overview", {
+  const response = await axiosInstance.get('/project-execution-overview', {
     params,
   });
   const payload = response?.data ?? {};
   return payload.data ?? payload;
-};  
+};
+
+// Gán member vào project
+export async function assignMemberToProject(projectId, memberId, companyId) {
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+  if (!isGuid(memberId)) throw new Error('Invalid memberId');
+  if (!isGuid(companyId)) throw new Error('Invalid companyId');
+
+  const dto = {
+    projectId,
+    companyId,
+    memberId,
+  };
+
+  // ⚠️ Nếu BE dùng route khác, chỉ cần chỉnh path dưới đây
+  const { data } = await axiosInstance.post('/projectmember', dto);
+  return data?.data ?? data;
+}
+
+// Kick member khỏi project
+export async function removeMemberFromProject(projectId, memberId) {
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+  if (!isGuid(memberId)) throw new Error('Invalid memberId');
+
+  // Ví dụ: DELETE /projectmember/project/{projectId}/member/{memberId}
+  // chỉnh lại cho khớp route BE của bạn
+  const { data } = await axiosInstance.delete(
+    `/projectmember/project/${projectId}/member/${memberId}`,
+  );
+  return data?.data ?? data;
+}
