@@ -179,6 +179,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                   Created At
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Deleted</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Detail</th>
               </tr>
             </thead>
@@ -223,6 +224,24 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                         }
                       >
                         {t.isDeleted ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full
+                      ${
+                        t.status === 'Pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : t.status === 'Accepted'
+                          ? 'bg-green-100 text-green-700'
+                          : t.status === 'Rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : t.status === 'Finished'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                      >
+                        {t.status}
                       </span>
                     </td>
                     <td className="px-6 py-3 text-center">
