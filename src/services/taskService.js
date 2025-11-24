@@ -380,3 +380,62 @@ export const deleteTaskAttachment = async (taskId, attachmentId) => {
     throw new Error(error.response?.data?.message || 'Error deleting attachment');
   }
 };
+/** POST /api/tasks/{taskId}/comments  (body + files) */
+
+export async function createTaskComment(taskId, body, files) {
+  try {
+    const form = new FormData();
+
+    if (body && body.trim().length > 0) {
+      form.append("body", body.trim());
+    }
+
+    if (files && files.length) {
+      const arr = Array.from(files);
+      for (const f of arr) {
+        if (f) {
+          // tên "files" phải trùng với [FromForm] List<IFormFile> files
+          form.append("files", f);
+        }
+      }
+    }
+
+    const { data } = await axiosInstance.post(
+      `/tasks/${taskId}/comments`,
+      form,
+      {
+        // *** QUAN TRỌNG: ép gửi multipart/form-data ***
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    // response chuẩn của BE: { succeeded, message, data }
+    return data?.data ?? data;
+  } catch (error) {
+    console.error("[TaskDetail] create comment failed", error);
+    throw new Error(
+      error.response?.data?.message || "Error creating comment!"
+    );
+  }
+}
+
+
+/** GET /api/tasks/{taskId}/comments */
+export async function getTaskComments(taskId) {
+  try {
+    const res = await axiosInstance.get(`/tasks/${taskId}/comments`);
+    const data = res?.data?.data ?? res?.data ?? [];
+    // luôn trả về array cho FE
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.comments)) return data.comments;
+    return [];
+  } catch (error) {
+    console.error("Error in getTaskComments:", error);
+    throw new Error(
+      error?.response?.data?.message || "Error fetching comments"
+    );
+  }
+}

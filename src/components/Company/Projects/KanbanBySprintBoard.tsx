@@ -7,13 +7,15 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Edit3, Trash2 } from "lucide-react";
+import { Edit3, Trash2, Plus, X } from "lucide-react";
 
 import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm, StatusCategory } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import { useNavigate, useParams } from "react-router-dom";
 import AiGenerateTasksModal from "@/components/AiGenerate/AiGenerateTasksModal";
+import { createSprint } from "@/services/sprintService.js";
+import { toast } from "react-toastify";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -23,6 +25,18 @@ const isGuid = (s?: string | null) =>
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
     s,
   );
+
+// format ngày sprint: 11/16/2025
+const formatSprintDate = (value?: string | Date | null) => {
+  if (!value) return "";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
 
 /* ===== CSS-inject: animations & effects (mount once) ===== */
 function useFuseKanbanStyles() {
@@ -99,6 +113,21 @@ function useFuseKanbanStyles() {
 }
 
 /* card mới sinh ra */
+@keyframes fuseCardPopIn {
+  0% {
+    transform: translateY(10px) scale(.97);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(0) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 .fuse-card-enter {
   animation: fuseCardPopIn .32s cubic-bezier(.2,.8,.2,1);
 }
@@ -170,10 +199,12 @@ const normalizePriority = (raw: any): any => {
 /* ===== Column shell ===== */
 const BoardColumn = ({
   title,
+  subtitle,
   right,
   children,
 }: {
   title: string;
+  subtitle?: string;
   right?: React.ReactNode;
   children?: React.ReactNode;
 }) => {
@@ -188,7 +219,14 @@ const BoardColumn = ({
       <div className="h-2 w-full" style={{ backgroundColor: brand }} />
 
       <div className="p-4 pb-3 flex items-center justify-between">
-        <span className="fuse-pill fuse-pill--sheen">{title}</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="fuse-pill fuse-pill--sheen">{title}</span>
+          {subtitle && (
+            <span className="text-[11px] text-slate-600 font-medium">
+              {subtitle}
+            </span>
+          )}
+        </div>
         {right}
       </div>
 
@@ -214,6 +252,8 @@ type Props = {
     deletions: TaskVm[];
     draftBySprint: Record<string, TaskVm[]>;
   }) => Promise<void> | void;
+  // khi tạo sprint xong thì refetch board
+  onReloadBoard?: () => void;
 };
 
 /* ====== Kiểu draft từ AI ====== */
@@ -245,6 +285,7 @@ export default function KanbanBySprintBoard({
   onOpenTicket,
   onDeleteTask,
   onSaveBoard,
+  onReloadBoard,
 }: Props) {
   useFuseKanbanStyles();
 
@@ -383,6 +424,67 @@ export default function KanbanBySprintBoard({
   );
 
   const [aiOpen, setAiOpen] = useState(false);
+
+  // ====== Tạo sprint: modal popup ======
+  const [createSprintOpen, setCreateSprintOpen] = useState(false);
+  const [creatingSprint, setCreatingSprint] = useState(false);
+  const [newSprintName, setNewSprintName] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const openCreateSprintModal = () => {
+    const defaultName = `Sprint ${sprints.length + 1}`;
+    setNewSprintName(defaultName);
+    setCreateError(null);
+    setCreateSprintOpen(true);
+  };
+
+  const closeCreateSprintModal = () => {
+    if (creatingSprint) return;
+    setCreateSprintOpen(false);
+    setCreateError(null);
+  };
+
+  const handleSubmitCreateSprint = async (
+    e?: React.FormEvent<HTMLFormElement>,
+  ) => {
+    if (e) e.preventDefault();
+    if (!projectId) return;
+
+    const name = newSprintName.trim();
+    if (!name) {
+      setCreateError("Sprint name is required.");
+      return;
+    }
+
+    try {
+      setCreatingSprint(true);
+      setCreateError(null);
+
+      // BE tự tính StartDate / EndDate theo logic (sau sprint cuối cùng)
+      await createSprint({
+        projectId,
+        name,
+      });
+
+      toast.success("Created sprint successfully.");
+      setCreateSprintOpen(false);
+
+      if (onReloadBoard) {
+        // cho parent refetch board, không reload full page
+        onReloadBoard();
+      }
+    } catch (err: any) {
+      console.error("[Kanban] create sprint failed", err);
+      const msg =
+        err?.response?.data?.message ??
+        err?.message ??
+        "Failed to create sprint!";
+      setCreateError(msg);
+      toast.error(msg);
+    } finally {
+      setCreatingSprint(false);
+    }
+  };
 
   // Tất cả task trên board (mọi sprint, mọi status) – dùng cho AI tránh trùng
   const allTasksFlat = React.useMemo(() => {
@@ -720,9 +822,86 @@ export default function KanbanBySprintBoard({
     [resolveStatusForAiDraft, sprints],
   );
 
+  // ===== Modal tạo sprint (portal) =====
+  const createSprintModal =
+    createSprintOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Create sprint
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Start / end dates will be auto-calculated based on the last
+                    sprint in this project.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCreateSprintModal}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-100 text-slate-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitCreateSprint} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Sprint name
+                  </label>
+                  <input
+                    type="text"
+                    value={newSprintName}
+                    onChange={(e) => setNewSprintName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoFocus
+                    placeholder="Sprint name"
+                  />
+                </div>
+
+                {createError && (
+                  <p className="text-xs text-red-500">{createError}</p>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeCreateSprintModal}
+                    disabled={creatingSprint}
+                    className={cn(
+                      "inline-flex items-center px-3 h-8 rounded-full border text-xs font-medium",
+                      "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+                      creatingSprint && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingSprint}
+                    className={cn(
+                      "inline-flex items-center px-4 h-8 rounded-full border text-xs font-medium shadow-sm",
+                      "border-blue-600 bg-blue-600 text-white hover:bg-blue-700",
+                      creatingSprint && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    {creatingSprint ? "Creating…" : "Create sprint"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <DragDropContext onDragEnd={handleDragEndInternal}>
       {overlay}
+      {createSprintModal}
 
       <div
         className={cn(
@@ -732,6 +911,21 @@ export default function KanbanBySprintBoard({
       >
         {/* thanh action phía trên bên phải */}
         <div className="mb-2 flex items-center justify-end gap-3">
+          {/* New sprint */}
+          <button
+            type="button"
+            onClick={openCreateSprintModal}
+            disabled={creatingSprint}
+            className={cn(
+              "inline-flex items-center gap-1 px-3 h-8 rounded-full border text-xs font-medium shadow-sm",
+              "border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
+              creatingSprint && "opacity-60 cursor-not-allowed",
+            )}
+          >
+            <Plus className="w-3 h-3" />
+            New sprint
+          </button>
+
           {/* Nút AI */}
           {updateMode && (
             <button
@@ -835,6 +1029,15 @@ export default function KanbanBySprintBoard({
                   filterCategory,
                 );
 
+                const dateLabel =
+                  (s as any).start && (s as any).end
+                    ? `${formatSprintDate(
+                        (s as any).start,
+                      )} - ${formatSprintDate((s as any).end)}`
+                    : (s as any).start
+                      ? formatSprintDate((s as any).start)
+                      : "";
+
                 return (
                   <div
                     key={s.id}
@@ -842,6 +1045,7 @@ export default function KanbanBySprintBoard({
                   >
                     <BoardColumn
                       title={s.name}
+                      subtitle={dateLabel}
                       right={
                         <div className="flex items-center gap-2 text-[12px]">
                           <span className="text-gray-600">
