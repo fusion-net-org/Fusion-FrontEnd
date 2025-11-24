@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState } from "react";
-import { Card, DatePicker, Input, Button } from "antd";
+import React, { useEffect, useState } from 'react';
+import { Card, DatePicker, Input, Button } from 'antd';
 import {
   TrendingUp,
   CheckCircle2,
@@ -10,23 +10,20 @@ import {
   PieChart as PieChartIcon,
   ListChecks,
   KanbanSquare,
-} from "lucide-react";
+} from 'lucide-react';
 
 import {
   getProjectGrowthAndCompletionOverview,
   getProjectExecutionOverview,
-} from "@/services/projectService.js";
+} from '@/services/projectService.js';
 
-import type {
-  ProjectGrowthOverview,
-  ProjectExecutionOverview,
-} from "@/interfaces/Project/project";
+import type { ProjectGrowthOverview, ProjectExecutionOverview } from '@/interfaces/Project/project';
 
-import ProjectGrowthChart from "@/pages/admin/projectManagement/Chart/ProjectGrowthChart";
-import ProjectCumulativeTrendChart from "@/pages/admin/projectManagement/Chart/ProjectCumulativeTrendChart";
-import ProjectStatusBreakdownChart from "@/pages/admin/projectManagement/Chart/ProjectStatusBreakdownChart";
-import ProjectTaskFlowChart from "@/pages/admin/projectManagement/Chart/ProjectTaskFlowChart";
-import SprintVelocityChart from "@/pages/admin/projectManagement/Chart/SprintVelocityChart";
+import ProjectGrowthChart from '@/pages/admin/projectManagement/Chart/ProjectGrowthChart';
+import ProjectCumulativeTrendChart from '@/pages/admin/projectManagement/Chart/ProjectCumulativeTrendChart';
+import ProjectStatusBreakdownChart from '@/pages/admin/projectManagement/Chart/ProjectStatusBreakdownChart';
+import ProjectTaskFlowChart from '@/pages/admin/projectManagement/Chart/ProjectTaskFlowChart';
+import SprintVelocityChart from '@/pages/admin/projectManagement/Chart/SprintVelocityChart';
 
 /* ================= Stat card ================= */
 
@@ -38,13 +35,7 @@ type StatCardProps = {
   accentGradient: string; // tailwind gradient: "from-... via-... to-..."
 };
 
-const StatCard: React.FC<StatCardProps> = ({
-  label,
-  value,
-  description,
-  icon,
-  accentGradient,
-}) => {
+const StatCard: React.FC<StatCardProps> = ({ label, value, description, icon, accentGradient }) => {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
       <div className="flex items-center gap-3">
@@ -59,9 +50,7 @@ const StatCard: React.FC<StatCardProps> = ({
           <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
             {label}
           </div>
-          <div className="mt-0.5 text-xl font-semibold leading-tight text-gray-900">
-            {value}
-          </div>
+          <div className="mt-0.5 text-xl font-semibold leading-tight text-gray-900">{value}</div>
           <div className="text-[11px] text-gray-500">{description}</div>
         </div>
       </div>
@@ -75,12 +64,11 @@ const ProjectOverviewPage: React.FC = () => {
   const [overview, setOverview] = useState<ProjectGrowthOverview | null>(null);
   const [loadingGrowth, setLoadingGrowth] = useState(false);
 
-  const [executionOverview, setExecutionOverview] =
-    useState<ProjectExecutionOverview | null>(null);
+  const [executionOverview, setExecutionOverview] = useState<ProjectExecutionOverview | null>(null);
   const [loadingExecution, setLoadingExecution] = useState(false);
 
   // filter state (match BE: CompanyId, From, To)
-  const [filterCompanyId, setFilterCompanyId] = useState("");
+  const [filterCompanyId, setFilterCompanyId] = useState('');
   const [filterFrom, setFilterFrom] = useState<Date | null>(null);
   const [filterTo, setFilterTo] = useState<Date | null>(null);
 
@@ -106,7 +94,7 @@ const ProjectOverviewPage: React.FC = () => {
       setOverview(data);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("Failed to load project growth overview", err);
+      console.error('Failed to load project growth overview', err);
     } finally {
       setLoadingGrowth(false);
     }
@@ -119,7 +107,7 @@ const ProjectOverviewPage: React.FC = () => {
       setExecutionOverview(data);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("Failed to load project execution overview", err);
+      console.error('Failed to load project execution overview', err);
     } finally {
       setLoadingExecution(false);
     }
@@ -160,12 +148,11 @@ const ProjectOverviewPage: React.FC = () => {
             </div>
 
             <div className="flex flex-col">
-              <h2 className="text-sm font-semibold text-gray-900">
+              <h2 className="text-sm md:text-lg font-semibold text-gray-900 m-0">
                 Project overview
               </h2>
               <p className="text-xs text-gray-500">
-                Portfolio-level insight for projects creation, completion and
-                execution.
+                Portfolio-level insight for projects creation, completion and execution.
               </p>
             </div>
           </div>
@@ -304,19 +291,14 @@ const ProjectOverviewPage: React.FC = () => {
           title={
             <div className="flex items-center gap-2">
               <LineChartIcon className="h-3.5 w-3.5 text-blue-500" />
-              <span className="text-sm font-medium text-gray-900">
-                Cumulative project growth
-              </span>
+              <span className="text-sm font-medium text-gray-900">Cumulative project growth</span>
             </div>
           }
           bordered={false}
           className="rounded-2xl border border-gray-100 bg-white shadow-sm"
           bodyStyle={{ padding: 16 }}
         >
-          <ProjectCumulativeTrendChart
-            overview={overview}
-            loading={loadingGrowth}
-          />
+          <ProjectCumulativeTrendChart overview={overview} loading={loadingGrowth} />
         </Card>
 
         {/* Status breakdown */}
@@ -324,19 +306,14 @@ const ProjectOverviewPage: React.FC = () => {
           title={
             <div className="flex items-center gap-2">
               <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-sm font-medium text-gray-900">
-                Project status breakdown
-              </span>
+              <span className="text-sm font-medium text-gray-900">Project status breakdown</span>
             </div>
           }
           bordered={false}
           className="rounded-2xl border border-gray-100 bg-white shadow-sm"
           bodyStyle={{ padding: 16 }}
         >
-          <ProjectStatusBreakdownChart
-            overview={overview}
-            loading={loadingGrowth}
-          />
+          <ProjectStatusBreakdownChart overview={overview} loading={loadingGrowth} />
         </Card>
       </div>
 
@@ -356,10 +333,7 @@ const ProjectOverviewPage: React.FC = () => {
           className="rounded-2xl border border-gray-100 bg-white shadow-sm"
           bodyStyle={{ padding: 16 }}
         >
-          <ProjectTaskFlowChart
-            overview={executionOverview}
-            loading={loadingExecution}
-          />
+          <ProjectTaskFlowChart overview={executionOverview} loading={loadingExecution} />
         </Card>
 
         {/* Sprint velocity */}
@@ -367,19 +341,14 @@ const ProjectOverviewPage: React.FC = () => {
           title={
             <div className="flex items-center gap-2">
               <KanbanSquare className="h-3.5 w-3.5 text-violet-500" />
-              <span className="text-sm font-medium text-gray-900">
-                Sprint velocity
-              </span>
+              <span className="text-sm font-medium text-gray-900">Sprint velocity</span>
             </div>
           }
           bordered={false}
           className="rounded-2xl border border-gray-100 bg-white shadow-sm"
           bodyStyle={{ padding: 16 }}
         >
-          <SprintVelocityChart
-            overview={executionOverview}
-            loading={loadingExecution}
-          />
+          <SprintVelocityChart overview={executionOverview} loading={loadingExecution} />
         </Card>
       </div>
     </div>
