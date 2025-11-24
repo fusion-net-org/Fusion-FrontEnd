@@ -103,7 +103,6 @@ const CompanyMember: React.FC = () => {
           page,
           pagination.pageSize,
         );
-
         setMembers(response.items || []);
         setPagination({
           pageNumber: response.pageNumber,
@@ -323,7 +322,12 @@ const CompanyMember: React.FC = () => {
                         <p className="text-gray-500 text-xs">{m.email}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4">Owner</td>
+                    <td
+                      className="px-6 py-4 max-w-[180px] truncate cursor-pointer"
+                      title={m.roleName}
+                    >
+                      {m.roleName}
+                    </td>{' '}
                     <td className="px-6 py-4 text-gray-600">{m.phone}</td>
                     <td className="px-6 py-4 text-gray-700">{m.gender}</td>
                     <td className="px-6 py-4">{getStatusBadge(m.status)}</td>
