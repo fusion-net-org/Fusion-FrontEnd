@@ -103,7 +103,6 @@ const CompanyMember: React.FC = () => {
           page,
           pagination.pageSize,
         );
-
         setMembers(response.items || []);
         setPagination({
           pageNumber: response.pageNumber,
@@ -248,7 +247,7 @@ const CompanyMember: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full sm:w-auto">
             {/* Date Range */}
             <div className="flex flex-col">
-              <label className="font-semibold text-sm text-gray-600 mb-1">Create Date</label>
+              <label className="font-semibold text-sm text-gray-600 mb-1">Joined Date </label>
               <RangePicker
                 format="DD/MM/YYYY"
                 className="rounded-lg border border-gray-300 !h-[37.6px]"
@@ -323,7 +322,12 @@ const CompanyMember: React.FC = () => {
                         <p className="text-gray-500 text-xs">{m.email}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4">Owner</td>
+                    <td
+                      className="px-6 py-4 max-w-[180px] truncate cursor-pointer"
+                      title={m.roleName}
+                    >
+                      {m.roleName}
+                    </td>{' '}
                     <td className="px-6 py-4 text-gray-600">{m.phone}</td>
                     <td className="px-6 py-4 text-gray-700">{m.gender}</td>
                     <td className="px-6 py-4">{getStatusBadge(m.status)}</td>
