@@ -23,3 +23,15 @@ export const getSprintChartsByProjectId = async (projectId) => {
     throw new Error(error.response?.data?.message || 'Failed to fetch sprint charts');
   }
 };
+export async function createSprint(payload) {
+  try {
+    const response = await axiosInstance.post("/sprints", payload);
+    // BE đang dùng ResponseModel<SprintVm> => data.data
+    return response?.data?.data ?? response?.data;
+  } catch (error) {
+    // có thể custom message sau
+    throw new Error(
+      error.response?.data?.message || "Failed to create sprint!",
+    );
+  }
+}

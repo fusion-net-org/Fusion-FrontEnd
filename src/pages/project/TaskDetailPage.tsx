@@ -28,6 +28,8 @@ import {
   getTaskAttachments,
   uploadTaskAttachments,
   deleteTaskAttachment,
+  createTaskComment,
+  getTaskComments,
 } from "@/services/taskService.js";
 import { toast } from "react-toastify";
 import { getProjectMembersWithRole } from "@/services/projectMember.js";
@@ -36,11 +38,26 @@ const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 
+type AttachmentItem = {
+  id: string;
+  fileName: string;
+  url: string;
+  contentType?: string | null;
+  size?: number | null;
+  description?: string | null;
+  uploadedAt?: string | null;
+  uploadedByName?: string | null;
+};
+
 type CommentItem = {
   id: string;
   author: string;
+  authorId?: string | null;
+  authorAvatarUrl?: string | null;
   createdAt: string;
   message: string;
+  attachments?: AttachmentItem[];
+  isSystem?: boolean;
 };
 
 type ProjectMemberOption = {
@@ -73,17 +90,6 @@ type ChecklistItem = {
   done: boolean;
   orderIndex?: number;
   createdAt?: string;
-};
-
-type AttachmentItem = {
-  id: string;
-  fileName: string;
-  url: string;
-  contentType?: string | null;
-  size?: number | null;
-  description?: string | null;
-  uploadedAt?: string | null;
-  uploadedByName?: string | null;
 };
 
 const fmtDateTime = (iso?: string) =>
@@ -241,6 +247,11 @@ function TicketDetailLayout({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // comment attachments
+  const [newCommentFiles, setNewCommentFiles] = useState<File[]>([]);
+  const [isSendingComment, setIsSendingComment] = useState(false);
+  const commentFileInputRef = useRef<HTMLInputElement | null>(null);
+
   // trạng thái chọn trước khi apply
   const [draftStatusId, setDraftStatusId] = useState<string | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
@@ -387,45 +398,124 @@ function TicketDetailLayout({
         // không còn demo cứng, nếu không có thì để rỗng luôn
         setChecklist(checklistItems);
 
-        // 5) Comments / activity
-        const cmRaw = dto.comments ?? dto.activities ?? [];
-        if (Array.isArray(cmRaw) && cmRaw.length) {
-          setComments(
-            cmRaw.map((c: any, idx: number) => ({
-              id: String(c.id ?? idx),
-              author:
-                c.authorName ??
-                c.author ??
-                c.createdByName ??
-                task.assignees[0]?.name ??
-                "System",
-              createdAt:
-                c.createdAt ??
-                c.time ??
-                c.created_at ??
-                new Date().toISOString(),
-              message: String(c.message ?? c.content ?? ""),
-            }))
-          );
-        } else {
-          setComments([
-            {
-              id: "c1",
-              author: task.assignees[0]?.name || "System",
-              createdAt: task.createdAt,
-              message: `Ticket created with status "${
-                (task as any).StatusName || task.statusCode
-              }"`,
-            },
-            {
-              id: "c2",
-              author: task.assignees[0]?.name || "System",
-              createdAt: task.updatedAt,
-              message: `Last updated – status "${
-                (task as any).StatusName || task.statusCode
-              }"`,
-            },
-          ]);
+        // 5) Comments / activity – ưu tiên API /comments
+        try {
+          const cmRes = await getTaskComments(task.id);
+          const payload: any = cmRes ?? [];
+          let list: any[] = [];
+
+          if (Array.isArray(payload)) {
+            list = payload;
+          } else if (Array.isArray(payload.items)) {
+            list = payload.items;
+          } else if (Array.isArray(payload.comments)) {
+            list = payload.comments;
+          } else if (Array.isArray(payload.data)) {
+            list = payload.data;
+          }
+
+          if (list.length) {
+            const mapped: CommentItem[] = list.map((c: any, idx: number) =>
+              mapCommentDto(c, idx)
+            );
+            // comment mới nhất lên đầu
+            mapped.sort((a, b) =>
+              (b.createdAt || "").localeCompare(a.createdAt || "")
+            );
+            setComments(mapped);
+          } else {
+            // fallback dùng comments/activities trong dto
+            const cmRaw = dto.comments ?? dto.activities ?? [];
+            if (Array.isArray(cmRaw) && cmRaw.length) {
+              const mapped: CommentItem[] = cmRaw.map(
+                (c: any, idx: number) => ({
+                  id: String(c.id ?? idx),
+                  author:
+                    c.authorName ??
+                    c.author ??
+                    c.createdByName ??
+                    task.assignees[0]?.name ??
+                    "System",
+                  authorId:
+                    c.authorId ??
+                    c.createdById ??
+                    c.userId ??
+                    null,
+                  authorAvatarUrl: c.avatarUrl ?? null,
+                  createdAt:
+                    c.createdAt ??
+                    c.time ??
+                    c.created_at ??
+                    new Date().toISOString(),
+                  message: String(c.message ?? c.content ?? ""),
+                  attachments: [],
+                  isSystem: !!c.isSystem,
+                })
+              );
+              mapped.sort((a, b) =>
+                (b.createdAt || "").localeCompare(a.createdAt || "")
+              );
+              setComments(mapped);
+            } else {
+              // fallback hệ thống
+              setComments([
+                {
+                  id: "c1",
+                  author: task.assignees[0]?.name || "System",
+                  createdAt: task.createdAt,
+                  message: `Ticket created with status "${
+                    (task as any).StatusName || task.statusCode
+                  }"`,
+                  attachments: [],
+                  isSystem: true,
+                },
+                {
+                  id: "c2",
+                  author: task.assignees[0]?.name || "System",
+                  createdAt: task.updatedAt,
+                  message: `Last updated – status "${
+                    (task as any).StatusName || task.statusCode
+                  }"`,
+                  attachments: [],
+                  isSystem: true,
+                },
+              ]);
+            }
+          }
+        } catch (err) {
+          console.error("[TaskDetail] load comments failed", err);
+          const cmRaw = dto.comments ?? dto.activities ?? [];
+          if (Array.isArray(cmRaw) && cmRaw.length) {
+            const mapped: CommentItem[] = cmRaw.map(
+              (c: any, idx: number) => ({
+                id: String(c.id ?? idx),
+                author:
+                  c.authorName ??
+                  c.author ??
+                  c.createdByName ??
+                  task.assignees[0]?.name ??
+                  "System",
+                authorId:
+                  c.authorId ??
+                  c.createdById ??
+                  c.userId ??
+                  null,
+                authorAvatarUrl: c.avatarUrl ?? null,
+                createdAt:
+                  c.createdAt ??
+                  c.time ??
+                  c.created_at ??
+                  new Date().toISOString(),
+                message: String(c.message ?? c.content ?? ""),
+                attachments: [],
+                isSystem: !!c.isSystem,
+              })
+            );
+            mapped.sort((a, b) =>
+              (b.createdAt || "").localeCompare(a.createdAt || "")
+            );
+            setComments(mapped);
+          }
         }
 
         // 6) Workflow assignments -> RoleAssignments (chỉ cho các role không phải start)
@@ -466,7 +556,7 @@ function TicketDetailLayout({
           setRoleAssignments(dto.roleAssignments as RoleAssignments);
         }
 
-        // 7) Attachments
+        // 7) Attachments của task
         try {
           const attRaw = await getTaskAttachments(task.id);
           const list: any[] = Array.isArray(attRaw)
@@ -770,18 +860,79 @@ function TicketDetailLayout({
     }
   }
 
-  function addComment() {
-    if (!newComment.trim()) return;
-    setComments((prev) => [
-      ...prev,
-      {
-        id: Math.random().toString(36).slice(2),
-        author: primaryAssignee?.name || "You",
-        createdAt: new Date().toISOString(),
-        message: newComment.trim(),
-      },
-    ]);
-    setNewComment("");
+  // ===== COMMENT HANDLERS =====
+
+  function handleCommentFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    setNewCommentFiles((prev) => [...prev, ...Array.from(files)]);
+    // reset để lần sau chọn cùng file vẫn trigger
+    e.target.value = "";
+  }
+
+  function handleRemoveCommentFile(idx: number) {
+    setNewCommentFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleCommentKeyDown(
+    e: React.KeyboardEvent<HTMLTextAreaElement>
+  ) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void handleSubmitComment();
+    }
+  }
+
+  async function handleSubmitComment() {
+    const body = newComment.trim();
+    if (!body && newCommentFiles.length === 0) return;
+
+    try {
+      setIsSendingComment(true);
+      await createTaskComment(model.id, body, newCommentFiles);
+
+      setNewComment("");
+      setNewCommentFiles([]);
+      if (commentFileInputRef.current) {
+        commentFileInputRef.current.value = "";
+      }
+
+      // reload comments để lấy đúng dữ liệu + file từ BE
+      try {
+        const cmRes = await getTaskComments(model.id);
+        const payload: any = cmRes ?? [];
+        let list: any[] = [];
+
+        if (Array.isArray(payload)) {
+          list = payload;
+        } else if (Array.isArray(payload.items)) {
+          list = payload.items;
+        } else if (Array.isArray(payload.comments)) {
+          list = payload.comments;
+        } else if (Array.isArray(payload.data)) {
+          list = payload.data;
+        }
+
+        if (list.length) {
+          const mapped = list.map((c: any, idx: number) =>
+            mapCommentDto(c, idx)
+          );
+          mapped.sort((a, b) =>
+            (b.createdAt || "").localeCompare(a.createdAt || "")
+          );
+          setComments(mapped);
+        }
+      } catch (err) {
+        console.error("[TaskDetail] reload comments failed", err);
+      }
+
+      toast.success("Comment added.");
+    } catch (err: any) {
+      console.error("[TaskDetail] create comment failed", err);
+      toast.error(err?.message || "Failed to add comment");
+    } finally {
+      setIsSendingComment(false);
+    }
   }
 
   // ===== ATTACHMENT HANDLERS =====
@@ -1350,7 +1501,7 @@ function TicketDetailLayout({
             </div>
           </div>
 
-          {/* ATTACHMENTS */}
+          {/* ATTACHMENTS (TASK LEVEL) */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium text-slate-900">
@@ -1460,40 +1611,178 @@ function TicketDetailLayout({
             <div className="text-sm font-medium text-slate-900 mb-2">
               Comments & activity
             </div>
-            <div className="mb-3 flex items-center gap-2">
-              <textarea
-                className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                placeholder="Write a comment or update…"
-                rows={2}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={addComment}
-                className="self-stretch mt-auto px-3 rounded-xl border border-blue-600 bg-blue-600 text-white text-sm inline-flex items-center justify-center hover:bg-blue-700"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+
+            {/* hidden input cho file comment */}
+            <input
+              ref={commentFileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleCommentFileChange}
+            />
+
+            {/* Composer */}
+            <div className="mb-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <textarea
+                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                  placeholder="Write a comment or update… (Ctrl+Enter to send)"
+                  rows={2}
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={handleCommentKeyDown}
+                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => commentFileInputRef.current?.click()}
+                    className="h-9 w-9 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+                    title="Attach files"
+                  >
+                    <Paperclip className="w-4 h-4 text-slate-500" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitComment}
+                    disabled={isSendingComment}
+                    className={cn(
+                      "h-9 w-9 rounded-xl border border-blue-600 bg-blue-600 text-white text-sm inline-flex items-center justify-center hover:bg-blue-700",
+                      isSendingComment && "opacity-60 cursor-not-allowed"
+                    )}
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* preview file đang chuẩn bị gửi */}
+              {newCommentFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 pl-1">
+                  {newCommentFiles.map((file, idx) => (
+                    <div
+                      key={`${file.name}-${idx}`}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-slate-200 bg-slate-50 text-[11px] text-slate-600"
+                    >
+                      <Paperclip className="w-3 h-3" />
+                      <span className="max-w-[160px] truncate">
+                        {file.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCommentFile(idx)}
+                        className="ml-1 text-slate-400 hover:text-red-500"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
+            {/* List comments */}
             <div className="max-h-60 overflow-auto space-y-2 text-sm">
-              {comments.map((c) => (
-                <div
-                  key={c.id}
-                  className="rounded-xl border border-slate-100 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                    <span className="font-medium text-slate-700">
-                      {c.author}
-                    </span>
-                    <span>{fmtDateTime(c.createdAt)}</span>
+              {comments.map((c) => {
+                const member = c.authorId
+                  ? projectMembers.find((m) => m.id === c.authorId)
+                  : null;
+                const avatarUrl = member?.avatarUrl ?? c.authorAvatarUrl ?? null;
+                const displayName = member?.name ?? c.author;
+                const subtitle =
+                  member?.roleName ?? member?.email ?? undefined;
+
+                return (
+                  <div
+                    key={c.id}
+                    className="rounded-xl border border-slate-100 px-3 py-2"
+                  >
+                    <div className="flex items-start gap-2">
+                      {/* avatar */}
+                      <div className="mt-0.5">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-medium text-slate-600 overflow-hidden">
+                          {avatarUrl ? (
+                            <img
+                              src={avatarUrl}
+                              alt={displayName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            (displayName?.[0] || "?").toUpperCase()
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between text-xs text-slate-500 mb-0.5">
+                          <div className="min-w-0">
+                            <div className="font-medium text-slate-700 truncate">
+                              {displayName}
+                            </div>
+                            {subtitle && (
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {subtitle}
+                              </div>
+                            )}
+                          </div>
+                          <span className="ml-2 shrink-0">
+                            {fmtDateTime(c.createdAt)}
+                          </span>
+                        </div>
+
+                        <div className="text-sm text-slate-700 whitespace-pre-line mt-1">
+                          {c.message}
+                        </div>
+
+                        {c.attachments && c.attachments.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {c.attachments.map((a, idx) => {
+                              const isImage =
+                                (a.contentType ?? "").startsWith("image/") ||
+                                /\.(png|jpe?g|gif|webp|svg)$/i.test(
+                                  a.fileName ?? ""
+                                );
+                              return (
+                                <a
+                                  key={`${a.id}-${idx}`}
+                                  href={a.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={cn(
+                                    "group inline-flex overflow-hidden rounded-lg border border-slate-200 bg-slate-50",
+                                    isImage
+                                      ? "max-h-32"
+                                      : "px-2 py-1 items-center"
+                                  )}
+                                >
+                                  {isImage ? (
+                                    <img
+                                      src={a.url}
+                                      alt={a.fileName}
+                                      className="max-h-32 w-auto object-cover block"
+                                    />
+                                  ) : (
+                                    <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                                      <Paperclip className="w-3 h-3" />
+                                      <span className="max-w-[160px] truncate">
+                                        {a.fileName}
+                                      </span>
+                                    </div>
+                                  )}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-700 whitespace-pre-line">
-                    {c.message}
-                  </div>
+                );
+              })}
+              {comments.length === 0 && (
+                <div className="text-[11px] text-slate-400">
+                  No comments yet. Be the first to comment on this ticket.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
@@ -1597,7 +1886,9 @@ function TicketDetailLayout({
                                 }));
                               }}
                               placeholder={
-                                loadingMembers ? "Loading members…" : "Unassigned"
+                                loadingMembers
+                                  ? "Loading members…"
+                                  : "Unassigned"
                               }
                             />
                           </div>
@@ -1987,6 +2278,40 @@ function mapAttachmentDto(x: any, idx: number = 0): AttachmentItem {
       x.uploadedByName ?? x.createdByName ?? x.uploaderName ?? null,
   };
 }
+
+function mapCommentDto(x: any, idx: number = 0): CommentItem {
+  const rawAtt =
+    x.attachments ?? x.files ?? x.fileResponses ?? x.commentAttachments ?? [];
+
+  const atts: AttachmentItem[] = Array.isArray(rawAtt)
+    ? rawAtt.map((a: any, i: number) => mapAttachmentDto(a, i))
+    : [];
+
+  const createdAt =
+    x.createAt ?? 
+    x.createdAt ??
+    x.time ??
+    x.created_at ??
+    x.updatedAt ??
+    new Date().toISOString();
+
+  return {
+    id: String(x.id ?? x.commentId ?? x.activityId ?? idx),
+    author:
+      x.authorName ??
+      x.createdByName ??
+      x.userName ??
+      x.author ??
+      "System",
+    authorId: x.authorId ?? x.createdById ?? x.userId ?? null,
+    authorAvatarUrl: x.authorAvatar ?? x.authorAvatarUrl ?? x.avatarUrl ?? null,
+    createdAt,
+    message: String(x.body ?? x.message ?? x.content ?? x.note ?? ""),
+    attachments: atts,
+    isSystem: !!x.isSystem,
+  };
+}
+
 
 function formatBytes(bytes?: number | null): string {
   const n = typeof bytes === "number" ? bytes : 0;
