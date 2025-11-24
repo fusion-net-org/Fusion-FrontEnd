@@ -103,7 +103,7 @@ const PlanRevenueInsightChart: React.FC<Props> = ({ data, loading }) => {
               Revenue by plan
             </p>
             <p className="text-xs text-slate-500">
-              Plan nào mang nhiều doanh thu nhất trong năm {displayYear}.
+              Which plan brings in the most revenue during the year {displayYear}.
             </p>
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-2 py-[2px]">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
