@@ -5,6 +5,7 @@ export interface CompanyMemberInterface {
   memberId: string;
   memberName: string;
   memberAvatar: string;
+  roleName: string;
   email: string;
   phone: string;
   gender: string;

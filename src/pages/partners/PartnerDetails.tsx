@@ -18,6 +18,7 @@ import {
   Building2,
   Search,
   SearchIcon,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useParams, useLocation } from 'react-router-dom';
 import { getCompanyById } from '@/services/companyService.js';
@@ -30,12 +31,15 @@ import type { ILogActivity } from '@/interfaces/LogActivity/LogActivity';
 import { AllActivityLogCompanyById } from '@/services/companyLogActivity.js';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Chart from 'react-apexcharts';
+
 import type {
   IProjectRequset,
   ProjectRequestResponse,
 } from '@/interfaces/ProjectRequest/projectRequest';
 import { GetProjectRequestByCompanyIdAndPartnerId } from '@/services/projectRequest.js';
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
+import Card from '@mui/material/Card';
 
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 
@@ -43,7 +47,9 @@ const PartnerDetails: React.FC = () => {
   const { state } = useLocation();
   const myCompanyId = state?.companyId;
   const partnerId = state?.partnerId;
-  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'activity' | 'dashboard'>(
+    'overview',
+  );
   const [partner, setPartner] = useState<CompanyRequest>();
   const [loading, setLoading] = useState(false);
   const [loadingActivity, setLoadingActivity] = useState(false);
@@ -345,9 +351,18 @@ const PartnerDetails: React.FC = () => {
                   <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-white ring-1 ring-gray-100 shadow-sm">
                     <s.icon className={cls('h-6 w-6', s.accent)} />
                   </div>
-                  <div>
+
+                  <div className="grid place-items-center h-12">
+                    <p
+                      className={cls('text-3xl font-bold leading-none', s.accent)}
+                      style={{ paddingTop: '6px' }}
+                    >
+                      {s.value}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col">
                     <p className="text-xs uppercase tracking-wide text-gray-500">{s.label}</p>
-                    <p className={cls('text-3xl font-bold leading-none', s.accent)}>{s.value}</p>
                     <p className="mt-1 text-xs text-gray-400">{s.desc}</p>
                   </div>
                 </div>
@@ -366,6 +381,7 @@ const PartnerDetails: React.FC = () => {
                 { id: 'overview', label: 'Overview', icon: FileText },
                 { id: 'requests', label: 'Project Requests', icon: ClipboardList },
                 { id: 'activity', label: 'Activity', icon: Activity },
+                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -674,6 +690,146 @@ const PartnerDetails: React.FC = () => {
                       showLastButton
                     />
                   </Stack>
+                </div>
+              </section>
+            )}
+
+            {/* dashboard */}
+            {activeTab === 'dashboard' && (
+              <section className="mt-6">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900">Dashboard</h3>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Chart 1: Project Performance Overview */}
+                  <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100 p-4">
+                    <Card title={`${partner?.name} Project Performance Overview`}>
+                      <Chart
+                        type="line"
+                        height={300}
+                        series={[
+                          {
+                            name: 'Projects',
+                            data: [
+                              partner?.onTimeRelease ?? 0,
+                              partner?.totalOngoingProjects ?? 0,
+                              partner?.totalCompletedProjects ?? 0,
+                              partner?.totalClosedProjects ?? 0,
+                              partner?.totalLateProjects ?? 0,
+                            ],
+                          },
+                        ]}
+                        options={{
+                          chart: { toolbar: { show: true }, zoom: { enabled: false } },
+                          xaxis: {
+                            categories: ['On-Time', 'Ongoing', 'Completed', 'Closed', 'Late'],
+                          },
+                          colors: ['#6366F1'],
+                          stroke: { curve: 'smooth', width: 3 },
+                          dataLabels: { enabled: true },
+                          markers: { size: 5 },
+                          tooltip: { y: { formatter: (val: number) => `${val} projects` } },
+                        }}
+                      />
+                    </Card>
+                  </div>
+
+                  {/* Chart 2: Company Members by Role */}
+                  <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100 p-4">
+                    <Card title="Company Members by Role">
+                      <Chart
+                        type="bar"
+                        height={300}
+                        series={[
+                          {
+                            name: 'Members',
+                            data:
+                              partner?.companyRoles?.map((role: any) => role.totalMembers) ?? [],
+                          },
+                        ]}
+                        options={{
+                          chart: { toolbar: { show: true }, zoom: { enabled: false } },
+                          xaxis: {
+                            categories:
+                              partner?.companyRoles?.map((role: any) => role.roleName) ?? [],
+                          },
+                          colors: ['#10B981'],
+                          stroke: { curve: 'smooth', width: 3 },
+                          dataLabels: { enabled: true },
+                          markers: { size: 5 },
+                          tooltip: { y: { formatter: (val: number) => `${val} members` } },
+                        }}
+                      />
+                    </Card>
+                  </div>
+
+                  {/* Chart 3: Projects Created vs Hired */}
+                  <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100 p-4">
+                    <Card title="Projects Created vs Hired">
+                      <Chart
+                        type="donut"
+                        height={300}
+                        series={[
+                          partner?.totalProjectCreated ?? 0,
+                          partner?.totalProjectHired ?? 0,
+                        ]}
+                        options={{
+                          labels: ['Created', 'Hired'],
+                          colors: ['#F59E0B', '#3B82F6'],
+                          legend: { position: 'bottom' },
+                          dataLabels: { enabled: true },
+                        }}
+                      />
+                    </Card>
+                  </div>
+
+                  {/* Chart 4: Project Requests Sent vs Received */}
+                  <div className="bg-gray-50 rounded-xl shadow-inner border border-gray-100 p-4">
+                    <Card title="Project Requests Sent vs Received">
+                      <Chart
+                        type="bar"
+                        height={300}
+                        series={[
+                          {
+                            name: 'Total',
+                            data: [
+                              partner?.totalProjectRequestSent ?? 0,
+                              partner?.totalProjectRequestReceive ?? 0,
+                            ],
+                          },
+                          {
+                            name: 'Accepted',
+                            data: [
+                              partner?.totalProjectRequestAcceptSent ?? 0,
+                              partner?.totalProjectRequestAcceptReceive ?? 0,
+                            ],
+                          },
+                          {
+                            name: 'Rejected',
+                            data: [
+                              partner?.totalProjectRequestRejectSent ?? 0,
+                              partner?.totalProjectRequestRejectReceive ?? 0,
+                            ],
+                          },
+                          {
+                            name: 'Pending',
+                            data: [
+                              partner?.totalProjectRequestPendingSent ?? 0,
+                              partner?.totalProjectRequestPendingReceive ?? 0,
+                            ],
+                          },
+                        ]}
+                        options={{
+                          chart: { toolbar: { show: true }, stacked: true },
+                          xaxis: { categories: ['Sent', 'Received'] },
+                          colors: ['#3B82F6', '#10B981', '#EF4444', '#F59E0B'],
+                          dataLabels: { enabled: true },
+                          plotOptions: { bar: { borderRadius: 6 } },
+                          tooltip: { y: { formatter: (val: number) => `${val} requests` } },
+                          legend: { position: 'top' },
+                        }}
+                      />
+                    </Card>
+                  </div>
                 </div>
               </section>
             )}
