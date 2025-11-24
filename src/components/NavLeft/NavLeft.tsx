@@ -232,20 +232,32 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
               <div key={item.name}>
                 {/* Parent row */}
                 <button
-                  className={className}
+                  className={`
+    relative flex items-center w-full gap-3 px-3 py-2 rounded-lg text-sm font-medium 
+    transition-all duration-200
+    ${
+      active
+        ? 'bg-blue-600/10 text-blue-700 ring-1 ring-blue-500'
+        : 'text-gray-700 hover:bg-gray-100'
+    }
+  `}
                   onClick={handleClick}
                   title={isCollapsed ? item.name : undefined}
                 >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-blue-500 rounded-r-full" />
+                  )}
+
                   <Icon
                     className={`w-5 h-5 flex-shrink-0 transition-colors duration-200 ${
-                      active
-                        ? 'text-blue-600 dark:text-blue-400'
-                        : 'text-gray-500 dark:text-gray-400'
+                      active ? 'text-blue-600' : 'text-gray-500'
                     }`}
                   />
+
                   {!isCollapsed && (
                     <>
                       <span className="flex-1 text-left">{item.name}</span>
+
                       {hasChildren &&
                         (isOpen ? (
                           <ChevronDown className="w-4 h-4 opacity-70 transition-transform duration-200 rotate-180" />
