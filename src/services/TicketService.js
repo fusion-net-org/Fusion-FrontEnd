@@ -105,3 +105,72 @@ export const UpdateTicket = async (ticketId, ticketData) => {
     throw error;
   }
 };
+
+export const GetTicketPaged = async (
+  Keyword,
+  ProjectId,
+  CompanyRequestId,
+  CompanyExecutorId,
+  Status,
+  ViewMode,
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn,
+  SortDescending,
+) => {
+  try {
+    const params = {};
+
+    if (Keyword) params.Keyword = Keyword;
+    if (ProjectId) params.ProjectId = ProjectId;
+    if (CompanyRequestId) params.CompanyRequestId = CompanyRequestId;
+    if (CompanyExecutorId) params.CompanyExecutorId = CompanyExecutorId;
+    if (Status) params.Status = Status;
+    if (ViewMode) params.ViewMode = ViewMode;
+    if (PageNumber) params.PageNumber = PageNumber;
+    if (PageSize) params.PageSize = PageSize;
+    if (SortColumn) params.SortColumn = SortColumn;
+    if (SortDescending !== undefined) params.SortDescending = SortDescending;
+
+    const res = await axiosInstance.get(`/ticket/paged`, { params });
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const GetTicketCountStatus = async (projectId, companyRequestId, companyExecutorId) => {
+  try {
+    const res = await axiosInstance.get(`/ticket/status-count`, {
+      params: {
+        projectId,
+        companyRequestId,
+        companyExecutorId,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const GetProjectsByCompany = async (
+  companyId,
+  companyRequestId = null,
+  executorCompanyId = null,
+) => {
+  try {
+    const params = { companyId };
+
+    if (companyRequestId) params.companyRequestId = companyRequestId;
+    if (executorCompanyId) params.executorCompanyId = executorCompanyId;
+
+    const res = await axiosInstance.get('/companies/projects-by-company', {
+      params,
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Get projects by company error:', error);
+    throw error;
+  }
+};
