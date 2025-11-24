@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useParams, matchPath } from 'react-router-dom';
 import { getOwnerUser } from '@/services/userService.js';
 import type { User } from '@/interfaces/User/User';
+import { getCompanyById } from '@/services/companyService.js';
+import logo_fusion from '@/assets/logo_fusion.png';
 
 type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners';
 type Item = { key: string; label: string; to: string; icon?: PresetIcon | React.ReactNode };
@@ -117,6 +119,7 @@ export default function CompanyNavbar({
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIdLogin = user?.id;
+  const [company, setCompany] = useState<any>(null);
 
   useEffect(() => {
     const fetchOwnerUser = async () => {
@@ -131,6 +134,19 @@ export default function CompanyNavbar({
     };
     fetchOwnerUser();
   }, [userIdLogin, companyId]);
+
+  useEffect(() => {
+    const fetchCompany = async () => {
+      try {
+        if (!companyId) return;
+        const response = await getCompanyById(companyId);
+        setCompany(response?.data || null);
+      } catch (err) {
+        console.error('Error fetching company info:', err);
+      }
+    };
+    fetchCompany();
+  }, [companyId]);
 
   const isOwner = userIdLogin && ownerUserId && userIdLogin === ownerUserId;
 
@@ -178,6 +194,18 @@ export default function CompanyNavbar({
 
   return (
     <aside className="cmp-nav">
+      {company && (
+        <div className="cmp-nav__company">
+          <img
+            src={company.avatarCompany || logo_fusion}
+            className="cmp-nav__companyLogo"
+            alt="Company Logo"
+          />
+
+          <div className="cmp-nav__companyName">{company.name}</div>
+        </div>
+      )}
+
       <nav className="cmp-nav__menu">
         <div className="cmp-nav__groupTitle">Menu</div>
         <div className="cmp-nav__items" style={{ ['--active-index' as any]: activeIdx }}>
