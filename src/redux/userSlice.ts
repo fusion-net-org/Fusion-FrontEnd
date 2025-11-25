@@ -1,11 +1,17 @@
-import { createSlice } from '@reduxjs/toolkit';
-import type { PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+
+interface Company {
+  id: string;
+  name: string;
+}
 
 interface User {
   token: string;
   refreshToken?: string;
   email: string;
   username?: string;
+  role?: string;
+  companies?: Company[]; 
 }
 
 interface UserState {
@@ -40,8 +46,14 @@ const userSlice = createSlice({
         localStorage.setItem('user', JSON.stringify(state.user));
       }
     },
+    setUserCompanies: (state, action: PayloadAction<Company[]>) => {
+      if (state.user) {
+        state.user.companies = action.payload;
+        localStorage.setItem('user', JSON.stringify(state.user));
+      }
+    },
   },
 });
 
-export const { loginUser, logoutUser, updateUserRedux } = userSlice.actions;
+export const { loginUser, logoutUser, updateUserRedux, setUserCompanies } = userSlice.actions;
 export default userSlice.reducer;

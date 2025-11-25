@@ -63,7 +63,8 @@ import RequireAdmin from './components/RequireAdmin/RequireAdmin';
 import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetailPage';
 import TaskDetailPage from './pages/project/TaskDetailPage';
 import InvitationPage from './components/Member/Invitations';
-import UserProfile from './pages/UserProfile/UserProfile';
+import CompanyProtectedRoute from './components/CompanyProtectedRoute/CompanyProtectedRoute';
+import UserProfile from './pages/userProfile/UserProfile';
 import ProjectOverviewPage from './pages/admin/projectManagement/ProjectOverviewPage';
 import TicketPage from './pages/home/TicketPage';
 
@@ -133,7 +134,13 @@ function App() {
           <Route path="/admin/features/list" element={<FeatureListPage />} />
         </Route>
         {/* route company layout */}
-        <Route element={<CompanyLayout />}>
+        <Route
+          element={
+            <CompanyProtectedRoute>
+              <CompanyLayout />
+            </CompanyProtectedRoute>
+          }
+        >
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
           <Route path="/company/:companyId" element={<CompanyDetail />} />
           <Route path="/company/:companyId/partners" element={<Partners />} />
@@ -185,14 +192,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/request-reset-password" element={<RequestResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route
-          path="/my-profile"
-          element={
-            <RequireAuth>
-              <UserProfile />
-            </RequireAuth>
-          }
-        />
+        <Route path="/my-profile" element={<UserProfile />} />
 
         <Route path="*" element={<NotFound />} />
         {/*Route payment-result */}

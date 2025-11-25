@@ -144,7 +144,13 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto no-scrollbar">
+      <nav
+        className="flex-1 px-3 py-5 space-y-1 overflow-y-auto"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
         {items.map((item) => {
           const Icon = item.icon;
           const hasChildren = !!item.children?.length;
@@ -154,7 +160,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
           if (hasChildren) {
             return (
               <div key={item.to} className="space-y-1">
-                {/* Menu cha */}
+                {/* Menu */}
                 <button
                   onClick={() => toggleMenu(item.to)}
                   className={`relative flex items-center w-full gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
