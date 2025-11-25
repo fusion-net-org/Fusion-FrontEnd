@@ -1,6 +1,47 @@
 export interface ITicket {
   id: string;
   projectId: string;
+  projectName?: string;
+  priority?: string;
+  isHighestUrgen?: boolean;
+  ticketName?: string;
+  description?: string;
+  statusId?: string;
+  submittedBy?: string;
+  submittedByName?: string | null;
+  isBillable?: boolean;
+  budget?: number;
+  isDeleted?: boolean;
+  status: string;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface IPagedTicketData {
+  items: ITicket[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+export interface ITicketResponseData {
+  totalCount: number;
+  pageData: IPagedTicketData;
+  statusCounts: Record<string, number>;
+  total: number;
+}
+
+export interface ITicketResponse {
+  succeeded: boolean;
+  statusCode: number;
+  message: string;
+  data: ITicketResponseData;
+}
+
+export interface ITicketTab {
+  id: string;
+  projectId: string;
   priority?: string;
   projectName?: string;
   urgency?: string;
@@ -9,7 +50,7 @@ export interface ITicket {
   description?: string;
   statusId?: string;
   submittedBy?: string;
-  submittedByName?: string;
+  submittedByName?: string | null;
   isBillable?: boolean;
   budget?: number;
   isDeleted?: boolean;
@@ -20,36 +61,17 @@ export interface ITicket {
   updatedAt: string;
 }
 
-export interface IPagedTickets {
+export interface IPagedTicketsTab {
   items: ITicket[];
   totalCount: number;
   pageNumber: number;
   pageSize: number;
 }
-
-export interface ITicketResponse {
+export interface ITicketResponseTab {
   succeeded: boolean;
   statusCode: number;
   message: string;
-  data: IPagedTickets;
-}
-
-export interface ITicketStatusCount {
-  statusCounts: {
-    Pending?: number;
-    Accepted?: number;
-    Rejected?: number;
-    Finished?: number;
-    [key: string]: number | undefined;
-  };
-  total: number;
-}
-
-export interface ITicketStatusCountResponse {
-  succeeded: boolean;
-  statusCode: number;
-  message: string;
-  data: ITicketStatusCount;
+  data: IPagedTicketsTab;
 }
 
 export interface IProject {
