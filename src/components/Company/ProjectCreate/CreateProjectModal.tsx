@@ -174,15 +174,20 @@ const Chip = ({
   active,
   children,
   onClick,
+  disabled = false,
 }: {
   active?: boolean;
   children: React.ReactNode;
   onClick?: () => void;
+  disabled?: boolean;
 }) => (
   <button
-    onClick={onClick}
+    type="button"
+    onClick={disabled ? undefined : onClick}
+    disabled={disabled}
     className={[
       'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition',
+      disabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : '',
       active
         ? 'bg-blue-600 text-white border-blue-600'
         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50',
@@ -191,6 +196,7 @@ const Chip = ({
     {children}
   </button>
 );
+
 
 /* ========= Helpers ========= */
 const isGuid = (s?: string | null) =>
@@ -695,7 +701,7 @@ export default function CreateProjectModal({
     workflowName: '',
     memberIds: [],
   });
-
+const canEditType = false;
   // đồng bộ khi URL đổi công ty
   React.useEffect(() => {
     setForm((prev) => ({ ...prev, companyId }));
@@ -941,16 +947,25 @@ export default function CreateProjectModal({
                   </Field>
                 </div>
                 {/* type */}
-                <Field label="Type">
-                  <div className="flex flex-wrap gap-2">
-                    <Chip active={!form.isHired} onClick={() => set('isHired', false)}>
-                      Internal
-                    </Chip>
-                    <Chip active={form.isHired} onClick={() => set('isHired', true)}>
-                      Outsourced
-                    </Chip>
-                  </div>
-                </Field>
+               <Field label="Type">
+  <div className="flex flex-wrap gap-2">
+    <Chip
+      active={!form.isHired}
+      onClick={canEditType ? () => set('isHired', false) : undefined}
+      disabled={!canEditType}
+    >
+      Internal
+    </Chip>
+    <Chip
+      active={form.isHired}
+      onClick={canEditType ? () => set('isHired', true) : undefined}
+      disabled={!canEditType}
+    >
+      Outsourced
+    </Chip>
+  </div>
+</Field>
+
                 {form.isHired && (
                   <Field label="Hired company" required>
                     {defaultValues?.companyId ? (
