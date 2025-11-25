@@ -16,6 +16,7 @@ import {
 import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
+import {  useNavigate, useParams } from "react-router-dom";
 
 type Id = string;
 
@@ -90,7 +91,18 @@ export default function SprintWorkspacePage() {
     sprints, tasks, changeStatus, moveToNextSprint, split, done, reorder,
   } = useProjectBoard();
 const [flashTaskId, setFlashTaskId] = useState<Id | null>(null);
+  const { companyId, projectId } = useParams();
+  const navigate = useNavigate();
 
+  const handleOpenTicket = React.useCallback(
+    (taskId: string) => {
+console.log(taskId)     
+
+      if (!companyId || !projectId) return; // phòng trường hợp chưa có params
+ navigate(`/companies/${companyId}/project/${projectId}/task/${taskId}`);
+    },
+    [navigate, companyId, projectId]
+  );
 useEffect(() => {
   if (!flashTaskId) return;
   const timer = setTimeout(() => setFlashTaskId(null), 800); // 0.8s
@@ -220,7 +232,6 @@ useEffect(() => {
     const committed = currentTasks.reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
     const completed = currentTasks.filter((t) => t.statusCategory === "DONE")
       .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
-
     const idx = sprints.findIndex((s) => s.id === activeSprint.id);
     const next = sprints[idx + 1];
 
@@ -464,7 +475,7 @@ useEffect(() => {
                                 }}
                                 onSplit={onSplit}
                                 onMoveNext={onMoveToNextSprint}
-                                onOpenTicket={(ticketId) => alert(`Open ticket: ${ticketId}`)}
+                                onOpenTicket={handleOpenTicket}
                               />
                             </div>
                           )}

@@ -1,12 +1,17 @@
 // src/components/MySubscription/CompanySubscriptionDetailModal.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Modal, Spin } from "antd";
 import { Eye, CalendarDays, Clock, Users } from "lucide-react";
 
 import type {
   CompanySubscriptionDetailResponse,
   CompanySubscriptionStatus,
+  CompanySubscriptionUserUsageItem,
 } from "@/interfaces/CompanySubscription/CompanySubscription";
+
+import { 
+  getCompanySubscriptionUserUsage
+ } from "@/services/companysubscription.js";
 
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
@@ -16,6 +21,13 @@ function formatDate(value?: string | null) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("vi-VN");
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("vi-VN");
 }
 
 function shortId(id?: string) {
@@ -38,31 +50,77 @@ function statusTagClass(status: CompanySubscriptionStatus | string) {
 /** Seat limit: used / total */
 function formatSeatLimit(detail: CompanySubscriptionDetailResponse) {
   const total = detail.seatsLimitSnapshot ?? null;
-  // BE đang dùng SeatsLimitUnit (list) và seatsLimitUnit (active) khác nhau
   const used =
     (detail as any).SeatsLimitUnit ?? (detail as any).seatsLimitUnit ?? null;
 
-  // Các case fallback rõ ràng
   if (total == null && used == null) return "Unlimited";
   if (total == null) return `${used ?? 0} / Unlimited`;
   if (used == null) return `0 / ${total}`;
   return `${used} / ${total}`;
 }
 
+function getInitials(name?: string | null, email?: string | null) {
+  const src = name || email || "";
+  if (!src) return "?";
+  const parts = src.split(" ").filter(Boolean);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (
+    parts[0].charAt(0).toUpperCase() +
+    parts[parts.length - 1].charAt(0).toUpperCase()
+  );
+}
+
 type Props = {
   open: boolean;
-  loading?: boolean;
+  loading?: boolean; // loading detail
   data: CompanySubscriptionDetailResponse | null;
   onClose: () => void;
 };
 
-export default function CompanySubscriptionDetailModal({
+const CompanySubscriptionDetailModal: React.FC<Props> = ({
   open,
   loading,
   data,
   onClose,
-}: Props) {
+}) => {
   const detail = data;
+
+  // user usage state
+  const [usage, setUsage] = useState<CompanySubscriptionUserUsageItem[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState<string | null>(null);
+
+  // load user-usage mỗi khi mở modal + có id
+  useEffect(() => {
+    if (!open || !detail?.id) return;
+
+    let cancelled = false;
+    const fetchUsage = async () => {
+      try {
+        setUsageLoading(true);
+        setUsageError(null);
+        const items = await getCompanySubscriptionUserUsage(
+          detail.id as unknown as string
+        );
+        if (!cancelled) {
+          setUsage(Array.isArray(items) ? items : []);
+        }
+      } catch (e: any) {
+        if (cancelled) return;
+        console.error("getCompanySubscriptionUserUsage error:", e);
+        setUsageError(
+          e?.message || "Error loading users using this subscription."
+        );
+      } finally {
+        if (!cancelled) setUsageLoading(false);
+      }
+    };
+
+    fetchUsage();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, detail?.id]);
 
   return (
     <Modal
@@ -70,7 +128,7 @@ export default function CompanySubscriptionDetailModal({
       onCancel={onClose}
       footer={null}
       centered
-      width={720}
+      width={780}
       destroyOnClose
       title={
         <div className="flex items-center gap-3">
@@ -89,7 +147,7 @@ export default function CompanySubscriptionDetailModal({
       }
     >
       {loading && !detail ? (
-        <div className="flex min-h-[160px] items-center justify-center">
+        <div className="flex min-height-[160px] items-center justify-center py-8">
           <Spin size="small" />
         </div>
       ) : !detail ? (
@@ -98,10 +156,10 @@ export default function CompanySubscriptionDetailModal({
         </div>
       ) : (
         <div className="space-y-5 text-[13px] text-slate-800">
-          {/* ===== OVERVIEW (Plan + Company + Status + Seat limit) ===== */}
+          {/* ===== OVERVIEW ===== */}
           <section className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4">
             <div className="grid gap-4 sm:grid-cols-[minmax(0,1.8fr)_minmax(0,1.1fr)] sm:items-start">
-              {/* Left: Plan / company / share / ID */}
+              {/* Left: plan / company / owner */}
               <div className="space-y-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Plan
@@ -137,7 +195,6 @@ export default function CompanySubscriptionDetailModal({
 
               {/* Right: status + seat limit */}
               <div className="rounded-2xl bg-white px-4 py-3 text-[11px] text-slate-600 shadow-sm sm:ml-auto sm:w-60">
-                {/* STATUS: label và value canh thẳng cột */}
                 <p className="font-semibold uppercase tracking-wide text-slate-500">
                   Status
                 </p>
@@ -152,7 +209,6 @@ export default function CompanySubscriptionDetailModal({
                   </span>
                 </div>
 
-                {/* SEAT LIMIT: SeatsLimitUnit / seatsLimitSnapshot */}
                 <p className="mt-4 font-semibold uppercase tracking-wide text-slate-500">
                   Seat limit
                 </p>
@@ -161,7 +217,7 @@ export default function CompanySubscriptionDetailModal({
                 </p>
                 {detail.seatsLimitSnapshot != null && (
                   <p className="text-[10px] text-slate-400">
-                    Used / Total seats
+                    Used / total seats
                   </p>
                 )}
               </div>
@@ -240,6 +296,82 @@ export default function CompanySubscriptionDetailModal({
             )}
           </section>
 
+          {/* ===== USER USAGE TABLE ===== */}
+          <section className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Users using this subscription
+              </p>
+              <p className="text-[11px] font-medium text-slate-400">
+                Distinct users that have used any feature from this company
+                subscription.
+              </p>
+            </div>
+
+            {usageLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Spin size="small" />
+              </div>
+            ) : usageError ? (
+              <p className="text-[12px] text-rose-600">{usageError}</p>
+            ) : usage.length === 0 ? (
+              <p className="text-[12px] text-slate-400">
+                No user has used this subscription yet.
+              </p>
+            ) : (
+              <div className="max-h-64 overflow-auto rounded-xl border border-slate-100">
+                <table className="min-w-full text-left text-[12px]">
+                  <thead className="sticky top-0 bg-slate-50">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold text-slate-600">
+                        User
+                      </th>
+                      <th className="px-3 py-2 font-semibold text-slate-600">
+                        Email
+                      </th>
+                      <th className="px-3 py-2 font-semibold text-slate-600">
+                        First used at
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usage.map((u) => (
+                      <tr
+                        key={u.userId as unknown as string}
+                        className="border-t border-slate-100"
+                      >
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            {u.avatar ? (
+                              <img
+                                src={u.avatar}
+                                alt={u.userName || ""}
+                                className="h-7 w-7 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
+                                {getInitials(u.userName, u.email)}
+                              </div>
+                            )}
+                            <span className="font-medium text-slate-900">
+                              {u.userName || "(Unnamed user)"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-slate-700">
+                          {u.email || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-700">
+                          {formatDateTime(u.firstUsedAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
           {/* ===== FOOTER NOTE ===== */}
           <p className="text-[11px] leading-relaxed text-slate-400">
             This company subscription mirrors entitlements from the source user
@@ -250,4 +382,6 @@ export default function CompanySubscriptionDetailModal({
       )}
     </Modal>
   );
-}
+};
+
+export default CompanySubscriptionDetailModal;

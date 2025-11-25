@@ -26,7 +26,7 @@ export default function CompanyHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-gray-300/60 bg-white/80 backdrop-blur-md px-3 py-3 flex items-center justify-between shadow-sm">
+      <header className="sticky top-0 z-50 w-full border-b border-gray-300/60 bg-white/80 backdrop-blur-md px-3 py-1 flex items-center justify-between shadow-sm">
         {/* LEFT: Back + title */}
         <div className="flex items-center gap-1">
           <button

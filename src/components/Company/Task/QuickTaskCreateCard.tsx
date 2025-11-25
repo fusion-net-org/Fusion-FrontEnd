@@ -3,6 +3,7 @@ import { CalendarDays, UserRound, CheckSquare, Plus, ChevronDown } from "lucide-
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import { createTaskQuick } from "@/services/taskService.js"; 
 import { useProjectBoard } from "@/context/ProjectBoardContext";
+import { toast } from "react-toastify";
 
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const isoFromDateInput = (v?: string) => {
@@ -102,7 +103,7 @@ attachTaskVm(vm);
       onCreated?.(vm);
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Create task failed");
+      toast.error(err?.message || "Create task failed");
     } finally {
       setIsSaving(false);
     }

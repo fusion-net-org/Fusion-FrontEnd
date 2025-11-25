@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Input, Select } from 'antd';
 import { InvitePartnert } from '@/services/partnerService.js';
-import { getAllCompanies } from '@/services/companyService.js';
+import { getAllCompaniesV2 } from '@/services/companyService.js';
 import { Loader2 } from 'lucide-react';
 import type { CompanyRequestV2, CompanyResponseV2 } from '@/interfaces/Company/company';
 import { toast } from 'react-toastify';
@@ -38,7 +38,18 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
 
       const start = Date.now();
 
-      const res = await getAllCompanies(term, '', '', 1, 25, null, null, selectedCompany || '');
+      const res = await getAllCompaniesV2(
+        term,
+        '',
+        '',
+        null,
+        null,
+        1,
+        25,
+        null,
+        null,
+        selectedCompany || '',
+      );
       const data: CompanyResponseV2 = res.data;
 
       if (!res.succeeded) {
@@ -100,7 +111,18 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
       setErrorMessage(null);
 
       const start = Date.now();
-      const res = await getAllCompanies('', '', '', pageNumber, pageSize, null, null, companyId);
+      const res = await getAllCompaniesV2(
+        '',
+        '',
+        '',
+        null,
+        null,
+        pageNumber,
+        pageSize,
+        null,
+        null,
+        companyId,
+      );
       const data: CompanyResponseV2 = res.data;
       console.log(data);
       if (!res.succeeded) {
@@ -126,7 +148,15 @@ const InvitePartner: React.FC<InvitePartnerProps> = ({ open, onClose, onSuccess 
     const userData = localStorage.getItem('user');
     const username = userData ? JSON.parse(userData).username : '';
     try {
-      const response = await getAllCompanies('', username || '', '', pageNumber, pageSize);
+      const response = await getAllCompaniesV2(
+        '',
+        username || '',
+        '',
+        null,
+        null,
+        pageNumber,
+        pageSize,
+      );
       const data: CompanyResponseV2 = response.data;
       const ownerList = data.items ?? [];
       setOwnerCompanies(data.items ?? []);

@@ -111,6 +111,12 @@ const defaultItems: Item[] = [
     icon: 'layers',
   },
   {
+    key: 'ticket',
+    label: 'Ticket',
+    to: '/company/:companyId/ticket',
+    icon: 'layers',
+  },
+  {
     key: 'project-request-detail',
     label: 'Request Detail',
     to: '/company/:companyId/project-request/:id',

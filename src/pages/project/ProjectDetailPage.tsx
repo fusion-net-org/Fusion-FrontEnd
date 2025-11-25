@@ -17,13 +17,30 @@ import {
   Search,
   Trash2,
   Shield,
+  Edit3,
+  Eye,
 } from "lucide-react";
+import { toast } from "react-toastify";
 
 import {
   GetProjectByProjectId,
   getCompanyMembersPaged,
+  updateProject,
+  deleteProject,
 } from "@/services/projectService.js";
+import {
+  addProjectMember,
+  removeProjectMember,
+} from "@/services/projectMember.js";
+import { getProjectMemberByProjectId } from "@/services/projectMember.js";
+
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
+
+// === Workflow preview bits ===
+import WorkflowMini from "@/components/Workflow/WorkflowMini";
+import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
+import { getWorkflowPreviews } from "@/services/workflowService.js";
+import type { WorkflowPreviewVm } from "@/types/workflow";
 
 // ===== Local types =====
 
@@ -68,6 +85,12 @@ type ProjectDetailVm = {
 
   members: ProjectMemberVm[];
 };
+
+// confirm modal state
+type ConfirmState =
+  | { kind: "none" }
+  | { kind: "deleteProject" }
+  | { kind: "kickMember"; member: ProjectMemberVm };
 
 // ===== Helpers =====
 
@@ -166,6 +189,7 @@ const InfoRow = ({
     </div>
   </div>
 );
+
 // tính stats từ sprint-board
 type BoardPayload = {
   sprints: any[];
@@ -180,17 +204,16 @@ const buildStatsFromBoard = (board: BoardPayload): ProjectDetailVm["stats"] => {
   const totalTasks = tasks.length;
 
   const doneTasks = tasks.filter(
-    (t) => t.statusCategory === "DONE" || t.statusName === "Done"
+    (t) => t.statusCategory === "DONE" || t.statusName === "Done",
   ).length;
 
   const totalStoryPoints = tasks.reduce(
     (sum, t) => sum + (t.storyPoints ?? 0),
-    0
+    0,
   );
 
-  // activeSprint: tuỳ state bạn dùng, tạm coi "Active" / "InProgress" là sprint đang chạy
   const activeSprints = sprints.filter((s) =>
-    ["Active", "InProgress", "Running"].includes(String(s.state))
+    ["Active", "InProgress", "Running"].includes(String(s.state)),
   ).length;
 
   return {
@@ -222,193 +245,344 @@ export default function ProjectDetailPage() {
     ProjectMemberVm[]
   >([]);
 
- React.useEffect(() => {
-  let alive = true;
+  // edit basic info
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editName, setEditName] = React.useState("");
+  const [editDescription, setEditDescription] = React.useState("");
+  const [savingBasic, setSavingBasic] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [actionsOpen, setActionsOpen] = React.useState(false);
 
-  (async () => {
-    if (!projectId) return;
-    setLoading(true);
+  // workflow preview state
+  const [workflowPreview, setWorkflowPreview] =
+    React.useState<WorkflowPreviewVm | null>(null);
+  const [loadingWorkflowPreview, setLoadingWorkflowPreview] =
+    React.useState(false);
+  const [workflowPreviewOpen, setWorkflowPreviewOpen] =
+    React.useState(false);
 
-    try {
-      // 1) Gọi song song: project detail + sprint-board
-      const [detail, board] = await Promise.all<any>([
-        GetProjectByProjectId(projectId),
-        fetchSprintBoard(projectId),
-      ]);
-      if (!alive) return;
+  // confirm modal state
+  const [confirmState, setConfirmState] = React.useState<ConfirmState>({
+    kind: "none",
+  });
 
-      // 2) Map member trong project
-      const rawMembers: any[] =
-        detail.members ??
-        detail.projectMembers ??
-        detail.projectMemberResults ??
-        [];
+  React.useEffect(() => {
+    let alive = true;
 
-      const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
-        ? rawMembers.map(mapProjectMember)
-        : [];
+    (async () => {
+      if (!projectId) return;
+      setLoading(true);
 
-      // 3) Stats từ project-detail (nếu BE có)
-      const rawStats =
-        detail.stats ??
-        detail.boardSnapshot ??
-        detail.boardStats ??
-        {};
-
-      const statsFromDetail: ProjectDetailVm["stats"] = {
-        totalSprints:
-          rawStats.totalSprints ??
-          rawStats.sprintCount ??
-          detail.totalSprints ??
-          detail.sprintCount ??
-          0,
-        activeSprints:
-          rawStats.activeSprints ??
-          rawStats.activeSprintCount ??
-          detail.activeSprints ??
-          detail.activeSprintCount ??
-          0,
-        totalTasks:
-          rawStats.totalTasks ??
-          rawStats.taskCount ??
-          detail.totalTasks ??
-          detail.taskCount ??
-          0,
-        doneTasks:
-          rawStats.doneTasks ??
-          rawStats.doneTaskCount ??
-          detail.doneTasks ??
-          detail.doneTaskCount ??
-          0,
-        totalStoryPoints:
-          rawStats.totalStoryPoints ??
-          rawStats.storyPoints ??
-          detail.totalStoryPoints ??
-          detail.storyPoints ??
-          0,
-      };
-
-      // 4) Stats từ sprint-board (dùng data bạn gửi)
-      const statsFromBoard = buildStatsFromBoard(board);
-
-      // Ưu tiên số liệu từ board, nếu = 0 thì fallback statsFromDetail
-      const stats: ProjectDetailVm["stats"] = {
-        totalSprints:
-          statsFromBoard.totalSprints || statsFromDetail.totalSprints,
-        activeSprints:
-          statsFromBoard.activeSprints || statsFromDetail.activeSprints,
-        totalTasks: statsFromBoard.totalTasks || statsFromDetail.totalTasks,
-        doneTasks: statsFromBoard.doneTasks || statsFromDetail.doneTasks,
-        totalStoryPoints:
-          statsFromBoard.totalStoryPoints ||
-          statsFromDetail.totalStoryPoints,
-      };
-
-      // 5) Creator + availableMembers (pool)
-      const creatorIdRaw =
-        detail.createdById ??
-        detail.createdByUserId ??
-        detail.createdBy ??
-        null;
-
-      let createdByName: string =
-        detail.createdByName ??
-        detail.createdByUserName ??
-        detail.createdByDisplayName ??
-        "";
-
-      // 🔹 KHAI BÁO POOL Ở ĐÂY
-      let pool: ProjectMemberVm[] = [];
-
-      if (companyId) {
-        const res = await getCompanyMembersPaged(companyId, {
-          pageNumber: 1,
-          pageSize: 100,
-        });
+      try {
+        // 1) Gọi song song: project detail + sprint-board + project members
+        const [detailRaw, board, memberPaged] = await Promise.all<any>([
+          GetProjectByProjectId(projectId),
+          fetchSprintBoard(projectId),
+          getProjectMemberByProjectId(projectId, "", "", "", 1, 200),
+        ]);
         if (!alive) return;
 
-        const assignedIds = new Set(
-          mappedMembers.map((x) => x.userId.toLowerCase())
-        );
+        // 2) Chuẩn hóa payload project detail (cũ)
+        const detail: any = detailRaw?.data ?? detailRaw ?? {};
 
-        // build pool từ company members
-        pool = (res.items || [])
-          .filter((m: any) => {
-            const mid = String(
-              m.memberId ?? m.userId ?? m.id ?? ""
-            ).toLowerCase();
-            return mid && !assignedIds.has(mid);
-          })
-          .map(mapCompanyMemberToVm);
+        // 3) Raw members từ project detail
+        const rawMembersFromProject: any[] =
+          detail.members ??
+          detail.projectMembers ??
+          detail.projectMemberResults ??
+          [];
 
-        // nếu createdByName đang là GUID hoặc trống -> lookup sang company members
-        if (!createdByName || isGuid(createdByName)) {
-          const creatorKey = (creatorIdRaw ?? createdByName) as
-            | string
-            | null;
-          if (creatorKey) {
-            const lower = creatorKey.toLowerCase();
-            const found = (res.items || []).find((m: any) => {
+        // 4) Raw members từ API projectmember/paged
+        const memberPayload: any = memberPaged?.data ?? memberPaged ?? {};
+        const memberItems: any[] = Array.isArray(memberPayload.items)
+          ? memberPayload.items
+          : Array.isArray(memberPayload)
+          ? memberPayload
+          : [];
+
+        // Ưu tiên dùng list từ projectmember service, fallback sang detail.members
+        const rawMembers: any[] =
+          memberItems.length > 0 ? memberItems : rawMembersFromProject;
+
+        const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
+          ? rawMembers.map(mapProjectMember)
+          : [];
+
+        // 5) Stats từ project-detail (nếu BE có)
+        const rawStats =
+          detail.stats ?? detail.boardSnapshot ?? detail.boardStats ?? {};
+
+        const statsFromDetail: ProjectDetailVm["stats"] = {
+          totalSprints:
+            rawStats.totalSprints ??
+            rawStats.sprintCount ??
+            detail.totalSprints ??
+            detail.sprintCount ??
+            0,
+          activeSprints:
+            rawStats.activeSprints ??
+            rawStats.activeSprintCount ??
+            detail.activeSprints ??
+            detail.activeSprintCount ??
+            0,
+          totalTasks:
+            rawStats.totalTasks ??
+            rawStats.taskCount ??
+            detail.totalTasks ??
+            detail.taskCount ??
+            0,
+          doneTasks:
+            rawStats.doneTasks ??
+            rawStats.doneTaskCount ??
+            detail.doneTasks ??
+            detail.doneTaskCount ??
+            0,
+          totalStoryPoints:
+            rawStats.totalStoryPoints ??
+            rawStats.storyPoints ??
+            detail.totalStoryPoints ??
+            detail.storyPoints ??
+            0,
+        };
+
+        // 6) Stats từ sprint-board
+        const statsFromBoard = buildStatsFromBoard(board);
+
+        // Ưu tiên số liệu từ board, nếu = 0 thì fallback statsFromDetail
+        const stats: ProjectDetailVm["stats"] = {
+          totalSprints:
+            statsFromBoard.totalSprints || statsFromDetail.totalSprints,
+          activeSprints:
+            statsFromBoard.activeSprints || statsFromDetail.activeSprints,
+          totalTasks: statsFromBoard.totalTasks || statsFromDetail.totalTasks,
+          doneTasks: statsFromBoard.doneTasks || statsFromDetail.doneTasks,
+          totalStoryPoints:
+            statsFromBoard.totalStoryPoints ||
+            statsFromDetail.totalStoryPoints,
+        };
+
+        // 7) Creator + pool availableMembers (company members chưa join project)
+        const creatorIdRaw =
+          detail.createdById ??
+          detail.createdByUserId ??
+          detail.createdBy ??
+          null;
+
+        let createdByName: string =
+          detail.createdByName ??
+          detail.createdByUserName ??
+          detail.createdByDisplayName ??
+          "";
+
+        let pool: ProjectMemberVm[] = [];
+
+        if (companyId) {
+          const res = await getCompanyMembersPaged(companyId, {
+            pageNumber: 1,
+            pageSize: 100,
+          });
+          if (!alive) return;
+
+          const assignedIds = new Set(
+            mappedMembers.map((x) => x.userId.toLowerCase()),
+          );
+
+          // build pool từ company members (loại những người đã nằm trong project)
+          pool = (res.items || [])
+            .filter((m: any) => {
               const mid = String(
-                m.memberId ?? m.userId ?? m.id ?? ""
+                m.memberId ?? m.userId ?? m.id ?? "",
               ).toLowerCase();
-              return mid === lower;
-            });
-            if (found) {
-              createdByName =
-                found.memberName || found.email || createdByName || "";
+              return mid && !assignedIds.has(mid);
+            })
+            .map(mapCompanyMemberToVm);
+
+          // lookup creator nếu currently là GUID hoặc rỗng
+          if (!createdByName || isGuid(createdByName)) {
+            const creatorKey = (creatorIdRaw ?? createdByName) as string | null;
+            if (creatorKey) {
+              const lower = creatorKey.toLowerCase();
+              const found = (res.items || []).find((m: any) => {
+                const mid = String(
+                  m.memberId ?? m.userId ?? m.id ?? "",
+                ).toLowerCase();
+                return mid === lower;
+              });
+              if (found) {
+                createdByName =
+                  found.memberName || found.email || createdByName || "";
+              }
             }
           }
         }
+
+        const vm: ProjectDetailVm = {
+          id: String(detail.id),
+          code: detail.code ?? "",
+          name: detail.name ?? "",
+          description: detail.description ?? "",
+          status: (detail.status as ProjectStatus) ?? "Planned",
+          isHired: !!detail.isHired,
+          companyId: String(detail.companyId ?? companyId ?? ""),
+          companyName:
+            detail.companyName ?? detail.ownerCompany ?? detail.company ?? "",
+          companyHiredId: detail.companyHiredId ?? null,
+          companyHiredName:
+            detail.companyHiredName ?? detail.hiredCompanyName ?? null,
+          workflowId: String(detail.workflowId ?? ""),
+          workflowName: detail.workflowName ?? detail.workflow ?? "",
+          sprintLengthWeeks: detail.sprintLengthWeeks ?? 1,
+          startDate: detail.startDate ?? null,
+          endDate: detail.endDate ?? null,
+          createdAt: detail.createdAt ?? new Date().toISOString(),
+          createdByName: (!isGuid(createdByName) && createdByName) || "",
+          stats,
+          members: mappedMembers,
+        };
+
+        setProject(vm);
+        setAvailableMembers(pool);
+      } catch (err) {
+        console.error("Load project detail failed", err);
+        if (alive) {
+          setProject(null);
+          setAvailableMembers([]);
+        }
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [projectId, companyId]);
+
+  // load workflow preview mini card
+  React.useEffect(() => {
+    let alive = true;
+
+    const loadPreview = async () => {
+      if (!companyId || !project?.workflowId || !isGuid(companyId)) {
+        if (alive) setWorkflowPreview(null);
+        return;
       }
 
-      const vm: ProjectDetailVm = {
-        id: String(detail.id),
-        code: detail.code ?? "",
-        name: detail.name ?? "",
-        description: detail.description ?? "",
-        status: (detail.status as ProjectStatus) ?? "Planned",
-        isHired: !!detail.isHired,
-        companyId: String(detail.companyId ?? companyId ?? ""),
-        companyName:
-          detail.companyName ??
-          detail.ownerCompany ??
-          detail.company ??
-          "",
-        companyHiredId: detail.companyHiredId ?? null,
-        companyHiredName:
-          detail.companyHiredName ?? detail.hiredCompanyName ?? null,
-        workflowId: String(detail.workflowId ?? ""),
-        workflowName: detail.workflowName ?? detail.workflow ?? "",
-        sprintLengthWeeks: detail.sprintLengthWeeks ?? 1,
-        startDate: detail.startDate ?? null,
-        endDate: detail.endDate ?? null,
-        createdAt: detail.createdAt ?? new Date().toISOString(),
-        createdByName:
-          (!isGuid(createdByName) && createdByName) || "",
-        stats,                // ✅ dùng stats đã merge từ board
-        members: mappedMembers,
+      setLoadingWorkflowPreview(true);
+      try {
+        const list = (await getWorkflowPreviews(
+          companyId,
+        )) as WorkflowPreviewVm[] | null | undefined;
+        if (!alive) return;
+        const found =
+          (list ?? []).find((x) => x.id === project.workflowId) ?? null;
+        setWorkflowPreview(found);
+      } catch (err) {
+        console.error("Load workflow preview failed", err);
+        if (alive) setWorkflowPreview(null);
+      } finally {
+        if (alive) setLoadingWorkflowPreview(false);
+      }
+    };
+
+    loadPreview();
+    return () => {
+      alive = false;
+    };
+  }, [companyId, project?.workflowId]);
+
+  // sync edit fields khi project đổi
+  React.useEffect(() => {
+    if (project) {
+      setEditName(project.name);
+      setEditDescription(project.description ?? "");
+    }
+  }, [project]);
+
+  const handleOpenBoard = () => {
+    if (!companyId || !projectId) return;
+    navigate(`/companies/${companyId}/projects/${projectId}/board`);
+  };
+
+  const handleViewWorkflow = () => {
+    if (!companyId || !project?.workflowId) return;
+    // nếu vẫn muốn có trang full workflow riêng
+    navigate(`/companies/${companyId}/workflows/${project.workflowId}`);
+  };
+
+  const handleStartEditBasic = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDescription(project.description ?? "");
+    setIsEditing(true);
+    setActionsOpen(false);
+  };
+
+  const handleCancelEditBasic = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDescription(project.description ?? "");
+    setIsEditing(false);
+  };
+
+  const handleSaveBasic = async () => {
+    if (!project) return;
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      toast.error("Project name is required.");
+      return;
+    }
+
+    setSavingBasic(true);
+    try {
+      const payload: any = {
+        id: project.id,
+        companyId: project.companyId,
+        name: trimmedName,
+        description: editDescription.trim() || null,
       };
 
-      setProject(vm);
-      setAvailableMembers(pool); // ✅ lúc này pool đã có
+      const res: any = await updateProject(project.id, payload);
+      const updated = res?.data ?? res ?? payload;
+
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: updated.name ?? trimmedName,
+              description:
+                updated.description ?? (editDescription.trim() || null),
+            }
+          : prev,
+      );
+
+      setIsEditing(false);
+      toast.success("Project updated.");
     } catch (err) {
-      console.error("Load project detail failed", err);
-      if (alive) {
-        setProject(null);
-        setAvailableMembers([]);
-      }
+      console.error("Update project failed", err);
+      toast.error("Failed to update project.");
     } finally {
-      if (alive) setLoading(false);
+      setSavingBasic(false);
     }
-  })();
-
-  return () => {
-    alive = false;
   };
-}, [projectId, companyId]);
 
+  // THỰC HIỆN delete project (không confirm ở đây nữa)
+  const handleDeleteProject = async () => {
+    if (!project) return;
 
+    setDeleting(true);
+    try {
+      await deleteProject(project.id);
+      toast.success("Project deleted.");
+      navigate(`/companies/${companyId}/projects`);
+    } catch (err) {
+      console.error("Delete project failed", err);
+      toast.error("Failed to delete project.");
+    } finally {
+      setDeleting(false);
+      setActionsOpen(false);
+    }
+  };
 
   const projectStats = project ? project.stats : null;
   const progress = projectStats ? progressPercent(projectStats) : 0;
@@ -425,31 +599,88 @@ export default function ProjectDetailPage() {
     );
   }, [project, memberSearch]);
 
-  const handleRemoveMember = (userId: string) => {
+  // THỰC HIỆN remove member (không mở confirm ở đây nữa)
+  const handleRemoveMember = async (userId: string) => {
     if (!project) return;
+    const removed = project.members.find((m) => m.userId === userId);
+    if (!removed) return;
+
+    const prevProject = project;
+    const prevAvailable = availableMembers;
+
+    // Optimistic UI
     setProject({
       ...project,
       members: project.members.filter((m) => m.userId !== userId),
     });
-    // TODO: call API remove member from project
+    setAvailableMembers((prev) => [
+      ...prev,
+      { ...removed, joinedAt: null }, // trả về pool
+    ]);
+
+    try {
+      await removeProjectMember(project.id, userId);
+    } catch (err) {
+      console.error("Remove project member failed", err);
+      // rollback nếu lỗi
+      setProject(prevProject);
+      setAvailableMembers(prevAvailable);
+    }
   };
 
-  const handleAddMember = (m: ProjectMemberVm) => {
+  const handleAddMember = async (m: ProjectMemberVm) => {
     if (!project) return;
     if (project.members.some((x) => x.userId === m.userId)) return;
 
+    const prevProject = project;
+    const prevAvailable = availableMembers;
+
+    const newMember: ProjectMemberVm = {
+      ...m,
+      joinedAt: new Date().toISOString(),
+    };
+
+    // Optimistic UI
     setProject({
       ...project,
-      members: [
-        ...project.members,
-        {
-          ...m,
-          joinedAt: new Date().toISOString(),
-        },
-      ],
+      members: [...project.members, newMember],
     });
     setAvailableMembers((prev) => prev.filter((x) => x.userId !== m.userId));
-    // TODO: call API assign member to project
+
+    try {
+      await addProjectMember({
+        projectId: project.id,
+        companyId: project.companyId,
+        userId: m.userId,
+        isPartner: m.isPartner ?? false,
+        isViewAll: m.isViewAll ?? false,
+      });
+    } catch (err) {
+      console.error("Add project member failed", err);
+      // rollback nếu lỗi
+      setProject(prevProject);
+      setAvailableMembers(prevAvailable);
+    }
+  };
+
+  const handleCancelConfirm = () => {
+    if (deleting) return;
+    setConfirmState({ kind: "none" });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!project) return;
+
+    if (confirmState.kind === "deleteProject") {
+      await handleDeleteProject();
+      setConfirmState({ kind: "none" });
+    } else if (confirmState.kind === "kickMember") {
+      const member = confirmState.member;
+      if (member) {
+        await handleRemoveMember(member.userId);
+      }
+      setConfirmState({ kind: "none" });
+    }
   };
 
   if (loading || !project) {
@@ -468,6 +699,14 @@ export default function ProjectDetailPage() {
     project.createdByName && !isGuid(project.createdByName)
       ? project.createdByName
       : "Unknown user";
+
+  // text cho modal confirm
+  const isDeleteProjectConfirm = confirmState.kind === "deleteProject";
+  const isKickMemberConfirm = confirmState.kind === "kickMember";
+  const memberName =
+    confirmState.kind === "kickMember"
+      ? confirmState.member.name
+      : undefined;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
@@ -515,14 +754,75 @@ export default function ProjectDetailPage() {
             </div>
 
             {/* title + desc */}
-            <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
-                {project.name}
-              </h1>
-              {project.description && (
-                <p className="max-w-2xl text-sm text-slate-600">
-                  {project.description}
-                </p>
+            <div className="space-y-2">
+              {isEditing ? (
+                <div className="space-y-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      Project name
+                    </label>
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      maxLength={200}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      Description
+                    </label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      rows={3}
+                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="Short context so the team understands the scope."
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveBasic}
+                      disabled={savingBasic}
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {savingBasic && (
+                        <span className="size-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
+                      )}
+                      Save changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEditBasic}
+                      disabled={savingBasic}
+                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-start gap-2">
+                    <h1 className="flex-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                      {project.name}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={handleStartEditBasic}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      <Edit3 className="size-3.5" />
+                      Edit
+                    </button>
+                  </div>
+                  {project.description && (
+                    <p className="max-w-2xl text-sm text-slate-600">
+                      {project.description}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -597,7 +897,21 @@ export default function ProjectDetailPage() {
                 <InfoRow
                   icon={<WorkflowIcon className="size-3.5" />}
                   label="Workflow"
-                  value={project.workflowName}
+                  value={
+                    <div className="flex items-center justify-between gap-2">
+                     
+                      {project.workflowId && (
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowPreviewOpen(true)}
+                          className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100"
+                        >
+                          <WorkflowIcon className="size-3" />
+                          <span>View</span>
+                        </button>
+                      )}
+                    </div>
+                  }
                 />
                 <InfoRow
                   icon={<CalendarDays className="size-3.5" />}
@@ -630,28 +944,58 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* RIGHT: actions */}
-          <div className="mt-1 flex flex-row gap-2 sm:flex-col xl:mt-0 xl:ml-6">
+          <div className="mt-1 flex flex-row gap-2 sm:flex-col xl:mt-0 xl:ml-6 relative">
             <button
               type="button"
-              onClick={() => {
-                // TODO: điều hướng sang board thật
-                // navigate(`/companies/${companyId}/projects/${projectId}/board`);
-              }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+              onClick={handleOpenBoard}
+              disabled={!companyId || !projectId}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
             >
               <Activity className="size-4" />
               Open board
             </button>
             <button
               type="button"
-              onClick={() => {
-                // TODO: mở modal edit project
-              }}
+              onClick={() => setActionsOpen((x) => !x)}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <MoreHorizontal className="size-4" />
               Project actions
             </button>
+
+            {actionsOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={handleStartEditBasic}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <Edit3 className="size-3.5 text-slate-500" />
+                  <span>Edit name & description</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkflowPreviewOpen(true)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <WorkflowIcon className="size-3.5 text-slate-500" />
+                  <span>View workflow</span>
+                </button>
+                <div className="my-1 border-t border-slate-100" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setConfirmState({ kind: "deleteProject" });
+                  }}
+                  disabled={deleting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete project</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -720,6 +1064,7 @@ export default function ProjectDetailPage() {
           </div>
 
           <div className="space-y-4">
+            {/* Health snapshot */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-sm font-semibold text-slate-800">
@@ -753,6 +1098,64 @@ export default function ProjectDetailPage() {
               </div>
             </div>
 
+            {/* Workflow preview card */}
+            {project.workflowId && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-slate-800">
+                    Workflow
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="rounded-lg border bg-white overflow-hidden">
+                    <div className="px-3 py-2 flex items-center justify-between border-b">
+                      <div className="font-medium truncate">
+                        {project.workflowName || "Workflow"}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWorkflowPreviewOpen(true)}
+                        className="p-1 rounded hover:bg-gray-100"
+                        title="Preview"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </div>
+
+                    {loadingWorkflowPreview ? (
+                      <div className="h-[160px] bg-gray-50 animate-pulse" />
+                    ) : workflowPreview ? (
+                      <WorkflowMini data={workflowPreview} />
+                    ) : (
+                      <div className="h-[160px] bg-gray-50 flex items-center justify-center text-xs text-slate-400">
+                        No workflow preview available
+                      </div>
+                    )}
+
+                    <div className="px-3 py-2 border-t flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWorkflowPreviewOpen(true)}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1"
+                      >
+                        <Eye size={14} />
+                        Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleViewWorkflow}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Open full
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tips */}
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5 text-xs text-slate-600">
               <div className="mb-1 text-sm font-semibold text-slate-800">
                 Tips for better project detail
@@ -871,7 +1274,9 @@ export default function ProjectDetailPage() {
                     <td className="px-4 py-2.5 text-right text-xs">
                       <button
                         type="button"
-                        onClick={() => handleRemoveMember(m.userId)}
+                        onClick={() =>
+                          setConfirmState({ kind: "kickMember", member: m })
+                        }
                         className="inline-flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100"
                       >
                         <Trash2 className="size-3.5" />
@@ -954,6 +1359,75 @@ export default function ProjectDetailPage() {
             Activity timeline will be wired to audit logs / ticket events later.
           </p>
           <p className="text-xs text-slate-500">No activity data yet.</p>
+        </div>
+      )}
+
+      {/* Modal preview workflow lớn */}
+      {workflowPreviewOpen && project.workflowId && (
+        <WorkflowPreviewModal
+          open={workflowPreviewOpen}
+          workflowId={project.workflowId}
+          onClose={() => setWorkflowPreviewOpen(false)}
+        />
+      )}
+
+      {/* Confirm modal for delete / kick */}
+      {confirmState.kind !== "none" && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-slate-200 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                <Trash2 className="size-4" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {isDeleteProjectConfirm
+                    ? "Delete project?"
+                    : "Remove member from project?"}
+                </h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  {isDeleteProjectConfirm && (
+                    <>
+                      This will permanently delete{" "}
+                      <span className="font-semibold">"{project.name}"</span>{" "}
+                      and detach its sprints & tasks. This action cannot be
+                      undone.
+                    </>
+                  )}
+                  {isKickMemberConfirm && (
+                    <>
+                      Are you sure you want to remove{" "}
+                      <span className="font-semibold">{memberName}</span> from
+                      this project? They will lose access but can be added
+                      again later.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelConfirm}
+                disabled={deleting}
+                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                disabled={deleting}
+                className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+              >
+                {deleting && isDeleteProjectConfirm && (
+                  <span className="size-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
+                )}
+                {isDeleteProjectConfirm ? "Delete project" : "Remove member"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
