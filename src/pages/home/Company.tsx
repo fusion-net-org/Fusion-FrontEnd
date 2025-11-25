@@ -142,32 +142,36 @@ const Company: React.FC = () => {
           </div>
 
           {/* Sort */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 mt-[-4px]">
             <span className="text-gray-600 text-sm font-semibold mb-1">Sort by</span>
             <div className="flex items-stretch gap-2 h-9">
               <div className="relative h-9">
                 <select
-                  className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-700 h-9 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="appearance-none bg-gray-50 border border-gray-200 rounded-lg 
+             px-3 pr-8 text-sm text-gray-700 !h-9 
+             focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   value={sortColumn}
                   onChange={(e) => handleSortChange(e.target.value)}
                 >
                   <option value="name">Name</option>
                   <option value="createAt">Created At</option>
                 </select>
+
                 <ChevronDown className="absolute right-2 top-2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
               <button
                 onClick={() => handleSortChange(sortColumn, !sortDescending)}
-                className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition h-9"
+                className="flex items-center gap-1 px-3 border border-gray-300 rounded-lg 
+             text-sm text-gray-600 hover:bg-gray-100 transition !h-9"
               >
                 {sortDescending ? (
                   <>
-                    <ArrowDown className="w-4.5 h-4.5 text-gray-600 mb-0.5" />
+                    <ArrowDown className="w-4.5 h-4.5 text-gray-600" />
                     <span>Des</span>
                   </>
                 ) : (
                   <>
-                    <ArrowUp className="w-4.5 h-4.5 text-gray-600 mb-0.5" />
+                    <ArrowUp className="w-4.5 h-4.5 text-gray-600" />
                     <span>Asc</span>
                   </>
                 )}

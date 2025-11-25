@@ -180,11 +180,6 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
             Highest Urgency
           </label>
 
-          <label className="flex gap-2 items-center">
-            <Switch checked={isBillable} onChange={setIsBillable} />
-            Billable
-          </label>
-
           <div className="flex flex-col w-full">
             <label className="font-semibold mb-1">Budget (VNĐ)</label>
             <Input placeholder="0" value={budget} onChange={handleBudgetChange} />

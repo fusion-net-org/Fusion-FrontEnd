@@ -180,3 +180,24 @@ export const GetProjectsByCompany = async (
     throw error;
   }
 };
+export const AcceptTicket = async (ticketId) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/accept`);
+    return res.data;
+  } catch (error) {
+    console.error('Accept ticket error:', error);
+    throw error;
+  }
+};
+
+export const RejectTicket = async (ticketId, reason = '') => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/reject`, null, {
+      params: { reason },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Reject ticket error:', error);
+    throw error;
+  }
+};
