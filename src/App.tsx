@@ -65,6 +65,7 @@ import TaskDetailPage from './pages/project/TaskDetailPage';
 import InvitationPage from './components/Member/Invitations';
 import UserProfile from './pages/UserProfile/UserProfile';
 import ProjectOverviewPage from './pages/admin/projectManagement/ProjectOverviewPage';
+import TicketPage from './pages/home/TicketPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -152,6 +153,8 @@ function App() {
             path="/company/:companyId/project-request/:id"
             element={<ProjectRequestDetail />}
           />
+          <Route path="/company/:companyId/ticket" element={<TicketPage />} />
+
           <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
           <Route

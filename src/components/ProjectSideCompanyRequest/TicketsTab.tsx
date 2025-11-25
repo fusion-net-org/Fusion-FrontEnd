@@ -4,7 +4,7 @@ import { Eye, MessageSquare, Search } from 'lucide-react';
 import { Input, Select, DatePicker, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { GetTicketByProjectId } from '@/services/TicketService.js';
-import type { ITicketResponse, ITicket } from '@/interfaces/Ticket/Ticket';
+import type { ITicketResponseTab, ITicketTab } from '@/interfaces/Ticket/Ticket';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
@@ -22,7 +22,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const navigate = useNavigate();
   const [showCreatePopup, setShowCreatePopup] = useState(false);
 
-  const [ticketsResponse, setTicketsResponse] = useState<ITicketResponse | null>(null);
+  const [ticketsResponse, setTicketsResponse] = useState<ITicketResponseTab | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketPriority, setTicketPriority] = useState('');
   const [ticketRange, setTicketRange] = useState<any>(null);
@@ -39,7 +39,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
-      const res: ITicketResponse = await GetTicketByProjectId(
+      const res: ITicketResponseTab = await GetTicketByProjectId(
         projectId,
         debouncedSearch,
         ticketPriority,
@@ -86,9 +86,9 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
     fetchTickets();
   }, [fetchTickets]);
 
-  const tickets: ITicket[] = ticketsResponse?.data?.items || [];
+  const tickets: ITicketTab[] = ticketsResponse?.data?.items || [];
 
-  const handleGoToDetail = (ticket: ITicket) => {
+  const handleGoToDetail = (ticket: ITicketTab) => {
     navigate(`/project/${projectId}/tickets/${ticket.id}`, {
       state: { isDeleted: ticket.isDeleted },
     });
@@ -179,6 +179,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                   Created At
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Deleted</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Detail</th>
               </tr>
             </thead>
@@ -223,6 +224,24 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                         }
                       >
                         {t.isDeleted ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full
+                      ${
+                        t.status === 'Pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : t.status === 'Accepted'
+                          ? 'bg-green-100 text-green-700'
+                          : t.status === 'Rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : t.status === 'Finished'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                      >
+                        {t.status}
                       </span>
                     </td>
                     <td className="px-6 py-3 text-center">
