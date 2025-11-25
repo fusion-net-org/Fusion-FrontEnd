@@ -10,31 +10,33 @@ import type {
   IProject,
   IProjectResponse,
   ITicketResponse,
-  ITicketStatusCount,
-  ITicketStatusCountResponse,
+  ITicketResponseData,
 } from '@/interfaces/Ticket/Ticket';
-import {
-  GetTicketPaged,
-  GetTicketCountStatus,
-  GetProjectsByCompany,
-} from '@/services/TicketService.js';
+import { GetTicketPaged, GetProjectsByCompany } from '@/services/TicketService.js';
 const { RangePicker } = DatePicker;
-
+import { useDebounce } from '@/hook/Debounce';
+import type { Dayjs } from 'dayjs';
+import { Paging } from '@/components/Paging/Paging';
 const TicketPage: React.FC = () => {
   const navigate = useNavigate();
   const { companyId } = useParams();
-  const [ticketData, setTicketData] = useState<ITicketResponse | null>(null);
-  const [countStatus, setCountStatus] = useState<ITicketStatusCount | null>(null);
+  const [ticketData, setTicketData] = useState<ITicketResponseData | null>(null);
   const [projects, setProjects] = useState<IProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [isProjectLoaded, setIsProjectLoaded] = useState(false);
   const [selectedProject, setSelectedProject] = useState<IProject | null>(null);
   const [viewMode, setViewMode] = useState<'AsRequester' | 'AsExecutor'>('AsRequester');
-  console.log('Selected Project request id:', selectedProject?.companyRequestId);
-  console.log('Selected Project exe id:', selectedProject?.companyId);
-
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const debouncedSearch = useDebounce(searchKeyword, 500);
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [filterDeleted, setFilterDeleted] = useState<'All' | 'Deleted' | 'NotDeleted'>('All');
   //state paging
-  const [pageNumber, setPageNumber] = useState(1);
+  const [pagination, setPagination] = useState({
+    pageNumber: 1,
+    pageSize: 10,
+    totalCount: 0,
+  });
   //get status badge
   const getStatusBadge = (status: string) => {
     const styleMap: Record<string, string> = {
@@ -82,44 +84,55 @@ const TicketPage: React.FC = () => {
     if (!selectedProject) return;
 
     try {
+      const statusParam = filterStatus === 'All' ? '' : filterStatus;
+      const isDeletedParam =
+        filterDeleted === 'All' ? undefined : filterDeleted === 'Deleted' ? 'true' : 'false';
+      const createdFrom = dateRange?.[0] ? dateRange[0].format('YYYY-MM-DD') : undefined;
+      const createdTo = dateRange?.[1] ? dateRange[1].format('YYYY-MM-DD') : undefined;
+
       const res: ITicketResponse = await GetTicketPaged(
-        '', // search
-        selectedProjectId, // projectId
-        companyId,
-        companyId,
-        '', // status
-        viewMode, // view mode
-        pageNumber, // page number
-        10, // page size
+        debouncedSearch, // Keyword
+        selectedProjectId, // ProjectId
+        companyId, // CompanyRequestId
+        companyId, // CompanyExecutorId
+        statusParam, // Status
+        viewMode, // ViewMode
+        createdFrom, // CreatedFrom
+        createdTo, // CreatedTo
+        isDeletedParam, // IsDeleted
+        pagination.pageNumber,
+        pagination.pageSize,
         null, // SortColumn
         null, // SortDescending
       );
-      console.log('Ticket Data:', res.data);
-      setTicketData(res);
+      setTicketData(res.data);
+      setPagination((prev) => ({
+        ...prev,
+        totalCount: res.data.pageData.totalCount,
+      }));
     } catch (error) {
       console.error('Failed to fetch tickets', error);
     }
   };
 
-  const fetchCountStatus = async () => {
-    try {
-      const res: ITicketStatusCountResponse = await GetTicketCountStatus(
-        'F1AE1F42-1A88-4605-89D7-A51863BAE043',
-        '',
-        '',
-      );
-      console.log('Ticket Status Count:', res.data);
-      setCountStatus(res.data);
-    } catch (error) {
-      console.error('Failed to fetch ticket status count', error);
-    }
-  };
   //use effect
   useEffect(() => {
     fetchProjects();
+  }, [companyId]);
+
+  useEffect(() => {
+    fetchProjects();
     fetchTicketData();
-    fetchCountStatus();
-  }, [viewMode, pageNumber, companyId, selectedProjectId]);
+  }, [
+    viewMode,
+    pagination.pageNumber,
+    pagination.pageSize,
+    selectedProjectId,
+    debouncedSearch,
+    filterStatus,
+    filterDeleted,
+    dateRange,
+  ]);
 
   return (
     <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
@@ -138,19 +151,19 @@ const TicketPage: React.FC = () => {
       {/* STATUS SUMMARY */}
       <div className="flex flex-wrap gap-3 mb-6">
         <span className="px-4 py-1.5 bg-blue-200 text-blue-700 font-medium rounded-full text-sm">
-          Accepted: {countStatus?.statusCounts.Accepted || 0}
+          Accepted: {ticketData?.statusCounts?.Accepted ?? 0}
         </span>
         <span className="px-4 py-1.5 bg-red-200 text-red-700 font-medium rounded-full text-sm">
-          Rejected: {countStatus?.statusCounts.Rejected || 0}
+          Rejected: {ticketData?.statusCounts?.Rejected ?? 0}
         </span>
         <span className="px-4 py-1.5 bg-yellow-200 text-yellow-700 font-medium rounded-full text-sm">
-          Pending: {countStatus?.statusCounts.Pending || 0}
+          Pending: {ticketData?.statusCounts?.Pending ?? 0}
         </span>
         <span className="px-4 py-1.5 bg-green-200 text-green-700 font-medium rounded-full text-sm">
-          Finished: {countStatus?.statusCounts.Finished || 0}
+          Finished: {ticketData?.statusCounts?.Finished ?? 0}
         </span>
         <span className="px-4 py-1.5 bg-gray-300 text-gray-600 font-medium rounded-full text-sm">
-          Total: {countStatus?.total || 0}
+          Total: {ticketData?.total ?? 0}
         </span>
       </div>
 
@@ -193,18 +206,20 @@ const TicketPage: React.FC = () => {
 
       {/* FILTER */}
       <div className="flex flex-wrap items-end justify-between gap-4 py-3 rounded-xl mb-2">
-        <div className="flex flex-col w-full sm:w-60">
+        <div className="flex flex-col w-full sm:w-64">
           <label className="font-semibold text-sm text-gray-600 mb-1">Search</label>
           <input
             type="text"
             placeholder="Search tickets..."
             className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px] w-full"
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
           />
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
           {/* Project Dropdown */}
-          <div className="flex flex-col w-full sm:w-40">
+          <div className="flex flex-col w-full sm:w-60">
             <label className="font-semibold text-sm text-gray-600 mb-1">Project</label>
             <select
               className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
@@ -220,18 +235,24 @@ const TicketPage: React.FC = () => {
           </div>
 
           {/* Date Range */}
-          <div className="flex flex-col w-full sm:w-80">
+          <div className="flex flex-col w-full sm:w-56">
             <label className="font-semibold text-sm text-gray-600 mb-1">Created Date</label>
             <RangePicker
               format="DD/MM/YYYY"
               className="rounded-lg border border-gray-300 !h-[37.6px]"
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null] | null)}
             />
           </div>
 
           {/* Status */}
           <div className="flex flex-col w-full sm:w-40">
             <label className="font-semibold text-sm text-gray-600 mb-1">Status</label>
-            <select className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]">
+            <select
+              className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
               <option value="All">All</option>
               <option value="Pending">Pending</option>
               <option value="Accepted">Accepted</option>
@@ -243,10 +264,14 @@ const TicketPage: React.FC = () => {
           {/* Deleted */}
           <div className="flex flex-col w-full sm:w-40">
             <label className="font-semibold text-sm text-gray-600 mb-1">Deleted</label>
-            <select className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]">
+            <select
+              className="rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none !h-[37.6px]"
+              value={filterDeleted}
+              onChange={(e) => setFilterDeleted(e.target.value as 'All' | 'Deleted' | 'NotDeleted')}
+            >
               <option value="All">All</option>
               <option value="Deleted">Deleted</option>
-              <option value="NotDeleted">Not Deleted</option>
+              <option value="NotDeleted">NotDeleted</option>
             </select>
           </div>
 
@@ -273,8 +298,8 @@ const TicketPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {ticketData?.data.items.length ? (
-              ticketData.data.items.map((item) => (
+            {ticketData?.pageData.items.length ? (
+              ticketData?.pageData.items.map((item) => (
                 <tr
                   key={item.id}
                   className="border-t hover:bg-blue-50 transition duration-200 cursor-pointer"
@@ -316,8 +341,14 @@ const TicketPage: React.FC = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={10} className="text-center py-4 text-gray-500">
-                  No tickets found.
+                <td colSpan={10} className="py-10">
+                  <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
+                    <Inbox className="w-12 h-12 text-gray-300" />
+                    <p className="text-gray-500 text-sm font-medium">No tickets found.</p>
+                    <p className="text-gray-400 text-xs">
+                      Please choose project different or adjust your filters.
+                    </p>
+                  </div>
                 </td>
               </tr>
             )}
@@ -326,14 +357,16 @@ const TicketPage: React.FC = () => {
       </div>
 
       {/* PAGING */}
-      <div className="mt-6 flex justify-end">
-        <Stack spacing={2}>
-          <Pagination
-            page={pageNumber}
-            onChange={(_, page) => setPageNumber(page)}
-            color="primary"
-          />
-        </Stack>
+      <div className="mt-4">
+        <Paging
+          page={pagination.pageNumber}
+          pageSize={pagination.pageSize}
+          totalCount={pagination.totalCount}
+          onPageChange={(page) => setPagination((prev) => ({ ...prev, pageNumber: page }))}
+          onPageSizeChange={(size) =>
+            setPagination((prev) => ({ ...prev, pageSize: size, pageNumber: 1 }))
+          }
+        />
       </div>
     </div>
   );

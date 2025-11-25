@@ -113,6 +113,9 @@ export const GetTicketPaged = async (
   CompanyExecutorId,
   Status,
   ViewMode,
+  CreatedFrom,
+  CreatedTo,
+  IsDeleted,
   PageNumber = 1,
   PageSize = 10,
   SortColumn,
@@ -127,6 +130,9 @@ export const GetTicketPaged = async (
     if (CompanyExecutorId) params.CompanyExecutorId = CompanyExecutorId;
     if (Status) params.Status = Status;
     if (ViewMode) params.ViewMode = ViewMode;
+    if (CreatedFrom) params.CreatedFrom = CreatedFrom;
+    if (CreatedTo) params.CreatedTo = CreatedTo;
+    if (IsDeleted !== undefined && IsDeleted !== null) params.IsDeleted = IsDeleted;
     if (PageNumber) params.PageNumber = PageNumber;
     if (PageSize) params.PageSize = PageSize;
     if (SortColumn) params.SortColumn = SortColumn;

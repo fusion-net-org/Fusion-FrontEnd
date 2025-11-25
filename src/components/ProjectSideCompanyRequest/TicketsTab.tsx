@@ -4,7 +4,7 @@ import { Eye, MessageSquare, Search } from 'lucide-react';
 import { Input, Select, DatePicker, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { GetTicketByProjectId } from '@/services/TicketService.js';
-import type { ITicketResponse, ITicket } from '@/interfaces/Ticket/Ticket';
+import type { ITicketResponseTab, ITicketTab } from '@/interfaces/Ticket/Ticket';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
@@ -22,7 +22,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const navigate = useNavigate();
   const [showCreatePopup, setShowCreatePopup] = useState(false);
 
-  const [ticketsResponse, setTicketsResponse] = useState<ITicketResponse | null>(null);
+  const [ticketsResponse, setTicketsResponse] = useState<ITicketResponseTab | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketPriority, setTicketPriority] = useState('');
   const [ticketRange, setTicketRange] = useState<any>(null);
@@ -39,7 +39,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
-      const res: ITicketResponse = await GetTicketByProjectId(
+      const res: ITicketResponseTab = await GetTicketByProjectId(
         projectId,
         debouncedSearch,
         ticketPriority,
@@ -86,9 +86,9 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
     fetchTickets();
   }, [fetchTickets]);
 
-  const tickets: ITicket[] = ticketsResponse?.data?.items || [];
+  const tickets: ITicketTab[] = ticketsResponse?.data?.items || [];
 
-  const handleGoToDetail = (ticket: ITicket) => {
+  const handleGoToDetail = (ticket: ITicketTab) => {
     navigate(`/project/${projectId}/tickets/${ticket.id}`, {
       state: { isDeleted: ticket.isDeleted },
     });
