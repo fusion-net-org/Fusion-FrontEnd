@@ -102,10 +102,7 @@ const defaultItems: Item[] = [
     label: 'Projects',
     to: '/companies/:companyId/project',
     icon: 'layers',
-    children: [
-      { name: 'All project', to: '/companies/:companyId/project' },
-      { name: 'Project detail', to: '/companies/:companyId/projectId' },
-    ],
+    children: [{ name: 'All project', to: '/companies/:companyId/project' }],
   },
   {
     key: 'project-request',
@@ -262,16 +259,17 @@ const CompanyNavbar: React.FC<CompanyNavbarProps> = ({
       }`}
     >
       <div className="p-4 flex flex-col h-full">
-        {/* Header / logo */}
         {company && (
-          <div className="cmp-nav__company">
+          <div className="flex items-center gap-3 p-3  rounded-md border-gray-300 bg-white dark:bg-gray-800">
             <img
               src={company.avatarCompany || logo_fusion}
-              className="cmp-nav__companyLogo"
               alt="Logo công ty"
+              className="w-10 h-10 border rounded-md object-cover flex-shrink-0
+             shadow-sm ring-1 ring-gray-200 dark:ring-gray-700
+             hover:shadow-md transition-shadow duration-200"
             />
 
-            <div className="cmp-nav__companyName">{company.name}</div>
+            <div className="text-base font-semibold break-words">{company.name}</div>
           </div>
         )}
 
@@ -344,7 +342,7 @@ const CompanyNavbar: React.FC<CompanyNavbarProps> = ({
                   )}
                 </button>
 
-                {/* Submenu – KHÔNG có bg, chỉ đổi màu text */}
+                {/* Submenu */}
                 {!isCollapsed && hasChildren && isOpen && (
                   <div className="ml-6 mt-1 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-1">
                     {it.children?.map((sub) => {
