@@ -376,7 +376,7 @@ const ProjectRequestPage: React.FC = () => {
         <table className="min-w-[1000px] w-full text-sm">
           <thead className="bg-blue-50 text-blue-800 uppercase text-left font-semibold">
             <tr className="hover:bg-blue-100">
-              <th className="px-4 py-3 font-medium text-center">Name</th>
+              <th className="px-4 py-3 font-medium text-center">Project Name</th>
               <th className="px-4 py-3 font-medium text-center">Request Company</th>
               <th className="px-4 py-3 font-medium text-center">Executor Company</th>
               <th className="px-4 py-3 font-medium text-center">Status</th>
