@@ -16,6 +16,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import AiGenerateTasksModal from "@/components/AiGenerate/AiGenerateTasksModal";
 import { createSprint } from "@/services/sprintService.js";
 import { toast } from "react-toastify";
+import Lottie from "lottie-react";
+import aiLoadingAnimation from "@/assets/lottie/meta-ai-loading.json";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -424,6 +426,7 @@ export default function KanbanBySprintBoard({
   );
 
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   // ====== Tạo sprint: modal popup ======
   const [createSprintOpen, setCreateSprintOpen] = useState(false);
@@ -732,6 +735,27 @@ export default function KanbanBySprintBoard({
           document.body,
         )
       : null;
+  // overlay AI loading (đè lên hết mọi thứ)
+  const aiLoadingOverlay =
+    aiGenerating && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-48 h-48">
+                <Lottie
+                  animationData={aiLoadingAnimation}
+                  loop
+                  autoplay
+                />
+              </div>
+              <p className="text-sm font-medium text-white/90">
+                AI is generating tasks…
+              </p>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   /* ====== NHẬN TASK TỪ AI & ĐƯA VÀO TỪNG SPRINT (DRAFT, KHÔNG LƯU DB) ====== */
 
@@ -902,7 +926,7 @@ export default function KanbanBySprintBoard({
     <DragDropContext onDragEnd={handleDragEndInternal}>
       {overlay}
       {createSprintModal}
-
+{aiLoadingOverlay} 
       <div
         className={cn(
           "px-8 mt-5 pb-4 min-w-0 max-w-[100vw]",
@@ -1253,6 +1277,7 @@ export default function KanbanBySprintBoard({
           existingTasks={allTasksFlat}
           workflowMetaBySprint={workflowMetaBySprint}
           onGenerated={handleAiGenerated} // nhận AiDraft[], meta.defaultSprintId
+           onGeneratingChange={setAiGenerating} 
         />
       )}
     </DragDropContext>

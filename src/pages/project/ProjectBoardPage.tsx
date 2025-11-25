@@ -1,28 +1,73 @@
 // src/pages/project/ProjectBoardPage.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React from "react";
 import { useParams } from "react-router-dom";
 import type { DropResult } from "@hello-pangea/dnd";
+import { Workflow as WorkflowIcon } from "lucide-react";
 
-import { ProjectBoardProvider, useProjectBoard } from "@/context/ProjectBoardContext";
-import { ViewSwitchNav, SearchBar } from "@/components/Company/Projects/BoardNavBits";
+import {
+  ProjectBoardProvider,
+  useProjectBoard,
+} from "@/context/ProjectBoardContext";
+import {
+  ViewSwitchNav,
+  SearchBar,
+} from "@/components/Company/Projects/BoardNavBits";
 import KanbanBySprintBoard from "@/components/Company/Projects/KanbanBySprintBoard";
 import SprintBoard from "@/components/Company/Projects/SprintBoard";
 import ProjectTaskList from "@/components/Company/Projects/ProjectTaskList";
+
+import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
 
 import type { StatusCategory, SprintVm, TaskVm } from "@/types/projectBoard";
 
 // NEW: dùng mapper để chuẩn hoá cả sprints + tasks thật
 import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
+import { GetProjectByProjectId } from "@/services/projectService.js";
 
 /* ========== Inner: logic view board ========== */
 function Inner() {
   const { sprints, tasks, loading, changeStatus, moveToNextSprint, reorder, done, split } =
     useProjectBoard();
 
+  const { projectId } = useParams<{ projectId: string }>();
+
   const [view, setView] = React.useState<"Kanban" | "Sprint" | "List">("Kanban");
   const [query, setQuery] = React.useState("");
   const [kanbanFilter, setKanbanFilter] = React.useState<"ALL" | StatusCategory>("ALL");
+
+  // meta cho header
+  const [projectTitle, setProjectTitle] = React.useState("Project board");
+  const [workflowId, setWorkflowId] = React.useState<string | null>(null);
+  const [workflowPreviewOpen, setWorkflowPreviewOpen] = React.useState(false);
+
+  // Load meta project (tên + workflowId)
+  React.useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      if (!projectId) return;
+      try {
+        const detailRaw: any = await GetProjectByProjectId(projectId);
+        const detail: any = detailRaw?.data ?? detailRaw ?? {};
+        if (!alive) return;
+
+        setProjectTitle(detail.name ?? detail.code ?? "Project board");
+        setWorkflowId(detail.workflowId ? String(detail.workflowId) : null);
+      } catch (err) {
+        console.error("Load project meta failed", err);
+        if (!alive) return;
+        setProjectTitle("Project board");
+        setWorkflowId(null);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   // DnD — Sprint view: đổi cột trong cùng sprint (dùng statusId động)
   const onDragEndSprint = async (result: DropResult) => {
@@ -37,7 +82,14 @@ function Inner() {
     if (statusIdSrc === statusIdDst && source.index === destination.index) return;
 
     const t = tasks.find((x) => x.id === draggableId);
-    if (t) await reorder((window as any).__projectId, sprintIdDst, t, statusIdDst, destination.index);
+    if (t)
+      await reorder(
+        (window as any).__projectId,
+        sprintIdDst,
+        t,
+        statusIdDst,
+        destination.index,
+      );
   };
 
   // DnD — Kanban view: kéo task giữa các sprint (giữ nguyên statusId)
@@ -93,9 +145,22 @@ function Inner() {
 
   return (
     <div className="w-full min-h-screen bg-[#F7F8FA]">
-      {/* Header */}
+      {/* Header + icon workflow */}
       <div className="sticky top-0 z-30 bg-[#F7F8FA] border-b border-gray-100">
-        <ViewSwitchNav title="Projects Name" view={view} onChange={setView} />
+        <div className="flex items-center justify-between">
+          <ViewSwitchNav title={projectTitle} view={view} onChange={setView} />
+          {workflowId && (
+            <button
+              type="button"
+              onClick={() => setWorkflowPreviewOpen(true)}
+              className="mr-8 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50"
+              title="View workflow"
+            >
+              <WorkflowIcon className="size-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Workflow</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* List có search */}
@@ -149,6 +214,15 @@ function Inner() {
 
       {/* List view */}
       {view === "List" && <ProjectTaskList tasks={listTasks} {...eventApi} />}
+
+      {/* Modal preview workflow lớn */}
+      {workflowPreviewOpen && workflowId && (
+        <WorkflowPreviewModal
+          open={workflowPreviewOpen}
+          workflowId={workflowId}
+          onClose={() => setWorkflowPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -158,7 +232,9 @@ export default function ProjectBoardPage() {
   const { projectId = "project-1" } = useParams<{ projectId: string }>();
   (window as any).__projectId = projectId;
 
-  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[] } | null>(null);
+  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[] } | null>(
+    null,
+  );
 
   React.useEffect(() => {
     let dead = false;

@@ -1,5 +1,5 @@
 import { axiosInstance } from '../apiConfig';
-import { flashTaskCard, hexToRgba } from '@/utils/flash'; 
+import { flashTaskCard, hexToRgba } from '@/utils/flash';
 
 export const getAllTask = async ({
   pageNumber = 1,
@@ -439,3 +439,43 @@ export async function getTaskComments(taskId) {
     );
   }
 }
+export const getMyTasks = async ({
+  pageNumber = 1,
+  pageSize = 200,
+  sortColumn = 'DueDate',
+  sortDescending = false,
+  search = '',
+  type = [],
+  priority = [],
+  status = [],
+  dueDateFrom = '',
+  dueDateTo = '',
+  pointMin,
+  pointMax,
+} = {}) => {
+  try {
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    if (search) params.Search = search;
+    if (Array.isArray(type) && type.length > 0) params.Type = type.join(',');
+    if (Array.isArray(priority) && priority.length > 0) params.Priority = priority.join(',');
+    if (Array.isArray(status) && status.length > 0) params.Status = status.join(',');
+    if (dueDateFrom) params.DueDateFrom = dueDateFrom;
+    if (dueDateTo) params.DueDateTo = dueDateTo;
+    if (pointMin !== undefined) params.PointMin = pointMin;
+    if (pointMax !== undefined) params.PointMax = pointMax;
+
+    // Controller: [HttpGet("tasks/user")]
+    const response = await axiosInstance.get('/tasks/user', { params });
+    return response.data;               // ResponseModel<PagedResult<TaskResponse>>
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching my tasks'
+    );
+  }
+};

@@ -41,6 +41,8 @@ type Props = {
   >;
   // onGenerated: thêm meta chứa sprint mặc định
   onGenerated?: (tasks: any[], meta: { defaultSprintId: string }) => void;
+    onGeneratingChange?: (isGenerating: boolean) => void;
+
 };
 
 
@@ -54,6 +56,7 @@ export default function AiGenerateTasksModal({
   existingTasks = [],
   workflowMetaBySprint = {},
   onGenerated,
+  onGeneratingChange,
 }: Props) {
   if (!open) return null;
 
@@ -317,22 +320,22 @@ const handleSubmit = async () => {
 
   setSubmitting(true);
   setErrorText(null);
+  onGeneratingChange?.(true); // 👈 bật overlay ở parent
 
   try {
     console.log("[AI TASK GENERATE] request DTO = ", req);
 
-    // ⚠️ NEW: gọi thẳng BE generate + save
+    // Gọi BE generate + save
     const res = await generateAndSaveAiTasks(req);
 
     // BE đang trả: List<ProjectTaskResponse> → TS là array
     const tasks = Array.isArray(res)
       ? res
-      : Array.isArray(res?.items)
-      ? res.items
+      : Array.isArray((res as any)?.items)
+      ? (res as any).items
       : [];
 
     if (onGenerated && selectedSprint?.id) {
-      // Giữ đúng signature cũ nhưng giờ tasks là TaskVm từ BE
       onGenerated(tasks, { defaultSprintId: selectedSprint.id });
     }
 
@@ -340,10 +343,12 @@ const handleSubmit = async () => {
   } catch (err: any) {
     console.error("[AI TASK GENERATE] failed", err);
     setErrorText(
-      err?.message || "Failed to generate & save tasks with AI. Please try again.",
+      err?.message ||
+        "Failed to generate & save tasks with AI. Please try again.",
     );
   } finally {
     setSubmitting(false);
+    onGeneratingChange?.(false); // 👈 tắt overlay
   }
 };
 

@@ -401,3 +401,13 @@ export async function removeMemberFromProject(projectId, memberId) {
   );
   return data?.data ?? data;
 }
+
+export async function updateProject(projectId, payload) {
+  const res = await axiosInstance.put(`/projects/${projectId}`, payload);
+  return res.data;
+}
+
+export async function deleteProject(projectId) {
+  const res = await axiosInstance.delete(`/projects/${projectId}`);
+  return res.data;
+}
