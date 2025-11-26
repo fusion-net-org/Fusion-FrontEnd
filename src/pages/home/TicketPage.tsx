@@ -263,7 +263,7 @@ const TicketPage: React.FC = () => {
 
         {/* FILTER */}
         <div className="flex flex-wrap items-end justify-between gap-4 py-3 rounded-xl mb-2">
-          <div className="flex flex-col w-full sm:w-64">
+          <div className="flex flex-col w-full sm:w-60">
             <label className="font-semibold text-sm text-gray-600 mb-1">Search</label>
             <input
               type="text"
