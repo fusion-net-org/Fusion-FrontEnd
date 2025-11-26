@@ -80,7 +80,7 @@ function App() {
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route
-            path="/companies/:companyId/project/:projectId"
+            path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
           />
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
