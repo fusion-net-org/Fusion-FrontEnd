@@ -514,48 +514,70 @@ function TicketDetailLayout({
           }
         }
 
-        // 6) Workflow assignments -> gom theo workflow group (không tách role)
+      
+               // 6) Workflow assignments:
+        //    - Lấy main assignee từ bước START
+        //    - Lấy owner cho các workflow group còn lại (Developer, QA / Reviewer,…)
         if (sprint && sprint.statusMeta) {
-          // Ưu tiên dto.workflowAssignments (BE mới)
+          const nextMap: WorkflowAssignmentMap = {};
+          let mainAssigneeFromWorkflow: MemberRef | null = null;
+          let hasStartInWorkflow = false;
+
+          // --- BE mới: dto.workflowAssignments.items ---
           if (dto.workflowAssignments) {
             const wf = dto.workflowAssignments;
             const items: any[] = Array.isArray(wf.items) ? wf.items : wf ?? [];
-            const map: WorkflowAssignmentMap = {};
 
             items.forEach((it: any) => {
               const statusId = String(it.workflowStatusId || it.statusId || "");
-              const uid = it.assignUserId
-                ? String(it.assignUserId)
-                : null;
-              if (!statusId || !uid) return;
+              if (!statusId) return;
 
               const meta: any = sprint.statusMeta[statusId];
               if (!meta) return;
-              if (meta.isStart) return; // start step dùng main assignee
+
+              const rawUserId = it.assignUserId ?? it.userId ?? null;
+              const uid = rawUserId ? String(rawUserId) : null;
+
+              if (meta.isStart) {
+                hasStartInWorkflow = true;
+
+                // Start có user -> main assignee
+                if (uid && !mainAssigneeFromWorkflow) {
+                  mainAssigneeFromWorkflow = {
+                    id: uid,
+                    name:
+                      it.assignUserName ||
+                      it.assignUserEmail ||
+                      "Unknown member",
+                    email: it.assignUserEmail ?? undefined,
+                    avatarUrl: it.assignUserAvatarUrl ?? undefined,
+                  } as any;
+                }
+
+                return; // Start không map vào group
+              }
+
+              // Các bước còn lại -> owner theo group (Developer, QA / Reviewer,…)
+              if (!uid) return;
 
               const key = deriveWorkflowGroupKey(meta);
               if (!key) return;
 
-              if (!map[key]) {
-                map[key] = uid;
-              }
+              // BE là nguồn sự thật → luôn dùng giá trị mới nhất
+              nextMap[key] = uid;
             });
-
-            setWorkflowAssignmentMap(map);
           }
-          // Backward compatible: nếu BE cũ trả về dto.roleAssignments
+          // --- BE cũ: dto.roleAssignments (legacy) ---
           else if (
             dto.roleAssignments &&
             typeof dto.roleAssignments === "object"
           ) {
             const legacy: Record<string, string | null> =
               dto.roleAssignments as any;
-            const map: WorkflowAssignmentMap = {};
 
             (sprint.statusOrder || []).forEach((statusId) => {
               const meta: any = sprint.statusMeta[statusId];
               if (!meta) return;
-              if (meta.isStart) return;
 
               const roles: string[] = Array.isArray(meta.roles)
                 ? meta.roles.filter(Boolean)
@@ -568,16 +590,53 @@ function TicketDetailLayout({
               const uid = roleWithUser ? legacy[roleWithUser] : null;
               if (!uid) return;
 
-              const key = deriveWorkflowGroupKey(meta);
-              if (!key) return;
-              if (!map[key]) {
-                map[key] = String(uid);
+              if (meta.isStart) {
+                hasStartInWorkflow = true;
+
+                if (!mainAssigneeFromWorkflow) {
+                  mainAssigneeFromWorkflow = {
+                    id: String(uid),
+                    name: "Unknown member",
+                  } as any;
+                }
+              } else {
+                const key = deriveWorkflowGroupKey(meta);
+                if (!key) return;
+                nextMap[key] = String(uid);
               }
             });
+          }
 
-            setWorkflowAssignmentMap(map);
+          if (!cancelled) {
+            // map owner cho Developer / QA / …
+            setWorkflowAssignmentMap(nextMap);
+
+            // Nếu workflow có bước Start thì Start là nguồn sự thật cho Assignee
+            if (hasStartInWorkflow) {
+              setModel((prev) => {
+                // Start có user -> set assignee mới
+                if (mainAssigneeFromWorkflow) {
+                  return {
+                    ...prev,
+                    assignees: [mainAssigneeFromWorkflow!] as any,
+                  };
+                }
+
+                // Start tồn tại nhưng tất cả assignUserId = null -> Unassigned
+                if (!prev.assignees || prev.assignees.length === 0) {
+                  return prev; // đã unassigned rồi
+                }
+
+                return {
+                  ...prev,
+                  assignees: [] as any,
+                };
+              });
+            }
           }
         }
+
+
 
         // 7) Attachments của task
         try {
