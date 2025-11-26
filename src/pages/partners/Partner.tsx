@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Users, Check, X, Ban, Eye, Search } from 'lucide-react';
+import { UserPlus, Users, Check, X, Ban, Eye, Search, Inbox } from 'lucide-react';
 import InvitePartners from '@/components/Partner/InvitePartner';
 import {
   GetCompanyPartnersByCompanyID,
@@ -266,7 +266,7 @@ const Partners: React.FC = () => {
   return (
     <>
       <LoadingOverlay loading={loading} message="Loading Partners" />
-      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter  min-h-screen">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
           <div className="flex justify-between items-center">
@@ -386,12 +386,19 @@ const Partners: React.FC = () => {
             <tbody>
               {partners.length === 0 ? (
                 <tr className="border-b border-gray-200 hover:bg-blue-50 transition duration-200">
-                  <td colSpan={8} className="text-center py-10 text-gray-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Ban className="w-6 h-6 text-gray-400" />
-                      {searchTerm
-                        ? `No partners found for "${searchTerm}".`
-                        : 'No partners available.'}
+                  <td colSpan={8} className="py-10">
+                    <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
+                      <Inbox className="w-12 h-12 text-gray-300" />
+                      <p className="text-gray-500 text-sm font-medium">
+                        {searchTerm
+                          ? `No partners found for "${searchTerm}".`
+                          : 'No partners available.'}
+                      </p>
+                      <p className="text-gray-400 text-xs">
+                        {searchTerm
+                          ? 'Try a different keyword or adjust your filters.'
+                          : 'Please choose another company or adjust your filters.'}
+                      </p>
                     </div>
                   </td>
                 </tr>

@@ -202,7 +202,7 @@ const ProjectRequestPage: React.FC = () => {
   };
 
   return (
-    <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
+    <div className="px-5 py-5 font-inter min-h-screen">
       <LoadingOverlay loading={loading} message="Loading project requests..." />
       <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
         <div className="flex justify-between items-center">
@@ -557,10 +557,13 @@ const ProjectRequestPage: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={11}>
-                  <div className="flex flex-col items-center justify-center py-10 text-gray-500">
-                    <p className="text-lg font-medium">No project requests found</p>
-                    <p className="text-sm text-gray-400 mt-1">
+                <td colSpan={11} className="py-10">
+                  <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
+                    <Inbox className="w-12 h-12 text-gray-300" />
+
+                    <p className="text-gray-500 text-sm font-medium">No project requests found</p>
+
+                    <p className="text-gray-400 text-xs">
                       Try adjusting filters or create a new request
                     </p>
                   </div>
