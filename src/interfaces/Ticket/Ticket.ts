@@ -13,6 +13,7 @@ export interface ITicket {
   budget?: number;
   isDeleted?: boolean;
   status: string;
+  reason: string;
   resolvedAt?: string | null;
   closedAt?: string | null;
   createdAt: string;

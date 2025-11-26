@@ -250,7 +250,6 @@ export async function getSprintsByProject(
     return usp.toString();
   };
 
-  // ✅ đúng route mới
   const { data } = await axiosInstance.get(`/sprints/projects/${projectId}`, {
     params,
     paramsSerializer,
@@ -263,7 +262,7 @@ export async function getSprintsByProject(
     ? payload
     : [];
 
-  return items.map(mapSprintDto); // ⬅️ KHÔNG còn ReferenceError
+  return items.map(mapSprintDto);
 }
 export async function createProject(payload) {
   const {

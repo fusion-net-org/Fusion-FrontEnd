@@ -5,7 +5,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
 import { login, loginGG, confirmAccount } from '@/services/authService.js';
-import { loginUser } from '@/redux/userSlice';
+import { loginUser, setUserCompanies } from '@/redux/userSlice';
+import { getAllCompanies } from '@/services/companyService.js';
 import { GoogleLogin } from '@react-oauth/google';
 import loginIllustration from '@/assets/auth/login.png';
 
@@ -64,6 +65,11 @@ const Login: React.FC = () => {
           role: decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
         };
         dispatch(loginUser({ user }));
+
+        const companiesRes = await getAllCompanies();
+        if (companiesRes.succeeded) {
+          dispatch(setUserCompanies(companiesRes.data.items));
+        }
 
         toast.success('Login successful!');
         if (user.role === 'Admin') {
