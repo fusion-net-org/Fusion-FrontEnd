@@ -108,6 +108,10 @@ const Login: React.FC = () => {
         };
 
         dispatch(loginUser({ user }));
+        const companiesRes = await getAllCompanies();
+        if (companiesRes.succeeded) {
+          dispatch(setUserCompanies(companiesRes.data.items));
+        }
         toast.success('Login with Google successful!');
         navigate('/company');
       } else {

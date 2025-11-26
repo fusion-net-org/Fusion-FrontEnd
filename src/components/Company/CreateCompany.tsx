@@ -6,6 +6,9 @@ import { createCompany } from '@/services/companyService.js';
 import { Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import { getAllCompanies } from '@/services/companyService.js';
+import { useDispatch } from 'react-redux';
+import { setUserCompanies } from '@/redux/userSlice';
 
 interface FormCreateCompanyProps {
   onCreated?: () => void;
@@ -96,6 +99,11 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
       const msg = res.data?.message;
       toast.success(msg);
+
+      const companiesRes = await getAllCompanies();
+      if (companiesRes.succeeded) {
+        dispatch(setUserCompanies(companiesRes.data.items));
+      }
 
       if (onCreated) onCreated();
 
