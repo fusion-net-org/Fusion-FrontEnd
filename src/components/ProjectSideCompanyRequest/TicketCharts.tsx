@@ -1,220 +1,180 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ResponsiveContainer,
-  BarChart,
   Bar,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
-  PieChart,
-  Pie,
-  LineChart,
   Line,
   Legend,
+  ComposedChart,
 } from 'recharts';
-import { Card } from 'antd';
-import { BarChart3, ClipboardList } from 'lucide-react';
+import { Card, Spin } from 'antd';
+import { GetTicketDashboard } from '@/services/TicketService.js';
+import Chart from 'react-apexcharts';
 
 interface TicketChartsProps {
-  sprintData: { name: string; total: number; done: number }[];
-  ticketsPerSprintData: { name: string; created: number; done: number }[];
-  taskStatusData?: { name: string; value: number }[];
-  taskPriorityData?: { priority: string; count: number }[];
-  tasksPerSprint?: { sprint: string; tasks: number }[];
-  ticketStatusData?: { name: string; value: number }[];
-  budgetByStatus?: { status: string; budget: number }[];
-  taskCompletionOverTime?: { week: string; done: number }[];
+  projectId: string;
+  refreshKey?: number;
 }
 
-const TicketCharts: React.FC<TicketChartsProps> = ({
-  sprintData,
-  ticketsPerSprintData,
-  taskStatusData = [
-    { name: 'To Do', value: 10 },
-    { name: 'In Progress', value: 7 },
-    { name: 'In Review', value: 5 },
-    { name: 'Done', value: 20 },
-  ],
-  taskPriorityData = [
-    { priority: 'Low', count: 5 },
-    { priority: 'Medium', count: 12 },
-    { priority: 'High', count: 8 },
-    { priority: 'Critical', count: 3 },
-  ],
-  tasksPerSprint = [
-    { sprint: 'Sprint 1', tasks: 10 },
-    { sprint: 'Sprint 2', tasks: 15 },
-    { sprint: 'Sprint 3', tasks: 8 },
-  ],
-  ticketStatusData = [
-    { name: 'Open', value: 6 },
-    { name: 'In Progress', value: 4 },
-    { name: 'Resolved', value: 10 },
-    { name: 'Closed', value: 7 },
-  ],
-  budgetByStatus = [
-    { status: 'Open', budget: 1200 },
-    { status: 'In Progress', budget: 3000 },
-    { status: 'Resolved', budget: 4500 },
-    { status: 'Closed', budget: 2000 },
-  ],
-  taskCompletionOverTime = [
-    { week: 'Week 1', done: 3 },
-    { week: 'Week 2', done: 5 },
-    { week: 'Week 3', done: 7 },
-    { week: 'Week 4', done: 9 },
-  ],
-}) => {
+const TicketCharts: React.FC<TicketChartsProps> = ({ projectId, refreshKey }) => {
+  const [loading, setLoading] = useState(true);
+  const [ticketStatusData, setTicketStatusData] = useState<any[]>([]);
+  const [budgetByPriority, setBudgetByPriority] = useState<any[]>([]);
+  const [ticketPriorityData, setTicketPriorityData] = useState<any[]>([]);
+  const [ResolvedAndClosedData, setResolvedAndClosedData] = useState<any[]>([]);
+  const [resolvedClosedTimeline, setResolvedClosedTimeline] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    setLoading(true);
+    GetTicketDashboard(projectId)
+      .then(
+        (res: {
+          data: {
+            ticketStatusData: any;
+            budgetByPriority: any;
+            ticketPriorityData: any;
+            resolvedAndClosedData: any;
+            resolvedClosedTimeline: any;
+          };
+        }) => {
+          if (res?.data) {
+            console.log(res.data);
+            setTicketStatusData(res.data.ticketStatusData || []);
+            setBudgetByPriority(res.data.budgetByPriority || []);
+            setTicketPriorityData(res.data.ticketPriorityData || []);
+            setResolvedAndClosedData(res.data.resolvedAndClosedData || []);
+            setResolvedClosedTimeline(res.data.resolvedClosedTimeline || []);
+          }
+        },
+      )
+      .catch((err: any) => {
+        console.error('Error fetching ticket dashboard:', err);
+      })
+      .finally(() => setLoading(false));
+  }, [projectId, refreshKey]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spin size="large" />
+      </div>
+    );
+  }
+  const statusLabels = ticketStatusData.map((item) => item.name || item.status);
+  const statusSeries = ticketStatusData.map((item) => item.value);
+
+  const series = [
+    {
+      name: 'Budget',
+      data: budgetByPriority.map((item) => item.budget),
+    },
+  ];
+
+  const categories = budgetByPriority.map((item) => item.status);
+
   return (
     <div className="mt-8 space-y-8">
-      {/* CHART 1: Sprint Task Overview */}
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-          <BarChart3 className="text-indigo-500 w-5 h-5" />
-          Sprint Task Overview
-        </h2>
-        <div className="bg-white border rounded-2xl shadow-inner p-4">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={sprintData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="total" fill="#CBD5E1" name="Total Tasks" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="done" fill="#6366F1" name="Completed Tasks" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-            <span>
-              🟦 <strong>{sprintData.reduce((a, b) => a + b.done, 0)}</strong> done tasks
-            </span>
-            <span>
-              📊 Total: <strong>{sprintData.reduce((a, b) => a + b.total, 0)}</strong> tasks
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* CHART 2: Tickets per Sprint */}
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-          <ClipboardList className="text-indigo-500 w-5 h-5" />
-          Tickets per Sprint
-        </h2>
-        <div className="bg-white border rounded-2xl shadow-inner p-4">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={ticketsPerSprintData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip
-                formatter={(value, name) =>
-                  name === 'created'
-                    ? [`${value}`, 'Created Tickets']
-                    : name === 'done'
-                    ? [`${value}`, 'Processed Tickets']
-                    : [value, name]
-                }
-              />
-              <Bar dataKey="created" fill="#93C5FD" name="Created Tickets" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="done" fill="#4F46E5" name="Processed Tickets" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-            <span>
-              🟦 Created: <strong>{ticketsPerSprintData.reduce((a, b) => a + b.created, 0)}</strong>
-            </span>
-            <span>
-              ✅ Processed: <strong>{ticketsPerSprintData.reduce((a, b) => a + b.done, 0)}</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 6 small charts grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 1️⃣ Task Status Distribution */}
-        <Card title="Task Status Distribution" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie data={taskStatusData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+        <Card title="Ticket Status Overview">
+          <Chart
+            type="donut"
+            series={statusSeries}
+            options={{
+              labels: statusLabels,
+              colors: ['#3b82f6', '#facc15', '#22c55e', '#fb923c'],
+              legend: { position: 'bottom' },
+              tooltip: { y: { formatter: (val: number) => `${val} tickets` } },
+            }}
+            height={250}
+          />
         </Card>
 
-        {/* 2️⃣ Task Priority Breakdown */}
-        <Card title="Task Priority Breakdown" variant="outlined">
+        <Card title="Budget by Ticket Status">
+          <Chart
+            type="bar"
+            series={series}
+            options={{
+              chart: { stacked: false, toolbar: { show: true } },
+              plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
+              xaxis: { categories },
+              colors: ['#14b8a6'],
+              tooltip: { y: { formatter: (val: number) => `${val.toLocaleString('vi-VN')} VND` } },
+              dataLabels: {
+                enabled: true,
+                formatter: (val: number) => `${val.toLocaleString('vi-VN')}`,
+              },
+            }}
+            height={250}
+          />
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card title="Ticket Priority">
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={taskPriorityData}>
+            <ComposedChart data={ticketPriorityData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="priority" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#f97316" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* 3️⃣ Tasks per Sprint */}
-        <Card title="Tasks per Sprint" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={tasksPerSprint}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="sprint" />
-              <YAxis />
-              <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="tasks" stroke="#2563eb" />
-            </LineChart>
+              <Bar dataKey="value" barSize={40} fill="#fb923c" name="Value" radius={[6, 6, 0, 0]} />
+              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
+            </ComposedChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* 4️⃣ Ticket Status Overview */}
-        <Card title="Ticket Status Overview" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={ticketStatusData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                dataKey="value"
-                label
-              />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* 5️⃣ Budget by Ticket Status */}
-        <Card title="Budget by Ticket Status" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={budgetByStatus}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="status" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="budget" fill="#14b8a6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* 6️⃣ Task Completion Over Time */}
-        <Card title="Task Completion Over Time" variant="outlined">
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={taskCompletionOverTime}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="done" stroke="#22c55e" />
-            </LineChart>
-          </ResponsiveContainer>
+        <Card title="Resolved vs Closed Tickets">
+          {ResolvedAndClosedData && ResolvedAndClosedData.length > 0 ? (
+            <Chart
+              type="donut"
+              series={ResolvedAndClosedData.map((item) => item.value)}
+              options={{
+                labels: ResolvedAndClosedData.map((item) => item.name),
+                colors: ['#22c55e', '#ef4444'],
+                legend: { position: 'bottom' },
+                tooltip: { y: { formatter: (val: number) => `${val} tickets` } },
+              }}
+              height={250}
+            />
+          ) : (
+            <div className="text-center py-8 text-gray-500">No data</div>
+          )}
         </Card>
       </div>
+      <Card title="Resolved vs Closed Ticket Over Time">
+        <Chart
+          type="line"
+          series={[
+            {
+              name: 'Resolved',
+              data: resolvedClosedTimeline.map((item) => item.resolved),
+            },
+            {
+              name: 'Closed',
+              data: resolvedClosedTimeline.map((item) => item.closed),
+            },
+          ]}
+          options={{
+            chart: { toolbar: { show: true } },
+            xaxis: {
+              categories: resolvedClosedTimeline.map((item) => item.date),
+            },
+            colors: ['#22c55e', '#3b82f6'],
+            dataLabels: { enabled: false },
+            stroke: { curve: 'smooth' },
+            tooltip: { shared: true, intersect: false },
+            legend: { position: 'bottom' },
+          }}
+          height={280}
+        />
+      </Card>
     </div>
   );
 };

@@ -19,6 +19,9 @@ interface InviteProjectRequestModalProps {
   onSuccess?: () => void;
   requesterCompanyId: string;
   executorCompanyId?: string;
+  contractId?: string;
+  effectiveDate?: string;
+  expiredDate?: string;
 }
 
 const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
@@ -27,18 +30,19 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
   onSuccess,
   requesterCompanyId,
   executorCompanyId,
+  contractId,
+  effectiveDate,
+  expiredDate,
 }) => {
   const [formData, setFormData] = useState({
     requesterCompanyId: requesterCompanyId ?? null,
     executorCompanyId: executorCompanyId ?? null,
+    contractId: contractId ?? null,
     name: '',
     description: '',
-    startDate: null as dayjs.Dayjs | null,
-    endDate: null as dayjs.Dayjs | null,
+    startDate: effectiveDate ? dayjs(effectiveDate) : null,
+    endDate: expiredDate ? dayjs(expiredDate) : null,
   });
-
-  console.log('requesterCompanyId', requesterCompanyId);
-  console.log('executorCompanyId', executorCompanyId);
 
   //state executor company
   const [executorSearch, setExecutorSearch] = useState('');
@@ -96,12 +100,17 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
   }, [open, executorCompanyId]);
 
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      requesterCompanyId: requesterCompanyId ?? prev.requesterCompanyId,
-      executorCompanyId: executorCompanyId ?? prev.executorCompanyId,
-    }));
-  }, [requesterCompanyId, executorCompanyId, open]);
+    if (open) {
+      setFormData((prev) => ({
+        ...prev,
+        requesterCompanyId: requesterCompanyId ?? prev.requesterCompanyId,
+        executorCompanyId: executorCompanyId ?? prev.executorCompanyId,
+        contractId: contractId ?? prev.contractId,
+        startDate: effectiveDate ? dayjs(effectiveDate) : prev.startDate,
+        endDate: expiredDate ? dayjs(expiredDate) : prev.endDate,
+      }));
+    }
+  }, [open, requesterCompanyId, executorCompanyId, contractId, effectiveDate, expiredDate]);
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -117,10 +126,11 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       const payload = {
         RequesterCompanyId: formData.requesterCompanyId,
         ExecutorCompanyId: formData.executorCompanyId,
+        ContractId: formData.contractId, // dùng formData.contractId
         Name: formData.name,
         Description: formData.description || null,
-        StartDate: formatDate(formData.startDate),
-        EndDate: formatDate(formData.endDate),
+        StartDate: formatDate(formData.startDate), // dùng formData.startDate
+        EndDate: formatDate(formData.endDate), // dùng formData.endDate
       };
 
       const res = await CreateProjectRequest(payload);
@@ -132,10 +142,11 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
         setFormData({
           requesterCompanyId: requesterCompanyId ?? null,
           executorCompanyId: executorCompanyId ?? null,
+          contractId: contractId ?? null,
           name: '',
           description: '',
-          startDate: null,
-          endDate: null,
+          startDate: effectiveDate ? dayjs(effectiveDate) : null,
+          endDate: expiredDate ? dayjs(expiredDate) : null,
         });
       } else {
         toast.error(res?.message || 'Failed to create project request');

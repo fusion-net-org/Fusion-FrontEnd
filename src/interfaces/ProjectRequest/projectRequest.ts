@@ -19,6 +19,7 @@ export interface IProjectRequset {
   isDeleted: boolean;
   isHaveProject: boolean;
   convertedProjectId: string;
+  contractId: string;
 }
 
 export interface ProjectRequestResponse {

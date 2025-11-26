@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import {
@@ -21,110 +22,95 @@ import { GetProjectByProjectId } from '@/services/projectService.js';
 import { useParams } from 'react-router-dom';
 import type { ProjectDetailResponse } from '@/interfaces/Project/project';
 import type { IProjectMemberV2 } from '@/interfaces/ProjectMember/projectMember';
+import type { ITicket } from '@/interfaces/Ticket/Ticket';
+import { getProjectMemberByProjectId } from '@/services/projectMember.js';
+import { GetTicketByProjectId } from '@/services/TicketService.js';
+import { getSprintByProjectId } from '@/services/sprintService.js';
+import type { ISprintResponse } from '@/interfaces/Sprint/sprint';
+
 const ProjectCompanyRequest = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
+  const [sprints, setSprints] = useState<ISprintResponse>();
   const [projectMembers, setProjectMembers] = useState<IProjectMemberV2>();
+  const [projectTickets, setProjectTickets] = useState<{ items: ITicket[]; totalCount: number }>({
+    items: [],
+    totalCount: 0,
+  });
   const [activeTab, setActiveTab] = useState<'members' | 'tickets' | 'sprints'>('members');
-  const tasksPerSprint = {
-    'Sprint 1': [
-      { id: '1', title: 'Fix Login Bug', assignee: 'Tran Thi B', status: 'Done' },
-      { id: '2', title: 'Update Dashboard UI', assignee: 'Nguyen Van A', status: 'In Progress' },
-    ],
-    'Sprint 2': [
-      { id: '3', title: 'Optimize API Performance', assignee: 'Le Van C', status: 'To Do' },
-      {
-        id: '4',
-        title: 'Refactor Notification Service',
-        assignee: 'Nguyen Van A',
-        status: 'In Review',
-      },
-    ],
-    'Sprint 3': [{ id: '5', title: 'Add Export Feature', assignee: 'Tran Thi B', status: 'Done' }],
-    'Sprint 4': [],
-  };
+  const [refreshChartKey, setRefreshChartKey] = useState(0);
 
-  const [tickets] = useState([
-    { id: 1, title: 'Fix Login Bug', assignee: 'Tran Thi B', status: 'Done', date: '2025-10-10' },
-    {
-      id: 2,
-      title: 'Update Dashboard UI',
-      assignee: 'Nguyen Van A',
-      status: 'In Progress',
-      date: '2025-10-15',
-    },
-    {
-      id: 3,
-      title: 'Optimize API Performance',
-      assignee: 'Le Van C',
-      status: 'To Do',
-      date: '2025-10-20',
-    },
-    {
-      id: 4,
-      title: 'Refactor Notification Service',
-      assignee: 'Nguyen Van A',
-      status: 'In Review',
-      date: '2025-10-22',
-    },
-    {
-      id: 5,
-      title: 'Add Export Feature',
-      assignee: 'Tran Thi B',
-      status: 'Done',
-      date: '2025-10-25',
-    },
-  ]);
-
-  const sprintData = [
-    { name: 'Sprint 1', done: 10, total: 12 },
-    { name: 'Sprint 2', done: 8, total: 10 },
-    { name: 'Sprint 3', done: 6, total: 9 },
-    { name: 'Sprint 4', done: 3, total: 10 },
-  ];
-
-  const ticketsPerSprintData = [
-    { name: 'Sprint 1', created: 15, done: 10 },
-    { name: 'Sprint 2', created: 12, done: 8 },
-    { name: 'Sprint 3', created: 9, done: 5 },
-    { name: 'Sprint 4', created: 11, done: 3 },
-  ];
-
-  const handleCreateTicket = () => {
-    toast.success('New ticket created successfully!');
-  };
-
-  //#region  handling
-  //#endregion
-
-  //#region fetch
-  const fetchData = async () => {
-    if (!projectId) return;
-
-    try {
-      const projectRes = await GetProjectByProjectId(projectId);
-      if (projectRes?.succeeded) {
-        setProject(projectRes.data);
-      }
-    } catch (error) {
-      console.log(error);
-      toast.error('Failed to fetch data');
-    }
+  const handleTicketCreated = () => {
+    setRefreshChartKey((prev) => prev + 1);
   };
   useEffect(() => {
-    fetchData();
+    if (!projectId) return;
+
+    const fetchProject = async () => {
+      try {
+        const res = await GetProjectByProjectId(projectId);
+        console.log(res.data);
+        setProject(res.data);
+      } catch (error) {
+        console.log(error);
+        toast.error('Failed to fetch project');
+      }
+    };
+    console.log('project dâta', project);
+
+    const fetchMembersCount = async () => {
+      try {
+        const res = await getProjectMemberByProjectId(projectId, '', '', '', 1, 1000);
+
+        if (res?.succeeded) setProjectMembers(res.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    const fetchTicketsCount = async () => {
+      try {
+        const res = await GetTicketByProjectId(
+          projectId,
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          1,
+          1000,
+          '',
+          null,
+        );
+        if (res?.succeeded) setProjectTickets(res.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    const fetchSprints = async () => {
+      if (!projectId) return;
+      try {
+        const response = await getSprintByProjectId(projectId);
+        setSprints(response.data);
+      } catch (error) {
+        console.error('Failed to fetch sprints:', error);
+      }
+    };
+
+    fetchProject();
+    fetchSprints();
+    fetchMembersCount();
+    fetchTicketsCount();
   }, [projectId]);
-
-  const [ticketSearch, setTicketSearch] = useState('');
-  const [ticketRange, setTicketRange] = useState<any>(null);
-
-  // --- PAGINATION STATES ---
-  const [ticketPage, setTicketPage] = useState(1);
-  const rowsPerPage = 10;
 
   return (
     <div className="min-h-screen bg-gray-50 py-5 px-5">
-      <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 p-10 space-y-10">
+      <div className="mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 p-10 space-y-10">
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-6">
           <div>
@@ -149,56 +135,69 @@ const ProjectCompanyRequest = () => {
           </span>
         </div>
         {/* PROJECT INFO */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <InfoItem
-            icon={<Calendar />}
-            label="Start Date"
-            value={
-              project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '-'
-            }
-          />
-          <InfoItem
-            icon={<Calendar />}
-            label="End Date"
-            value={project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '-'}
-          />
-          <InfoItem icon={<User />} label="Created By" value={project?.createByName || '-'} />
-          <InfoItem
-            icon={<Calendar />}
-            label="Created At"
-            value={project?.createAt ? new Date(project.createAt).toLocaleDateString('vi-VN') : '-'}
-          />
-          <InfoItem
-            icon={<User />}
-            label="Company Request"
-            value={project?.companyRequestName || '-'}
-          />
-          <InfoItem
-            icon={<User />}
-            label="Company Executor"
-            value={project?.companyExecutorName || '-'}
-          />
+        <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
+          {/* Overview Header */}
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-indigo-600" />
+              Project Overview
+            </h3>
+          </div>
+
+          {/* Overview Content */}
+          <p className="text-gray-700 font-semibold leading-relaxed mb-6">
+            {project?.description || '—'}
+          </p>
+
+          {/* Compact Info List */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm font-semibold">
+            <InfoRow label="Project Code" value={project?.code} />
+            <InfoRow label="Created By" value={project?.createByName} />
+            <InfoRow
+              label="Start Date"
+              value={
+                project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '—'
+              }
+            />
+            <InfoRow
+              label="End Date"
+              value={project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '—'}
+            />
+            <InfoRow label="Company Request" value={project?.companyRequestName} />
+            <InfoRow label="Company Executor" value={project?.companyExecutorName} />
+          </div>
         </div>
 
-        {/* DESCRIPTION */}
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
-            <ClipboardList className="text-indigo-500 w-5 h-5" />
-            Description
-          </h2>
-          <p className="text-gray-700 leading-relaxed">{project?.description}</p>
-        </div>
         {/* PROGRESS */}
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-3">
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mb-4">
             <CheckCircle2 className="text-green-500 w-5 h-5" />
             Project Progress
           </h2>
-          <div className="flex items-center gap-4">
-            <Progress value={95} className="w-full h-4 bg-gray-200" />
-            <span className="font-semibold text-gray-700">{96}%</span>
+
+          {/* Horizontal Progress Bar */}
+          <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden shadow-sm">
+            <div
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 ease-in-out"
+              style={{ width: `${96}%` }}
+            ></div>
+            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 font-semibold text-gray-900">
+              96%
+            </span>
+          </div>
+
+          {/* Optional: Small info row below */}
+          <div className="flex justify-between mt-2 text-sm text-gray-500">
+            <span>
+              Start:{' '}
+              {project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '—'}
+            </span>
+            <span>
+              End: {project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '—'}
+            </span>
           </div>
         </div>
+
         {/*  TABS */}
         <div className="flex items-center gap-4 border-b pb-3 mb-8">
           {/* MEMBERS TAB */}
@@ -254,7 +253,7 @@ const ProjectCompanyRequest = () => {
       ${activeTab === 'tickets' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'}
     `}
             >
-              {tickets.length}
+              {projectTickets.totalCount}
             </span>
             {/* underline */}
             {activeTab === 'tickets' && (
@@ -285,7 +284,7 @@ const ProjectCompanyRequest = () => {
       ${activeTab === 'sprints' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'}
     `}
             >
-              4
+              {sprints?.totalCount}
             </span>
             {activeTab === 'sprints' && (
               <div className="absolute bottom-[-9px] left-0 right-0 h-[3px] bg-indigo-500 rounded-full scale-100 transition" />
@@ -295,33 +294,17 @@ const ProjectCompanyRequest = () => {
         {activeTab === 'members' && (
           <div>
             <MemberCharts projectId={projectId!} />
-            <MembersTab
-              projectId={projectId!}
-              rowsPerPage={rowsPerPage}
-              onMembersDataChange={(data) => setProjectMembers(data)}
-            />
+            <MembersTab projectId={projectId!} />
           </div>
         )}
         {activeTab === 'tickets' && (
           <div>
-            <TicketCharts sprintData={sprintData} ticketsPerSprintData={ticketsPerSprintData} />
-            <TicketsTab
-              tickets={tickets}
-              ticketSearch={ticketSearch}
-              setTicketSearch={setTicketSearch}
-              ticketRange={ticketRange}
-              setTicketRange={setTicketRange}
-              ticketPage={ticketPage}
-              setTicketPage={setTicketPage}
-              rowsPerPage={rowsPerPage}
-              onCreateTicket={handleCreateTicket}
-            />
+            <TicketCharts projectId={projectId!} refreshKey={refreshChartKey} />
+            <TicketsTab projectId={projectId!} onTicketCreated={handleTicketCreated} />
           </div>
         )}
 
-        {activeTab === 'sprints' && (
-          <SprintTab tasksPerSprint={tasksPerSprint} sprintData={sprintData} />
-        )}
+        {activeTab === 'sprints' && <SprintTab />}
       </div>
     </div>
   );
@@ -329,14 +312,9 @@ const ProjectCompanyRequest = () => {
 
 export default ProjectCompanyRequest;
 
-const InfoItem = ({ icon, label, value }: any) => (
-  <div className="bg-gradient-to-br from-gray-50 to-white border rounded-2xl p-4 hover:shadow-md transition">
-    <div className="flex items-center gap-3">
-      <div className="text-indigo-600 bg-indigo-50 p-2 rounded-xl">{icon}</div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="font-semibold text-gray-800">{value}</p>
-      </div>
-    </div>
-  </div>
+const InfoRow = ({ label, value }: any) => (
+  <p className="flex items-center text-gray-700 gap-2 border-b pb-2">
+    <span className="font-medium w-32">{label}:</span>
+    <span className="text-gray-900">{value || '—'}</span>
+  </p>
 );

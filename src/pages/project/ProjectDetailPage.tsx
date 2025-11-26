@@ -1,834 +1,1435 @@
-// Single-file build for canvas preview (unified views)
-// Gradients removed, neutral UI; only task-side priority bar remains.
-// In your app, split into files as needed.
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/rules-of-hooks */
 
-/* ===================== Imports ===================== */
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
-  Bell,
-  Calendar,
-  ChevronLeft,
+  ArrowLeft,
   MoreHorizontal,
+  Users2,
+  CalendarDays,
+  Building2,
+  Workflow as WorkflowIcon,
+  Flag,
+  Activity,
+  UserPlus,
   Search,
-  SlidersHorizontal,
-  Users,
+  Trash2,
+  Shield,
+  Edit3,
+  Eye,
 } from "lucide-react";
+import { toast } from "react-toastify";
+
 import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  type DropResult,
-} from "@hello-pangea/dnd";
+  GetProjectByProjectId,
+  getCompanyMembersPaged,
+  updateProject,
+  deleteProject,
+} from "@/services/projectService.js";
+import {
+  addProjectMember,
+  removeProjectMember,
+} from "@/services/projectMember.js";
+import { getProjectMemberByProjectId } from "@/services/projectMember.js";
 
-/* ===================== Types ===================== */
-export type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-export type Priority = "Urgent" | "High" | "Medium" | "Low";
+import { fetchSprintBoard } from "@/services/projectBoardService.js";
 
-export type TaskVm = {
-  id: string;
-  code: string; // e.g. PRJ-123
-  title: string; // task title
-  priority: Priority;
-  type: string; // Feature / Bug / Chore
-  memberCount: number; // number of members
-  dueDate?: string; // dd-mm-yyyy
-  assigneeName?: string; // display name
+// === Workflow preview bits ===
+import WorkflowMini from "@/components/Workflow/WorkflowMini";
+import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
+import { getWorkflowPreviews } from "@/services/workflowService.js";
+import type { WorkflowPreviewVm } from "@/types/workflow";
+
+// ===== Local types =====
+
+type ProjectStatus = "Planned" | "InProgress" | "OnHold" | "Completed";
+
+type ProjectMemberVm = {
+  userId: string;
+  name: string;
+  email?: string | null;
+  roleName?: string | null;
+  isPartner?: boolean;
+  isViewAll?: boolean;
+  joinedAt?: string | null; // ISO
 };
 
-export type SprintVm = {
+type ProjectDetailVm = {
   id: string;
-  name: string; // e.g. "Week 1: Name task"
-  startDate?: string; // dd-mm-yyyy
-  endDate?: string; // dd-mm-yyyy
-  columns: Record<StatusKey, TaskVm[]>;
+  code: string;
+  name: string;
+  description?: string | null;
+  status: ProjectStatus;
+  isHired: boolean;
+  companyId: string;
+  companyName: string;
+  companyHiredId?: string | null;
+  companyHiredName?: string | null;
+  workflowId: string;
+  workflowName: string;
+  sprintLengthWeeks: number;
+  startDate: string | null; // ISO
+  endDate: string | null; // ISO
+  createdAt: string;
+  createdByName: string;
+
+  stats: {
+    totalSprints: number;
+    activeSprints: number;
+    totalTasks: number;
+    doneTasks: number;
+    totalStoryPoints: number;
+  };
+
+  members: ProjectMemberVm[];
 };
 
-/* ===================== Helpers & Theme ===================== */
-const brand = "#2E8BFF";
-const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
-const statusOrder: StatusKey[] = ["todo", "inprogress", "inreview", "done"];
+// confirm modal state
+type ConfirmState =
+  | { kind: "none" }
+  | { kind: "deleteProject" }
+  | { kind: "kickMember"; member: ProjectMemberVm };
 
-function flattenSprintTasks(
-  sprint: SprintVm,
-  filter: StatusKey | "all" = "all"
-): TaskVm[] {
-  if (filter !== "all") return sprint.columns[filter];
-  const list: TaskVm[] = [];
-  for (const st of statusOrder) list.push(...sprint.columns[st]);
-  return list;
-}
+// ===== Helpers =====
 
-function findTaskInSprint(
-  sprint: SprintVm,
-  taskId: string
-): { status: StatusKey; index: number } | null {
-  for (const st of statusOrder) {
-    const idx = sprint.columns[st].findIndex((t) => t.id === taskId);
-    if (idx !== -1) return { status: st, index: idx };
+const formatDate = (iso?: string | null) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+};
+
+const initials = (name: string | null | undefined) => {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? "?";
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const statusBadgeClass = (status: ProjectStatus) => {
+  switch (status) {
+    case "Planned":
+      return "bg-sky-50 text-sky-700 border-sky-100";
+    case "InProgress":
+      return "bg-amber-50 text-amber-700 border-amber-100";
+    case "OnHold":
+      return "bg-slate-50 text-slate-700 border-slate-200";
+    case "Completed":
+      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    default:
+      return "bg-slate-50 text-slate-700 border-slate-200";
   }
-  return null;
-}
-
-function computeSprintStats(s: SprintVm) {
-  const total = flattenSprintTasks(s, "all").length;
-  const done = s.columns.done.length;
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-  return { total, done, pct };
-}
-
-const priorityBarColor: Record<Priority, string> = {
-  Urgent: "#EF4444", // red-500
-  High: "#F59E0B", // amber-500
-  Medium: "#3B82F6", // blue-500
-  Low: "#9CA3AF", // gray-400
 };
 
-/* ===================== API Stubs ===================== */
-// Replace these with real axios/fetch calls in your project.
-export const projectApi = {
-  async getSprints(projectId: string): Promise<SprintVm[]> {
-    return [
-      {
-        id: "s1",
-        name: "Week 1: Name task",
-        startDate: "09-10-2025",
-        endDate: "30-10-2025",
-        columns: {
-          todo: [
-            {
-              id: "t1",
-              code: "PRJ-123",
-              title: "Projects Name",
-              priority: "Urgent",
-              type: "Feature",
-              memberCount: 6,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-          ],
-          inprogress: [
-            {
-              id: "t2",
-              code: "PRJ-123",
-              title: "Projects Name",
-              priority: "High",
-              type: "Bug",
-              memberCount: 6,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-            {
-              id: "t3",
-              code: "PRJ-123",
-              title: "Projects Name",
-              priority: "Medium",
-              type: "Feature",
-              memberCount: 9,
-              dueDate: "30-10-2025",
-              assigneeName: "Nguyen Duy",
-            },
-          ],
-          inreview: [],
-          done: [],
-        },
-      },
-      { id: "s2", name: "Week 2: Name task", columns: { todo: [], inprogress: [], inreview: [], done: [] } },
-      { id: "s3", name: "Week 3: Name task", columns: { todo: [], inprogress: [], inreview: [], done: [] } },
-      { id: "s4", name: "Week 4: Name task", columns: { todo: [], inprogress: [], inreview: [], done: [] } },
-      { id: "s5", name: "Week 5: Name task", columns: { todo: [], inprogress: [], inreview: [], done: [] } },
-    ];
-  },
-
-  async updateTaskPosition(params: {
-    projectId: string;
-    sprintId: string;
-    taskId: string;
-    toStatus: StatusKey;
-    toIndex: number;
-  }) {
-    // PUT /projects/:projectId/sprints/:sprintId/tasks/:taskId/position
-    return true;
-  },
-
-  async updateTaskSprint(params: {
-    projectId: string;
-    taskId: string;
-    fromSprintId: string;
-    toSprintId: string;
-  }) {
-    // PUT /projects/:projectId/tasks/:taskId/sprint { fromSprintId, toSprintId }
-    return true;
-  },
+const progressPercent = (stats: ProjectDetailVm["stats"]) => {
+  if (!stats.totalTasks) return 0;
+  return Math.round((stats.doneTasks / stats.totalTasks) * 100);
 };
 
-/* ===================== Atoms ===================== */
-export function Chip({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2 h-6 text-[12px] rounded-full border bg-white text-gray-600 border-gray-200">
-      {children}
-    </span>
+const isGuid = (s?: string | null) =>
+  !!s &&
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+    s || "",
   );
-}
 
-function AvatarStack({ count = 3 }: { count?: number }) {
-  return (
-    <div className="flex -space-x-2">
-      {new Array(count).fill(0).map((_, i) => (
-        <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" />
-      ))}
-    </div>
-  );
-}
+// map member từ project DTO
+const mapProjectMember = (m: any): ProjectMemberVm => ({
+  userId: String(m.userId ?? m.memberId ?? m.id ?? ""),
+  name:
+    m.name ??
+    m.memberName ??
+    m.fullName ??
+    m.userName ??
+    m.email ??
+    "Unknown",
+  email: m.email ?? null,
+  roleName: m.roleName ?? m.projectRoleName ?? m.companyRoleName ?? null,
+  isPartner: !!(m.isPartner ?? m.isExternal ?? m.isOutsourced),
+  isViewAll: !!(m.isViewAll ?? m.canViewAllProjects),
+  joinedAt: m.joinedAt ?? m.createdAt ?? null,
+});
 
-export function StatBox({
+// map member từ companyMemberPaged DTO
+const mapCompanyMemberToVm = (m: any): ProjectMemberVm => ({
+  userId: String(m.memberId ?? m.userId ?? m.id ?? ""),
+  name: m.memberName ?? m.email ?? "Unknown",
+  email: m.email ?? null,
+  roleName: m.roleName ?? null,
+  isPartner: false,
+  isViewAll: false,
+  joinedAt: null,
+});
+
+// ===== Small components =====
+
+const InfoRow = ({
+  icon,
   label,
   value,
 }: {
+  icon: React.ReactNode;
   label: string;
   value: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-      <span className="text-gray-500 text-sm">{label}</span>
-      <span className="text-[18px] font-semibold text-gray-800">{value}</span>
+}) => (
+  <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3.5 py-3 shadow-sm">
+    <div className="flex size-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
+      {icon}
     </div>
-  );
-}
-
-
-
-export function ViewSwitchNav({
-  view,
-  onChange,
-  title,
-}: {
-  view: "Kanban" | "Sprint";
-  onChange: (v: "Kanban" | "Sprint") => void;
-  title: string;
-}) {
-  const Pill = ({
-    children,
-    selected,
-    onClick,
-    title,
-  }: {
-    children: React.ReactNode;
-    selected?: boolean;
-    onClick: () => void;
-    title?: string;
-  }) => (
-    <button
-      onClick={onClick}
-      title={title}
-      className={cn(
-        "h-10 px-4 rounded-lg border text-sm font-medium",
-        selected ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-      )}
-      style={selected ? { backgroundColor: brand } : {}}
-    >
-      {children}
-    </button>
-  );
-
-  return (
-    <div className="px-8 mt-5">
-      <div className="text-[22px] font-semibold text-gray-900">{title}</div>
-      <div className="mt-3 inline-flex items-center gap-1 bg-white border border-gray-200 rounded-2xl p-1 shadow-sm">
-        <Pill
-          selected={view === "Kanban"}
-          onClick={() => onChange("Kanban")}
-          title="Manage across sprints (Weeks)"
-        >
-          Sprints Overview
-        </Pill>
-        <Pill
-          selected={view === "Sprint"}
-          onClick={() => onChange("Sprint")}
-          title="Status board for the active sprint"
-        >
-          Sprint Board
-        </Pill>
+    <div className="min-w-0">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+        {label}
       </div>
+      <div className="text-sm text-slate-800 break-words">{value}</div>
     </div>
-  );
-}
-
-export function SprintTabsNav({
-  sprints,
-  activeId,
-  onChange,
-}: {
-  sprints: SprintVm[];
-  activeId: string | null;
-  onChange: (id: string) => void;
-}) {
-  return (
-    <div className="px-8 mt-4 overflow-x-auto">
-      <div className="flex items-center gap-3 min-w-max">
-        {sprints.map((s) => {
-          const selected = s.id === activeId;
-          const stats = computeSprintStats(s);
-          return (
-            <button
-              key={s.id}
-              onClick={() => onChange(s.id)}
-              className={cn(
-                "h-9 px-4 rounded-xl border whitespace-nowrap inline-flex items-center gap-2 shadow-sm",
-                selected ? "text-white border-transparent" : "bg-white text-gray-700 hover:bg-gray-50"
-              )}
-              style={selected ? { backgroundColor: brand } : {}}
-              title={`${s.startDate ?? ""}${s.endDate ? " → " + s.endDate : ""}`}
-            >
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
-                {s.name.split(":")[0]}
-              </span>
-              <span className="font-medium">{s.name}</span>
-              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-white text-gray-700 border border-gray-200">
-                {stats.total} tasks
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ===================== Task & Board (Sprint mode) ===================== */
-export function TaskCard({ task }: { task: TaskVm }) {
-  return (
-    <div className="relative rounded-2xl border border-gray-200 bg-white p-4 transition hover:bg-gray-50">
-      {/* priority solid side bar */}
-      <div
-        className="absolute left-0 top-0 h-full w-[6px] rounded-l-2xl"
-        style={{ backgroundColor: priorityBarColor[task.priority], opacity: task.priority === "Low" ? 0.25 : 1 }}
-      />
-
-      <div className="relative">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-400 text-[12px] tracking-wide">{task.code}</span>
-          <button className="p-1 rounded hover:bg-gray-100">
-            <MoreHorizontal className="w-4 h-4 text-gray-500" />
-          </button>
-        </div>
-        <div className="mt-1 text-[15px] font-semibold text-gray-800">{task.title}</div>
-        <div className="mt-2 flex items-center gap-2 flex-wrap">
-          {/* priority chip removed to keep only the side bar as color indicator */}
-          <Chip>{task.type}</Chip>
-          <Chip>
-            <Users className="w-3.5 h-3.5" /> {task.memberCount} members
-          </Chip>
-        </div>
-        {task.dueDate && (
-          <div className="mt-3 flex items-center gap-2 text-gray-600">
-            <Calendar className="w-4 h-4" />
-            <span className="text-[13px]">{task.dueDate}</span>
-          </div>
-        )}
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-gray-600 text-[12px]">
-            <div className="w-6 h-6 rounded-full bg-gray-200" />
-            {task.assigneeName && <span className="text-gray-700">{task.assigneeName}</span>}
-          </div>
-          <AvatarStack count={3} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function BoardColumn({
-  title,
-  tone,
-  children,
-  right,
-  emptyHeight = 420,
-}: {
-  title: string;
-  tone: "amber" | "blue" | "purple" | "green";
-  children?: React.ReactNode;
-  right?: React.ReactNode;
-  emptyHeight?: number;
-}) {
-  const topBar: Record<string, string> = {
-    amber: "bg-amber-500",
-    blue: "bg-blue-600",
-    purple: "bg-purple-600",
-    green: "bg-green-600",
-  };
-  const ring: Record<string, string> = {
-    amber: "ring-amber-200",
-    blue: "ring-blue-200",
-    purple: "ring-purple-200",
-    green: "ring-green-200",
-  };
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-gray-200 bg-white overflow-hidden ring-1 h-full flex flex-col",
-        ring[tone]
-      )}
-      style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}
-    >
-      <div className={cn("h-2 w-full", topBar[tone])} />
-      <div className="p-4 pb-3">
-        <div className="flex items-center justify-between">
-          <span
-            className={cn(
-              "inline-flex items-center text-[12px] font-semibold px-2 py-0.5 rounded-full border",
-              tone === "amber"
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : tone === "blue"
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : tone === "purple"
-                ? "bg-purple-50 text-purple-700 border-purple-200"
-                : "bg-green-50 text-green-700 border-green-200"
-            )}
-          >
-            {title}
-          </span>
-          {right}
-        </div>
-      </div>
-
-      {/* ---- Khu vực task: chiếm phần còn lại + cuộn dọc ---- */}
-      <div className="px-4 pb-4 flex-1 overflow-y-auto">
-        <div className="space-y-4">
-          {children}
-          {!children && (
-            <div style={{ height: emptyHeight }} className="rounded-xl bg-gray-50" />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-export function SprintBoard({
-  sprint,
-  onDragEnd,
-}: {
-  sprint: SprintVm;
-  onDragEnd: (result: DropResult) => void;
-}) {
-  const colInfo: Array<{
-    key: StatusKey;
-    title: string;
-    tone: "amber" | "blue" | "purple" | "green";
-  }> = [
-    { key: "todo", title: "To do", tone: "amber" },
-    { key: "inprogress", title: "In progress", tone: "blue" },
-    { key: "inreview", title: "Inreview", tone: "purple" },
-    { key: "done", title: "Done", tone: "green" },
-  ];
-
-  return (
-  <DragDropContext onDragEnd={onDragEnd}>
-    <div className="px-8 mt-5 pb-4 min-w-0">
-      <div
-        className="overflow-x-auto overscroll-x-contain rounded-xl"
-        style={{ height: "calc(100vh - 220px)" }} // cùng offset với Kanban
-      >
-        <div className="inline-flex gap-4 h-full">
-          {colInfo.map((c) => (
-            <div key={c.key} className="shrink-0 h-full w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]">
-              <Droppable droppableId={`sprint:${sprint.id}:${c.key}`}>
-                {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="h-full">
-                    <BoardColumn
-                      title={c.title}
-                      tone={c.tone}
-                      right={
-                        <span className="text-[12px] text-gray-500">
-                          {sprint.columns[c.key].length} tasks
-                        </span>
-                      }
-                    >
-                      {sprint.columns[c.key].map((task, idx) => (
-                        <Draggable key={task.id} draggableId={task.id} index={idx}>
-                          {(dragProvided, dragSnapshot) => (
-                            <div
-                              ref={dragProvided.innerRef}
-                              {...dragProvided.draggableProps}
-                              {...dragProvided.dragHandleProps}
-                              className={dragSnapshot.isDragging ? "rotate-[0.5deg]" : ""}
-                            >
-                              <TaskCard task={task} />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </BoardColumn>
-                  </div>
-                )}
-              </Droppable>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  </DragDropContext>
+  </div>
 );
 
-}
+// tính stats từ sprint-board
+type BoardPayload = {
+  sprints: any[];
+  tasks: any[];
+};
 
-/* ===================== Kanban Board (columns = Sprints) ===================== */
-export function KanbanBySprintBoard({
-  sprints,
-  filter = "all",
-  onDragEnd,
-}: {
-  sprints: SprintVm[];
-  filter?: StatusKey | "all";
-  onDragEnd: (result: DropResult) => void;
-}) {
-  // khoảng chiều cao bị chiếm (header, tabs, search…) để trừ ra cho board
-  const TOP_OFFSET = 220;                     // tinh chỉnh theo layout của bạn
-  const BOARD_H = `calc(100vh - ${TOP_OFFSET}px)`;
+const buildStatsFromBoard = (board: BoardPayload): ProjectDetailVm["stats"] => {
+  const sprints = Array.isArray(board.sprints) ? board.sprints : [];
+  const tasks = Array.isArray(board.tasks) ? board.tasks : [];
 
-  // chiều rộng cột cố định theo thiết bị
-  const COL_W_CLASS =
-    "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
+  const totalSprints = sprints.length;
+  const totalTasks = tasks.length;
 
-  return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      {/* KHUNG chứa board: chỉ khung này cuộn ngang */}
-      <div className="px-8 mt-5 pb-4 min-w-0">
-        <div
-          className="overflow-x-auto overscroll-x-contain rounded-xl"
-          style={{ height: BOARD_H }}
-        >
-          {/* Một hàng, không wrap */}
-          <div className="inline-flex gap-4 h-full pr-8">
-            {sprints.map((s, colIdx) => {
-              const stats = computeSprintStats(s);
-              return (
-                <div key={s.id} className={`shrink-0 h-full ${COL_W_CLASS}`}>
-                  <Droppable droppableId={`kanban:${s.id}`}>
-                    {(provided) => (
-                      <div ref={provided.innerRef} {...provided.droppableProps} className="h-full">
-                        <BoardColumn
-                          title={s.name}
-                          tone={
-                            (colIdx % 4 === 0
-                              ? "amber"
-                              : colIdx % 4 === 1
-                              ? "blue"
-                              : colIdx % 4 === 2
-                              ? "purple"
-                              : "green") as any
-                          }
-                          right={
-                            <div className="flex items-center gap-2 text-[12px]">
-                              <span className="text-gray-600">{stats.total} tasks</span>
-                              <span className="text-green-700 font-semibold">{stats.pct}%</span>
-                            </div>
-                          }
-                        >
-                          {/* mini progress bar ở trên vùng cuộn */}
-                          <div className="h-1.5 w-full rounded-full bg-gray-100">
-                            <div
-                              className="h-1.5 rounded-full"
-                              style={{ width: `${stats.pct}%`, backgroundColor: brand }}
-                            />
-                          </div>
+  const doneTasks = tasks.filter(
+    (t) => t.statusCategory === "DONE" || t.statusName === "Done",
+  ).length;
 
-                          {/* danh sách task cuộn dọc (đã enable ở BoardColumn) */}
-                          {flattenSprintTasks(s, filter).map((task, idx) => (
-                            <Draggable key={task.id} draggableId={task.id} index={idx}>
-                              {(dragProvided, dragSnapshot) => (
-                                <div
-                                  ref={dragProvided.innerRef}
-                                  {...dragProvided.draggableProps}
-                                  {...dragProvided.dragHandleProps}
-                                  className={dragSnapshot.isDragging ? "rotate-[0.5deg]" : ""}
-                                >
-                                  <TaskCard task={task} />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </BoardColumn>
-                      </div>
-                    )}
-                  </Droppable>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </DragDropContext>
+  const totalStoryPoints = tasks.reduce(
+    (sum, t) => sum + (t.storyPoints ?? 0),
+    0,
   );
-}
 
+  const activeSprints = sprints.filter((s) =>
+    ["Active", "InProgress", "Running"].includes(String(s.state)),
+  ).length;
 
-/* ===================== Analytics ===================== */
-export function WeekAreaChart() {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold text-gray-800">Title of section</div>
-        <span className="text-xs text-gray-400">↗</span>
-      </div>
-      <div className="mt-2">
-        <svg viewBox="0 0 600 220" className="w-full h-[180px]">
-          <path
-            d="M0 90 C 110 70, 160 100, 230 80 C 280 65, 330 120, 380 70 C 440 40, 520 140, 600 110"
-            fill="none"
-            stroke={brand}
-            strokeWidth="3"
-          />
-          <path
-            d="M0 160 C 100 220, 150 110, 230 130 C 290 145, 330 90, 380 150 C 420 180, 500 200, 600 120"
-            fill="none"
-            stroke="#22c55e"
-            strokeWidth="3"
-          />
-          {[{ x: 40, y: 90 }, { x: 150, y: 75 }, { x: 230, y: 80 }, { x: 330, y: 120 }, { x: 380, y: 70 }, { x: 540, y: 110 }].map(
-            (p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r="4" fill={brand} />
-            )
-          )}
-          {[{ x: 50, y: 160 }, { x: 110, y: 215 }, { x: 230, y: 130 }, { x: 330, y: 90 }, { x: 420, y: 180 }, { x: 560, y: 120 }].map(
-            (p, i) => (
-              <circle key={`g${i}`} cx={p.x} cy={p.y} r="4" fill="#22c55e" />
-            )
-          )}
-        </svg>
-      </div>
-    </div>
-  );
-}
+  return {
+    totalSprints,
+    activeSprints,
+    totalTasks,
+    doneTasks,
+    totalStoryPoints,
+  };
+};
 
-export function OverviewCard({
-  rangeLabel = "09-10-2025 → 30-10-2025",
-  daysPastLabel = "143 days past",
-}: {
-  rangeLabel?: string;
-  daysPastLabel?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between text-gray-500 text-sm">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4" />
-          <span>{rangeLabel}</span>
-        </div>
-        <span className="text-[12px] text-gray-400">{daysPastLabel}</span>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <StatBox label="Committed pts" value={<span className="text-blue-600">5</span>} />
-        <StatBox label="Done pts" value={<span className="text-green-600">6</span>} />
-        <StatBox label="Task" value={<span>9</span>} />
-        <StatBox label="Completion" value={<span className="text-green-600">75%</span>} />
-      </div>
-      <div className="mt-4">
-        <div className="text-sm text-gray-600 mb-1">Overview</div>
-        <div className="h-1.5 w-full rounded-full bg-gray-100">
-          <div className="h-1.5 rounded-full" style={{ width: "60%", backgroundColor: brand }} />
-        </div>
-      </div>
-    </div>
-  );
-}
+// ===== MAIN PAGE =====
 
-export function SearchBar({
-  value,
-  onChange,
-  placeholder = "Search tasks",
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="relative w-[300px]">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-blue-100 shadow-sm"
-      />
-    </div>
-  );
-}
+export default function ProjectDetailPage() {
+  const { companyId, projectId } = useParams<{
+    companyId: string;
+    projectId: string;
+  }>();
+  const navigate = useNavigate();
 
-/* ===================== Unified Page (Sprints Overview + Sprint Board) ===================== */
-export function ProjectBoardPage() {
-  const [view, setView] = useState<"Kanban" | "Sprint">("Kanban");
-  const [sprints, setSprints] = useState<SprintVm[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [kanbanFilter, setKanbanFilter] = useState<StatusKey | "all">("all");
+  const [project, setProject] = React.useState<ProjectDetailVm | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState<
+    "overview" | "members" | "activity"
+  >("overview");
 
-  useEffect(() => {
+  const [memberSearch, setMemberSearch] = React.useState("");
+  const [availableMembers, setAvailableMembers] = React.useState<
+    ProjectMemberVm[]
+  >([]);
+
+  // edit basic info
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editName, setEditName] = React.useState("");
+  const [editDescription, setEditDescription] = React.useState("");
+  const [savingBasic, setSavingBasic] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [actionsOpen, setActionsOpen] = React.useState(false);
+
+  // workflow preview state
+  const [workflowPreview, setWorkflowPreview] =
+    React.useState<WorkflowPreviewVm | null>(null);
+  const [loadingWorkflowPreview, setLoadingWorkflowPreview] =
+    React.useState(false);
+  const [workflowPreviewOpen, setWorkflowPreviewOpen] =
+    React.useState(false);
+
+  // confirm modal state
+  const [confirmState, setConfirmState] = React.useState<ConfirmState>({
+    kind: "none",
+  });
+
+  React.useEffect(() => {
+    let alive = true;
+
     (async () => {
-      const data = await projectApi.getSprints("project-1");
-      setSprints(data);
-      if (!activeId && data.length) setActiveId(data[0].id);
+      if (!projectId) return;
+      setLoading(true);
+
+      try {
+        // 1) Gọi song song: project detail + sprint-board + project members
+        const [detailRaw, board, memberPaged] = await Promise.all<any>([
+          GetProjectByProjectId(projectId),
+          fetchSprintBoard(projectId),
+          getProjectMemberByProjectId(projectId, "", "", "", 1, 200),
+        ]);
+        if (!alive) return;
+
+        // 2) Chuẩn hóa payload project detail (cũ)
+        const detail: any = detailRaw?.data ?? detailRaw ?? {};
+
+        // 3) Raw members từ project detail
+        const rawMembersFromProject: any[] =
+          detail.members ??
+          detail.projectMembers ??
+          detail.projectMemberResults ??
+          [];
+
+        // 4) Raw members từ API projectmember/paged
+        const memberPayload: any = memberPaged?.data ?? memberPaged ?? {};
+        const memberItems: any[] = Array.isArray(memberPayload.items)
+          ? memberPayload.items
+          : Array.isArray(memberPayload)
+          ? memberPayload
+          : [];
+
+        // Ưu tiên dùng list từ projectmember service, fallback sang detail.members
+        const rawMembers: any[] =
+          memberItems.length > 0 ? memberItems : rawMembersFromProject;
+
+        const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
+          ? rawMembers.map(mapProjectMember)
+          : [];
+
+        // 5) Stats từ project-detail (nếu BE có)
+        const rawStats =
+          detail.stats ?? detail.boardSnapshot ?? detail.boardStats ?? {};
+
+        const statsFromDetail: ProjectDetailVm["stats"] = {
+          totalSprints:
+            rawStats.totalSprints ??
+            rawStats.sprintCount ??
+            detail.totalSprints ??
+            detail.sprintCount ??
+            0,
+          activeSprints:
+            rawStats.activeSprints ??
+            rawStats.activeSprintCount ??
+            detail.activeSprints ??
+            detail.activeSprintCount ??
+            0,
+          totalTasks:
+            rawStats.totalTasks ??
+            rawStats.taskCount ??
+            detail.totalTasks ??
+            detail.taskCount ??
+            0,
+          doneTasks:
+            rawStats.doneTasks ??
+            rawStats.doneTaskCount ??
+            detail.doneTasks ??
+            detail.doneTaskCount ??
+            0,
+          totalStoryPoints:
+            rawStats.totalStoryPoints ??
+            rawStats.storyPoints ??
+            detail.totalStoryPoints ??
+            detail.storyPoints ??
+            0,
+        };
+
+        // 6) Stats từ sprint-board
+        const statsFromBoard = buildStatsFromBoard(board);
+
+        // Ưu tiên số liệu từ board, nếu = 0 thì fallback statsFromDetail
+        const stats: ProjectDetailVm["stats"] = {
+          totalSprints:
+            statsFromBoard.totalSprints || statsFromDetail.totalSprints,
+          activeSprints:
+            statsFromBoard.activeSprints || statsFromDetail.activeSprints,
+          totalTasks: statsFromBoard.totalTasks || statsFromDetail.totalTasks,
+          doneTasks: statsFromBoard.doneTasks || statsFromDetail.doneTasks,
+          totalStoryPoints:
+            statsFromBoard.totalStoryPoints ||
+            statsFromDetail.totalStoryPoints,
+        };
+
+        // 7) Creator + pool availableMembers (company members chưa join project)
+        const creatorIdRaw =
+          detail.createdById ??
+          detail.createdByUserId ??
+          detail.createdBy ??
+          null;
+
+        let createdByName: string =
+          detail.createdByName ??
+          detail.createdByUserName ??
+          detail.createdByDisplayName ??
+          "";
+
+        let pool: ProjectMemberVm[] = [];
+
+        if (companyId) {
+          const res = await getCompanyMembersPaged(companyId, {
+            pageNumber: 1,
+            pageSize: 100,
+          });
+          if (!alive) return;
+
+          const assignedIds = new Set(
+            mappedMembers.map((x) => x.userId.toLowerCase()),
+          );
+
+          // build pool từ company members (loại những người đã nằm trong project)
+          pool = (res.items || [])
+            .filter((m: any) => {
+              const mid = String(
+                m.memberId ?? m.userId ?? m.id ?? "",
+              ).toLowerCase();
+              return mid && !assignedIds.has(mid);
+            })
+            .map(mapCompanyMemberToVm);
+
+          // lookup creator nếu currently là GUID hoặc rỗng
+          if (!createdByName || isGuid(createdByName)) {
+            const creatorKey = (creatorIdRaw ?? createdByName) as string | null;
+            if (creatorKey) {
+              const lower = creatorKey.toLowerCase();
+              const found = (res.items || []).find((m: any) => {
+                const mid = String(
+                  m.memberId ?? m.userId ?? m.id ?? "",
+                ).toLowerCase();
+                return mid === lower;
+              });
+              if (found) {
+                createdByName =
+                  found.memberName || found.email || createdByName || "";
+              }
+            }
+          }
+        }
+
+        const vm: ProjectDetailVm = {
+          id: String(detail.id),
+          code: detail.code ?? "",
+          name: detail.name ?? "",
+          description: detail.description ?? "",
+          status: (detail.status as ProjectStatus) ?? "Planned",
+          isHired: !!detail.isHired,
+          companyId: String(detail.companyId ?? companyId ?? ""),
+          companyName:
+            detail.companyName ?? detail.ownerCompany ?? detail.company ?? "",
+          companyHiredId: detail.companyHiredId ?? null,
+          companyHiredName:
+            detail.companyHiredName ?? detail.hiredCompanyName ?? null,
+          workflowId: String(detail.workflowId ?? ""),
+          workflowName: detail.workflowName ?? detail.workflow ?? "",
+          sprintLengthWeeks: detail.sprintLengthWeeks ?? 1,
+          startDate: detail.startDate ?? null,
+          endDate: detail.endDate ?? null,
+          createdAt: detail.createdAt ?? new Date().toISOString(),
+          createdByName: (!isGuid(createdByName) && createdByName) || "",
+          stats,
+          members: mappedMembers,
+        };
+
+        setProject(vm);
+        setAvailableMembers(pool);
+      } catch (err) {
+        console.error("Load project detail failed", err);
+        if (alive) {
+          setProject(null);
+          setAvailableMembers([]);
+        }
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
-  }, []);
 
-  const activeSprint = useMemo(
-    () => sprints.find((s) => s.id === activeId) || null,
-    [sprints, activeId]
-  );
+    return () => {
+      alive = false;
+    };
+  }, [projectId, companyId]);
 
-  // Drag logic for Sprint view (move across statuses within same sprint)
-  const onDragEndSprint = async (result: DropResult) => {
-    const { source, destination, draggableId } = result;
-    if (!destination) return;
-    const [, srcSprintId, srcStatus] = source.droppableId.split(":");
-    const [, dstSprintId, dstStatus] = destination.droppableId.split(":");
-    if (srcSprintId !== dstSprintId) return; // restrict inside same sprint
+  // load workflow preview mini card
+  React.useEffect(() => {
+    let alive = true;
 
-    setSprints((prev) => {
-      const next = prev.map((s) => ({ ...s, columns: { ...s.columns } }));
-      const sprint = next.find((s) => s.id === srcSprintId)!;
-      const srcArr = [...sprint.columns[srcStatus as StatusKey]];
-      const dstArr =
-        srcStatus === dstStatus
-          ? srcArr
-          : [...sprint.columns[dstStatus as StatusKey]];
-      const [moved] = srcArr.splice(source.index, 1);
-      dstArr.splice(destination.index, 0, moved);
-      sprint.columns[srcStatus as StatusKey] = srcArr;
-      sprint.columns[dstStatus as StatusKey] = dstArr;
-      return [...next];
-    });
+    const loadPreview = async () => {
+      if (!companyId || !project?.workflowId || !isGuid(companyId)) {
+        if (alive) setWorkflowPreview(null);
+        return;
+      }
 
-    await projectApi.updateTaskPosition({
-      projectId: "project-1",
-      sprintId: srcSprintId,
-      taskId: draggableId,
-      toStatus: dstStatus as StatusKey,
-      toIndex: destination.index,
-    });
+      setLoadingWorkflowPreview(true);
+      try {
+        const list = (await getWorkflowPreviews(
+          companyId,
+        )) as WorkflowPreviewVm[] | null | undefined;
+        if (!alive) return;
+        const found =
+          (list ?? []).find((x) => x.id === project.workflowId) ?? null;
+        setWorkflowPreview(found);
+      } catch (err) {
+        console.error("Load workflow preview failed", err);
+        if (alive) setWorkflowPreview(null);
+      } finally {
+        if (alive) setLoadingWorkflowPreview(false);
+      }
+    };
+
+    loadPreview();
+    return () => {
+      alive = false;
+    };
+  }, [companyId, project?.workflowId]);
+
+  // sync edit fields khi project đổi
+  React.useEffect(() => {
+    if (project) {
+      setEditName(project.name);
+      setEditDescription(project.description ?? "");
+    }
+  }, [project]);
+
+  const handleOpenBoard = () => {
+    if (!companyId || !projectId) return;
+    navigate(`/companies/${companyId}/projects/${projectId}/board`);
   };
 
-  // Drag logic for Kanban view (move across sprint columns; keep status)
-  const onDragEndKanban = async (result: DropResult) => {
-    const { source, destination, draggableId } = result;
-    if (!destination) return;
-    const [, fromSprintId] = source.droppableId.split(":"); // kanban:<sprintId>
-    const [, toSprintId] = destination.droppableId.split(":");
-    if (fromSprintId === toSprintId) return; // same sprint, do nothing here (order per-status not supported in Kanban)
-
-    setSprints((prev) => {
-      const next = prev.map((s) => ({ ...s, columns: { ...s.columns } }));
-      const from = next.find((s) => s.id === fromSprintId)!;
-      const to = next.find((s) => s.id === toSprintId)!;
-
-      const loc = findTaskInSprint(from, draggableId);
-      if (!loc) return prev; // safety
-
-      const [moved] = from.columns[loc.status].splice(loc.index, 1);
-      // Keep original status; append to destination same status
-      to.columns[loc.status] = [...to.columns[loc.status], moved];
-      return [...next];
-    });
-
-    await projectApi.updateTaskSprint({
-      projectId: "project-1",
-      taskId: draggableId,
-      fromSprintId,
-      toSprintId,
-    });
+  const handleViewWorkflow = () => {
+    if (!companyId || !project?.workflowId) return;
+    // nếu vẫn muốn có trang full workflow riêng
+    navigate(`/companies/${companyId}/workflows/${project.workflowId}`);
   };
+
+  const handleStartEditBasic = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDescription(project.description ?? "");
+    setIsEditing(true);
+    setActionsOpen(false);
+  };
+
+  const handleCancelEditBasic = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDescription(project.description ?? "");
+    setIsEditing(false);
+  };
+
+  const handleSaveBasic = async () => {
+    if (!project) return;
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      toast.error("Project name is required.");
+      return;
+    }
+
+    setSavingBasic(true);
+    try {
+      const payload: any = {
+        id: project.id,
+        companyId: project.companyId,
+        name: trimmedName,
+        description: editDescription.trim() || null,
+      };
+
+      const res: any = await updateProject(project.id, payload);
+      const updated = res?.data ?? res ?? payload;
+
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: updated.name ?? trimmedName,
+              description:
+                updated.description ?? (editDescription.trim() || null),
+            }
+          : prev,
+      );
+
+      setIsEditing(false);
+      toast.success("Project updated.");
+    } catch (err) {
+      console.error("Update project failed", err);
+      toast.error("Failed to update project.");
+    } finally {
+      setSavingBasic(false);
+    }
+  };
+
+  // THỰC HIỆN delete project (không confirm ở đây nữa)
+  const handleDeleteProject = async () => {
+    if (!project) return;
+
+    setDeleting(true);
+    try {
+      await deleteProject(project.id);
+      toast.success("Project deleted.");
+      navigate(`/companies/${companyId}/projects`);
+    } catch (err) {
+      console.error("Delete project failed", err);
+      toast.error("Failed to delete project.");
+    } finally {
+      setDeleting(false);
+      setActionsOpen(false);
+    }
+  };
+
+  const projectStats = project ? project.stats : null;
+  const progress = projectStats ? progressPercent(projectStats) : 0;
+
+  const filteredMembers = React.useMemo(() => {
+    if (!project) return [];
+    const q = memberSearch.trim().toLowerCase();
+    if (!q) return project.members;
+    return project.members.filter(
+      (m) =>
+        m.name?.toLowerCase().includes(q) ||
+        m.email?.toLowerCase().includes(q) ||
+        m.roleName?.toLowerCase().includes(q),
+    );
+  }, [project, memberSearch]);
+
+  // THỰC HIỆN remove member (không mở confirm ở đây nữa)
+  const handleRemoveMember = async (userId: string) => {
+    if (!project) return;
+    const removed = project.members.find((m) => m.userId === userId);
+    if (!removed) return;
+
+    const prevProject = project;
+    const prevAvailable = availableMembers;
+
+    // Optimistic UI
+    setProject({
+      ...project,
+      members: project.members.filter((m) => m.userId !== userId),
+    });
+    setAvailableMembers((prev) => [
+      ...prev,
+      { ...removed, joinedAt: null }, // trả về pool
+    ]);
+
+    try {
+      await removeProjectMember(project.id, userId);
+    } catch (err) {
+      console.error("Remove project member failed", err);
+      // rollback nếu lỗi
+      setProject(prevProject);
+      setAvailableMembers(prevAvailable);
+    }
+  };
+
+  const handleAddMember = async (m: ProjectMemberVm) => {
+    if (!project) return;
+    if (project.members.some((x) => x.userId === m.userId)) return;
+
+    const prevProject = project;
+    const prevAvailable = availableMembers;
+
+    const newMember: ProjectMemberVm = {
+      ...m,
+      joinedAt: new Date().toISOString(),
+    };
+
+    // Optimistic UI
+    setProject({
+      ...project,
+      members: [...project.members, newMember],
+    });
+    setAvailableMembers((prev) => prev.filter((x) => x.userId !== m.userId));
+
+    try {
+      await addProjectMember({
+        projectId: project.id,
+        companyId: project.companyId,
+        userId: m.userId,
+        isPartner: m.isPartner ?? false,
+        isViewAll: m.isViewAll ?? false,
+      });
+    } catch (err) {
+      console.error("Add project member failed", err);
+      // rollback nếu lỗi
+      setProject(prevProject);
+      setAvailableMembers(prevAvailable);
+    }
+  };
+
+  const handleCancelConfirm = () => {
+    if (deleting) return;
+    setConfirmState({ kind: "none" });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!project) return;
+
+    if (confirmState.kind === "deleteProject") {
+      await handleDeleteProject();
+      setConfirmState({ kind: "none" });
+    } else if (confirmState.kind === "kickMember") {
+      const member = confirmState.member;
+      if (member) {
+        await handleRemoveMember(member.userId);
+      }
+      setConfirmState({ kind: "none" });
+    }
+  };
+
+  if (loading || !project) {
+    return (
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-4 flex items-center gap-2 text-sm text-slate-500">
+          <div className="size-5 rounded-full bg-slate-100 animate-pulse" />
+          Loading project…
+        </div>
+        <div className="h-52 rounded-2xl border border-slate-200 bg-white shadow-sm animate-pulse" />
+      </div>
+    );
+  }
+
+  const displayCreatorName =
+    project.createdByName && !isGuid(project.createdByName)
+      ? project.createdByName
+      : "Unknown user";
+
+  // text cho modal confirm
+  const isDeleteProjectConfirm = confirmState.kind === "deleteProject";
+  const isKickMemberConfirm = confirmState.kind === "kickMember";
+  const memberName =
+    confirmState.kind === "kickMember"
+      ? confirmState.member.name
+      : undefined;
 
   return (
-    <div className="w-full min-h-screen bg-[#F7F8FA]">
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
+      {/* === Breadcrumb / Back === */}
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-4 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm hover:bg-slate-50"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back
+      </button>
 
-      {/* Sticky nav */}
-      <div className="sticky top-0 z-30 bg-[#F7F8FA] border-b border-gray-100">
-        <ViewSwitchNav title="Projects Name" view={view} onChange={setView} />
-        <SprintTabsNav sprints={sprints} activeId={activeId} onChange={setActiveId} />
-      </div>
+      {/* === Header card === */}
+      <div
+        className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.45)]"
+        style={{
+          backgroundImage:
+            "radial-gradient(900px 260px at 50% -120px, rgba(37,99,235,0.06), transparent 60%)",
+        }}
+      >
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          {/* LEFT: info + board snapshot */}
+          <div className="flex-1 space-y-3">
+            {/* tags */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 font-mono text-[11px] text-slate-600">
+                {project.code}
+              </span>
+              <span
+                className={
+                  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium " +
+                  statusBadgeClass(project.status)
+                }
+              >
+                {project.status === "InProgress"
+                  ? "In progress"
+                  : project.status === "OnHold"
+                  ? "On hold"
+                  : project.status}
+              </span>
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700 border border-indigo-100">
+                {project.isHired ? "Outsourced project" : "Internal product"}
+              </span>
+            </div>
 
-      {/* Analytics visible in Sprint view only */}
-      {view === "Sprint" && (
-        <div className="px-8 mt-5 grid grid-cols-12 gap-5">
-          <div className="col-span-12 lg:col-span-4 space-y-3">
-            <OverviewCard />
-          </div>
-          <div className="col-span-12 lg:col-span-8">
-            <WeekAreaChart />
-          </div>
-        </div>
-      )}
-
-      {/* Search & Controls */}
-      <div className="px-8 mt-5 flex items-center justify-between">
-        <SearchBar value={query} onChange={setQuery} />
-        <div className="flex items-center gap-3 text-gray-500">
-          <button className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 shadow-sm">
-            <SlidersHorizontal className="w-5 h-5" />
-          </button>
-          <span className="text-sm text-gray-600">2 tasks visible</span>
-        </div>
-      </div>
-
-      {/* Kanban status filter chips */}
-      {view === "Kanban" && (
-        <div className="px-8 mt-3 flex items-center gap-2 flex-wrap">
-          {(["all", ...statusOrder] as const).map((k) => (
-            <button
-              key={k}
-              onClick={() => setKanbanFilter(k as any)}
-              className={cn(
-                "h-8 px-3 rounded-full border text-xs shadow-sm",
-                kanbanFilter === k
-                  ? "text-white border-transparent"
-                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+            {/* title + desc */}
+            <div className="space-y-2">
+              {isEditing ? (
+                <div className="space-y-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      Project name
+                    </label>
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      maxLength={200}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      Description
+                    </label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      rows={3}
+                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="Short context so the team understands the scope."
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveBasic}
+                      disabled={savingBasic}
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {savingBasic && (
+                        <span className="size-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
+                      )}
+                      Save changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEditBasic}
+                      disabled={savingBasic}
+                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-start gap-2">
+                    <h1 className="flex-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                      {project.name}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={handleStartEditBasic}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      <Edit3 className="size-3.5" />
+                      Edit
+                    </button>
+                  </div>
+                  {project.description && (
+                    <p className="max-w-2xl text-sm text-slate-600">
+                      {project.description}
+                    </p>
+                  )}
+                </div>
               )}
-              style={kanbanFilter === k ? { backgroundColor: brand } : {}}
+            </div>
+
+            {/* grid: Board snapshot + info cards */}
+            <div className="grid gap-3 text-xs text-slate-600 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.5fr)]">
+              {/* Board snapshot (dashboard nhỏ bên trái) */}
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 sm:p-4 shadow-sm flex flex-col justify-between">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                    Board snapshot
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">
+                    {progress}% done
+                  </span>
+                </div>
+
+                <dl className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-500">Sprints</dt>
+                    <dd className="text-slate-900 font-medium">
+                      {projectStats?.totalSprints ?? 0}
+                      <span className="ml-1 text-[11px] text-emerald-600">
+                        {projectStats?.activeSprints ?? 0} active
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-500">Tasks</dt>
+                    <dd className="text-slate-900 font-medium">
+                      {projectStats?.totalTasks ?? 0}
+                      <span className="ml-1 text-[11px] text-emerald-600">
+                        {projectStats?.doneTasks ?? 0} done
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-slate-500">Story points</dt>
+                    <dd className="text-slate-900 font-medium">
+                      {projectStats?.totalStoryPoints ?? 0}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="mt-3">
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Overall progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-blue-500 transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Info cards */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <InfoRow
+                  icon={<Building2 className="size-3.5" />}
+                  label="Owner company"
+                  value={project.companyName}
+                />
+                {project.isHired && project.companyHiredName && (
+                  <InfoRow
+                    icon={<Building2 className="size-3.5" />}
+                    label="Hired company"
+                    value={project.companyHiredName}
+                  />
+                )}
+                <InfoRow
+                  icon={<WorkflowIcon className="size-3.5" />}
+                  label="Workflow"
+                  value={
+                    <div className="flex items-center justify-between gap-2">
+                     
+                      {project.workflowId && (
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowPreviewOpen(true)}
+                          className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100"
+                        >
+                          <WorkflowIcon className="size-3" />
+                          <span>View</span>
+                        </button>
+                      )}
+                    </div>
+                  }
+                />
+                <InfoRow
+                  icon={<CalendarDays className="size-3.5" />}
+                  label="Timeline"
+                  value={`${formatDate(project.startDate)} → ${formatDate(
+                    project.endDate,
+                  )}`}
+                />
+                <InfoRow
+                  icon={<Flag className="size-3.5" />}
+                  label="Sprint length"
+                  value={`${project.sprintLengthWeeks} week${
+                    project.sprintLengthWeeks > 1 ? "s" : ""
+                  }`}
+                />
+                <InfoRow
+                  icon={<Users2 className="size-3.5" />}
+                  label="Created by"
+                  value={
+                    <span>
+                      {displayCreatorName}{" "}
+                      <span className="text-slate-400">
+                        • {formatDate(project.createdAt)}
+                      </span>
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: actions */}
+          <div className="mt-1 flex flex-row gap-2 sm:flex-col xl:mt-0 xl:ml-6 relative">
+            <button
+              type="button"
+              onClick={handleOpenBoard}
+              disabled={!companyId || !projectId}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
             >
-              {k === "all" ? "All" : k === "todo" ? "To do" : k === "inprogress" ? "In progress" : k === "inreview" ? "Inreview" : "Done"}
+              <Activity className="size-4" />
+              Open board
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionsOpen((x) => !x)}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <MoreHorizontal className="size-4" />
+              Project actions
+            </button>
+
+            {actionsOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={handleStartEditBasic}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <Edit3 className="size-3.5 text-slate-500" />
+                  <span>Edit name & description</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkflowPreviewOpen(true)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <WorkflowIcon className="size-3.5 text-slate-500" />
+                  <span>View workflow</span>
+                </button>
+                <div className="my-1 border-t border-slate-100" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setConfirmState({ kind: "deleteProject" });
+                  }}
+                  disabled={deleting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete project</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* === Tabs === */}
+      <div className="mt-6 border-b border-slate-200">
+        <nav className="-mb-px flex gap-4 text-sm">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "members", label: "Members" },
+            { id: "activity", label: "Activity" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id as any)}
+              className={
+                "border-b-2 px-1.5 pb-2 text-sm font-medium transition " +
+                (activeTab === t.id
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300")
+              }
+            >
+              {t.label}
             </button>
           ))}
+        </nav>
+      </div>
+
+      {/* === Tab content === */}
+      {activeTab === "overview" && (
+        <div className="mt-5 grid gap-4 md:grid-cols-[2fr,1.4fr]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+            <div className="mb-2 text-sm font-semibold text-slate-800">
+              About this project
+            </div>
+            <p className="text-sm text-slate-600">
+              {project.description ||
+                "No description has been provided yet. Use the edit action to add more context for your team."}
+            </p>
+
+            <div className="mt-4 grid gap-3 text-xs text-slate-600 sm:grid-cols-2">
+              <InfoRow
+                icon={<CalendarDays className="size-3.5" />}
+                label="Start date"
+                value={formatDate(project.startDate)}
+              />
+              <InfoRow
+                icon={<CalendarDays className="size-3.5" />}
+                label="End date"
+                value={formatDate(project.endDate)}
+              />
+              <InfoRow
+                icon={<Users2 className="size-3.5" />}
+                label="Current members"
+                value={`${project.members.length} member${
+                  project.members.length !== 1 ? "s" : ""
+                }`}
+              />
+              <InfoRow
+                icon={<Activity className="size-3.5" />}
+                label="Project type"
+                value={project.isHired ? "Outsourced" : "Internal"}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Health snapshot */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-800">
+                  Health snapshot
+                </div>
+              </div>
+              <div className="space-y-3 text-xs text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span>Delivery progress</span>
+                  <span className="font-medium text-slate-800">
+                    {progress}%
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-blue-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Done tasks</span>
+                  <span>
+                    {projectStats?.doneTasks ?? 0} /{" "}
+                    {projectStats?.totalTasks ?? 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Active sprints</span>
+                  <span>{projectStats?.activeSprints ?? 0}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Workflow preview card */}
+            {project.workflowId && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-slate-800">
+                    Workflow
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="rounded-lg border bg-white overflow-hidden">
+                    <div className="px-3 py-2 flex items-center justify-between border-b">
+                      <div className="font-medium truncate">
+                        {project.workflowName || "Workflow"}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWorkflowPreviewOpen(true)}
+                        className="p-1 rounded hover:bg-gray-100"
+                        title="Preview"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </div>
+
+                    {loadingWorkflowPreview ? (
+                      <div className="h-[160px] bg-gray-50 animate-pulse" />
+                    ) : workflowPreview ? (
+                      <WorkflowMini data={workflowPreview} />
+                    ) : (
+                      <div className="h-[160px] bg-gray-50 flex items-center justify-center text-xs text-slate-400">
+                        No workflow preview available
+                      </div>
+                    )}
+
+                    <div className="px-3 py-2 border-t flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWorkflowPreviewOpen(true)}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1"
+                      >
+                        <Eye size={14} />
+                        Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleViewWorkflow}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Open full
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tips */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5 text-xs text-slate-600">
+              <div className="mb-1 text-sm font-semibold text-slate-800">
+                Tips for better project detail
+              </div>
+              <ul className="list-disc space-y-1 pl-4">
+                <li>
+                  Giữ description rõ ràng để member mới hiểu scope trong vài
+                  phút.
+                </li>
+                <li>
+                  Khai báo workflow đúng thực tế để board phản ánh pipeline
+                  chuẩn.
+                </li>
+                <li>
+                  Chia nhỏ sprint (1–2 tuần) để velocity dễ đo và tránh task kéo
+                  dài quá lâu.
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Boards */}
-      {view === "Sprint" && activeSprint && (
-        <SprintBoard sprint={activeSprint} onDragEnd={onDragEndSprint} />
+      {activeTab === "members" && (
+        <div className="mt-5 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <Users2 className="size-4 text-slate-500" />
+                Project members
+              </div>
+              <p className="text-xs text-slate-500">
+                Manage who can access this project. You can kick members or
+                assign new members from the company.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-slate-400" />
+                <input
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Search by name, email, role…"
+                  className="w-60 rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Current members table */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <table className="min-w-full divide-y divide-slate-100 text-sm">
+              <thead className="bg-slate-50">
+                <tr className="text-xs text-slate-500">
+                  <th className="px-4 py-2 text-left font-medium">Member</th>
+                  <th className="px-4 py-2 text-left font-medium">Role</th>
+                  <th className="px-4 py-2 text-left font-medium">Type</th>
+                  <th className="px-4 py-2 text-left font-medium">Joined</th>
+                  <th className="px-4 py-2 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-6 text-center text-xs text-slate-500"
+                    >
+                      No members found for this filter.
+                    </td>
+                  </tr>
+                )}
+                {filteredMembers.map((m) => (
+                  <tr key={m.userId} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="inline-flex size-8 items-center justify-center rounded-full bg-blue-600/10 text-xs font-semibold text-blue-700">
+                          {initials(m.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-slate-900">
+                            {m.name}
+                          </div>
+                          <div className="truncate text-xs text-slate-500">
+                            {m.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-700">
+                      {m.roleName || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs">
+                      <div className="flex flex-wrap items-center gap-1">
+                        {m.isPartner && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                            <Shield className="size-3" />
+                            Partner
+                          </span>
+                        )}
+                        {m.isViewAll && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                            View all
+                          </span>
+                        )}
+                        {!m.isPartner && !m.isViewAll && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[11px] text-slate-500">
+                            Standard
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600">
+                      {m.joinedAt ? formatDate(m.joinedAt) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-xs">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmState({ kind: "kickMember", member: m })
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100"
+                      >
+                        <Trash2 className="size-3.5" />
+                        Kick
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Assign new member from company */}
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <UserPlus className="size-4 text-blue-600" />
+                  Assign member from company
+                </div>
+                <p className="text-xs text-slate-500">
+                  Choose people who already belong to this company to add them
+                  into the project.
+                </p>
+              </div>
+            </div>
+
+            {availableMembers.length === 0 ? (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-500">
+                No more available members to add. Invite new members to the
+                company first.
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {availableMembers.map((m) => (
+                  <div
+                    key={m.userId}
+                    className="rounded-xl border border-slate-200 bg-white p-3 flex flex-col justify-between"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="inline-flex size-9 items-center justify-center rounded-full bg-blue-600/10 text-sm font-semibold text-blue-700">
+                        {initials(m.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-slate-900">
+                          {m.name}
+                        </div>
+                        <div className="truncate text-xs text-slate-500">
+                          {m.email}
+                        </div>
+                        {m.roleName && (
+                          <div className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                            {m.roleName}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                      <span>{m.isPartner ? "Partner" : "Company member"}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleAddMember(m)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <UserPlus className="size-3.5" />
+                        Add to project
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
-      {view === "Kanban" && sprints.length > 0 && (
-        <KanbanBySprintBoard sprints={sprints} filter={kanbanFilter} onDragEnd={onDragEndKanban} />
+      {activeTab === "activity" && (
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 text-sm text-slate-600">
+          <p className="text-xs text-slate-500 mb-2">
+            Activity timeline will be wired to audit logs / ticket events later.
+          </p>
+          <p className="text-xs text-slate-500">No activity data yet.</p>
+        </div>
+      )}
+
+      {/* Modal preview workflow lớn */}
+      {workflowPreviewOpen && project.workflowId && (
+        <WorkflowPreviewModal
+          open={workflowPreviewOpen}
+          workflowId={project.workflowId}
+          onClose={() => setWorkflowPreviewOpen(false)}
+        />
+      )}
+
+      {/* Confirm modal for delete / kick */}
+      {confirmState.kind !== "none" && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-slate-200 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                <Trash2 className="size-4" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {isDeleteProjectConfirm
+                    ? "Delete project?"
+                    : "Remove member from project?"}
+                </h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  {isDeleteProjectConfirm && (
+                    <>
+                      This will permanently delete{" "}
+                      <span className="font-semibold">"{project.name}"</span>{" "}
+                      and detach its sprints & tasks. This action cannot be
+                      undone.
+                    </>
+                  )}
+                  {isKickMemberConfirm && (
+                    <>
+                      Are you sure you want to remove{" "}
+                      <span className="font-semibold">{memberName}</span> from
+                      this project? They will lose access but can be added
+                      again later.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelConfirm}
+                disabled={deleting}
+                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                disabled={deleting}
+                className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+              >
+                {deleting && isDeleteProjectConfirm && (
+                  <span className="size-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
+                )}
+                {isDeleteProjectConfirm ? "Delete project" : "Remove member"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
-
-/* ===================== Dev tests (no-op) ===================== */
-const __DEV_TESTS__ = false;
-if (__DEV_TESTS__) {
-  const s: SprintVm = {
-    id: "sX",
-    name: "Week X",
-    columns: { todo: [{ id: "a", code: "A", title: "A", priority: "Low", type: "Chore", memberCount: 1 }], inprogress: [], inreview: [], done: [] },
-  };
-  console.assert(flattenSprintTasks(s, "all").length === 1, "flatten all should include todo");
-  console.assert(flattenSprintTasks(s, "todo").length === 1, "flatten todo should be 1");
-  console.assert(findTaskInSprint(s, "a")?.status === "todo", "findTaskInSprint locates by id");
-  console.assert(computeSprintStats(s).pct === 0, "pct 0 when none done");
-}
-
-/*
-  ====================
-  Export default for canvas preview. In your app you can route to this single
-  page and keep both tabs here.
-  ====================
-*/
-export default ProjectBoardPage;

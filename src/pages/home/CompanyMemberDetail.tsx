@@ -15,42 +15,59 @@ import {
   Calendar,
   Eye,
   Trash,
+  UserPlus,
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  ResponsiveContainer,
+  Pie,
+  Cell,
+  Line,
+  LineChart,
+  Tooltip,
+  PieChart,
+  YAxis,
+  Area,
+  AreaChart,
+} from 'recharts';
 import { getUserById } from '@/services/userService.js';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { User as IUser } from '@/interfaces/User/User';
 import {
   GetCompanyMemberByCompanyIdAndUserId,
   FireMemberFromCompany,
+  AddUserRolesToCompany,
 } from '@/services/companyMemberService.js';
 import type { CompanyMemberInterface } from '@/interfaces/Company/member';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import { getProjectMemberByCompanyIdAndUserId } from '@/services/projectMember.js';
 import type { IProjectMember } from '@/interfaces/ProjectMember/projectMember';
 import DeleteProjectMember from '@/components/ProjectMember/DeleteProjectMember';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useDebounce } from '@/hook/Debounce';
-
-const data = [
-  { name: 'Productivity', value: 75 },
-  { name: 'Communication', value: 60 },
-  { name: 'Teamwork', value: 85 },
-  { name: 'Problem Solving', value: 65 },
-];
+import { Paging } from '@/components/Paging/Paging';
+import AddRoleModal from '@/components/Company/AccessRole/AddRoleCompanyMemberModal';
 
 export default function CompanyMemberDetail() {
   const navigate = useNavigate();
   //state open delete popup
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
+  //state open add role popup
+  const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
+
   // pagination state
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
+  const [pagination, setPagination] = useState({
+    pageNumber: 1,
+    pageSize: 5,
+    totalCount: 0,
+  });
 
   //get companyid by use location of state
   const { state } = useLocation();
@@ -65,6 +82,28 @@ export default function CompanyMemberDetail() {
   const [reasonDelete, setReasonDelete] = useState('');
   //state project membert
   const [listProjectMember, setListProjectMember] = useState<IProjectMember | undefined>();
+
+  //state performance
+  const [performance, setPerformance] = useState<any>({
+    productivity: 0,
+    communication: 0,
+    teamwork: 0,
+    problemSolving: 0,
+
+    efficiency: {
+      onTimePercent: 0,
+      latePercent: 0,
+      pendingPercent: 0,
+    },
+
+    priorityDistribution: {
+      segments: [],
+    },
+
+    scoreTrendChart: {
+      data: [],
+    },
+  });
 
   //state user
   const [user, setUser] = useState<IUser | undefined>();
@@ -81,6 +120,13 @@ export default function CompanyMemberDetail() {
   const debouncedSearch = useDebounce(searchProjectName, 300);
   const debouncedFilter = useDebounce(statusFilter, 300);
 
+  const data = [
+    { name: 'Productivity', value: performance?.productivity || 75 },
+    { name: 'Communication', value: performance?.communication || 60 },
+    { name: 'Teamwork', value: performance?.teamwork || 85 },
+    { name: 'Problem Solving', value: performance?.problemSolving || 65 },
+  ];
+
   //handle remove member
   const handleRemoveMember = async (memberId: string, reason: string) => {
     if (!member || !memberId) return;
@@ -96,7 +142,7 @@ export default function CompanyMemberDetail() {
       navigate(-1);
     } catch (error: any) {
       console.error(error);
-      alert(error.message || 'Failed to remove member.');
+      toast(error.message || 'Failed to remove member.');
     } finally {
       setLoadingDelete(false);
     }
@@ -123,14 +169,17 @@ export default function CompanyMemberDetail() {
         statusFilter ?? '',
         null,
         null,
-        pageNumber,
-        pageSize,
+        pagination.pageNumber,
+        pagination.pageSize,
         null,
         null,
       );
       setListProjectMember(response.data.items[0]);
 
-      setTotalProjectCount(response.data.totalCount ?? 0);
+      setPagination((prev) => ({
+        ...prev,
+        totalCount: response.data.totalCount ?? 0,
+      }));
     } catch (error: any) {
       console.log(error);
       setListProjectMember(undefined);
@@ -156,7 +205,27 @@ export default function CompanyMemberDetail() {
   const fetchCompanyMemberByCompanyIdAndUserId = async () => {
     try {
       const response = await GetCompanyMemberByCompanyIdAndUserId(companyId, Id);
+      const data = response.data;
+      const perf = {
+        productivity: data.productivity ?? 0,
+        communication: data.communication ?? 0,
+        teamwork: data.teamwork ?? 0,
+        problemSolving: data.problemSolving ?? 0,
 
+        efficiency: {
+          onTimePercent: data.efficiency.onTimePercent ?? 0,
+          latePercent: data.efficiency.latePercent ?? 0,
+          pendingPercent: data.efficiency.pendingPercent ?? 0,
+        },
+        priorityDistribution: {
+          segments: data.priorityDistribution?.segments ?? [],
+        },
+        scoreTrendChart: {
+          data: data.scoreTrendChart?.data ?? [],
+        },
+      };
+
+      setPerformance(perf);
       setMember(response.data);
     } catch (error: any) {
       console.log(error);
@@ -176,7 +245,7 @@ export default function CompanyMemberDetail() {
   //paging
   useEffect(() => {
     fetchGetProjectMemberByCompanyIdAndUserId();
-  }, [pageNumber, pageSize]);
+  }, [pagination.pageNumber, pagination.pageSize]);
 
   return (
     <div className="relative">
@@ -227,6 +296,12 @@ export default function CompanyMemberDetail() {
                   >
                     <Trash size={16} /> Remove Member
                   </button>
+                  <button
+                    onClick={() => setIsAddRoleOpen(true)}
+                    className="flex-1 py-2 rounded-lg border border-green-300 bg-green-500 text-white hover:bg-green-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <UserPlus size={16} /> Add Role
+                  </button>
                 </div>
 
                 <div className="flex justify-around w-full py-4 mt-3 border-t border-gray-100">
@@ -237,12 +312,12 @@ export default function CompanyMemberDetail() {
                   </div>
                   <div className="flex flex-col items-center">
                     <Star size={20} className="text-yellow-500 mb-1" />
-                    <span className="text-sm font-semibold">88</span>
+                    <span className="text-sm font-semibold">{member?.score}</span>
                     <p className="text-xs text-gray-500">Score</p>
                   </div>
                   <div className="flex flex-col items-center">
                     <Clock size={20} className="text-purple-500 mb-1" />
-                    <span className="text-sm font-semibold">40</span>
+                    <span className="text-sm font-semibold">{member?.hoursPerWeek}</span>
                     <p className="text-xs text-gray-500">hr/week</p>
                   </div>
                 </div>
@@ -278,6 +353,97 @@ export default function CompanyMemberDetail() {
 
             {/* Right Column */}
             <div className="col-span-2 space-y-6">
+              {/* Three Chart */}
+              <div className="flex flex-col md:flex-row gap-6 w-full">
+                {/* Efficiency Chart */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex-1">
+                  <h4 className="font-semibold mb-2">Efficiency</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart
+                      data={[
+                        { name: 'On Time', value: performance?.efficiency?.onTimePercent ?? 0 },
+                        { name: 'Late', value: performance?.efficiency?.latePercent ?? 0 },
+                        { name: 'Pending', value: performance?.efficiency?.pendingPercent ?? 0 },
+                      ]}
+                    >
+                      <XAxis dataKey="name" />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[5, 5, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Priority Distribution */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex-1 flex flex-col items-center">
+                  <h4 className="font-semibold mb-2">Priority Distribution</h4>
+
+                  {/* PieChart */}
+                  <div className="w-full flex justify-center">
+                    <ResponsiveContainer width={200} height={200}>
+                      <PieChart>
+                        <Pie
+                          data={performance?.priorityDistribution?.segments ?? []}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={3}
+                          cx="50%"
+                          cy="50%"
+                        >
+                          {(performance?.priorityDistribution?.segments ?? []).map(
+                            (seg: any, i: number) => (
+                              <Cell key={i} fill={seg.color || '#8884d8'} />
+                            ),
+                          )}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm">
+                    {(performance?.priorityDistribution?.segments ?? []).map(
+                      (seg: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: seg.color || '#8884d8' }}
+                          ></span>
+                          {seg.name}: {seg.value}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+
+                {/* Score Trend */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex-1">
+                  <h4 className="font-semibold mb-2">Score Trend</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={performance?.scoreTrendChart?.data ?? []}>
+                      <defs>
+                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="period" />
+                      <YAxis />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="userScore"
+                        stroke="#3b82f6"
+                        fill="url(#colorScore)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6"></div>
 
               {/* Projects Table */}
@@ -376,24 +542,20 @@ export default function CompanyMemberDetail() {
                     )}
                   </tbody>
                 </table>
-                {/* Pagination */}
-                <div className="flex justify-end mt-3 w-full">
-                  <Stack
-                    spacing={2}
-                    className="bg-white p-3 rounded-xl shadow-sm border-2 border-gray-200"
-                  >
-                    <Pagination
-                      count={Math.ceil(totalProjectCount / pageSize) || 1}
-                      page={pageNumber}
-                      onChange={(e, value) => setPageNumber(value)}
-                      color="primary"
-                      variant="outlined"
-                      shape="rounded"
-                      size="medium"
-                      showFirstButton
-                      showLastButton
-                    />
-                  </Stack>
+                <div className="w-full mt-3">
+                  <Paging
+                    page={pagination.pageNumber}
+                    pageSize={pagination.pageSize}
+                    totalCount={pagination.totalCount}
+                    onPageChange={(page) => {
+                      setPagination((prev) => ({ ...prev, pageNumber: page }));
+                      fetchGetProjectMemberByCompanyIdAndUserId();
+                    }}
+                    onPageSizeChange={(size) => {
+                      setPagination((prev) => ({ ...prev, pageSize: size, pageNumber: 1 }));
+                      fetchGetProjectMemberByCompanyIdAndUserId();
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -406,6 +568,24 @@ export default function CompanyMemberDetail() {
         onConfirm={() => handleRemoveMember(member?.memberId || '', reasonDelete)}
         memberName={member?.memberName}
         companyName={member?.companyName}
+      />
+      <AddRoleModal
+        companyId={companyId}
+        isOpen={isAddRoleOpen}
+        onClose={() => setIsAddRoleOpen(false)}
+        onConfirm={async (selectedRoles) => {
+          try {
+            await AddUserRolesToCompany(companyId, {
+              userId: Id || '',
+              roleIds: selectedRoles.map((role) => role.id),
+            });
+            toast.success('Roles added successfully!');
+          } catch (error: any) {
+            toast.error(error.message || 'Failed to add roles');
+          } finally {
+            setIsAddRoleOpen(false);
+          }
+        }}
       />
       <LoadingOverlay loading={loadingDelete} message="Removing member..." />
     </div>

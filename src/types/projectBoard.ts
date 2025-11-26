@@ -1,51 +1,68 @@
-export type Id = string;
+// src/types/projectBoard.ts
 export type StatusKey = "todo" | "inprogress" | "inreview" | "done";
-export type Priority = "Urgent" | "High" | "Medium" | "Low";
-export type TaskType = "Feature" | "Bug" | "Chore";
 
 export type MemberRef = {
-  id: Id;
+  id: string;
   name: string;
   avatarUrl?: string | null;
 };
-export type Severity = "Critical" | "High" | "Medium" | "Low";
 
-export type TaskVm = {
-  id: Id;
-  code: string;
-  title: string;
-  type: TaskType;
-  severity?: Severity;   // NEW
-  tags?: string[];       // NEW
-  priority: Priority;
-  storyPoints: number;
-  estimateHours: number;
-  remainingHours: number;
-  dueDate?: string;
-  openedAt: string;
-  updatedAt: string;
-  createdAt: string;
-  sprintId: Id | null;
-  status: StatusKey;
-  stage:
-    | "IN_PROGRESS"
-    | "WAITING_FOR_DEPLOY"
-    | "CHECK_AGAIN"
-    | "DEV_DONE"
-    | "READY_ON_PRODUCTION"
-    | "CLOSED";
-  assignees: MemberRef[];
-  dependsOn: Id[];
-  parentTaskId: Id | null;
-  carryOverCount: number;
-  sourceTicketId: Id | null;
-  sourceTicketCode: string | null;
+export type StatusCategory = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+
+export type StatusMeta = {
+  id: string;
+  code: string;        // "todo" | "inprogress" | ...
+  name: string;        // label hiển thị
+  category: StatusCategory;
+  order: number;
+  wipLimit?: number;
+  color?: string;
+  isFinal?: boolean;
+  isStart?: boolean;
+  roles?: string[];    
 };
 
 export type SprintVm = {
-  id: Id;
+  id: string;
   name: string;
-  start?: string; // ISO
-  end?: string;   // ISO
-  columns: Record<StatusKey, TaskVm[]>;
+  start?: string;
+  end?: string;
+  state?: "Planning" | "Active" | "Closed";
+  capacityHours?: number;
+  committedPoints?: number;
+
+  workflowId?: string;
+  // dynamic:
+  statusOrder: string[];                         // ["st-todo","st-inp","st-rev","st-done"]
+  statusMeta: Record<string, StatusMeta>;        // id -> meta
+  columns: Record<string, TaskVm[]>;             // statusId -> TaskVm[]
+};
+
+export type TaskVm = {
+  id: string;
+  code: string;
+  title: string;
+  type: "Feature" | "Bug" | "Chore" | string;
+  priority: "Urgent" | "High" | "Medium" | "Low";
+  severity?: "Critical" | "High" | "Medium" | "Low";
+  storyPoints?: number;
+  estimateHours?: number;
+  remainingHours?: number;
+  dueDate?: string;
+
+  sprintId: string | null;
+  workflowStatusId: string;          // FK
+  statusCode: string;                // tiện màu sắc/icon
+  statusCategory: StatusCategory;
+  assignees: MemberRef[];
+  dependsOn: string[];
+  parentTaskId: string | null;
+  carryOverCount: number;
+  StatusName: string;
+  openedAt: string;
+  updatedAt: string;
+  createdAt: string;
+
+  sourceTicketId: string | null;
+  sourceTicketCode: string | null;
 };

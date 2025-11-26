@@ -104,3 +104,81 @@ export const FireMemberFromCompany = async (firedMemberMail, reason, companyId) 
     throw new Error(error.response?.data?.message || 'Failed to fire member');
   }
 };
+
+export const GetCompanyMemberByUserId = async (
+  KeyWord = '',
+  Status = null,
+  CreateAtFrom = null,
+  CreateAtTo = null,
+  JoinedAtFrom = null,
+  JoinedAtTo = null,
+  CompanyName = null,
+  MemberName = null,
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn = null,
+  SortDescending = null,
+) => {
+  try {
+    const response = await axiosInstance.get(`/companymember/by-user`, {
+      params: {
+        KeyWord: KeyWord,
+        Status: Status,
+
+        'CreateAtRange.From': CreateAtFrom,
+        'CreateAtRange.To': CreateAtTo,
+
+        'JoinedAtRange.From': JoinedAtFrom,
+        'JoinedAtRange.To': JoinedAtTo,
+
+        CompanyName: CompanyName,
+        MemberName: MemberName,
+
+        PageNumber: PageNumber,
+        PageSize: PageSize,
+
+        SortColumn: SortColumn,
+        SortDescending: SortDescending,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error in GetCompanyMemberByUserId:', error);
+    throw new Error(error.response?.data?.message || 'Fail!');
+  }
+};
+
+// https://localhost:7160/api/companymember/{memberId}/accept
+export const AcceptJoinMemberById = async (memberId) => {
+  try {
+    const response = await axiosInstance.put(`/companymember/${memberId}/accept`);
+    return response.data;
+  } catch (error) {
+    console.error('Error accepting member:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Failed to accept member');
+  }
+};
+
+// https://localhost:7160/api/companymember/{memberId}/reject
+export const RejectJoinMemberById = async (memberId) => {
+  try {
+    const response = await axiosInstance.put(`/companymember/${memberId}/reject`);
+    return response.data;
+  } catch (error) {
+    console.error('Error rejecting member:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Failed to reject member');
+  }
+};
+
+// https://localhost:7160/api/companymember/{companyId}/users/roles
+export const AddUserRolesToCompany = async (companyId, payload) => {
+ try {
+      const response = await axiosInstance.post(`/companymember/${companyId}/users/roles`, payload);
+      return response.data;
+  } catch (error) {
+      console.error('Error adding user roles:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to Add Role member');
+  }
+
+};

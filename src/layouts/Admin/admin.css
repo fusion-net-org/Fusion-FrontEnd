@@ -1,0 +1,33 @@
+/* Tokens + card preset cho khu vực Admin */
+.admin-theme{
+  --bg:#f6f7fb;
+  --panel:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --line:#e5e7eb;
+
+  --violet-50:#f5f3ff;
+  --violet-100:#ede9fe;
+  --violet-200:#ddd6fe;
+  --violet-500:#7c3aed;
+  --violet-600:#6d28d9;
+  --violet-700:#5b21b6;
+}
+
+.admin-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.admin-card:hover{ box-shadow:0 10px 28px rgba(15,23,42,.08); }
+
+.kpi{
+  display:flex; align-items:center; gap:12px;
+  padding:16px; border-radius:16px;
+  background:var(--panel); border:1px solid var(--line);
+}
+.kpi .ico{
+  padding:10px; border-radius:12px;
+  background:var(--violet-50); color:var(--violet-600);
+}

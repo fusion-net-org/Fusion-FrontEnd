@@ -5,7 +5,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
 import { login, loginGG, confirmAccount } from '@/services/authService.js';
-import { loginUser } from '@/redux/userSlice';
+import { loginUser, setUserCompanies } from '@/redux/userSlice';
+import { getAllCompanies } from '@/services/companyService.js';
 import { GoogleLogin } from '@react-oauth/google';
 import loginIllustration from '@/assets/auth/login.png';
 
@@ -50,6 +51,7 @@ const Login: React.FC = () => {
   const onSubmit = async (data: LoginFormInputs) => {
     try {
       const response = await login(data);
+
       if (response && response.data?.accessToken) {
         const token = response.data.accessToken;
         const decodedToken: any = jwtDecode(token);
@@ -62,10 +64,19 @@ const Login: React.FC = () => {
           username: response.data.userName,
           role: decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
         };
-
         dispatch(loginUser({ user }));
+
+        const companiesRes = await getAllCompanies();
+        if (companiesRes.succeeded) {
+          dispatch(setUserCompanies(companiesRes.data.items));
+        }
+
         toast.success('Login successful!');
-        navigate('/company');
+        if (user.role === 'Admin') {
+          navigate('/admin');
+        } else {
+          navigate('/company');
+        }
       } else {
         toast.error('Login failed!');
       }

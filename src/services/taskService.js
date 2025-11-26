@@ -1,4 +1,5 @@
 import { axiosInstance } from '../apiConfig';
+import { flashTaskCard, hexToRgba } from '@/utils/flash';
 
 export const getAllTask = async ({
   pageNumber = 1,
@@ -98,5 +99,383 @@ export const deleteTask = async (id) => {
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';
     throw new Error(message);
+  }
+};
+export const patchTaskStatusById = async (taskId, statusId, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.patch(`/tasks/${taskId}/status-id`, { statusId });
+    // ResponseModel => lấy data
+    const dto = res?.data?.data ?? res?.data;
+    // Flash tại DOM card
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Change status failed');
+  }
+};
+
+export const putReorderTask = async (projectId, sprintId, { taskId, toStatusId, toIndex }, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.put(`/projects/${projectId}/sprints/${sprintId}/tasks/reorder`, {
+      taskId, toStatusId, toIndex,
+    });
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Reorder failed');
+  }
+};
+
+export const postMoveTask = async (taskId, toSprintId, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.post(`/tasks/${taskId}/move`, { toSprintId });
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Move to sprint failed');
+  }
+};
+
+export const postTaskMarkDone = async (taskId, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.post(`/tasks/${taskId}/mark-done`);
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Mark done failed');
+  }
+};
+
+export const postTaskSplit = async (taskId, { flashColorHexA, flashColorHexB } = {}) => {
+  try {
+    const res = await axiosInstance.post(`/tasks/${taskId}/split`);
+    const dto = res?.data?.data ?? res?.data; // { partA, partB }
+    // Flash cho cả A (update) và B (new)
+    if (dto?.partA?.id) flashTaskCard(dto.partA.id, { colorHex: flashColorHexA });
+    if (dto?.partB?.id) flashTaskCard(dto.partB.id, { colorHex: flashColorHexB ?? flashColorHexA });
+    return dto;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || 'Split failed');
+  }
+};
+export const createTaskQuick = async (
+  projectId,
+  {
+    title,
+    sprintId = null,
+    type = 'Feature',
+    priority = 'Medium',
+    severity = null,
+    storyPoints = null, // map -> point
+    estimateHours = null,
+    dueDate = null, // ISO string hoặc null
+    workflowStatusId = null, // ưu tiên id
+    statusCode = null, // fallback nếu chỉ có code
+    parentTaskId = null,
+    sourceTaskId = null,
+    assigneeIds = null, // optional: array<Guid>
+  } = {},
+) => {
+  try {
+    const payload = {
+      projectId,
+      sprintId,
+      title: title?.trim() || '',
+      type,
+      priority,
+      severity,
+      point: storyPoints,
+      estimateHours,
+      dueDate,
+      workflowStatusId,
+      statusCode,
+      parentTaskId,
+      sourceTaskId,
+      ...(Array.isArray(assigneeIds) && assigneeIds.length ? { assigneeIds } : {}),
+    };
+
+    const res = await axiosInstance.post('/tasks', payload);
+    // BE trả ResponseModel => lấy thẳng data bên trong
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    const message = error?.response?.data?.message || 'Create task failed';
+    throw new Error(message);
+  }
+};
+
+export const GetTaskBySprintId = async (
+  sprintId,
+  Title = '',
+  Status = '',
+  Priority = '',
+  CreatedFrom = '',
+  CreatedTo = '',
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn = '',
+  SortDescending = null,
+) => {
+  try {
+    const response = await axiosInstance.get(`/sprints/${sprintId}/tasks`, {
+      params: {
+        Title,
+        Status,
+        Priority,
+        CreatedFrom,
+        CreatedTo,
+        PageNumber,
+        PageSize,
+        SortColumn,
+        SortDescending,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error in GetTaskBySprintId:', error);
+    throw new Error(error.response?.data?.message || 'Fail!');
+  }
+};
+/* =========================
+ * CHECKLIST APIs
+ * ========================= */
+
+export const getTaskChecklist = async (taskId) => {
+  try {
+    const res = await axiosInstance.get(`/tasks/${taskId}/checklist`);
+    // BE trả ResponseModel<List<...>> => data.data
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in getTaskChecklist:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching checklist items',
+    );
+  }
+};
+
+export const createTaskChecklistItem = async (taskId, label) => {
+  try {
+    const payload = { label };
+    const res = await axiosInstance.post(
+      `/tasks/${taskId}/checklist`,
+      payload,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in createTaskChecklistItem:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error creating checklist item',
+    );
+  }
+};
+
+export const updateTaskChecklistItem = async (
+  taskId,
+  { id, label, done, orderIndex },
+) => {
+  try {
+    const payload = {
+      label,
+      isDone: done,
+      orderIndex,
+    };
+    const res = await axiosInstance.put(
+      `/tasks/${taskId}/checklist/${id}`,
+      payload,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in updateTaskChecklistItem:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error updating checklist item',
+    );
+  }
+};
+
+export const toggleTaskChecklistItemDone = async (
+  taskId,
+  checklistId,
+  isDone,
+) => {
+  try {
+    const payload =
+      typeof isDone === 'boolean'
+        ? { isDone }
+        : {}; // null => toggle server-side
+
+    const res = await axiosInstance.patch(
+      `/tasks/${taskId}/checklist/${checklistId}/done`,
+      payload,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in toggleTaskChecklistItemDone:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error toggling checklist item',
+    );
+  }
+};
+
+export const deleteTaskChecklistItem = async (taskId, checklistId) => {
+  try {
+    const res = await axiosInstance.delete(
+      `/tasks/${taskId}/checklist/${checklistId}`,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in deleteTaskChecklistItem:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error deleting checklist item',
+    );
+  }
+};
+/* =========================
+ * ATTACHMENT APIs
+ * ========================= */
+
+export const getTaskAttachments = async (taskId) => {
+  try {
+    const res = await axiosInstance.get(`/tasks/${taskId}/attachments`);
+    const payload = res?.data?.data ?? res?.data ?? [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.items)) return payload.items;
+    if (Array.isArray(payload.attachments)) return payload.attachments;
+    return [];
+  } catch (error) {
+    console.error('Error in getTaskAttachments:', error);
+    throw new Error(error.response?.data?.message || 'Error fetching attachments');
+  }
+};
+
+export const uploadTaskAttachments = async (taskId, files, description) => {
+  try {
+    const formData = new FormData();
+    Array.from(files).forEach((f) => {
+      if (f) formData.append('files', f); // trùng với TaskAttachmentUploadRequest.Files
+    });
+    if (description) formData.append('description', description);
+
+    const res = await axiosInstance.post(
+      `/tasks/${taskId}/attachments`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in uploadTaskAttachments:', error);
+    throw new Error(error.response?.data?.message || 'Error uploading attachments');
+  }
+};
+
+export const deleteTaskAttachment = async (taskId, attachmentId) => {
+  try {
+    const res = await axiosInstance.delete(
+      `/tasks/${taskId}/attachments/${attachmentId}`,
+    );
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in deleteTaskAttachment:', error);
+    throw new Error(error.response?.data?.message || 'Error deleting attachment');
+  }
+};
+/** POST /api/tasks/{taskId}/comments  (body + files) */
+
+export async function createTaskComment(taskId, body, files) {
+  try {
+    const form = new FormData();
+
+    if (body && body.trim().length > 0) {
+      form.append("body", body.trim());
+    }
+
+    if (files && files.length) {
+      const arr = Array.from(files);
+      for (const f of arr) {
+        if (f) {
+          // tên "files" phải trùng với [FromForm] List<IFormFile> files
+          form.append("files", f);
+        }
+      }
+    }
+
+    const { data } = await axiosInstance.post(
+      `/tasks/${taskId}/comments`,
+      form,
+      {
+        // *** QUAN TRỌNG: ép gửi multipart/form-data ***
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    // response chuẩn của BE: { succeeded, message, data }
+    return data?.data ?? data;
+  } catch (error) {
+    console.error("[TaskDetail] create comment failed", error);
+    throw new Error(
+      error.response?.data?.message || "Error creating comment!"
+    );
+  }
+}
+
+
+/** GET /api/tasks/{taskId}/comments */
+export async function getTaskComments(taskId) {
+  try {
+    const res = await axiosInstance.get(`/tasks/${taskId}/comments`);
+    const data = res?.data?.data ?? res?.data ?? [];
+    // luôn trả về array cho FE
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.comments)) return data.comments;
+    return [];
+  } catch (error) {
+    console.error("Error in getTaskComments:", error);
+    throw new Error(
+      error?.response?.data?.message || "Error fetching comments"
+    );
+  }
+}
+export const getMyTasks = async ({
+  pageNumber = 1,
+  pageSize = 200,
+  sortColumn = 'DueDate',
+  sortDescending = false,
+  search = '',
+  type = [],
+  priority = [],
+  status = [],
+  dueDateFrom = '',
+  dueDateTo = '',
+  pointMin,
+  pointMax,
+} = {}) => {
+  try {
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    if (search) params.Search = search;
+    if (Array.isArray(type) && type.length > 0) params.Type = type.join(',');
+    if (Array.isArray(priority) && priority.length > 0) params.Priority = priority.join(',');
+    if (Array.isArray(status) && status.length > 0) params.Status = status.join(',');
+    if (dueDateFrom) params.DueDateFrom = dueDateFrom;
+    if (dueDateTo) params.DueDateTo = dueDateTo;
+    if (pointMin !== undefined) params.PointMin = pointMin;
+    if (pointMax !== undefined) params.PointMax = pointMax;
+
+    // Controller: [HttpGet("tasks/user")]
+    const response = await axiosInstance.get('/tasks/user', { params });
+    return response.data;               // ResponseModel<PagedResult<TaskResponse>>
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching my tasks'
+    );
   }
 };

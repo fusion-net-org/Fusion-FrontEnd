@@ -75,3 +75,53 @@ export interface CompanyResponseV2 {
   pageSize: number;
   totalCount: number;
 }
+
+export interface CompanyListResponse {
+  id: string | null;
+  companyName: string | null;
+}
+
+export interface CompanyListResponse {
+  id: string | null;
+  companyName: string | null;
+}
+
+// Generic ResponseModel từ backend trả về
+export interface ResponseModel<T> {
+  succeeded: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+
+//============= Over view ============
+/*1.Growth & Status (chart) ====== */
+
+export interface CompanyGrowthPoint {
+  year: number;
+  month: number; // 1-12
+  newCompanies: number;
+  cumulativeCompanies: number;
+}
+
+export interface CompanyGrowthAndStatusOverview {
+  totalCompanies: number;
+  activeCompanies: number;
+  deletedCompanies: number;
+  newCompaniesLast30Days: number;
+  growth: CompanyGrowthPoint[];
+}
+// 2. Company project load distribution
+export interface CompanyProjectLoadBucket {
+  bucketKey: string;
+  label: string;
+  companyCount: number;
+  totalProjects: number;
+}
+
+export interface CompanyProjectLoadOverview {
+  totalCompanies: number;
+  totalProjects: number;
+  buckets: CompanyProjectLoadBucket[];
+}

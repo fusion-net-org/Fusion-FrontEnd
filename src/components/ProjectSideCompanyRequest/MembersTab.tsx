@@ -1,33 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useCallback } from 'react';
 import { Users, Search } from 'lucide-react';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
 import { Input, DatePicker, Spin } from 'antd';
 import type { IProjectMemberItemV2 } from '@/interfaces/ProjectMember/projectMember';
 import { getProjectMemberByProjectId } from '@/services/projectMember.js';
 import { useDebounce } from '@/hook/Debounce';
+import { Paging } from '@/components/Paging/Paging';
 
 const { RangePicker } = DatePicker;
 
 interface MembersTabProps {
   projectId: string;
-  rowsPerPage?: number;
-  onMembersDataChange?: (data: any) => void;
 }
 
-const MembersTab: React.FC<MembersTabProps> = ({
-  projectId,
-  rowsPerPage = 10,
-  onMembersDataChange,
-}) => {
+const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
   const [members, setMembers] = useState<IProjectMemberItemV2[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const debouncedSearch = useDebounce(memberSearch, 500); // debounce 500ms
   const [memberRange, setMemberRange] = useState<any>(null);
-  const [memberPage, setMemberPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  const [pagination, setPagination] = useState({
+    pageNumber: 1,
+    pageSize: 10,
+    totalCount: 0,
+  });
+
   const fetchMembers = useCallback(async () => {
     try {
       setLoading(true);
@@ -38,83 +36,107 @@ const MembersTab: React.FC<MembersTabProps> = ({
         debouncedSearch,
         fromDate,
         toDate,
-        memberPage,
-        rowsPerPage,
+        pagination.pageNumber,
+        pagination.pageSize,
       );
+
       if (res?.succeeded) {
         setMembers(res.data.items || []);
-        if (onMembersDataChange) {
-          onMembersDataChange(res.data);
-        }
+        setPagination((prev) => ({
+          ...prev,
+          totalCount: res.data.totalCount || 0,
+        }));
       }
-      setTotalPages(Math.ceil((res.data.totalCount || 0) / rowsPerPage));
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [projectId, debouncedSearch, memberRange, memberPage, rowsPerPage, onMembersDataChange]);
+  }, [projectId, debouncedSearch, memberRange, pagination.pageNumber, pagination.pageSize]);
+
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageNumber: 1 }));
+  }, [debouncedSearch, memberRange]);
 
   useEffect(() => {
     fetchMembers();
-  }, [debouncedSearch, memberRange, memberPage]);
+  }, [fetchMembers]);
 
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col mb-2 gap-3">
+      <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-700 mt-2">
           <Users className="text-indigo-500 w-5 h-5" /> Project Members
         </h2>
 
-        {/* Search & Date Range */}
-        <div className="flex items-center gap-3">
-          <Input
-            prefix={<Search size={20} />}
-            placeholder="Search by name, email, phone..."
-            value={memberSearch}
-            onChange={(e) => {
-              setMemberSearch(e.target.value);
-              setMemberPage(1);
-            }}
-            className="flex-1 min-w-[280px] max-w-[400px]"
-          />
-          <RangePicker
-            onChange={(val) => {
-              setMemberRange(val);
-              setMemberPage(1);
-            }}
-            placeholder={['Start date', 'End date']}
-            className="min-w-[220px] ml-auto"
-          />
+        {/* Search & Filter */}
+        <div className="flex items-end justify-between gap-6 mb-4">
+          {/* LEFT — Search */}
+          <div className="flex flex-col flex-1 max-w-[400px]">
+            <label className="text-sm font-semibold text-gray-600 mb-1">Search</label>
+            <Input
+              prefix={<Search size={20} />}
+              placeholder="Search by name, email, phone..."
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          {/* RIGHT — Filter (Date Range) */}
+          <div className="flex flex-col min-w-[240px]">
+            <label className="text-sm font-semibold text-gray-600 mb-1">Filter (Joined Date)</label>
+            <RangePicker
+              onChange={(val) => setMemberRange(val)}
+              placeholder={['Start date', 'End date']}
+              className="w-full"
+            />
+          </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm mt-3">
         {loading ? (
           <div className="flex justify-center p-4">
             <Spin />
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-indigo-50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-10">#</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-40">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
+                  Phone
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">
+                  Gender
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
                   Joined Date
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-auto">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {members.length > 0 ? (
-                members.map((m) => (
+                members.map((m, index) => (
                   <tr key={m.userId} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-3 font-medium text-gray-800">
+                      {(pagination.pageNumber - 1) * pagination.pageSize + index + 1}
+                    </td>
                     <td className="px-6 py-3 font-medium text-gray-800">{m.userName}</td>
                     <td className="px-6 py-3 text-gray-600">{m.email}</td>
                     <td className="px-6 py-3 text-gray-600">{m.phone || '-'}</td>
@@ -150,7 +172,7 @@ const MembersTab: React.FC<MembersTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-gray-500">
+                  <td colSpan={8} className="text-center py-4 text-gray-500">
                     No members found
                   </td>
                 </tr>
@@ -160,19 +182,17 @@ const MembersTab: React.FC<MembersTabProps> = ({
         )}
       </div>
 
-      {/* Pagination */}
-      <div className="mt-4 flex justify-end">
-        <Stack spacing={2}>
-          <Pagination
-            count={totalPages}
-            page={memberPage}
-            onChange={(_, value) => setMemberPage(value)}
-            color="primary"
-            shape="rounded"
-            siblingCount={totalPages}
-            boundaryCount={totalPages}
-          />
-        </Stack>
+      {/* Paging */}
+      <div className="mt-4">
+        <Paging
+          page={pagination.pageNumber}
+          pageSize={pagination.pageSize}
+          totalCount={pagination.totalCount}
+          onPageChange={(page) => setPagination((prev) => ({ ...prev, pageNumber: page }))}
+          onPageSizeChange={(size) =>
+            setPagination((prev) => ({ ...prev, pageSize: size, pageNumber: 1 }))
+          }
+        />
       </div>
     </div>
   );
