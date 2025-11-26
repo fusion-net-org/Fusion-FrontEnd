@@ -5,10 +5,10 @@ import { Input, Select, DatePicker, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { GetTicketByProjectId } from '@/services/TicketService.js';
 import type { ITicketResponseTab, ITicketTab } from '@/interfaces/Ticket/Ticket';
-import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
 import { Paging } from '@/components/Paging/Paging';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -21,7 +21,7 @@ interface TicketsTabProps {
 const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) => {
   const navigate = useNavigate();
   const [showCreatePopup, setShowCreatePopup] = useState(false);
-
+  const { companyId } = useParams();
   const [ticketsResponse, setTicketsResponse] = useState<ITicketResponseTab | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketPriority, setTicketPriority] = useState('');
@@ -89,11 +89,13 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const tickets: ITicketTab[] = ticketsResponse?.data?.items || [];
 
   const handleGoToDetail = (ticket: ITicketTab) => {
-    navigate(`/project/${projectId}/tickets/${ticket.id}`, {
-      state: { isDeleted: ticket.isDeleted },
+    navigate(`/companies/${companyId}/project/${projectId}/tickets/${ticket.id}`, {
+      state: {
+        isDeleted: ticket.isDeleted,
+        viewMode: 'AsRequester',
+      },
     });
   };
-
   return (
     <div>
       {/* SEARCH & FILTER */}
@@ -127,6 +129,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                 className="w-full"
               >
                 <Option value="All">All</Option>
+                <Option value="Urgent">Urgent</Option>
                 <Option value="High">High</Option>
                 <Option value="Medium">Medium</Option>
                 <Option value="Low">Low</Option>
