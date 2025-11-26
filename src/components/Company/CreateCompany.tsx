@@ -6,6 +6,9 @@ import { createCompany } from '@/services/companyService.js';
 import { Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import { getAllCompanies } from '@/services/companyService.js';
+import { useDispatch } from 'react-redux';
+import { setUserCompanies } from '@/redux/userSlice';
 
 interface FormCreateCompanyProps {
   onCreated?: () => void;
@@ -21,6 +24,7 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
     avatar: null,
     banner: null,
   });
+  const dispatch = useDispatch();
 
   // Handlers for modal visibility
   const handleOpen = () => setIsModalOpen(true);
@@ -68,6 +72,11 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
       const msg = res.data?.message || 'Company created successfully!';
       toast.success(msg);
+
+      const companiesRes = await getAllCompanies();
+      if (companiesRes.succeeded) {
+        dispatch(setUserCompanies(companiesRes.data.items));
+      }
 
       if (onCreated) onCreated();
 
