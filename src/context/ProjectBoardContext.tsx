@@ -8,6 +8,9 @@ import {
   postTaskMarkDone,
   postTaskSplit,
 } from '@/services/taskService.js';
+import { fetchSprintBoard } from "@/services/projectBoardService.js";
+import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
+
 /* ================== Context types ================== */
 type Ctx = {
   sprints: SprintVm[];
@@ -32,6 +35,7 @@ type Ctx = {
   ) => Promise<TaskVm>;
   attachTaskFromApi: (api: any) => void; 
   attachTaskVm: (vm: TaskVm) => void;
+  reloadBoard: () => Promise<void>;
 };
 
 const ProjectBoardContext = React.createContext<Ctx | null>(null);
@@ -160,7 +164,7 @@ export function ProjectBoardProvider({
   const [sprints, setSprints] = useState<SprintVm[]>(
     () => syncColumns(initialData?.sprints ?? [], initialData?.tasks ?? [])
   );
-  const [loading] = useState<boolean>(false);
+  const [loading , setLoading] = useState<boolean>(false);
 
   // giữ bản tham chiếu mới nhất để dùng trong handlers
   const sRef = useRef<SprintVm[]>(sprints);
@@ -184,6 +188,28 @@ const applyWithColumns = (tasksUpdater: (prev: TaskVm[]) => TaskVm[]) => {
     return next;
   });
 };
+  // 🔁 load lại toàn bộ board từ BE
+  const reloadBoard = React.useCallback(async () => {
+  if (!projectId) return;
+
+  try {
+    setLoading(true);
+
+    const res = await fetchSprintBoard(projectId);
+    const normalized = normalizeBoardInput(res ?? {});
+
+    const nextTasks = normalized.tasks ?? [];
+    const nextSprints = syncColumns(normalized.sprints ?? [], nextTasks);
+
+    setTasks(nextTasks);
+    setSprints(nextSprints);
+  } catch (err) {
+    console.error("[ProjectBoard] reloadBoard error:", err);
+  } finally {
+    setLoading(false);
+  }
+}, [projectId]);
+
 
 const changeStatus = async (pid: string, t: TaskVm, nextStatusId: string) => {
   const now = new Date().toISOString();
@@ -420,6 +446,7 @@ function newTaskCode() {
     createTask,
     attachTaskFromApi,
     attachTaskVm,
+    reloadBoard,
   };
 
   return <ProjectBoardContext.Provider value={value}>{children}</ProjectBoardContext.Provider>;
