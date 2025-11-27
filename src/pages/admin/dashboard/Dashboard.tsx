@@ -79,7 +79,6 @@ const Dashboard = () => {
         const totalsRes = await getTotalsDashboard();
         //const monthlyRes = await getMonthlyStats();
         const res = await getPlanRate();
-        console.log('totals:', totalsRes);
         setTotals(totalsRes.data);
         //setMonthlyStats(monthlyRes.data);
         if (res?.data) setPlanRate(res.data);
@@ -216,23 +215,25 @@ const Dashboard = () => {
       : 'bg-amber-50 text-amber-600 border border-amber-200';
 
   const chartOptions = {
+    layout: {
+      padding: {
+        bottom: 50,
+      },
+    },
     scales: {
       r: {
-        ticks: {
-          display: false,
-        },
-        grid: {
-          display: true,
-        },
+        ticks: { display: false },
+        grid: { display: true },
       },
     },
+    cutout: '40%',
     plugins: {
-      legend: { position: 'bottom' as const },
-      datalabels: {
-        display: false,
+      legend: {
+        position: 'bottom' as const,
       },
+      datalabels: { display: false },
     },
-  };
+  } as const;
 
   // Pagination slice
   const planStart = (planPage - 1) * itemsPerPage;
@@ -430,7 +431,7 @@ const Dashboard = () => {
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                     onClick={async () => {
                       try {
-                        setIsModalOpen(true); // mở modal ngay
+                        setIsModalOpen(true);
                         const detail = await getTransactionById(t.id);
                         setSelectedTransaction({
                           ...t,
@@ -442,7 +443,7 @@ const Dashboard = () => {
                     }}
                   >
                     <td className="py-3 px-4 text-sm text-gray-700">{t.id}</td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{t.orderCode}</td>
+                    <td className="py-3 px-4 text-sm text-gray-700">{t.orderCode || '---'}</td>
                     <td className="py-3 px-4 text-sm text-gray-700">
                       {t.amount} {t.currency}
                     </td>
@@ -521,8 +522,20 @@ const Dashboard = () => {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <p className="text-xs text-gray-500 mb-1">Transaction ID</p>
+                  <p className="font-semibold text-gray-800">
+                    {selectedTransaction.id || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-gray-500 mb-1">Order Code</p>
-                  <p className="font-semibold text-gray-800">{selectedTransaction.orderCode}</p>
+                  <p className="font-semibold text-gray-800">
+                    {selectedTransaction.orderCode || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Transaction Date</p>
@@ -554,12 +567,26 @@ const Dashboard = () => {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">User ID</p>
                   <p className="text-sm text-gray-800">
-                    {selectedTransaction.userId || selectedTransaction.userName}
+                    {selectedTransaction.userId || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">User Name</p>
+                  <p className="text-sm text-gray-800">
+                    {selectedTransaction.userName || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Payment Method</p>
-                  <p className="text-sm text-gray-800">{selectedTransaction.paymentMethod}</p>
+                  <p className="text-sm text-gray-800">
+                    {selectedTransaction.paymentMethod || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
+                  </p>
                 </div>
               </div>
               <div>
@@ -585,25 +612,33 @@ const Dashboard = () => {
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-xs text-gray-500">Account Number</span>
                   <span className="text-sm font-medium text-gray-800">
-                    {selectedTransaction.accountNumber}
+                    {selectedTransaction.accountNumber || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-xs text-gray-500">Reference</span>
                   <span className="text-sm font-medium text-gray-800">
-                    {selectedTransaction.reference}
+                    {selectedTransaction.reference || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-xs text-gray-500">Counter Account Name</span>
                   <span className="text-sm font-medium text-gray-800">
-                    {selectedTransaction.counterAccountName}
+                    {selectedTransaction.counterAccountName || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-xs text-gray-500">Counter Account Number</span>
                   <span className="text-sm font-medium text-gray-800">
-                    {selectedTransaction.counterAccountNumber}
+                    {selectedTransaction.counterAccountNumber || (
+                      <span className="text-gray-400 text-sm italic">Not provided</span>
+                    )}
                   </span>
                 </div>
               </div>

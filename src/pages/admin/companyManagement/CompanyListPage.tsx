@@ -296,13 +296,13 @@ export default function CompanyListPage() {
                   <p className="text-sm text-gray-500 m-0">Manage and monitor all companies</p>
                 </div>
               </div>
-              <button
+              {/* <button
                 className="h-10 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2 transition-colors font-medium"
                 onClick={() => alert('TODO: Wire create to API')}
               >
                 <Plus className="w-4 h-4" />
                 New Company
-              </button>
+              </button> */}
             </div>
 
             {/* Filters Row */}

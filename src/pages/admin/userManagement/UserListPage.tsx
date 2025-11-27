@@ -300,29 +300,41 @@ export default function UserListPage() {
                   !err &&
                   visibleItems.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{u.userName}</div>
+                      <td className="px-6 py-2">
+                        <div className="font-medium text-gray-900">
+                          {u.userName || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-2">
                         <span
                           className="text-sm text-gray-600 block max-w-[220px] truncate"
                           title={u.email ?? undefined}
                         >
-                          {u.email}
+                          {u.email || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
                         </span>
                       </td>
-                      <td className="px-6 py-4 hidden md:table-cell">
-                        <span className="text-sm text-gray-600">{u.phone ?? '-'}</span>
+                      <td className="px-6 py-2 hidden md:table-cell">
+                        <span className="text-sm text-gray-600">
+                          {u.phone || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 hidden lg:table-cell">
+                      <td className="px-6 py-2 hidden lg:table-cell">
                         <span
                           className="text-sm text-gray-600 block max-w-[200px] truncate"
                           title={u.address ?? undefined}
                         >
-                          {u.address ?? '-'}
+                          {u.address || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-2 text-center">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                             u.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -336,12 +348,12 @@ export default function UserListPage() {
                           {u.status ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center hidden lg:table-cell">
+                      <td className="px-6 py-2 text-center hidden lg:table-cell">
                         <span className="text-sm text-gray-600">
                           {u.createAt ? new Date(u.createAt).toLocaleDateString() : '-'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             className="p-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors"

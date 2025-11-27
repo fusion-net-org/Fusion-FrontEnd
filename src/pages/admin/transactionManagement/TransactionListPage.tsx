@@ -1,6 +1,6 @@
 // src/pages/admin/TransactionListPage.tsx
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   RefreshCcw,
@@ -11,33 +11,29 @@ import {
   XCircle,
   Clock3,
   DollarSign,
-} from "lucide-react";
-import { DatePicker, Select, Input, Spin } from "antd";
+} from 'lucide-react';
+import { DatePicker, Select, Input, Spin } from 'antd';
 
-import {
-  getAllTransactionForAdmin,
-  getTransactionById,
-} from "@/services/transactionService.js";
+import { getAllTransactionForAdmin, getTransactionById } from '@/services/transactionService.js';
 
 import type {
   TransactionPaymentPagedSummaryResponse,
   TransactionPaymentListItem,
   TransactionPaymentDetailResponse,
   PaymentStatus,
-} from "@/interfaces/Transaction/TransactionPayment";
+} from '@/interfaces/Transaction/TransactionPayment';
 
-import TransactionDetailModal from "@/pages/admin/transactionManagement/TransactionDetailMoel";
+import TransactionDetailModal from '@/pages/admin/transactionManagement/TransactionDetailMoel';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const cn = (...xs: Array<string | false | null | undefined>) =>
-  xs.filter(Boolean).join(" ");
+const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(' ');
 
 type FiltersState = {
   userName: string;
   planName: string;
-  status?: PaymentStatus | "";
+  status?: PaymentStatus | '';
   keyword: string;
   paymentDateFrom?: string;
   paymentDateTo?: string;
@@ -48,64 +44,60 @@ type FiltersState = {
 };
 
 const defaultFilters: FiltersState = {
-  userName: "",
-  planName: "",
-  status: "",
-  keyword: "",
+  userName: '',
+  planName: '',
+  status: '',
+  keyword: '',
   paymentDateFrom: undefined,
   paymentDateTo: undefined,
   pageNumber: 1,
   pageSize: 10,
-  sortColumn: "TransactionDateTime",
+  sortColumn: 'TransactionDateTime',
   sortDescending: true,
 };
 
-function formatCurrency(v: number | undefined | null, currency = "VND") {
-  if (!v && v !== 0) return "—";
+function formatCurrency(v: number | undefined | null, currency = 'VND') {
+  if (!v && v !== 0) return '—';
   try {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
       currency,
       maximumFractionDigits: 0,
     }).format(v);
   } catch {
-    return `${v.toLocaleString("vi-VN")} ${currency}`;
+    return `${v.toLocaleString('vi-VN')} ${currency}`;
   }
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return "—";
+  if (!value) return '—';
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("vi-VN");
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('vi-VN');
 }
 
 function statusTag(status: PaymentStatus) {
-  const s = (status || "").toLowerCase();
+  const s = (status || '').toLowerCase();
 
-  let colorClass =
-    "bg-slate-100 text-slate-700 border border-slate-200";
+  let colorClass = 'bg-slate-100 text-slate-700 border border-slate-200';
   let icon: React.ReactNode = <Clock3 className="w-3.5 h-3.5" />;
 
-  if (s.includes("success") || s.includes("succeed") || s.includes("completed")) {
-    colorClass =
-      "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (s.includes('success') || s.includes('succeed') || s.includes('completed')) {
+    colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
     icon = <CheckCircle2 className="w-3.5 h-3.5" />;
-  } else if (s.includes("pending")) {
-    colorClass =
-      "bg-amber-50 text-amber-700 border-amber-200";
+  } else if (s.includes('pending')) {
+    colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
     icon = <Clock3 className="w-3.5 h-3.5" />;
-  } else if (s.includes("cancel") || s.includes("fail") || s.includes("refund")) {
-    colorClass =
-      "bg-rose-50 text-rose-700 border-rose-200";
+  } else if (s.includes('cancel') || s.includes('fail') || s.includes('refund')) {
+    colorClass = 'bg-rose-50 text-rose-700 border-rose-200';
     icon = <XCircle className="w-3.5 h-3.5" />;
   }
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium",
-        colorClass
+        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium',
+        colorClass,
       )}
     >
       {icon}
@@ -118,12 +110,7 @@ function sortLabel(col: string, active: string | undefined, desc: boolean | unde
   const isActive = active === col;
   return (
     <span className="inline-flex items-center gap-1 cursor-pointer select-none">
-      <ArrowUpDown
-        className={cn(
-          "w-3.5 h-3.5",
-          isActive ? "text-brand-500" : "text-slate-400"
-        )}
-      />
+      <ArrowUpDown className={cn('w-3.5 h-3.5', isActive ? 'text-brand-500' : 'text-slate-400')} />
     </span>
   );
 }
@@ -131,14 +118,11 @@ function sortLabel(col: string, active: string | undefined, desc: boolean | unde
 export default function TransactionListPage() {
   const [filters, setFilters] = useState<FiltersState>(defaultFilters);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<TransactionPaymentPagedSummaryResponse | null>(
-    null
-  );
+  const [data, setData] = useState<TransactionPaymentPagedSummaryResponse | null>(null);
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detail, setDetail] =
-    useState<TransactionPaymentDetailResponse | null>(null);
+  const [detail, setDetail] = useState<TransactionPaymentDetailResponse | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -238,10 +222,10 @@ export default function TransactionListPage() {
           <CreditCard className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-lg md:text-xl font-semibold text-slate-900">
+          <h1 className="text-lg md:text-xl font-semibold text-slate-900 m-0">
             Transaction Payments
           </h1>
-          <p className="text-xs md:text-sm text-slate-500">
+          <p className="text-xs md:text-sm text-slate-500 m-0">
             Monitor payment transactions, revenue and status over time.
           </p>
         </div>
@@ -254,9 +238,7 @@ export default function TransactionListPage() {
           <div className="grid gap-3 md:grid-cols-3 flex-1">
             {/* Keyword */}
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold text-slate-600">
-                Search
-              </span>
+              <span className="text-xs font-semibold text-slate-600">Search</span>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
                 <Input
@@ -277,9 +259,7 @@ export default function TransactionListPage() {
 
             {/* Plan name */}
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold text-slate-600">
-                Plan
-              </span>
+              <span className="text-xs font-semibold text-slate-600">Plan</span>
               <Input
                 size="middle"
                 placeholder="Plan name"
@@ -296,9 +276,7 @@ export default function TransactionListPage() {
 
             {/* Status */}
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold text-slate-600">
-                Status
-              </span>
+              <span className="text-xs font-semibold text-slate-600">Status</span>
               <div className="w-full md:max-w-[160px]">
                 <Select
                   size="middle"
@@ -308,7 +286,7 @@ export default function TransactionListPage() {
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      status: value || "",
+                      status: value || '',
                       pageNumber: 1,
                     }))
                   }
@@ -328,9 +306,7 @@ export default function TransactionListPage() {
           <div className="flex flex-col gap-2 lg:items-end">
             <div className="flex items-center gap-2">
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-slate-600">
-                  Transaction date range
-                </span>
+                <span className="text-xs font-semibold text-slate-600">Transaction date range</span>
                 <RangePicker
                   allowEmpty={[true, true]}
                   showTime={false}
@@ -347,16 +323,12 @@ export default function TransactionListPage() {
                     const [from, to] = values;
                     setFilters((prev) => ({
                       ...prev,
-                      paymentDateFrom: from
-                        ? from.startOf("day").toISOString()
-                        : undefined,
-                      paymentDateTo: to
-                        ? to.endOf("day").toISOString()
-                        : undefined,
+                      paymentDateFrom: from ? from.startOf('day').toISOString() : undefined,
+                      paymentDateTo: to ? to.endOf('day').toISOString() : undefined,
                       pageNumber: 1,
                     }));
                   }}
-                  placeholder={["From", "To"]}
+                  placeholder={['From', 'To']}
                 />
               </div>
             </div>
@@ -374,83 +346,83 @@ export default function TransactionListPage() {
       </div>
 
       {/* Stats: 2 totals (row 1) + 3 statuses (row 2) */}
-      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-4 py-3 space-y-3">
+      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-5 py-4 space-y-3">
         {/* Row 1: totals */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2">
           {/* Total revenue */}
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
+          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
                 Total revenue
               </span>
-              <span className="text-sm font-semibold text-slate-900">
+              <span className="text-base font-semibold text-slate-900">
                 {formatCurrency(stats.revenue)}
               </span>
             </div>
           </div>
 
           {/* Total transactions */}
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-50">
-              <CreditCard className="w-4 h-4 text-sky-600" />
+          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
+              <CreditCard className="w-5 h-5 text-sky-600" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
                 Total transactions
               </span>
-              <span className="text-sm font-semibold text-slate-900">
-                {stats.total.toLocaleString("vi-VN")}
+              <span className="text-base font-semibold text-slate-900">
+                {stats.total.toLocaleString('vi-VN')}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Row 2: statuses (3 item thẳng hàng) */}
-        <div className="flex flex-wrap gap-4 md:flex-nowrap">
+        {/* Row 2: statuses */}
+        <div className="flex gap-4">
           {/* Success */}
-          <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 flex-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+              <CheckCircle2 className="w-5 h-5 text-emerald-700" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
                 Success
               </span>
-              <span className="text-sm font-semibold text-slate-900">
-                {stats.success.toLocaleString("vi-VN")}
+              <span className="text-base font-semibold text-emerald-800">
+                {stats.success.toLocaleString('vi-VN')}
               </span>
             </div>
           </div>
 
           {/* Pending */}
-          <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50">
-              <Clock3 className="w-4 h-4 text-amber-600" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100 flex-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+              <Clock3 className="w-5 h-5 text-amber-700" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
                 Pending
               </span>
-              <span className="text-sm font-semibold text-slate-900">
-                {stats.pending.toLocaleString("vi-VN")}
+              <span className="text-base font-semibold text-amber-800">
+                {stats.pending.toLocaleString('vi-VN')}
               </span>
             </div>
           </div>
 
           {/* Failed */}
-          <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50">
-              <XCircle className="w-4 h-4 text-rose-600" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-rose-50/50 border border-rose-100 flex-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
+              <XCircle className="w-5 h-5 text-rose-700" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-rose-700 uppercase tracking-wide">
                 Failed
               </span>
-              <span className="text-sm font-semibold text-slate-900">
-                {stats.failed.toLocaleString("vi-VN")}
+              <span className="text-base font-semibold text-rose-800">
+                {stats.failed.toLocaleString('vi-VN')}
               </span>
             </div>
           </div>
@@ -463,10 +435,7 @@ export default function TransactionListPage() {
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <CalendarDays className="w-4 h-4" />
             <span>
-              Result:{" "}
-              <span className="font-medium text-slate-700">
-                {data?.totalCount ?? 0}
-              </span>{" "}
+              Result: <span className="font-medium text-slate-700">{data?.totalCount ?? 0}</span>{' '}
               transactions
             </span>
           </div>
@@ -486,15 +455,11 @@ export default function TransactionListPage() {
                   <th className="px-4 py-2 text-left">
                     <button
                       type="button"
-                      onClick={() => handleSort("TransactionDateTime")}
+                      onClick={() => handleSort('TransactionDateTime')}
                       className="inline-flex items-center gap-1 hover:text-slate-700"
                     >
                       <span>Time</span>
-                      {sortLabel(
-                        "TransactionDateTime",
-                        filters.sortColumn,
-                        filters.sortDescending
-                      )}
+                      {sortLabel('TransactionDateTime', filters.sortColumn, filters.sortDescending)}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">User</th>
@@ -502,30 +467,22 @@ export default function TransactionListPage() {
                   <th className="px-4 py-2 text-left">
                     <button
                       type="button"
-                      onClick={() => handleSort("Amount")}
+                      onClick={() => handleSort('Amount')}
                       className="inline-flex items-center gap-1 hover:text-slate-700"
                     >
                       <span>Amount</span>
-                      {sortLabel(
-                        "Amount",
-                        filters.sortColumn,
-                        filters.sortDescending
-                      )}
+                      {sortLabel('Amount', filters.sortColumn, filters.sortDescending)}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Mode</th>
                   <th className="px-4 py-2 text-left">
                     <button
                       type="button"
-                      onClick={() => handleSort("Status")}
+                      onClick={() => handleSort('Status')}
                       className="inline-flex items-center gap-1 hover:text-slate-700"
                     >
                       <span>Status</span>
-                      {sortLabel(
-                        "Status",
-                        filters.sortColumn,
-                        filters.sortDescending
-                      )}
+                      {sortLabel('Status', filters.sortColumn, filters.sortDescending)}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Gateway</th>
@@ -543,9 +500,7 @@ export default function TransactionListPage() {
                       <td className="px-4 py-2 align-top whitespace-nowrap text-slate-700">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {formatDateTime(
-                              row.transactionDateTime || row.createdAt
-                            )}
+                            {formatDateTime(row.transactionDateTime || row.createdAt)}
                           </span>
                           {row.dueAt && (
                             <span className="text-[11px] text-slate-500">
@@ -556,23 +511,16 @@ export default function TransactionListPage() {
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">
-                            {row.userName ?? "—"}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            UserId: {row.userId}
-                          </span>
+                          <span className="font-medium text-slate-800">{row.userName ?? '—'}</span>
+                          <span className="text-[11px] text-slate-500">UserId: {row.userId}</span>
                         </div>
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">
-                            {row.planName ?? "—"}
-                          </span>
-                          {row.paymentModeSnapshot === "Installments" && (
+                          <span className="font-medium text-slate-800">{row.planName ?? '—'}</span>
+                          {row.paymentModeSnapshot === 'Installments' && (
                             <span className="text-[11px] text-slate-500">
-                              Inst. {row.installmentIndex ?? "-"} /{" "}
-                              {row.installmentTotal ?? "-"}
+                              Inst. {row.installmentIndex ?? '-'} / {row.installmentTotal ?? '-'}
                             </span>
                           )}
                         </div>
@@ -583,8 +531,8 @@ export default function TransactionListPage() {
                             {formatCurrency(row.amount, row.currency)}
                           </span>
                           <span className="text-[11px] text-slate-500">
-                            {row.chargeUnitSnapshot} · {row.billingPeriodSnapshot}{" "}
-                            x{row.periodCountSnapshot}
+                            {row.chargeUnitSnapshot} · {row.billingPeriodSnapshot} x
+                            {row.periodCountSnapshot}
                           </span>
                         </div>
                       </td>
@@ -593,34 +541,27 @@ export default function TransactionListPage() {
                           {row.paymentModeSnapshot}
                         </span>
                       </td>
-                      <td className="px-4 py-2 align-top">
-                        {statusTag(row.status)}
-                      </td>
+                      <td className="px-4 py-2 align-top">{statusTag(row.status)}</td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex flex-col">
                           <span className="text-xs font-medium text-slate-700">
-                            {row.provider ?? "—"}
+                            {row.provider ?? '—'}
                           </span>
                           {row.paymentMethod && (
-                            <span className="text-[11px] text-slate-500">
-                              {row.paymentMethod}
-                            </span>
+                            <span className="text-[11px] text-slate-500">{row.paymentMethod}</span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-2 align-top whitespace-nowrap">
                         <span className="text-xs font-mono text-slate-700">
-                          {row.orderCode ?? "—"}
+                          {row.orderCode ?? '—'}
                         </span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="px-4 py-8 text-center text-sm text-slate-500"
-                    >
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
                       No transactions match current filters.
                     </td>
                   </tr>
@@ -632,12 +573,9 @@ export default function TransactionListPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
             <span>
-              Page {filters.pageNumber} /{" "}
+              Page {filters.pageNumber} /{' '}
               {data?.pageSize && data?.totalCount
-                ? Math.max(
-                    1,
-                    Math.ceil(data.totalCount / data.pageSize)
-                  )
+                ? Math.max(1, Math.ceil(data.totalCount / data.pageSize))
                 : 1}
             </span>
             <div className="flex items-center gap-2">
@@ -645,9 +583,7 @@ export default function TransactionListPage() {
               <Select
                 size="small"
                 value={filters.pageSize}
-                onChange={(v) =>
-                  handlePageChange(1, Number(v as number))
-                }
+                onChange={(v) => handlePageChange(1, Number(v as number))}
                 style={{ width: 80 }}
               >
                 <Option value={10}>10</Option>
@@ -659,9 +595,7 @@ export default function TransactionListPage() {
                   type="button"
                   className="px-2 py-1 rounded-md border border-slate-200 text-xs disabled:opacity-50"
                   disabled={filters.pageNumber <= 1}
-                  onClick={() =>
-                    handlePageChange(filters.pageNumber - 1)
-                  }
+                  onClick={() => handlePageChange(filters.pageNumber - 1)}
                 >
                   Prev
                 </button>
@@ -670,14 +604,9 @@ export default function TransactionListPage() {
                   className="px-2 py-1 rounded-md border border-slate-200 text-xs disabled:opacity-50"
                   disabled={
                     !data ||
-                    filters.pageNumber >=
-                      Math.ceil(
-                        (data.totalCount || 0) / filters.pageSize
-                      )
+                    filters.pageNumber >= Math.ceil((data.totalCount || 0) / filters.pageSize)
                   }
-                  onClick={() =>
-                    handlePageChange(filters.pageNumber + 1)
-                  }
+                  onClick={() => handlePageChange(filters.pageNumber + 1)}
                 >
                   Next
                 </button>
