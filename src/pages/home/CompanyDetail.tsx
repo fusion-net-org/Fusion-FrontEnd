@@ -48,13 +48,18 @@ const CompanyDetails: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleSave = async (updatedCompany: any) => {
-    try {
-      setLoading(true);
-      setCompany((prev) => ({ ...prev, ...updatedCompany }));
-      await fetchGetCompanyById();
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+
+    setTimeout(async () => {
+      try {
+        setCompany((prev) => ({ ...prev, ...updatedCompany }));
+        await fetchGetCompanyById();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }, 0);
   };
 
   //call api
