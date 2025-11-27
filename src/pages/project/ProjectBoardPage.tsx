@@ -1,4 +1,3 @@
-// src/pages/project/ProjectBoardPage.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
@@ -98,36 +97,45 @@ function Inner() {
     if (fromSprintId === toSprintId) return;
 
     const t = tasks.find((x) => x.id === draggableId);
-    if (t) await moveToNextSprint((window as any).__projectId, t, toSprintId);
+    if (t && effectiveProjectId) {
+      await moveToNextSprint(effectiveProjectId, t, toSprintId);
+    }
   };
 
   // Nghiệp vụ theo workflow động
   const eventApi = {
     onMarkDone: async (t: TaskVm) => {
+      if (!effectiveProjectId) return;
       const sp = sprints.find((s) => s.id === t.sprintId);
       if (!sp) return;
       const finalId =
         sp.statusOrder.find((id) => sp.statusMeta[id]?.isFinal) ??
         sp.statusOrder[sp.statusOrder.length - 1];
       if (t.workflowStatusId !== finalId) {
-        return changeStatus((window as any).__projectId, t, finalId);
+        return changeStatus(effectiveProjectId, t, finalId);
       }
-      return done((window as any).__projectId, t);
+      return done(effectiveProjectId, t);
     },
     onNext: async (t: TaskVm) => {
+      if (!effectiveProjectId) return;
       const sp = sprints.find((s) => s.id === t.sprintId);
       if (!sp) return;
       const idx = sp.statusOrder.indexOf(t.workflowStatusId);
       const nextId = sp.statusOrder[Math.min(idx + 1, sp.statusOrder.length - 1)];
       if (nextId && nextId !== t.workflowStatusId) {
-        return changeStatus((window as any).__projectId, t, nextId);
+        return changeStatus(effectiveProjectId, t, nextId);
       }
     },
-    onSplit: (t: TaskVm) => split((window as any).__projectId, t),
+    onSplit: (t: TaskVm) => {
+      if (!effectiveProjectId) return;
+      return split(effectiveProjectId, t);
+    },
     onMoveNext: (t: TaskVm) => {
       const idx = sprints.findIndex((s) => s.id === (t.sprintId ?? ''));
+      if (!effectiveProjectId) return;
+      const idx = sprints.findIndex((s) => s.id === (t.sprintId ?? ""));
       const next = sprints[idx + 1];
-      if (next) return moveToNextSprint((window as any).__projectId, t, next.id);
+      if (next) return moveToNextSprint(effectiveProjectId, t, next.id);
     },
   };
 
@@ -139,7 +147,7 @@ function Inner() {
   }, [tasks, query]);
 
   return (
-    <div className="w-full min-h-screen bg-[#F7F8FA]">
+    <div className="w-full min-h-screen bg-[#F7F8FA] overflow-x-hidden">
       {/* Header + icon workflow */}
       <div className="sticky top-0 z-30 bg-[#F7F8FA] border-b border-gray-100">
         <div className="flex items-center justify-between">
@@ -228,6 +236,7 @@ function Inner() {
             sprints={sprints}
             filterCategory={kanbanFilter}
             onDragEnd={onDragEndKanban}
+            onReloadBoard={reloadBoard} // 🔥 TRUYỀN XUỐNG ĐỂ SAU KHI CREATE SPRINT THÌ REFETCH
             {...eventApi}
           />
           <TicketPopup

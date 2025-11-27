@@ -9,7 +9,7 @@ import type { User } from '@/interfaces/User/User';
 import { getCompanyById } from '@/services/companyService.js';
 import logo_fusion from '@/assets/logo_fusion.png';
 
-type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners';
+type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners' | 'workflow';
 
 type SubItem = {
   name: string;
@@ -37,6 +37,62 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
         d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"
         stroke="currentColor"
         strokeWidth="1.6"
+      />
+    </svg>
+  ),
+  workflow: (
+    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+      {/* 3 step boxes */}
+      <rect
+        x="3.5"
+        y="4"
+        width="6.5"
+        height="4.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <rect
+        x="14"
+        y="4"
+        width="6.5"
+        height="4.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <rect
+        x="9"
+        y="15.5"
+        width="6.5"
+        height="4.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+
+      {/* flow lines */}
+      <path
+        d="M10 6.25h3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12.5 8.5v3.5c0 .8.6 1.5 1.4 1.5H14"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+
+      {/* arrow heads */}
+      <path
+        d="M13.6 5.4 15 6.25l-1.4.85"
+        fill="currentColor"
+      />
+      <path
+        d="M13.2 12.4 14.6 13.5l-1.4.9"
+        fill="currentColor"
       />
     </svg>
   ),
@@ -141,6 +197,12 @@ const defaultItems: Item[] = [
     label: 'Subscription',
     to: '/company/:companyId/subscription',
     icon: 'doc',
+  },
+   {
+    key: 'workflow',
+    label: 'Workflows',
+    to: '/companies/:companyId/workflows',
+    icon: 'workflow',
   },
 ];
 

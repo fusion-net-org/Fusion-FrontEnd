@@ -119,29 +119,27 @@ export default function ProjectsPage() {
   const { companyId: routeCompanyId } = useParams();
   const companyId = routeCompanyId || localStorage.getItem('currentCompanyId'); // ✅
 
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setLoading(true);
-        if (!companyId) throw new Error('Missing companyId'); // ✅ tránh gọi sai route
-        const res = await fetchProjects({
-          companyId, // ✅ dùng đúng route
-          pageSize: 200, // lấy rộng để đủ filter client
-        });
-        if (!alive) return;
-        setAll(res.items); // ✅ đã map đúng shape Project
-      } catch (err) {
-        console.error('[Projects] load error:', err);
-        setAll([]); // tránh crash UI
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+  const loadProjectsList = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      if (!companyId) throw new Error('Missing companyId'); // tránh gọi sai route
+      const res = await fetchProjects({
+        companyId,
+        pageSize: 200, // lấy rộng để đủ filter client
+      });
+      setAll(res.items); // map đúng shape Project
+    } catch (err) {
+      console.error('[Projects] load error:', err);
+      setAll([]); // tránh crash UI
+    } finally {
+      setLoading(false);
+    }
   }, [companyId]);
+
+  // ✅ gọi khi page mount / companyId đổi
+  React.useEffect(() => {
+    loadProjectsList();
+  }, [loadProjectsList]);
   const uniq = <K extends keyof Project>(k: K) =>
     Array.from(new Set(all.map((p) => (p[k] ?? '') as string))).filter(Boolean);
 
@@ -559,7 +557,7 @@ export default function ProjectsPage() {
           // TODO: call your API here
           // await projectService.create(payload);
           console.log('CREATE PROJECT', payload);
-
+          await loadProjectsList();
           // demo: close + optional navigate
           setOpenCreate(false);
           // nav(`/companies/${encodeURIComponent("YOUR_COMPANY")}/projects/${newId}/overview`);
