@@ -34,13 +34,21 @@ const CompanyMember: React.FC = () => {
     Inactive: 0,
   });
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-
+  console.log(members);
   const [pagination, setPagination] = useState({
     pageNumber: 1,
     pageSize: 10,
     totalCount: 0,
   });
+  console.log('members:', members);
+  const isMinDate = (dateString: string) => {
+    return dateString === '0001-01-01T00:00:00' || dateString.startsWith('0001');
+  };
 
+  const renderJoinedAt = (joinedAt: string | null) => {
+    if (!joinedAt || isMinDate(joinedAt)) return '---';
+    return new Date(joinedAt).toLocaleDateString('en-GB');
+  };
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       Active: 'bg-green-100 text-green-700',
@@ -322,17 +330,14 @@ const CompanyMember: React.FC = () => {
                         <p className="text-gray-500 text-xs">{m.email}</p>
                       </div>
                     </td>
-                    <td
-                      className="px-6 py-4 max-w-[180px] truncate cursor-pointer"
-                      title={m.roleName}
-                    >
+                    <td className="px-6 py-4 max-w-[180px] cursor-pointer" title={m.roleName}>
                       {m.roleName}
                     </td>{' '}
                     <td className="px-6 py-4 text-gray-600">{m.phone}</td>
                     <td className="px-6 py-4 text-gray-700">{m.gender}</td>
                     <td className="px-6 py-4">{getStatusBadge(m.status)}</td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {new Date(m.joinedAt).toLocaleDateString('en-GB')}
+                    <td className="px-6 py-4 text-gray-800 font-medium">
+                      {renderJoinedAt(m.joinedAt)}
                     </td>
                     <td className="px-6 py-4">
                       <Eye
@@ -343,7 +348,9 @@ const CompanyMember: React.FC = () => {
                         }`}
                         onClick={() => {
                           if (m.status === 'Active') {
-                            navigate(`/company/members/${m.memberId}`, { state: { companyId } });
+                            navigate(`/company/${companyId}/members/${m.memberId}`, {
+                              state: { companyId },
+                            });
                           }
                         }}
                       />

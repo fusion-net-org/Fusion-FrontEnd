@@ -408,7 +408,7 @@ const Partners: React.FC = () => {
                     key={i}
                     className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center cursor-pointer"
                     onClick={() =>
-                      navigate(`/company/partners/${p.companyInfo?.id}`, {
+                      navigate(`/company/${companyId}/partners/${p.companyInfo?.id}`, {
                         state: { companyId, partnerId: p.id },
                       })
                     }

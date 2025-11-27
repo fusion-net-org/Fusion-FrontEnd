@@ -85,9 +85,10 @@ const TicketDetailPage: React.FC = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectTicketId, setRejectTicketId] = useState<string | null>(null);
   const location = useLocation();
-  const { vw } = (location.state as { vw?: 'AsRequester' | 'AsExecutor' } | undefined) ?? {};
-  const viewMode = vw ?? 'AsRequester';
-  console.log('viewMode:', viewMode);
+  const { viewMode } =
+    (location.state as { viewMode?: 'AsRequester' | 'AsExecutor' } | undefined) ?? {};
+  // const viewMode = vw ?? 'AsRequester';
+  console.log('viewMode Ticketdetail:', viewMode);
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       const res = await AcceptTicket(ticketId);

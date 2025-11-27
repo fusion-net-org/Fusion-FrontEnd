@@ -14,6 +14,7 @@ interface FormCreateCompanyProps {
   onCreated?: () => void;
 }
 const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
+  const dispatch = useDispatch();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({

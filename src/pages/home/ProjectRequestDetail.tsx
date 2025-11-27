@@ -48,6 +48,7 @@ export default function ProjectRequestDetail() {
   const [accepting, setAccepting] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  console.log('viewMode', viewMode);
   const openRejectModal = () => {
     setSelectedProjectId(id);
     setRejectModalOpen(true);
@@ -392,7 +393,7 @@ export default function ProjectRequestDetail() {
 
                         const url =
                           viewMode === 'AsExecutor'
-                            ? `/companies/${companyId}/project`
+                            ? `/companies/${companyId}/project/${projectRequest.convertedProjectId}`
                             : // : `/companies/${companyId}/project-company-request`;
                               `/companies/${companyId}/projectRequest/${projectRequest.convertedProjectId}`;
 
