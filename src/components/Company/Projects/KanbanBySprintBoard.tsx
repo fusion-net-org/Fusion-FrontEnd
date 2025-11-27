@@ -255,7 +255,7 @@ type Props = {
     draftBySprint: Record<string, TaskVm[]>;
   }) => Promise<void> | void;
   // khi tạo sprint xong thì refetch board
-  onReloadBoard?: () => void;
+  onReloadBoard?: () => void | Promise<void>; 
 };
 
 /* ====== Kiểu draft từ AI ====== */
@@ -474,7 +474,7 @@ export default function KanbanBySprintBoard({
 
       if (onReloadBoard) {
         // cho parent refetch board, không reload full page
-        onReloadBoard();
+        await onReloadBoard();
       }
     } catch (err: any) {
       console.error("[Kanban] create sprint failed", err);
