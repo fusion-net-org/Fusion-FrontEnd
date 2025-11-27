@@ -27,6 +27,7 @@ function Inner() {
     useProjectBoard();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
+  const effectiveProjectId = projectId || (window as any).__projectId;
   const { companyId } = useParams<{ companyId: string }>();
   const [projectRequest, setProjectRequest] = React.useState<any>(null);
   const [view, setView] = React.useState<'Kanban' | 'Sprint' | 'List'>('Kanban');
@@ -131,9 +132,8 @@ function Inner() {
       return split(effectiveProjectId, t);
     },
     onMoveNext: (t: TaskVm) => {
-      const idx = sprints.findIndex((s) => s.id === (t.sprintId ?? ''));
       if (!effectiveProjectId) return;
-      const idx = sprints.findIndex((s) => s.id === (t.sprintId ?? ""));
+      const idx = sprints.findIndex((s) => s.id === (t.sprintId ?? ''));
       const next = sprints[idx + 1];
       if (next) return moveToNextSprint(effectiveProjectId, t, next.id);
     },
