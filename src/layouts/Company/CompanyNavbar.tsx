@@ -126,14 +126,14 @@ const defaultItems: Item[] = [
   {
     key: 'partner-detail',
     label: 'Partner Details',
-    to: '/company/partners/:id',
+    to: '/company/:companyId/partners/:id',
     icon: 'partners',
   },
   { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
   {
     key: 'member-detail',
     label: 'Member Detail',
-    to: '/company/members/:id',
+    to: '/company/:companyId/members/:Id',
     icon: 'users',
   },
   {

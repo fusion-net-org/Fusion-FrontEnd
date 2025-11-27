@@ -40,7 +40,7 @@ const TicketPage: React.FC = () => {
   const [rejectTicketId, setRejectTicketId] = useState<string | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
-
+  console.log('ticketPage', viewMode);
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       setLoading(true);

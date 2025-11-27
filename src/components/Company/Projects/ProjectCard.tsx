@@ -105,14 +105,14 @@ export default function ProjectCard({
       <div className="flex items-start justify-between">
         <div className="text-[11px] font-semibold tracking-wide text-blue-600">{data.code}</div>
         <div className="flex items-center gap-1.5">
-          {req && (
-            <span
-              className="rounded-full bg-amber-500/95 px-2 py-0.5 text-[11px] font-medium text-white"
-              title="This project is requested to your company"
-            >
-              Request
-            </span>
-          )}
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-medium text-white ${
+              req ? 'bg-amber-500/95' : 'bg-blue-600/95'
+            }`}
+            title={req ? 'This project is requested to your company' : 'Executor of the project'}
+          >
+            {req ? 'Request' : 'Execute'}
+          </span>
           {selected && (
             <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white">
               Selected

@@ -144,7 +144,7 @@ function App() {
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
           <Route path="/company/:companyId" element={<CompanyDetail />} />
           <Route path="/company/:companyId/partners" element={<Partners />} />
-          <Route path="/company/partners/:id" element={<PartnerDetails />} />
+          <Route path="/company/:companyId/partners/:id" element={<PartnerDetails />} />
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
@@ -165,7 +165,7 @@ function App() {
           />
           <Route path="/company/:companyId/ticket" element={<TicketPage />} />
 
-          <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
+          <Route path="/company/:companyId/members/:Id" element={<CompanyMemberDetail />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
           <Route
             path="/companies/:companyId/workflows/:workflowId"
