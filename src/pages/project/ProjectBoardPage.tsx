@@ -23,7 +23,7 @@ import TicketPopup from '@/components/ProjectSideCompanyRequest/TicketPopup';
 
 /* ========== Inner: logic view board ========== */
 function Inner() {
-  const { sprints, tasks, loading, changeStatus, moveToNextSprint, reorder, done, split } =
+  const { sprints, tasks, loading, changeStatus, moveToNextSprint, reorder, done, split, reloadBoard } =
     useProjectBoard();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
@@ -236,7 +236,7 @@ function Inner() {
             sprints={sprints}
             filterCategory={kanbanFilter}
             onDragEnd={onDragEndKanban}
-            onReloadBoard={reloadBoard} // 🔥 TRUYỀN XUỐNG ĐỂ SAU KHI CREATE SPRINT THÌ REFETCH
+            onReloadBoard={reloadBoard}
             {...eventApi}
           />
           <TicketPopup
