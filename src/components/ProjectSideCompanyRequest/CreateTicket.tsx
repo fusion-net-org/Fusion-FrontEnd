@@ -187,28 +187,28 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
               </Select>
             </div>
 
-            {workflowStatuses.length > 0 && (
-              <div className="flex flex-col w-1/2">
-                <label className="font-semibold mb-1">Workflow Status</label>
-                <Select
-                  showSearch
-                  placeholder="Select workflow status"
-                  value={statusId}
-                  onChange={setStatusId}
-                  allowClear
-                  filterOption={(input, option: any) =>
-                    (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                  className="w-full"
-                >
-                  {workflowStatuses.map((status) => (
-                    <Option key={status.id} value={status.id}>
-                      {status.name}
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-            )}
+            {/* {workflowStatuses.length > 0 && ( */}
+            <div className="flex flex-col w-1/2">
+              <label className="font-semibold mb-1">Workflow Status</label>
+              <Select
+                showSearch
+                placeholder="Select workflow status"
+                value={statusId}
+                onChange={setStatusId}
+                allowClear
+                filterOption={(input, option: any) =>
+                  (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                className="w-full"
+              >
+                {workflowStatuses.map((status) => (
+                  <Option key={status.id} value={status.id}>
+                    {status.name}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+            {/* )} */}
           </div>
 
           {/* Highest Urgency */}

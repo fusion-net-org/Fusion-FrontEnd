@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Input, Button, Form, DatePicker, InputNumber, Upload, Select } from 'antd';
 import type { RcFile, UploadFile } from 'antd/es/upload/interface';
 import dayjs from 'dayjs';
@@ -8,7 +8,13 @@ import { createContract } from '@/services/contractService.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { uploadContractFile } from '@/services/contractService.js';
+import { useParams } from 'react-router-dom';
+import { getCompanyById } from '@/services/companyService.js';
+import type { CompanyRequest, CompanyRequestV2 } from '@/interfaces/Company/company';
+import { GetAllPartnersOfCompany } from '@/services/partnerService.js';
 interface ContractFormValues {
+  executorCompanyId: string;
+  requesterCompanyId: string;
   contractCode: string;
   contractName: string;
   effectiveDate: string;
@@ -21,6 +27,7 @@ interface ContractNextData {
   contractId: string;
   effectiveDate: string;
   expiredDate: string;
+  executorCompanyId: string;
 }
 interface ContractModalProps {
   open: boolean;
@@ -44,6 +51,42 @@ const DEFAULT_APPENDICES = [
 const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) => {
   const [form] = Form.useForm<ContractFormValues>();
   const [loading, setLoading] = useState(false);
+  const { companyId } = useParams<{ companyId: string }>();
+  const [companyRequester, setCompanyRequester] = useState<CompanyRequest | null>(null);
+  const [companyExecutor, setCompanyExecutor] = useState<CompanyRequestV2[]>([]);
+
+  const fetchCompanyRequestById = async () => {
+    if (!companyId) return;
+
+    try {
+      setLoading(true);
+      const response = await getCompanyById(companyId);
+      setCompanyRequester(response.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error fetching company details');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const fetchCompanyExecutorById = async () => {
+    if (!companyId) return;
+
+    try {
+      setLoading(true);
+      const response = await GetAllPartnersOfCompany(companyId);
+      console.log('response', response.data);
+      setCompanyExecutor(response.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error fetching company details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanyRequestById();
+    fetchCompanyExecutorById();
+  }, [companyId]);
 
   const handleClose = () => {
     form.resetFields();
@@ -74,6 +117,8 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
         })) || [];
 
       const payload = {
+        ExecutorCompanyId: values.executorCompanyId,
+        RequesterCompanyId: values.requesterCompanyId,
         ContractCode: values.contractCode,
         ContractName: values.contractName,
         EffectiveDate: effectiveDate,
@@ -97,6 +142,7 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
         contractId: contractData.id,
         effectiveDate: contractData.effectiveDate,
         expiredDate: contractData.expiredDate,
+        executorCompanyId: values.executorCompanyId,
       });
     } catch (error: any) {
       console.error(error);
@@ -128,6 +174,30 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
           appendices: [],
         }}
       >
+        <Form.Item label="Requester Company">
+          <Input value={companyRequester?.name} disabled />
+        </Form.Item>
+
+        <Form.Item name="requesterCompanyId" initialValue={companyRequester?.id} hidden>
+          <Input />
+        </Form.Item>
+
+        <Form.Item
+          label="Executor Company"
+          name="executorCompanyId"
+          rules={[{ required: true, message: 'Executor Company is required' }]}
+        >
+          <Select
+            placeholder="Select executor company"
+            showSearch
+            optionFilterProp="label"
+            options={companyExecutor.map((p) => ({
+              label: p.name,
+              value: p.id,
+            }))}
+          />
+        </Form.Item>
+
         <Form.Item label="Contract Code" name="contractCode" rules={[{ required: true }]}>
           <Input placeholder="Enter contract code" />
         </Form.Item>

@@ -152,3 +152,16 @@ export const DeletePartner = async (id) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
+export const GetAllPartnersOfCompany = async (companyId, companyName = '') => {
+  try {
+    const response = await axiosInstance.get(`/partners/all-partners/${companyId}`, {
+      params: {
+        companyName,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
