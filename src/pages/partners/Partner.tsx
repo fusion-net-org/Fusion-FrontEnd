@@ -29,6 +29,7 @@ const Partners: React.FC = () => {
   const [loading, setLoading] = useState(false);
   //#region State
   const [partners, setPartners] = useState<any[]>([]);
+  console.log('partners', partners);
   const [pagination, setPagination] = useState<
     Pick<PartnerResponse, 'pageNumber' | 'pageSize' | 'totalCount'>
   >({
@@ -45,20 +46,21 @@ const Partners: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     if (!status) return null;
-    switch (status) {
-      case 'Active':
+    const s = status.toLowerCase();
+    switch (s) {
+      case 'active':
         return (
           <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-100">
             Active
           </span>
         );
-      case 'Pending':
+      case 'pending':
         return (
           <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium border border-yellow-100">
             Pending
           </span>
         );
-      case 'Inactive':
+      case 'inactive':
         return (
           <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium border border-red-100">
             Inactive
@@ -129,12 +131,6 @@ const Partners: React.FC = () => {
   };
   //#endregion
 
-  //#region Events (unchanged)
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setCurrentPage(value);
-    fetchPartners(value);
-  };
-
   const handleSearch = useCallback(
     debounce(async (keyword: string) => {
       try {
@@ -173,14 +169,15 @@ const Partners: React.FC = () => {
   );
 
   const handleFilterStatus = async (status: string) => {
+    const statusLower = status.toLowerCase();
     try {
       setLoading(true);
-      if (!status || status === 'All') {
+      if (!status || statusLower === 'all') {
         fetchPartners();
         return;
       }
 
-      const res = await FilterPartners(companyId, status);
+      const res = await FilterPartners(companyId, statusLower);
       const data: PartnerResponse = res.data;
       const enrichedPartners = await enrichPartnerInfo(data.items);
 
@@ -235,23 +232,29 @@ const Partners: React.FC = () => {
 
   const handleAccept = async (id: number) => {
     try {
+      setLoading(true);
       const res = await AcceptInvitePartnert(id);
       toast.success(res.data.message || 'Accepted successfully!');
-      fetchPartners(currentPage);
-      fetchSummaryStatusPartners();
+      await fetchPartners(currentPage);
+      await fetchSummaryStatusPartners();
     } catch (error: any) {
-      toast.error(error.data?.message || 'Failed to accept!');
+      toast.error(error?.data?.message || 'Failed to accept!');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleReject = async (id: number) => {
     try {
+      setLoading(true);
       const res = await CancelInvitePartner(id);
       toast.info(res.data.message || 'Invite rejected!');
-      fetchPartners(currentPage);
-      fetchSummaryStatusPartners();
+      await fetchPartners(currentPage);
+      await fetchSummaryStatusPartners();
     } catch (error: any) {
-      toast.error(error.data?.message || 'Failed to reject!');
+      toast.error(error?.data?.message || 'Failed to reject!');
+    } finally {
+      setLoading(false);
     }
   };
   //#endregion
@@ -377,8 +380,7 @@ const Partners: React.FC = () => {
                 <th className="px-6 py-3 text-center w-[15%]">Owner</th>
                 <th className="px-6 py-3 text-center w-[10%]">Status</th>
                 <th className="px-6 py-3 text-center w-[10%]">Since</th>
-                <th className="px-6 py-3 text-center w-[5%]">Projects</th>
-                <th className="px-6 py-3 text-center w-[5%]">Members</th>
+                <th className="px-6 py-3 text-center w-[10%]">Response Date</th>
                 <th className="px-6 py-3 text-center w-[20%]">Action</th>
                 <th className="px-6 py-3 text-center w-[5%]">Details</th>
               </tr>
@@ -406,14 +408,19 @@ const Partners: React.FC = () => {
                 partners.map((p, i) => (
                   <tr
                     key={i}
-                    className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center cursor-pointer"
-                    onClick={() =>
+                    className={`border-b border-gray-100 hover:bg-blue-50 transition-all duration-150 text-center cursor-pointer ${
+                      p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive'
+                        ? 'cursor-not-allowed hover:bg-white'
+                        : ''
+                    }`}
+                    onClick={() => {
+                      if (p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive')
+                        return;
                       navigate(`/company/${companyId}/partners/${p.companyInfo?.id}`, {
                         state: { companyId, partnerId: p.id },
-                      })
-                    }
+                      });
+                    }}
                   >
-                    {/* Cột Company vẫn giữ text-left để hình và tên công ty hiển thị đẹp */}
                     <td className="px-6 py-4 flex items-center gap-3 text-left">
                       <img
                         src={
@@ -445,48 +452,46 @@ const Partners: React.FC = () => {
                     <td className="px-6 py-4">{getStatusBadge(p.status)}</td>
 
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-800">
-                        {p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : '-'}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Responded:{' '}
-                        {p.respondedAt ? new Date(p.respondedAt).toLocaleDateString('vi-VN') : '-'}
-                      </div>
+                      {p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : '---'}
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-800">{p.totalProject ?? 0}</span>{' '}
+                      {p.respondedAt ? new Date(p.respondedAt).toLocaleDateString('vi-VN') : '---'}
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-800">{p.totalMember ?? 0}</span>{' '}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      {p.status === 'Pending' && userIdFromLogin !== p.requesterId ? (
+                      {p.status?.toLowerCase() === 'pending' &&
+                      userIdFromLogin !== p.requesterId ? (
                         <div className="flex justify-center gap-2">
                           <button
-                            onClick={() => handleAccept(p.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAccept(p.id);
+                            }}
                             className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 flex items-center gap-1"
                           >
                             <Check className="w-4 h-4" /> Accept
                           </button>
                           <button
-                            onClick={() => handleReject(p.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReject(p.id);
+                            }}
                             className="px-3 py-1 border border-gray-300 text-sm rounded-full hover:bg-gray-100 flex items-center gap-1"
                           >
                             <X className="w-4 h-4" /> Reject
                           </button>
                         </div>
-                      ) : p.companyInfo?.isDeleted ? (
+                      ) : p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive' ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 border border-red-200 rounded-full text-sm text-red-600">
                           <Ban className="w-4 h-4" /> Inactive
                         </div>
-                      ) : p.status === 'Active' ? (
+                      ) : p.status?.toLowerCase() === 'active' ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 border border-blue-100 rounded-full text-sm text-blue-600">
                           <Users className="w-4 h-4" /> Friend
                         </div>
-                      ) : p.status === 'Pending' && userIdFromLogin === p.requesterId ? (
+                      ) : p.status?.toLowerCase() === 'pending' &&
+                        userIdFromLogin === p.requesterId ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-sm border border-yellow-100">
                           Waiting for response
                         </div>
@@ -499,12 +504,18 @@ const Partners: React.FC = () => {
 
                     <td className="px-6 py-4">
                       <Eye
-                        className="w-5 h-5 mx-auto text-gray-500 hover:text-blue-600 cursor-pointer transition-transform hover:scale-110"
-                        onClick={() =>
-                          navigate(`/company/partners/${p.companyInfo?.id}`, {
+                        className={`w-5 h-5 mx-auto transition-transform hover:scale-110 ${
+                          p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive'
+                            ? 'text-gray-300 cursor-not-allowed hover:scale-100'
+                            : 'text-gray-500 hover:text-blue-600 cursor-pointer'
+                        }`}
+                        onClick={() => {
+                          if (p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive')
+                            return;
+                          navigate(`/company/${companyId}/partners/${p.companyInfo?.id}`, {
                             state: { companyId, partnerId: p.id },
-                          })
-                        }
+                          });
+                        }}
                       />
                     </td>
                   </tr>
