@@ -1,25 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Check, CheckCircle, Eye, Inbox, Search, Send, UserPlus, X, XCircle } from 'lucide-react';
 import { DatePicker } from 'antd';
 import LoadingOverlay from '@/common/LoadingOverlay';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
+
+//call api
 import { GetProjectRequestByCompanyId } from '@/services/projectRequest.js';
+
+//modal
+import ContractModal from '@/components/ProjectRequest/ContractModal';
+import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
+import { Paging } from '@/components/Paging/Paging';
+import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
+import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
+
+//interface and lib react
 import type {
   IProjectRequset,
   ProjectRequestResponse,
 } from '@/interfaces/ProjectRequest/projectRequest';
 import { useParams } from 'react-router-dom';
 import debounce from 'lodash/debounce';
-
-import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
-import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import { useNavigate } from 'react-router-dom';
-import ContractModal from '@/components/ProjectRequest/ContractModal';
-import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
-import { Paging } from '@/components/Paging/Paging';
+
 const { RangePicker } = DatePicker;
 interface ContractNextData {
   contractId: string;

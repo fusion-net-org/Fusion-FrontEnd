@@ -32,31 +32,37 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import dayjs from 'dayjs';
+
+//call api
 import { GetTicketById } from '@/services/TicketService.js';
 import { GetProjectByProjectId } from '@/services/projectService.js';
-import { useParams } from 'react-router-dom';
-import type { ITicket } from '@/interfaces/Ticket/Ticket';
-import type { ProjectDetailResponse } from '@/interfaces/Project/project';
 import { getUserById } from '@/services/userService.js';
-import type { User as IUser } from '@/interfaces/User/User';
-import EditTicketModal from '@/components/ProjectSideCompanyRequest/EditTicketModal';
-import DeleteTicketModal from '@/components/ProjectSideCompanyRequest/DeleteTicketModal';
-import RestoreTicketModal from './RestoreTicketModal';
 import {
   GetCommentsByTicketId,
   CreateComment,
   DeleteComment,
 } from '@/services/ticketCommentService.js';
+import { AcceptTicket } from '@/services/TicketService.js';
+
+//modal
+import EditTicketModal from '@/components/ProjectSideCompanyRequest/EditTicketModal';
+import DeleteTicketModal from '@/components/ProjectSideCompanyRequest/DeleteTicketModal';
+import EditTicketComment from '@/components/ProjectSideCompanyRequest/EditTicketComment';
+import RejectTicketModal from '@/components/Ticket/RejectTicketModal';
+import RestoreTicketModal from './RestoreTicketModal';
+
+//inter face and react
+import { useParams } from 'react-router-dom';
+import type { ITicket } from '@/interfaces/Ticket/Ticket';
+import type { ProjectDetailResponse } from '@/interfaces/Project/project';
+import type { User as IUser } from '@/interfaces/User/User';
 import type {
   TicketCommentApiResponse,
   TicketCommentResponse,
 } from '@/interfaces/TicketComment/ticketComment';
 import { toast } from 'react-toastify';
-import EditTicketComment from '@/components/ProjectSideCompanyRequest/EditTicketComment';
 import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
-import RejectTicketModal from '@/components/Ticket/RejectTicketModal';
-import { AcceptTicket, RejectTicket } from '@/services/TicketService.js';
 
 const { confirm } = Modal;
 
