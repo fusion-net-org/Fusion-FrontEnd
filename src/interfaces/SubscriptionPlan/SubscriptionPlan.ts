@@ -29,16 +29,24 @@ export type SubscriptionPlanFeatureResponse = {
   featureCode?: string | null;
   featureName?: string | null;
   enabled: boolean;
+  /** Monthly limit của feature này trong plan; null = unlimited */
+  monthlyLimit?: number | null;
+};
+
+export type SubscriptionPlanPriceDiscountResponse = {
+  installmentIndex: number; // kỳ thứ mấy (1,2,3,…)
+  discountValue: number; // 10 = 10%
+  note?: string | null;
 };
 
 export type SubscriptionPlanPriceResponse = {
   id: Guid;
-  billingPeriod: BillingPeriod;           // "Week" | "Month" | "Year"
+  billingPeriod: BillingPeriod; // "Week" | "Month" | "Year"
   periodCount: number;
-  chargeUnit: ChargeUnit;                 // "PerSubscription" | "PerSeat"
+  chargeUnit: ChargeUnit; // "PerSubscription" | "PerSeat"
   price: number;
-  currency: string;                       // "VND" ...
-  paymentMode: PaymentMode;               // "Prepaid" | "Installments"
+  currency: string; // "VND" ...
+  paymentMode: PaymentMode; // "Prepaid" | "Installments"
   installmentCount?: number | null;
   installmentInterval?: BillingPeriod | null;
   discounts?: SubscriptionPlanPriceDiscountResponse[] | null;
@@ -48,14 +56,16 @@ export type SubscriptionPlanPriceResponse = {
 export type SubscriptionPlanDetailResponse = {
   id: Guid;
   name: string;
-  description?: string | null;            // detail có description
+  description?: string | null; // detail có description
   isActive: boolean;
-  licenseScope: LicenseScope;             // "Userlimits" | "EntireCompany"
+  licenseScope: LicenseScope; // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
+  /** Plan free auto-grant hàng tháng hay không */
+  autoGrantMonthly: boolean;
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
-  createdAt: string;                      // DateTime -> ISO string
-  updatedAt: string;                      // DateTime -> ISO string
+  createdAt: string; // DateTime -> ISO string
+  updatedAt: string; // DateTime -> ISO string
   price?: SubscriptionPlanPriceResponse | null;
   features: SubscriptionPlanFeatureResponse[];
 };
@@ -64,12 +74,21 @@ export type SubscriptionPlanListItemResponse = {
   id: Guid;
   name: string;
   isActive: boolean;
-  licenseScope: LicenseScope;            // "Userlimits" | "EntireCompany"
+  licenseScope: LicenseScope; // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
-  companyShareLimit?: number | null;     // null = unlimited
-  seatsPerCompanyLimit?: number | null;  // null = unlimited
-  createdAt: string;                     // ISO
-  updatedAt: string;                     // ISO
+  /** Hiển thị flag "Free monthly" trên list */
+  autoGrantMonthly: boolean;
+  companyShareLimit?: number | null; // null = unlimited
+  seatsPerCompanyLimit?: number | null; // null = unlimited
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+};
+
+// ---------- Inputs ----------
+export type SubscriptionPlanPriceDiscountInput = {
+  installmentIndex: number;
+  discountValue: number; // 10 = 10%
+  note?: string | null;
 };
 
 export type SubscriptionPlanPriceInput = {
@@ -84,17 +103,35 @@ export type SubscriptionPlanPriceInput = {
   discounts?: SubscriptionPlanPriceDiscountInput[] | null;
 };
 
+/** Per-feature limit cho request create/update plan */
+export type SubscriptionPlanFeatureLimitInput = {
+  featureId: Guid;
+  /** null/undefined = unlimited */
+  monthlyLimit?: number | null;
+};
+
 export type SubscriptionPlanCreateRequest = {
   name: string;
   description?: string | null;
   isActive: boolean;
-  licenseScope: LicenseScope;          // "Userlimits" | "EntireCompany"
+  licenseScope: LicenseScope; // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
+  /** Plan free auto-grant hàng tháng */
+  autoGrantMonthly: boolean;
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
-  price: SubscriptionPlanPriceInput;   // có billingPeriod, periodCount, chargeUnit, price, currency, paymentMode, installmentCount?, installmentInterval?
-  // undefined = để server tự xử lý theo isFullPackage; [] = clear; list = replace
+  price: SubscriptionPlanPriceInput; // billingPeriod, periodCount, chargeUnit, price, currency, paymentMode, installmentCount?, installmentInterval?
+  /**
+   * Danh sách feature được bật trong plan.
+   * undefined = để server tự xử lý theo isFullPackage; [] = clear; list = replace
+   */
   featureIds?: Guid[] | null;
+
+  /**
+   * Monthly limit cho từng feature trong plan (chủ yếu dùng khi autoGrantMonthly = true).
+   * BE map vào SubscriptionPlanFeature.MonthlyLimit
+   */
+  featureMonthlyLimits?: SubscriptionPlanFeatureLimitInput[] | null;
 };
 
 export type SubscriptionPlanUpdateRequest = {
@@ -102,15 +139,21 @@ export type SubscriptionPlanUpdateRequest = {
   name: string;
   description?: string | null;
   isActive: boolean;
-  licenseScope: LicenseScope;          // "Userlimits" | "EntireCompany"
+  licenseScope: LicenseScope; // "Userlimits" | "EntireCompany"
   isFullPackage: boolean;
+  autoGrantMonthly: boolean;
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
   price: SubscriptionPlanPriceInput;
-  // null = giữ như cũ, [] = clear, list = replace (nếu không full feature)
+  /**
+   * null = giữ như cũ, [] = clear, list = replace (nếu không full feature)
+   */
   featureIds?: Guid[] | null;
+  /** Monthly limit per feature (giống create) */
+  featureMonthlyLimits?: SubscriptionPlanFeatureLimitInput[] | null;
 };
 
+// ---------- Query params ----------
 export type GetPlansPagedParams = {
   keyword?: string;
   isActive?: boolean | null;
@@ -121,8 +164,7 @@ export type GetPlansPagedParams = {
   pageSize: number;
 };
 
-// Public (customer) view 
-
+// ---------- Public (customer) view ----------
 export type PlanPricePreviewResponse = {
   amount: number;
   currency: string;
@@ -145,22 +187,10 @@ export type SubscriptionPlanCustomerResponse = {
   description?: string | null;
 
   isFullPackage: boolean;
-  licenseScope: LicenseScope;               // "Userlimits" | "EntireCompany"
+  licenseScope: LicenseScope; // "Userlimits" | "EntireCompany"
   companyShareLimit?: number | null;
   seatsPerCompanyLimit?: number | null;
 
   price?: PlanPricePreviewResponse | null;
   featuresPreview: PlanFeatureChipResponse[];
-};
-
-export type SubscriptionPlanPriceDiscountResponse = {
-  installmentIndex: number;     // kỳ thứ mấy (1,2,3,…)
-  discountValue: number;        // 10 = 10%
-  note?: string | null;
-};
-
-export type SubscriptionPlanPriceDiscountInput = {
-  installmentIndex: number;
-  discountValue: number;        // 10 = 10%
-  note?: string | null;
 };

@@ -1,7 +1,7 @@
 // src/components/MySubscription/CompanySubscriptionDetailModal.tsx
 import React, { useEffect, useState } from "react";
 import { Modal, Spin } from "antd";
-import { Eye, CalendarDays, Clock, Users } from "lucide-react";
+import { Eye, CalendarDays, Clock, Users, RefreshCcw } from "lucide-react";
 
 import type {
   CompanySubscriptionDetailResponse,
@@ -9,9 +9,7 @@ import type {
   CompanySubscriptionUserUsageItem,
 } from "@/interfaces/CompanySubscription/CompanySubscription";
 
-import { 
-  getCompanySubscriptionUserUsage
- } from "@/services/companysubscription.js";
+import { getCompanySubscriptionUserUsage } from "@/services/companysubscription.js";
 
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
@@ -72,7 +70,7 @@ function getInitials(name?: string | null, email?: string | null) {
 
 type Props = {
   open: boolean;
-  loading?: boolean; // loading detail
+  loading?: boolean;
   data: CompanySubscriptionDetailResponse | null;
   onClose: () => void;
 };
@@ -84,6 +82,7 @@ const CompanySubscriptionDetailModal: React.FC<Props> = ({
   onClose,
 }) => {
   const detail = data;
+  const isAutoMonthly = !!detail && !detail.expiredAt; // gói free auto-month
 
   // user usage state
   const [usage, setUsage] = useState<CompanySubscriptionUserUsageItem[]>([]);
@@ -136,8 +135,16 @@ const CompanySubscriptionDetailModal: React.FC<Props> = ({
             <Eye className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <div className="text-base font-semibold text-slate-900">
-              Company subscription detail
+            <div className="flex items-center gap-2">
+              <div className="text-base font-semibold text-slate-900">
+                Company subscription detail
+              </div>
+              {isAutoMonthly && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  <RefreshCcw className="h-3 w-3" />
+                  Auto monthly quota
+                </span>
+              )}
             </div>
             <div className="text-xs text-slate-500">
               All information of this company subscription.
@@ -147,7 +154,7 @@ const CompanySubscriptionDetailModal: React.FC<Props> = ({
       }
     >
       {loading && !detail ? (
-        <div className="flex min-height-[160px] items-center justify-center py-8">
+        <div className="flex min-h-[160px] items-center justify-center py-8">
           <Spin size="small" />
         </div>
       ) : !detail ? (
@@ -193,34 +200,32 @@ const CompanySubscriptionDetailModal: React.FC<Props> = ({
                 </p>
               </div>
 
-              {/* Right: status + seat limit */}
+              {/* Right: status + seat limit + auto-month note */}
               <div className="rounded-2xl bg-white px-4 py-3 text-[11px] text-slate-600 shadow-sm sm:ml-auto sm:w-60">
-                <p className="font-semibold uppercase tracking-wide text-slate-500">
-                  Status
-                </p>
-                <div className="mt-1">
-                  <span
-                    className={cn(
-                      "inline-flex rounded-full border px-3 py-0.5 text-[11px] font-medium",
-                      statusTagClass(detail.status)
-                    )}
-                  >
-                    {detail.status}
-                  </span>
-                </div>
+  <p className="font-semibold uppercase tracking-wide text-slate-500">
+    Status
+  </p>
+  <div className="mt-1">
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-3 py-0.5 text-[11px] font-medium",
+        statusTagClass(detail.status)
+      )}
+    >
+      {detail.status}
+    </span>
+  </div>
 
-                <p className="mt-4 font-semibold uppercase tracking-wide text-slate-500">
-                  Seat limit
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatSeatLimit(detail)}
-                </p>
-                {detail.seatsLimitSnapshot != null && (
-                  <p className="text-[10px] text-slate-400">
-                    Used / total seats
-                  </p>
-                )}
-              </div>
+  <p className="mt-4 font-semibold uppercase tracking-wide text-slate-500">
+    Seat limit
+  </p>
+  <p className="mt-1 text-sm font-semibold text-slate-900">
+    {formatSeatLimit(detail)}
+  </p>
+  {detail.seatsLimitSnapshot != null && (
+    <p className="text-[10px] text-slate-400">Used / total seats</p>
+  )}
+</div>
             </div>
           </section>
 
@@ -244,50 +249,131 @@ const CompanySubscriptionDetailModal: React.FC<Props> = ({
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Expires at
                 </p>
-                <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900">
-                  <Clock className="h-4 w-4 text-amber-500" />
-                  {formatDate(detail.expiredAt)}
-                </p>
+                <div className="mt-1 flex items-center gap-1.5 text-sm font-medium">
+                  {isAutoMonthly ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4 text-emerald-500" />
+                      <span className="text-emerald-700">
+                        -
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-4 w-4 text-amber-500" />
+                      <span className="text-slate-900">
+                        {formatDate(detail.expiredAt)}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </section>
 
           {/* ===== ENTITLEMENTS ===== */}
           <section className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Entitlements & features
               </p>
-              <p className="text-[11px] font-medium text-slate-400">
-                Features granted to this company from the subscription.
+              <p className="text-[11px] text-slate-400">
+                Remaining uses in this month.
               </p>
             </div>
 
             {detail.entitlements?.length ? (
-              <ul className="grid gap-1.5 sm:grid-cols-2">
-                {detail.entitlements.map((e) => (
-                  <li
-                    key={e.featureId}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-50"
-                  >
-                    <span
-                      className={cn(
-                        "h-2 w-2 flex-shrink-0 rounded-full",
-                        e.enabled ? "bg-emerald-500" : "bg-slate-300"
-                      )}
-                    />
-                    <span className="text-[12px] font-medium text-slate-900">
-                      {e.featureName ||
-                        e.featureCode ||
-                        e.featureId.toString().slice(0, 8)}
-                    </span>
-                    {!e.enabled && (
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                        Disabled
-                      </span>
-                    )}
-                  </li>
-                ))}
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {detail.entitlements.map((e) => {
+                  // ẩn label "company"
+                  const categoryLabel =
+                    e.category && e.category.toLowerCase() !== "company"
+                      ? e.category
+                      : null;
+
+                  const hasMonthlyLimit = (e as any).monthlyLimit !== undefined;
+                  const unlimited = hasMonthlyLimit && e.monthlyLimit == null;
+                  const remaining =
+                    hasMonthlyLimit && e.monthlyLimit != null ? e.monthlyLimit : null;
+
+                  return (
+                    <li
+                      key={e.featureId}
+                      className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 hover:border-slate-200 hover:bg-slate-50"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        {/* LEFT: feature info */}
+                        <div className="flex flex-1 items-start gap-2">
+                          <span
+                            className={cn(
+                              "mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full",
+                              e.enabled ? "bg-emerald-500" : "bg-slate-300"
+                            )}
+                          />
+                          <div className="space-y-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[12px] font-semibold text-slate-900">
+                                {e.featureName ||
+                                  e.featureCode ||
+                                  e.featureId.toString().slice(0, 8)}
+                              </span>
+
+                              {categoryLabel && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                  {categoryLabel}
+                                </span>
+                              )}
+
+                              {!e.enabled && (
+                                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-600">
+                                  Disabled
+                                </span>
+                              )}
+                            </div>
+
+                            {/* mô tả ngắn, không dài dòng */}
+                            {hasMonthlyLimit && !unlimited && (
+                              <p className="text-[11px] text-slate-500">
+                                Remaining for this month.
+                              </p>
+                            )}
+                            {hasMonthlyLimit && unlimited && (
+                              <p className="text-[11px] text-slate-500">
+                                Unlimited this month.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* RIGHT: số lần còn lại / unlimited */}
+                        {hasMonthlyLimit && !unlimited ? (
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                              Uses left
+                            </p>
+                            <p className="text-xl font-semibold leading-none text-slate-900">
+                              {remaining?.toLocaleString("vi-VN")}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-slate-400">
+                              this month
+                            </p>
+                          </div>
+                        ) : hasMonthlyLimit && unlimited ? (
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                              Uses
+                            </p>
+                            <p className="text-lg font-semibold leading-none text-slate-900">
+                              ∞
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-slate-400">
+                              this month
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-[12px] text-slate-400">
@@ -301,10 +387,6 @@ const CompanySubscriptionDetailModal: React.FC<Props> = ({
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Users using this subscription
-              </p>
-              <p className="text-[11px] font-medium text-slate-400">
-                Distinct users that have used any feature from this company
-                subscription.
               </p>
             </div>
 

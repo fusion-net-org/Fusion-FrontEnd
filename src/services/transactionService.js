@@ -8,22 +8,32 @@ const onError = (e, fallback = 'Unexpected error') => {
 
 export const getAllTransactionForAdmin = async (filters = {}) => {
   try {
-    const response = await axiosInstance.get('/TransactionPayment/admin/pagedTransaction', {
-      params: {
-        UserName: filters.userName,
-        PlanName: filters.planName,
-        Status: filters.status,
-        PageNumber: filters.pageNumber || 1,
-        PageSize: filters.pageSize || 10,
-        SortColumn: filters.sortColumn || 'transactionDateTime',
-        SortDescending: filters.sortDescending !== undefined ? filters.sortDescending : true,
-      },
-    });
+    const response = await axiosInstance.get(
+      "/TransactionPayment/admin/pagedTransaction",
+      {
+        params: {
+          UserName: filters.userName || undefined,
+          PlanName: filters.planName || undefined,
+          Status: filters.status || undefined,
+          Keyword: filters.keyword || undefined,
 
-    // TransactionPaymentPagedSummaryResponse
+          "TransactionAt.From": filters.paymentDateFrom || undefined,
+          "TransactionAt.To": filters.paymentDateTo || undefined,
+
+          PageNumber: filters.pageNumber || 1,
+          PageSize: filters.pageSize || 10,
+          SortColumn: filters.sortColumn || "TransactionDateTime",
+          SortDescending:
+            filters.sortDescending !== undefined
+              ? filters.sortDescending
+              : true,
+        },
+      }
+    );
+
     return unwrap(response);
   } catch (error) {
-    onError(error, 'Failed to get transaction list!');
+    onError(error, "Failed to get transaction list!");
   }
 };
 
@@ -161,5 +171,57 @@ export async function getPlanRevenueInsightForAdmin(year) {
     return unwrap(res);
   } catch (e) {
     onError(e, 'Failed to load plan revenue insight');
+  }
+}
+// 9. Plan purchase stats - full table (tất cả gói)
+export async function getPlanPurchaseTableForAdmin() {
+  try {
+    const res = await axiosInstance.get(
+      '/TransactionPayment/admin/plans/table'
+    );
+    return unwrap(res); // sẽ trả về SubscriptionPlanPurchaseStatItem[]
+  } catch (e) {
+    onError(e, 'Failed to load plan purchase table');
+  }
+}
+
+
+// 10. Plan purchase ratio - top N + "Other"
+export async function getPlanPurchaseRatioForAdmin(top = 3) {
+  try {
+    const res = await axiosInstance.get(
+      '/TransactionPayment/admin/plans/ratio',
+      { params: { top: Number(top) || 3 } }
+    );
+    return unwrap(res); // SubscriptionPlanPurchaseStatItem[]
+  } catch (e) {
+    onError(e, 'Failed to load plan purchase ratio');
+  }
+}
+// 11. Monthly plan purchases (per month in a year)
+export async function getPlanMonthlyPurchasesForAdmin(year) {
+  try {
+    const res = await axiosInstance.get(
+      '/TransactionPayment/admin/monthly-purchases',
+      { params: { year } }
+    );
+
+    // raw = PlanMonthlyPurchaseCountRow[] từ BE
+    const raw = unwrap(res);
+    if (!raw) return;
+
+    const items = raw.map((x) => ({
+      planId: x.planId,
+      planName: x.planName,
+      month: x.month,
+      purchaseCount: x.purchaseCount,
+    }));
+
+    return {
+      year,
+      items, // SubscriptionPlanMonthlyPurchaseItem[]
+    };
+  } catch (e) {
+    onError(e, 'Failed to load monthly plan purchases');
   }
 }
