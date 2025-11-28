@@ -4,15 +4,14 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { toast } from 'react-toastify';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyA2GVoGiJL0S5DJvXVK4eUUb68kyPoB46Q',
-  authDomain: 'fusion-18214.firebaseapp.com',
-  projectId: 'fusion-18214',
-  storageBucket: 'fusion-18214.firebasestorage.app',
-  messagingSenderId: '130323105827',
-  appId: '1:130323105827:web:6f33d2ee07118f568f4996',
-  measurementId: 'G-L11L7NVK8Z',
-  vapidKey:
-    'BKGxVy-5JU19T2nlb4GdSJT3YdE8WuHBQ2Ob2FCWgnmV0bBdn8N91LSRIm-5mDR7URzS_yN-t8VWvNPKuX5EDo0',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
 };
 
 const app = initializeApp(firebaseConfig);

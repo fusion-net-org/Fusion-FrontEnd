@@ -128,9 +128,13 @@ export const InvitePartnert = async (data) => {
 };
 
 //https://localhost:7160/api/partners/between/DE562EA1-F67A-45CB-92A1-1199C1BC09E6/16AB11C0-D1CE-49F6-924B-B9235D5B9ACD
-export const GetPartnerBetweenTwoCompanies = async (companyIdA, companyIdB) => {
+export const GetPartnerBetweenTwoCompanies = async (companyIdA, companyIdB, friendshipId) => {
   try {
-    const response = await axiosInstance.get(`/partners/between/${companyIdA}/${companyIdB}`);
+    const response = await axiosInstance.get(`/partners/between/${companyIdA}/${companyIdB}`, {
+      params: {
+        friendshipId,
+      },
+    });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
