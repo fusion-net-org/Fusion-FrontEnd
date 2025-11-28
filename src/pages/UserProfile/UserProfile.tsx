@@ -371,7 +371,7 @@ const UserProfile = () => {
                     </label>
                     <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                       <Mail className="w-5 h-5 text-blue-600" />
-                      <p className="text-sm font-medium text-gray-900">{profileData.email}</p>
+                      <p className="text-sm font-medium text-gray-900 m-0">{profileData.email}</p>
                     </div>
                   </div>
 
@@ -390,7 +390,7 @@ const UserProfile = () => {
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                         <Phone className="w-5 h-5 text-green-600" />
-                        <p className="text-sm font-medium text-gray-900">{profileData.phone}</p>
+                        <p className="text-sm font-medium text-gray-900 m-0">{profileData.phone}</p>
                       </div>
                     )}
                   </div>
@@ -412,7 +412,9 @@ const UserProfile = () => {
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
                         <MapPin className="w-5 h-5 text-purple-600" />
-                        <p className="text-sm font-medium text-gray-900">{profileData.address}</p>
+                        <p className="text-sm font-medium text-gray-900 m-0">
+                          {profileData.address}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -439,7 +441,7 @@ const UserProfile = () => {
                     ) : (
                       <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
                         <UserIcon className="w-5 h-5 text-pink-600" />
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 m-0">
                           {profileData.gender || 'Not specified'}
                         </p>
                       </div>
@@ -447,141 +449,6 @@ const UserProfile = () => {
                   </div>
                 </div>
               </div>
-
-              {/* <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-blue-600" />
-                  Project statistics
-                </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  {projectStats.map((stat, i) => {
-                    const Icon = stat.icon;
-                    return (
-                      <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                        <div
-                          className={`w-12 h-12 rounded-lg flex items-center justify-center mb-3 ${stat.color}`}
-                        >
-                          <Icon className="w-6 h-6 text-white" />
-                        </div>
-                        <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
-                        <p className="text-sm text-gray-600">{stat.label}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-blue-600" />
-                    Working performance
-                  </h3>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'On-time completion rate', value: 85, color: 'bg-green-500' },
-                      { label: 'Quality of work', value: 92, color: 'bg-blue-500' },
-                      { label: 'Teamwork effectiveness', value: 88, color: 'bg-purple-500' },
-                    ].map((item, i) => (
-                      <div key={i}>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-gray-600">{item.label}</span>
-                          <span className="text-sm font-semibold text-gray-900">{item.value}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`${item.color} h-2 rounded-full transition-all`}
-                            style={{ width: `${item.value}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-blue-600" />
-                    Recent activity
-                  </h3>
-                  <div className="space-y-4">
-                    {recentActivities.map((activity, i) => (
-                      <div
-                        key={i}
-                        className="flex gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0"
-                      >
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            activity.status === 'completed'
-                              ? 'bg-green-100'
-                              : activity.status === 'updated'
-                              ? 'bg-blue-100'
-                              : 'bg-purple-100'
-                          }`}
-                        >
-                          {activity.status === 'completed' && (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          )}
-                          {activity.status === 'updated' && (
-                            <Clock className="w-5 h-5 text-blue-600" />
-                          )}
-                          {activity.status === 'joined' && (
-                            <Users className="w-5 h-5 text-purple-600" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 mb-1">
-                            {activity.action}
-                          </p>
-                          <p className="text-sm text-gray-600">{activity.project}</p>
-                          <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <Folder className="w-5 h-5 text-blue-600" />
-                  Current project
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { title: 'Project Management Website', progress: 75, color: 'bg-blue-500' },
-                    { title: 'App Mobile', progress: 60, color: 'bg-purple-500' },
-                  ].map((proj, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-4 p-4 bg-gradient-to-br from-gray-50 to-white rounded-lg border border-gray-100 hover:shadow-md transition-all cursor-pointer group"
-                    >
-                      <div
-                        className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform ${proj.color}`}
-                      >
-                        <Folder className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 mb-1">{proj.title}</p>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`${proj.color} h-2 rounded-full`}
-                              style={{ width: `${proj.progress}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs font-medium text-gray-600">
-                            {proj.progress}%
-                          </span>
-                        </div>
-                      </div>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full whitespace-nowrap">
-                        In progress
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div> */}
             </div>
           )}
 
