@@ -16,6 +16,7 @@ import Stack from '@mui/material/Stack';
 import EditCompanyModal from './EditCompanyModal';
 import {
   getAllCompanies,
+  getAllCompaniesByAdmin,
   getCompanyById,
   updateCompanyByAdmin,
   deleteCompanyByAdmin,
@@ -161,7 +162,7 @@ export default function CompanyListPage() {
       };
       const sortCol = sortColMap[sortKey] ?? 'CreateAt';
 
-      const res = await getAllCompanies(
+      const res = await getAllCompaniesByAdmin(
         q ?? '',
         '',
         '',
@@ -171,7 +172,6 @@ export default function CompanyListPage() {
         pageSize,
         sortCol,
         dirDesc,
-        '',
       );
 
       const paged = unwrap<any>(res);
@@ -460,24 +460,39 @@ export default function CompanyListPage() {
                           <div className="text-left">
                             <div className="font-medium text-gray-900">{c.name}</div>
                             {c.ownerUserName && (
-                              <div className="text-xs text-gray-500">Owner: {c.ownerUserName}</div>
+                              <div className="text-xs text-gray-500">
+                                Owner:{' '}
+                                {c.ownerUserName || (
+                                  <span className="text-gray-400 text-sm italic">Not provided</span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </button>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className="text-sm text-gray-900 font-mono">{c.taxCode ?? '-'}</span>
+                        <span className="text-sm text-gray-900 font-mono">
+                          {c.taxCode || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <span
                           className="text-sm text-gray-600 block max-w-[220px] truncate"
                           title={c.email ?? undefined}
                         >
-                          {c.email ?? '-'}
+                          {c.email || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
                         </span>
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <span className="text-sm text-gray-600">{c.phoneNumber ?? '-'}</span>
+                        <span className="text-sm text-gray-600">
+                          {c.phoneNumber || (
+                            <span className="text-gray-400 text-sm italic">Not provided</span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center hidden lg:table-cell">
                         <span className="text-sm text-gray-600">
