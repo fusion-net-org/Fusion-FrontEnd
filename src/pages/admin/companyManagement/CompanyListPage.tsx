@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
-  Plus,
   Pencil,
   Trash2,
   ArrowUp,
@@ -141,44 +140,65 @@ export default function CompanyListPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const fetchCompanies = async (
+    query: string,
+    sortKey: SortKey,
+    descending: boolean,
+    currentPage: number,
+    pageSize: number,
+  ) => {
+    setLoading(true);
+    setErr(null);
+
+    try {
+      const sortColMap: Record<SortKey, string> = {
+        CreatedAt: 'CreateAt',
+        UpdatedAt: 'UpdateAt',
+        Name: 'Name',
+        Email: 'Email',
+        TaxCode: 'TaxCode',
+        IsDeleted: 'IsDeleted',
+      };
+      const sortCol = sortColMap[sortKey] ?? 'CreateAt';
+
+      const res = await getAllCompanies(
+        q ?? '',
+        '',
+        '',
+        null,
+        null,
+        page,
+        pageSize,
+        sortCol,
+        dirDesc,
+        '',
+      );
+
+      const paged = unwrap<any>(res);
+      const items = paged?.items ?? [];
+      const totalCnt = paged?.totalCount ?? items.length;
+
+      const mapped: Row[] = items.map(mapCompanyToRow);
+
+      setRows(mapped);
+      setTotal(totalCnt);
+    } catch (error: any) {
+      setErr(error?.message || 'Load companies failed');
+      setRows([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const sortColMap: Record<SortKey, string> = {
-          CreatedAt: 'CreateAt',
-          UpdatedAt: 'UpdateAt',
-          Name: 'Name',
-          Email: 'Email',
-          TaxCode: 'TaxCode',
-          IsDeleted: 'IsDeleted',
-        };
-        const sortCol = sortColMap[sort] ?? 'CreateAt';
-
-        const res = await getAllCompanies(q ?? '', '', '', page, pageSize, sortCol, dirDesc, '');
-
-        const paged = unwrap<any>(res);
-        const items = paged?.items ?? [];
-        const totalCnt = paged?.totalCount ?? items.length;
-
-        const mapped: Row[] = items.map(mapCompanyToRow);
-
-        if (!cancelled) {
-          setRows(mapped);
-          setTotal(totalCnt);
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setErr(e?.message || 'Load companies failed');
-          setRows([]);
-          setTotal(0);
-        }
-      } finally {
-        !cancelled && setLoading(false);
-      }
+      if (cancelled) return;
+      await fetchCompanies(q ?? '', sort, dirDesc, page, pageSize);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -194,21 +214,27 @@ export default function CompanyListPage() {
   // Detail drawer (fetch detail)
   const [selected, setSelected] = useState<Row | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  const fetchCompanyDetail = async (companyId: string, cancelledRef: { cancelled: boolean }) => {
+    try {
+      setDetailLoading(true);
+      const res = await getCompanyById(companyId);
+      const data = unwrap<any>(res);
+      if (!cancelledRef.cancelled && data?.id) setSelected(mapCompanyToRow(data));
+    } finally {
+      if (!cancelledRef.cancelled) setDetailLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!selected?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        setDetailLoading(true);
-        const res = await getCompanyById(selected.id);
-        const data = unwrap<any>(res);
-        if (!cancelled && data?.id) setSelected(mapCompanyToRow(data));
-      } finally {
-        !cancelled && setDetailLoading(false);
-      }
-    })();
+
+    const cancelledRef = { cancelled: false };
+
+    fetchCompanyDetail(selected.id, cancelledRef);
+
     return () => {
-      cancelled = true;
+      cancelledRef.cancelled = true;
     };
   }, [selected?.id]);
 
@@ -278,6 +304,8 @@ export default function CompanyListPage() {
     localStorage.setItem('companyDetailId', c.id);
     navigate(`/admin/companies/detail/${c.id}`);
   };
+
+  //Update company
 
   return (
     <>
@@ -592,7 +620,7 @@ export default function CompanyListPage() {
               setSelected((sel) => (sel && sel.id === updated.id ? { ...sel, ...updated } : sel));
               setModal({ open: false });
             } catch (e: any) {
-              alert(e?.message || 'Update failed');
+              toast(e?.message || 'Update failed');
             }
           }}
         />

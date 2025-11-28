@@ -72,7 +72,7 @@ export const getTotalsDashboard = async () => {
 
 export const getMonthlyStats = async () => {
   try {
-    const response = await axiosInstance.get(`/dashboard/monthly-stats`);
+    const response = await axiosInstance.get(`/DashBoard/overview/platform-year`);
     return response.data;
   } catch (error) {
     const message = error.response?.data?.message || 'Error!';

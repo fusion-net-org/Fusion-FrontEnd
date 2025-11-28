@@ -11,7 +11,6 @@ import {
   Row,
   Col,
   Badge,
-  Divider,
   Empty,
   Button,
 } from 'antd';
@@ -19,11 +18,9 @@ import {
   UserOutlined,
   MailOutlined,
   PhoneOutlined,
-  HomeOutlined,
   SafetyOutlined,
   CalendarOutlined,
   IdcardOutlined,
-  GlobalOutlined,
 } from '@ant-design/icons';
 import {
   getUserFullInfo,

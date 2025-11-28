@@ -16,7 +16,7 @@ import icTotalRevenue from '@/assets/admin/ic_total_revenue.png';
 import icTotalUser from '@/assets/admin/ic_total_user.png';
 import {
   getTotalsDashboard,
-  //getMonthlyStats,
+  getMonthlyStats,
   getPlanRate,
 } from '@/services/adminDashboardService.js';
 import { getAllTransactionForAdmin, getTransactionById } from '@/services/transactionService.js';
@@ -29,6 +29,13 @@ type MonthlyStat = {
   users: number;
   companies: number;
   revenue: number;
+};
+
+type MonthlyApiData = {
+  month: number;
+  newUsers: number;
+  newCompanies: number;
+  totalTransactionAmount: number;
 };
 
 type Transaction = {
@@ -73,28 +80,49 @@ const Dashboard = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const fetchData = async () => {
+    try {
+      const totalsRes = await getTotalsDashboard();
+      const monthlyRes = await getMonthlyStats();
+      const res = await getPlanRate();
+
+      setTotals(totalsRes.data);
+      setMonthlyStats(
+        monthlyRes.data.months.map((m: MonthlyApiData) => ({
+          month: m.month,
+          users: m.newUsers,
+          companies: m.newCompanies,
+          revenue: m.totalTransactionAmount,
+        })),
+      );
+      if (res?.data) setPlanRate(res.data);
+
+      const transRes = await getAllTransactionForAdmin({
+        pageNumber: transPage,
+        pageSize: itemsPerPage,
+      });
+
+      setTransactions(transRes.items);
+      setTotalTrans(transRes.totalCount);
+    } catch (error) {
+      console.error('Dashboard API error:', error);
+    }
+  };
+
+  const handleTransactionClick = async (transaction: Transaction) => {
+    try {
+      setIsModalOpen(true);
+      const detail = await getTransactionById(transaction.id);
+      setSelectedTransaction({
+        ...transaction,
+        ...detail,
+      });
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to load transaction detail');
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const totalsRes = await getTotalsDashboard();
-        //const monthlyRes = await getMonthlyStats();
-        const res = await getPlanRate();
-        setTotals(totalsRes.data);
-        //setMonthlyStats(monthlyRes.data);
-        if (res?.data) setPlanRate(res.data);
-
-        const transRes = await getAllTransactionForAdmin({
-          pageNumber: transPage,
-          pageSize: itemsPerPage,
-        });
-
-        setTransactions(transRes.items);
-        setTotalTrans(transRes.totalCount);
-      } catch (error) {
-        console.error('Dashboard API error:', error);
-      }
-    };
-
     fetchData();
   }, [transPage]);
 
@@ -429,18 +457,7 @@ const Dashboard = () => {
                   <tr
                     key={t.id}
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                    onClick={async () => {
-                      try {
-                        setIsModalOpen(true);
-                        const detail = await getTransactionById(t.id);
-                        setSelectedTransaction({
-                          ...t,
-                          ...detail,
-                        });
-                      } catch (e: any) {
-                        toast.error(e?.message || 'Failed to load transaction detail');
-                      }
-                    }}
+                    onClick={() => handleTransactionClick(t)}
                   >
                     <td className="py-3 px-4 text-sm text-gray-700">{t.id}</td>
                     <td className="py-3 px-4 text-sm text-gray-700">{t.orderCode || '---'}</td>

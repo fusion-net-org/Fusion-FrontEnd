@@ -97,20 +97,20 @@ const ProjectDetailAdminPage: React.FC = () => {
   const { Panel } = Collapse;
   const { Text } = Typography;
 
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const res = await getProjectById(id);
-        if (res.succeeded) {
-          setProject(res.data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchProject = async () => {
+    try {
+      const res = await getProjectById(id);
+      if (res.succeeded) {
+        setProject(res.data);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProject();
   }, [id]);
 

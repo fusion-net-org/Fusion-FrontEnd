@@ -8,13 +8,6 @@ import {
   Camera,
   Save,
   X,
-  CheckCircle,
-  AlertCircle,
-  BarChart3,
-  Folder,
-  Users,
-  Activity,
-  Clock,
   Lock,
   LogOut,
   Settings,
@@ -73,39 +66,12 @@ const UserProfile = () => {
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  const projectStats = [
-    { icon: Folder, label: 'Total project', value: '24', color: 'bg-blue-500' },
-    { icon: CheckCircle, label: 'Complete', value: '18', color: 'bg-green-500' },
-    { icon: Clock, label: 'Ongoing', value: '4', color: 'bg-yellow-500' },
-    { icon: AlertCircle, label: 'Overdue', value: '2', color: 'bg-red-500' },
-  ];
-
-  const recentActivities = [
-    {
-      action: 'Complete the task "Design UI Dashboard"',
-      project: 'Website Management Project',
-      time: '2 hours ago',
-      status: 'completed',
-    },
-    {
-      action: 'Project progress update',
-      project: 'App Mobile',
-      time: '5 hours ago',
-      status: 'updated',
-    },
-    {
-      action: 'Join the new project',
-      project: 'Banking system',
-      time: '1 day ago',
-      status: 'joined',
-    },
-  ];
-
   const handleEdit = () => {
     setTempData({ ...profileData });
     setIsEditing(true);
   };
 
+  //Update user profile
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -149,7 +115,7 @@ const UserProfile = () => {
     navigate('/');
   };
 
-  //Handle api:
+  //Get user info:
   const fetchUserInfo = async (): Promise<void> => {
     try {
       const response = await getSelfUser();
