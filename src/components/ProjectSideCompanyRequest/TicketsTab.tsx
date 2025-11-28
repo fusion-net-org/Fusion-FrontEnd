@@ -286,7 +286,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
       <CreateTicketPopup
         visible={showCreatePopup}
         onClose={() => setShowCreatePopup(false)}
-        projectId={projectId}
+        defaultProjectId={projectId}
         onSuccess={() => {
           fetchTickets();
           onTicketCreated?.();

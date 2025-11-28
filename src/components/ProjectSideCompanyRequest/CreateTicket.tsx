@@ -5,22 +5,28 @@ import { CreateTicket } from '@/services/TicketService.js';
 import { GetWorkflowStatusByProjectId } from '@/services/WorkflowStatusService.js';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import { toast } from 'react-toastify';
+import type { IProject } from '@/interfaces/ProjectMember/projectMember';
+
 const { TextArea } = Input;
 const { Option } = Select;
-
 interface CreateTicketPopupProps {
   visible: boolean;
   onClose: () => void;
-  projectId: string;
   onSuccess: () => void;
+  projects?: IProject[];
+  defaultProjectId?: string;
 }
 
 const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
   visible,
   onClose,
-  projectId,
   onSuccess,
+  projects = [],
+  defaultProjectId,
 }) => {
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(
+    defaultProjectId || projects[0]?.id || '',
+  );
   const [priority, setPriority] = useState('Medium');
   const [isHighestUrgen, setIsHighestUrgen] = useState(false);
   const [ticketName, setTicketName] = useState('');
@@ -31,34 +37,37 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
   const [workflowStatuses, setWorkflowStatuses] = useState<{ id: string; name: string }[]>([]);
   const [statusId, setStatusId] = useState<string>('');
 
-  const formatNumber = (value: string) => {
-    return value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  };
+  const formatNumber = (value: string) =>
+    value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
   const handleBudgetChange = (e: any) => {
     const raw = e.target.value.replace(/\./g, '');
-    const formatted = formatNumber(raw);
-    setBudget(formatted);
+    setBudget(formatNumber(raw));
   };
 
   const resetForm = () => {
+    setSelectedProjectId(defaultProjectId || projects[0]?.id || '');
     setPriority('Medium');
     setIsHighestUrgen(false);
     setTicketName('');
     setDescription('');
     setIsBillable(false);
     setBudget('0');
-    setStatusId(workflowStatuses[0]?.id ?? '');
+    setStatusId('');
   };
 
-  // Load workflow statuses from API
+  // Load workflow statuses khi project thay đổi
   useEffect(() => {
-    if (!projectId) return;
+    if (!selectedProjectId) {
+      setWorkflowStatuses([]);
+      setStatusId('');
+      return;
+    }
 
     const fetchWorkflowStatuses = async () => {
       try {
         setLoading(true);
-        const res = await GetWorkflowStatusByProjectId(projectId);
+        const res = await GetWorkflowStatusByProjectId(selectedProjectId);
         const items = res.data?.items ?? [];
         setWorkflowStatuses(items.map((i: any) => ({ id: i.id, name: i.name })));
         setStatusId(items[0]?.id ?? '');
@@ -71,7 +80,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
     };
 
     fetchWorkflowStatuses();
-  }, [projectId]);
+  }, [selectedProjectId]);
 
   const handleCreate = async () => {
     if (!ticketName.trim()) {
@@ -79,16 +88,17 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
       return;
     }
 
-    const payload = {
-      projectId,
+    const payload: any = {
       priority,
       isHighestUrgen,
       ticketName,
       description,
-      statusId, // <-- đây là id
       isBillable,
       budget: Number(budget.replace(/\./g, '')),
     };
+
+    if (selectedProjectId) payload.projectId = selectedProjectId;
+    if (statusId) payload.statusId = statusId;
 
     try {
       setLoading(true);
@@ -124,6 +134,27 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
         width={650}
       >
         <div className="flex flex-col gap-4">
+          {/* Project dropdown only if projects exist */}
+          {projects.length > 0 && (
+            <div className="flex flex-col w-full">
+              <label className="font-semibold mb-1">Project</label>
+              <Select
+                value={selectedProjectId}
+                onChange={setSelectedProjectId}
+                allowClear
+                className="w-full"
+                placeholder="Select project (optional)"
+              >
+                {projects.map((p) => (
+                  <Option key={p.id} value={p.id}>
+                    {p.name}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {/* Ticket title */}
           <div className="flex flex-col">
             <label className="font-semibold mb-1">Ticket Title</label>
             <Input
@@ -133,6 +164,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
             />
           </div>
 
+          {/* Description */}
           <div className="flex flex-col">
             <label className="font-semibold mb-1">Description</label>
             <TextArea
@@ -143,6 +175,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
             />
           </div>
 
+          {/* Priority & Workflow status */}
           <div className="flex gap-3">
             <div className="flex flex-col w-1/2">
               <label className="font-semibold mb-1">Priority</label>
@@ -154,32 +187,37 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
               </Select>
             </div>
 
-            <div className="flex flex-col w-1/2">
-              <label className="font-semibold mb-1">Workflow Status</label>
-              <Select
-                showSearch
-                placeholder="Select workflow status"
-                value={statusId}
-                onChange={setStatusId}
-                filterOption={(input, option: any) =>
-                  (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-                className="w-full"
-              >
-                {workflowStatuses.map((status) => (
-                  <Option key={status.id} value={status.id}>
-                    {status.name}
-                  </Option>
-                ))}
-              </Select>
-            </div>
+            {workflowStatuses.length > 0 && (
+              <div className="flex flex-col w-1/2">
+                <label className="font-semibold mb-1">Workflow Status</label>
+                <Select
+                  showSearch
+                  placeholder="Select workflow status"
+                  value={statusId}
+                  onChange={setStatusId}
+                  allowClear
+                  filterOption={(input, option: any) =>
+                    (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  className="w-full"
+                >
+                  {workflowStatuses.map((status) => (
+                    <Option key={status.id} value={status.id}>
+                      {status.name}
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+            )}
           </div>
 
+          {/* Highest Urgency */}
           <label className="flex gap-2 items-center">
             <Switch checked={isHighestUrgen} onChange={setIsHighestUrgen} />
             Highest Urgency
           </label>
 
+          {/* Budget */}
           <div className="flex flex-col w-full">
             <label className="font-semibold mb-1">Budget (VNĐ)</label>
             <Input placeholder="0" value={budget} onChange={handleBudgetChange} />

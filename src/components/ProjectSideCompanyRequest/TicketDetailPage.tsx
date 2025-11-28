@@ -95,6 +95,7 @@ const TicketDetailPage: React.FC = () => {
     (location.state as { viewMode?: 'AsRequester' | 'AsExecutor' } | undefined) ?? {};
   // const viewMode = vw ?? 'AsRequester';
   console.log('viewMode Ticketdetail:', viewMode);
+  console.log('ticket:', ticket);
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       const res = await AcceptTicket(ticketId);
@@ -621,14 +622,20 @@ const TicketDetailPage: React.FC = () => {
                 {c.isOwner && (
                   <div className="absolute top-2 right-2 flex gap-2 opacity-100">
                     <Button
-                      disabled={ticket.isDeleted}
+                      disabled={
+                        ticket.isDeleted ||
+                        ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                      }
                       type="text"
                       icon={<Edit size={16} />}
                       className="text-blue-500 hover:text-blue-600 p-0"
                       onClick={() => setEditingComment(c)}
                     />
                     <Button
-                      disabled={ticket.isDeleted}
+                      disabled={
+                        ticket.isDeleted ||
+                        ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                      }
                       type="text"
                       icon={<Trash2 size={16} />}
                       className="text-red-500"
@@ -663,14 +670,20 @@ const TicketDetailPage: React.FC = () => {
                     : 'Write a comment...'
                 }
                 value={newComment}
-                disabled={ticket.isDeleted}
+                disabled={
+                  ticket.isDeleted ||
+                  ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                }
                 onChange={(e) => setNewComment(e.target.value)}
                 className="border rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 resize-none p-3 text-sm"
               />
               <div className="flex justify-end">
                 <Button
                   type="primary"
-                  disabled={ticket.isDeleted}
+                  disabled={
+                    ticket.isDeleted ||
+                    ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                  }
                   className="px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-md"
                   onClick={handleCreateComment}
                 >
