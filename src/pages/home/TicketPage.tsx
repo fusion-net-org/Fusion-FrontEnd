@@ -102,7 +102,7 @@ const TicketPage: React.FC = () => {
     const proj = projects.find((p) => p.id === projectId) || null;
     setSelectedProject(proj);
   };
-
+  console.log('project', projects);
   const fetchProjects = async () => {
     try {
       setLoading(true);
@@ -501,8 +501,8 @@ const TicketPage: React.FC = () => {
       <CreateTicketPopup
         visible={isCreateTicketOpen}
         onClose={() => setIsCreateTicketOpen(false)}
-        projectId={selectedProjectId}
         onSuccess={fetchTicketData}
+        projects={projects}
       />
     </>
   );

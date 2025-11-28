@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Modal, Tag, Input, Select, DatePicker, Spin } from 'antd';
 import { Check, Eye, X, Search } from 'lucide-react';
-import { GetTicketByProjectId, AcceptTicket, RejectTicket } from '@/services/TicketService.js';
+import { GetTicketByProjectId, AcceptTicket } from '@/services/TicketService.js';
 import type { ITicketResponseTab, ITicketTab } from '@/interfaces/Ticket/Ticket';
 import { useDebounce } from '@/hook/Debounce';
 import { Paging } from '../Paging/Paging';
@@ -11,6 +11,7 @@ import { toast } from 'react-toastify';
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 import { useNavigate, useParams } from 'react-router-dom';
+import RejectTicketModal from '../Ticket/RejectTicketModal';
 
 interface PopupTicketDetailProps {
   visible: boolean;
@@ -31,6 +32,8 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
   const [ticketRange, setTicketRange] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   const debouncedSearch = useDebounce(ticketSearch, 500);
 
@@ -116,23 +119,23 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
     }
   };
 
-  const handleReject = async (ticketId: string) => {
-    try {
-      setActionLoading(true);
-      const res = await RejectTicket(ticketId);
-      if (res?.succeeded) {
-        toast.success(res.message);
-        fetchTickets();
-      } else {
-        toast.error(res.message || 'Failed to reject ticket');
-      }
-    } catch (error: any) {
-      console.error('Reject ticket error:', error);
-      toast.error(error?.response?.data?.message || 'Failed to reject ticket');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // const handleReject = async (ticketId: string) => {
+  //   try {
+  //     setActionLoading(true);
+  //     const res = await RejectTicket(ticketId);
+  //     if (res?.succeeded) {
+  //       toast.success(res.message);
+  //       fetchTickets();
+  //     } else {
+  //       toast.error(res.message || 'Failed to reject ticket');
+  //     }
+  //   } catch (error: any) {
+  //     console.error('Reject ticket error:', error);
+  //     toast.error(error?.response?.data?.message || 'Failed to reject ticket');
+  //   } finally {
+  //     setActionLoading(false);
+  //   }
+  // };
 
   const tickets: ITicketTab[] = ticketsResponse?.data?.items || [];
 
@@ -178,14 +181,22 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
             <div className="flex justify-center items-center gap-3">
               <button
                 disabled={actionLoading}
-                onClick={() => handleAccept(record.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAccept(record.id);
+                }}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-green-400 text-green-600 bg-green-50 hover:bg-green-100 transition"
               >
                 <Check size={16} strokeWidth={2.5} /> Accept
               </button>
+
               <button
                 disabled={actionLoading}
-                onClick={() => handleReject(record.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedTicketId(record.id);
+                  setRejectModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-red-400 text-red-600 bg-red-50 hover:bg-red-100 transition"
               >
                 <X size={16} strokeWidth={2.5} /> Reject
@@ -354,6 +365,15 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
           }
         />
       </div>
+      <RejectTicketModal
+        open={rejectModalOpen}
+        ticketId={selectedTicketId}
+        onClose={() => setRejectModalOpen(false)}
+        onSuccess={() => {
+          setRejectModalOpen(false);
+          fetchTickets();
+        }}
+      />
     </Modal>
   );
 };
