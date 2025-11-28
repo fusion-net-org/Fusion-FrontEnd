@@ -12,11 +12,14 @@ import {
   ChevronRight,
   CreditCard,
   Folder,
+  ArrowLeft,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import logo_fusion from '@/assets/logo_fusion.png';
 import { useTranslation } from 'react-i18next';
+import { useAppDispatch } from '@/redux/hooks';
+import { logoutUser } from '@/redux/userSlice';
 
 type NavLeftProps = {
   isCollapsed: boolean;
@@ -101,6 +104,7 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
+  const dispatch = useAppDispatch();
 
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
 
@@ -114,7 +118,7 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    dispatch(logoutUser());
     toast.success('Signed out successfully!');
     navigate('/');
   };
@@ -152,6 +156,7 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
     { name: t('menu_item.subscription'), icon: CreditCard, path: '/subscription' },
     { name: t('menu_item.mySubscription'), icon: Folder, path: '/mysubscription' },
     { name: t('menu_item.setting'), icon: Settings, path: '/setting' },
+    { name: t('menu_item.exit'), icon: ArrowLeft, path: '/' },
     { name: t('menu_item.logout'), icon: LogOut, onClick: handleLogout, danger: true },
   ];
 
@@ -159,124 +164,139 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
     path && (location.pathname === path || location.pathname.startsWith(path + '/'));
 
   return (
-    <aside
-      className={`flex flex-col justify-between bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 h-screen ${
-        isCollapsed ? 'w-20' : 'w-64'
-      }`}
-    >
-      <div className="p-4 flex flex-col h-full">
-        {/* Logo */}
-        <div
-          className={`flex items-center mb-2 pb-4 border-b border-gray-200 dark:border-gray-700 ${
-            isCollapsed ? 'flex-col space-y-3' : ''
-          }`}
-        >
+    <>
+      <aside
+        className={`flex flex-col justify-between bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 h-screen ${
+          isCollapsed ? 'w-20' : 'w-64'
+        }`}
+      >
+        <div className="p-4 flex flex-col h-full">
+          {/* Logo */}
           <div
-            className={`flex items-center ${
-              isCollapsed ? 'justify-center w-full' : 'justify-start gap-3'
+            className={`flex items-center mb-2 pb-4 border-b border-gray-200 dark:border-gray-700 ${
+              isCollapsed ? 'flex-col space-y-3' : ''
             }`}
           >
-            <div className="bg-blue-600 p-2 rounded-full flex items-center justify-center">
-              <img src={logo_fusion} alt="Fusion logo" className="w-6 h-6" />
+            <div
+              className={`flex items-center ${
+                isCollapsed ? 'justify-center w-full' : 'justify-start gap-3'
+              }`}
+            >
+              <div className="bg-blue-600 p-2 rounded-full flex items-center justify-center">
+                <img src={logo_fusion} alt="Fusion logo" className="w-6 h-6" />
+              </div>
+              {!isCollapsed && (
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Fusion
+                </span>
+              )}
             </div>
-            {!isCollapsed && (
-              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">Fusion</span>
-            )}
-          </div>
-        </div>
-
-        {/* Menu */}
-        <nav className="flex-1 flex flex-col space-y-1">
-          <div
-            style={{
-              padding: '10px 12px',
-              fontSize: '12.5px',
-              fontWeight: 700,
-              letterSpacing: '0.02em',
-              color: '#6b7280',
-              textTransform: 'uppercase',
-            }}
-          >
-            Menu
           </div>
 
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const hasChildren = !!item.children?.length;
-            const active = isActivePath(item.path);
-            const isOpen = openMenus.has(item.name);
+          {/* Menu */}
+          <nav className="flex-1 flex flex-col space-y-1">
+            <div
+              style={{
+                padding: '10px 12px',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                color: '#6b7280',
+                textTransform: 'uppercase',
+              }}
+            >
+              Menu
+            </div>
 
-            const base =
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-sm transition-all duration-200 select-none relative';
-            const layout = isCollapsed ? 'justify-center' : 'justify-start';
-            const normal =
-              'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-100';
-            const activeCls =
-              'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium before:content-[""] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-blue-600 before:rounded-r-full';
-            const dangerCls =
-              'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-700 dark:hover:text-red-300';
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const hasChildren = !!item.children?.length;
+              const active = isActivePath(item.path);
+              const isOpen = openMenus.has(item.name);
 
-            const className = [
-              base,
-              layout,
-              item.danger ? dangerCls : active ? activeCls : normal,
-            ].join(' ');
+              const base =
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-sm transition-all duration-200 select-none relative';
+              const layout = isCollapsed ? 'justify-center' : 'justify-start';
+              const normal =
+                'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-100';
+              const activeCls =
+                'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium before:content-[""] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-blue-600 before:rounded-r-full';
+              const exitCls =
+                'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20';
+              const dangerCls =
+                'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-700 dark:hover:text-red-300';
 
-            const handleClick = () => {
-              if (item.onClick) item.onClick();
-              else if (hasChildren) toggleMenu(item.name);
-              else if (item.path) navigate(item.path);
-            };
+              const className = [
+                base,
+                layout,
+                item.danger ? dangerCls : item.path === '/' ? exitCls : active ? activeCls : normal,
+              ].join(' ');
 
-            return (
-              <div key={item.name}>
-                {/* Parent row */}
-                <button
-                  className={`
+              const handleClick = () => {
+                if (item.onClick) item.onClick();
+                else if (hasChildren) toggleMenu(item.name);
+                else if (item.path) navigate(item.path);
+              };
+
+              return (
+                <div key={item.name}>
+                  {/* Parent row */}
+                  <button
+                    className={`
     relative flex items-center w-full gap-3 px-3 py-2 rounded-lg text-sm font-medium 
     transition-all duration-200
     ${
       active
         ? 'bg-blue-600/10 text-blue-700 ring-1 ring-blue-500'
-        : 'text-gray-700 hover:bg-gray-100'
+        : item.danger
+        ? 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-700 dark:hover:text-red-300'
+        : item.path === '/'
+        ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
     }
   `}
-                  onClick={handleClick}
-                  title={isCollapsed ? item.name : undefined}
-                >
-                  {active && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-blue-500 rounded-r-full" />
-                  )}
+                    onClick={handleClick}
+                    title={isCollapsed ? item.name : undefined}
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-blue-500 rounded-r-full" />
+                    )}
 
-                  <Icon
-                    className={`w-5 h-5 flex-shrink-0 transition-colors duration-200 ${
-                      active ? 'text-blue-600' : 'text-gray-500'
-                    }`}
-                  />
+                    <Icon
+                      className={`w-5 h-5 flex-shrink-0 transition-colors duration-200 ${
+                        active
+                          ? 'text-blue-600'
+                          : item.danger
+                          ? 'text-red-600 dark:text-red-400'
+                          : item.path === '/'
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-gray-500 dark:text-gray-300'
+                      }`}
+                    />
 
-                  {!isCollapsed && (
-                    <>
-                      <span className="flex-1 text-left">{item.name}</span>
+                    {!isCollapsed && (
+                      <>
+                        <span className="flex-1 text-left">{item.name}</span>
 
-                      {hasChildren &&
-                        (isOpen ? (
-                          <ChevronDown className="w-4 h-4 opacity-70 transition-transform duration-200 rotate-180" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 opacity-70 transition-transform duration-200" />
-                        ))}
-                    </>
-                  )}
-                </button>
+                        {hasChildren &&
+                          (isOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-70 transition-transform duration-200 rotate-180" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-70 transition-transform duration-200" />
+                          ))}
+                      </>
+                    )}
+                  </button>
 
-                {/* Submenu */}
-                {!isCollapsed && hasChildren && isOpen && (
-                  <div className="ml-6 mt-1 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-1">
-                    {item.children?.map((sub) => (
-                      <button
-                        key={sub.path}
-                        onClick={() => navigate(sub.path)}
-                        disabled={sub.enabled === false}
-                        className={`block w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200
+                  {/* Submenu */}
+                  {!isCollapsed && hasChildren && isOpen && (
+                    <div className="ml-6 mt-1 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-1">
+                      {item.children?.map((sub) => (
+                        <button
+                          key={sub.path}
+                          onClick={() => navigate(sub.path)}
+                          disabled={sub.enabled === false}
+                          className={`block w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200
                       ${
                         location.pathname.startsWith(sub.path)
                           ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-medium'
@@ -284,18 +304,19 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
                           ? 'text-gray-400 cursor-not-allowed'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
                       }`}
-                      >
-                        {sub.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </div>
-    </aside>
+                        >
+                          {sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+        </div>
+      </aside>
+    </>
   );
 };
 

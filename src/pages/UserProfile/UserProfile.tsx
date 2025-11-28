@@ -32,6 +32,7 @@ import type { User } from '@/interfaces/User/User';
 import { getSelfUser, putSelfUser, changePassword } from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
+import { logoutUser } from '@/redux/userSlice';
 
 type PasswordFieldName = 'oldPassword' | 'newPassword' | 'confirmPassword';
 
@@ -41,8 +42,9 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
-  const userFromRedux = useAppSelector((state) => state.user.user);
+  const userFromRedux = useAppSelector((state) => state.user);
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   const [profileData, setProfileData] = useState<User>({
     userName: 'Unknown',
@@ -142,7 +144,7 @@ const UserProfile = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    dispatch(logoutUser());
     toast.success('Signed out successfully!');
     navigate('/');
   };
@@ -252,7 +254,7 @@ const UserProfile = () => {
 
               <h3 className="font-semibold text-gray-900 mt-4 text-base">{profileData.userName}</h3>
               <p className="text-xs text-gray-500 mb-2 tracking-wide">
-                {userFromRedux ? userFromRedux.role : 'User'}
+                {userFromRedux ? userFromRedux.user?.role : 'User'}
               </p>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-[11px] font-medium">
