@@ -36,9 +36,16 @@ const Register: React.FC = () => {
       }
     } catch (error: any) {
       if (error.errorData) {
-        const msgs = Object.values(error.errorData).flat() as string[];
-        msgs.forEach((msg) => toast.error(msg));
-        return;
+        if (typeof error.errorData === 'string') {
+          toast.error(error.errorData);
+          return;
+        }
+
+        if (typeof error.errorData === 'object') {
+          const msgs = Object.values(error.errorData).flat() as string[];
+          msgs.forEach((msg) => toast.error(msg));
+          return;
+        }
       }
       toast.error((error.message as string) || 'An error occurred while registering!');
     }
