@@ -29,6 +29,7 @@ interface ContractNextData {
   contractId: string;
   effectiveDate: string;
   expiredDate: string;
+  executorCompanyId: string;
 }
 const ProjectRequestPage: React.FC = () => {
   const navigate = useNavigate();
@@ -469,8 +470,10 @@ const ProjectRequestPage: React.FC = () => {
                         {item.status === 'Pending' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              // onClick={() => handleAccept(item.id)}
-                              onClick={() => handleAcceptClick(item.contractId, item.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAcceptClick(item.contractId, item.id);
+                              }}
                               disabled={acceptingId === item.id}
                               className={`flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-lg transition min-w-[90px]
                                 ${
@@ -513,7 +516,10 @@ const ProjectRequestPage: React.FC = () => {
                             </button>
 
                             <button
-                              onClick={() => openRejectModal(item.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRejectModal(item.id);
+                              }}
                               className="flex items-center gap-1 px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
                             >
                               <X className="h-4 w-4" />
@@ -629,7 +635,7 @@ const ProjectRequestPage: React.FC = () => {
         open={modalOpenInviteProjectRequest}
         onClose={handleClose}
         requesterCompanyId={companyId || ''}
-        executorCompanyId=""
+        executorCompanyId={contractData?.executorCompanyId || ''}
         contractId={contractData?.contractId}
         effectiveDate={contractData?.effectiveDate}
         expiredDate={contractData?.expiredDate}
