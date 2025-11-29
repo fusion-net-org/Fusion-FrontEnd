@@ -197,7 +197,6 @@ const Chip = ({
   </button>
 );
 
-
 /* ========= Helpers ========= */
 const isGuid = (s?: string | null) =>
   !!s && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
@@ -701,7 +700,7 @@ export default function CreateProjectModal({
     workflowName: '',
     memberIds: [],
   });
-const canEditType = false;
+  const canEditType = false;
   // đồng bộ khi URL đổi công ty
   React.useEffect(() => {
     setForm((prev) => ({ ...prev, companyId }));
@@ -789,17 +788,17 @@ const canEditType = false;
 
         // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-         const res = await createProject(payloadToPost);
+        const res = await createProject(payloadToPost);
 
-    // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
-    if (onSubmit) {
-      await onSubmit(payloadToPost);
-    }
+        // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
+        if (onSubmit) {
+          await onSubmit(payloadToPost);
+        }
 
         onClose(); // đóng modal sau khi tạo thành công
       } catch (err: any) {
         console.error('Create project failed:', err);
-         toast.error(err?.response?.data?.message || err.message || "Create project failed");
+        toast.error(err?.response?.data?.message || err.message || 'Create project failed');
       } finally {
         setSaving(false);
       }
@@ -947,24 +946,24 @@ const canEditType = false;
                   </Field>
                 </div>
                 {/* type */}
-               <Field label="Type">
-  <div className="flex flex-wrap gap-2">
-    <Chip
-      active={!form.isHired}
-      onClick={canEditType ? () => set('isHired', false) : undefined}
-      disabled={!canEditType}
-    >
-      Internal
-    </Chip>
-    <Chip
-      active={form.isHired}
-      onClick={canEditType ? () => set('isHired', true) : undefined}
-      disabled={!canEditType}
-    >
-      Outsourced
-    </Chip>
-  </div>
-</Field>
+                <Field label="Type">
+                  <div className="flex flex-wrap gap-2">
+                    <Chip
+                      active={!form.isHired}
+                      onClick={canEditType ? () => set('isHired', false) : undefined}
+                      disabled={!canEditType}
+                    >
+                      Internal
+                    </Chip>
+                    <Chip
+                      active={form.isHired}
+                      onClick={canEditType ? () => set('isHired', true) : undefined}
+                      disabled={!canEditType}
+                    >
+                      Outsourced
+                    </Chip>
+                  </div>
+                </Field>
 
                 {form.isHired && (
                   <Field label="Hired company" required>
