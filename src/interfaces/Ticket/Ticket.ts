@@ -18,6 +18,29 @@ export interface ITicket {
   closedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  process?: TicketProcess | null;
+}
+export interface TicketProcessItem {
+  taskId: string;
+  taskCode: string;
+  title: string;
+  statusName: string;
+  statusCategory: string;
+  isDone: boolean;
+  startedAt?: string | null;
+  lastMovedAt?: string | null;
+  doneAt?: string | null;
+}
+
+export interface TicketProcess {
+  hasExecution: boolean;
+  totalNonBacklogTasks: number;
+  startedCount: number;
+  doneCount: number;
+  progressPercent: number;
+  firstStartedAt?: string | null;
+  lastDoneAt?: string | null;
+  items: TicketProcessItem[];
 }
 export interface IPagedTicketData {
   items: ITicket[];
