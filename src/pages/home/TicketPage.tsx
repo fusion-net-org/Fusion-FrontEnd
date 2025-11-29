@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, Eye, UserPlus, Send, Inbox } from 'lucide-react';
 import { DatePicker } from 'antd';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
 import { useNavigate, useParams } from 'react-router-dom';
 import type {
   IProject,
@@ -12,13 +10,12 @@ import type {
   ITicketResponse,
   ITicketResponseData,
 } from '@/interfaces/Ticket/Ticket';
-import { GetTicketPaged, GetProjectsByCompany } from '@/services/TicketService.js';
+import { GetTicketPaged, GetProjectsByCompany, AcceptTicket } from '@/services/TicketService.js';
 const { RangePicker } = DatePicker;
 import { useDebounce } from '@/hook/Debounce';
 import type { Dayjs } from 'dayjs';
 import { Paging } from '@/components/Paging/Paging';
 import LoadingOverlay from '@/common/LoadingOverlay';
-import { AcceptTicket, RejectTicket } from '@/services/TicketService.js';
 import RejectTicketModal from '@/components/Ticket/RejectTicketModal';
 import CreateTicketPopup from '@/components/ProjectSideCompanyRequest/CreateTicket';
 
@@ -57,21 +54,6 @@ const TicketPage: React.FC = () => {
     setIsRejectModalOpen(true);
   };
 
-  const handleRejectTicket = async (ticketId: string) => {
-    const reason = prompt('Enter reject reason:', '');
-    if (reason === null) return;
-
-    try {
-      setLoading(true);
-      await RejectTicket(ticketId, reason);
-      await fetchTicketData();
-    } catch (error: any) {
-      alert(error?.response?.data?.message || 'Reject ticket failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   //state paging
   const [pagination, setPagination] = useState({
     pageNumber: 1,
@@ -99,6 +81,11 @@ const TicketPage: React.FC = () => {
 
   const handleProjectChange = (projectId: string) => {
     setSelectedProjectId(projectId);
+
+    if (projectId === '') {
+      setSelectedProject(null);
+      return;
+    }
     const proj = projects.find((p) => p.id === projectId) || null;
     setSelectedProject(proj);
   };
@@ -113,19 +100,19 @@ const TicketPage: React.FC = () => {
       );
       setProjects(res.data);
 
-      if (!isProjectLoaded && res.data.length > 0) {
-        setSelectedProjectId(res.data[0].id);
-        setIsProjectLoaded(true);
-      }
+      // if (!isProjectLoaded && res.data.length > 0) {
+      //   setSelectedProjectId(res.data[0].id);
+      //   setIsProjectLoaded(true);
+      // }
     } catch (error) {
       console.error('Failed to fetch projects', error);
     } finally {
       setLoading(false);
     }
   };
-
+  console.log('ticketData', ticketData);
   const fetchTicketData = async () => {
-    if (!selectedProject) return;
+    const projectParam = selectedProjectId || '';
 
     try {
       setLoading(true);
@@ -137,7 +124,7 @@ const TicketPage: React.FC = () => {
 
       const res: ITicketResponse = await GetTicketPaged(
         debouncedSearch, // Keyword
-        selectedProjectId, // ProjectId
+        projectParam, // ProjectId
         companyId, // CompanyRequestId
         companyId, // CompanyExecutorId
         statusParam, // Status
@@ -283,6 +270,10 @@ const TicketPage: React.FC = () => {
                 value={selectedProjectId}
                 onChange={(e) => handleProjectChange(e.target.value)}
               >
+                {/* Default Option */}
+                <option value="">All Projects</option>
+
+                {/* Dynamic Project Options */}
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
