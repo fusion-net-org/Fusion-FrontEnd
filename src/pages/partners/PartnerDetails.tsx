@@ -45,10 +45,18 @@ import { GetProjectRequestByCompanyIdAndPartnerId } from '@/services/projectRequ
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import Card from '@mui/material/Card';
 import { toast } from 'react-toastify';
+import ContractModal from '@/components/ProjectRequest/ContractModal';
+import { useNavigate } from 'react-router-dom';
 
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
-
+interface ContractNextData {
+  contractId: string;
+  effectiveDate: string;
+  expiredDate: string;
+  executorCompanyId: string;
+}
 const PartnerDetails: React.FC = () => {
+  const navigate = useNavigate();
   const { state } = useLocation();
   const myCompanyId = state?.companyId;
   const partnerId = state?.partnerId;
@@ -69,9 +77,23 @@ const PartnerDetails: React.FC = () => {
   const pageSize = 10;
   const [loadingAccept, setLoadingAccept] = useState(false);
   const [loadingReject, setLoadingReject] = useState(false);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractData, setContractData] = useState<ContractNextData>();
+  const [modalOpenInviteProjectRequest, setModalOpenInviteProjectRequest] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+
   console.log('partnerV2', partnerV2);
   console.log('partnerid', partnerId);
   console.log('id', id);
+  console.log('myCompanyId', myCompanyId);
+  const handleNewClick = () => setContractModalOpen(true);
+  const handleContractNext = (data: any) => {
+    setContractData(data);
+    setContractModalOpen(false);
+    setModalOpenInviteProjectRequest(true);
+  };
+  const handleClose = () => setModalOpenInviteProjectRequest(false);
+
   const handleAccept = async (id: number) => {
     try {
       setLoadingAccept(true);
@@ -104,8 +126,6 @@ const PartnerDetails: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
 
-  //open popup invite project request
-  const [openInviteProject, setOpenInviteProject] = useState(false);
   //loading tab state
   const [tabLoading, setTabLoading] = useState(false);
   const handleTabChange = (tab: typeof activeTab) => {
@@ -354,7 +374,7 @@ const PartnerDetails: React.FC = () => {
                 {partner?.isDeleted === false && partnerV2?.status?.toLowerCase() === 'active' && (
                   <button
                     className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                    onClick={() => setOpenInviteProject(true)}
+                    onClick={handleNewClick}
                   >
                     Invite Project Request
                   </button>
@@ -905,15 +925,25 @@ const PartnerDetails: React.FC = () => {
             setLoading(false);
           }}
         />
-      )}{' '}
+      )}
       <InviteProjectRequestModal
-        open={openInviteProject}
-        onClose={() => setOpenInviteProject(false)}
-        requesterCompanyId={myCompanyId}
-        executorCompanyId={id}
+        open={modalOpenInviteProjectRequest}
+        onClose={handleClose}
+        requesterCompanyId={myCompanyId || ''}
+        executorCompanyId={contractData?.executorCompanyId || ''}
+        contractId={contractData?.contractId}
+        effectiveDate={contractData?.effectiveDate}
+        expiredDate={contractData?.expiredDate}
         onSuccess={() => {
           fetchAllData();
+          setRejectModalOpen(false);
+          navigate(`/company/${myCompanyId}/project-request`);
         }}
+      />
+      <ContractModal
+        open={contractModalOpen}
+        onClose={() => setContractModalOpen(false)}
+        onNext={handleContractNext}
       />
     </>
   );

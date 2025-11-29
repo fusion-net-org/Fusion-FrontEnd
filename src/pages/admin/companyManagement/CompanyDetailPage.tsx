@@ -59,7 +59,10 @@ export default function CompanyDetailPage() {
               {/* LEFT: Avatar + Name */}
               <div className="flex flex-col items-center">
                 <Avatar src={company.avatarCompany || company.imageCompany} size={120} />
-                <h2 className="mt-3 text-xl font-semibold">{company.name}</h2>
+
+                <h2 className="mt-3 text-xl font-semibold text-center w-[180px] break-words">
+                  {company.name}
+                </h2>
               </div>
 
               {/* RIGHT: Detail Info */}

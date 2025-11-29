@@ -54,6 +54,8 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
   const { companyId } = useParams<{ companyId: string }>();
   const [companyRequester, setCompanyRequester] = useState<CompanyRequest | null>(null);
   const [companyExecutor, setCompanyExecutor] = useState<CompanyRequestV2[]>([]);
+  console.log('companyExecutor', companyExecutor);
+  console.log('companyRequester', companyRequester);
 
   const fetchCompanyRequestById = async () => {
     if (!companyId) return;
@@ -74,7 +76,6 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
     try {
       setLoading(true);
       const response = await GetAllPartnersOfCompany(companyId);
-      console.log('response', response.data);
       setCompanyExecutor(response.data);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error fetching company details');
@@ -130,7 +131,7 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
       const contractResponse = await createContract(payload);
 
       const contractData = contractResponse.data;
-
+      console.log('contractResponse', contractResponse);
       const fileList = values.contractFile;
       if (fileList && fileList.length > 0) {
         const file = fileList[0].originFileObj as File;
@@ -145,7 +146,9 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
         executorCompanyId: values.executorCompanyId,
       });
     } catch (error: any) {
-      console.error(error);
+      const apiMessage = error?.response?.data?.message || error?.message;
+
+      toast.error(apiMessage);
     } finally {
       setLoading(false);
     }
@@ -217,7 +220,20 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
         <Form.Item
           label="Budget"
           name="budget"
-          rules={[{ required: true, message: 'Please enter budget' }]}
+          rules={[
+            { required: true, message: 'Please enter budget' },
+            {
+              validator: (_, value) => {
+                if (value === undefined || value === null) {
+                  return Promise.reject('Budget is required');
+                }
+                if (value <= 0) {
+                  return Promise.reject('Budget must be greater than 0');
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
         >
           <InputNumber<number>
             className="w-full"

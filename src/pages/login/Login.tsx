@@ -82,7 +82,20 @@ const Login: React.FC = () => {
         toast.error('Login failed!');
       }
     } catch (error: any) {
-      toast.error(error.response?.message || 'Incorrect login information!');
+      if (error.errorData) {
+        if (typeof error.errorData === 'string') {
+          toast.error(error.errorData);
+          return;
+        }
+
+        if (typeof error.errorData === 'object') {
+          const msgs = Object.values(error.errorData).flat() as string[];
+          msgs.forEach((msg) => toast.error(msg));
+          return;
+        }
+      }
+
+      toast.error((error.message as string) || 'Incorrect login information!');
     }
   };
 
