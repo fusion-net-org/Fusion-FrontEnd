@@ -58,11 +58,13 @@ i18n.use(initReactI18next).init({
           setting: 'Settings',
           logout: 'Logout',
           subscription: "Subscription",
-          mySubscription: "My subscription"
+          mySubscription: "My subscription",
+          exit: "Exit"
         },
         user_menu: {
           my_profile: 'My profile',
           notification: 'Notifications',
+          back_home: 'Back to home',
           logout: 'Logout',
         },
       },
@@ -121,11 +123,13 @@ i18n.use(initReactI18next).init({
           setting: 'Cài đặt',
           logout: 'Đăng xuất',
           subscription: "Gói dịch vụ",
-          mySubscription: "Dịch vụ của tôi"
+          mySubscription: "Dịch vụ của tôi",
+          exit: "Thoát"
         },
         user_menu: {
           my_profile: 'Hồ sơ của tôi',
           notification: 'Thông báo',
+          back_home: 'Quay lại trang chủ',
           logout: 'Đăng xuất',
         },
       },

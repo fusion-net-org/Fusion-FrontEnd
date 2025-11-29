@@ -1,15 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Spin, Avatar, Descriptions, Tag, Tabs, Table, Row, Col, Badge, Divider } from 'antd';
+import {
+  Card,
+  Spin,
+  Avatar,
+  Descriptions,
+  Tag,
+  Tabs,
+  Table,
+  Row,
+  Col,
+  Badge,
+  Empty,
+  Button,
+} from 'antd';
 import {
   UserOutlined,
   MailOutlined,
   PhoneOutlined,
-  HomeOutlined,
   SafetyOutlined,
   CalendarOutlined,
   IdcardOutlined,
-  GlobalOutlined,
 } from '@ant-design/icons';
 import {
   getUserFullInfo,
@@ -151,7 +162,17 @@ const UserDetailPage = () => {
       </div>
     );
 
-  if (!user) return <div className="text-center text-gray-500 mt-10">User not found.</div>;
+  if (!user) {
+    return (
+      <div style={{ padding: 24 }}>
+        <Empty description="User not found" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+          <Button type="primary" onClick={() => navigate('/admin/users/list')}>
+            Back to user list
+          </Button>
+        </Empty>
+      </div>
+    );
+  }
 
   const renderValue = (value: any) =>
     value ? value : <span className="text-gray-400 italic">Not provided</span>;
