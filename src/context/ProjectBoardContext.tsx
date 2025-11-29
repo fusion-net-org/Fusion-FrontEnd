@@ -234,7 +234,6 @@ const changeStatus = async (pid: string, t: TaskVm, nextStatusId: string) => {
     // (optional) TODO: rollback nếu muốn
   }
 };
- // ⬇️ thay toàn bộ attachTaskVm hiện tại
 const attachTaskVm = React.useCallback((vm: TaskVm) => {
   const sp = sRef.current.find(s => s.id === vm.sprintId) ?? sRef.current[0];
   const normalized = sp ? normalizeTaskStatus(vm, sp) : vm;
@@ -253,65 +252,110 @@ const attachTaskVm = React.useCallback((vm: TaskVm) => {
 }, []);
 
   /** Nhận DTO task từ BE, map sang TaskVm và thêm vào state */
-  const attachTaskFromApi = (api: any) => {
-    const sid = api.sprintId ?? api.sprint_id;
-    if (!sid) {
-      console.warn("[ProjectBoard] attachTaskFromApi: missing sprintId", api);
-      return;
-    }
+ const attachTaskFromApi = (api: any) => {
+  const sid = api.sprintId ?? api.sprint_id;
+  if (!sid) {
+    console.warn("[ProjectBoard] attachTaskFromApi: missing sprintId", api);
+    return;
+  }
 
-    const sprint = sRef.current.find((s) => s.id === sid);
-    if (!sprint) {
-      console.warn("[ProjectBoard] attachTaskFromApi: sprint not found", {
-        sid,
-        available: sRef.current.map((s) => s.id),
-      });
-      return;
-    }
+  const sprint = sRef.current.find((s) => s.id === sid);
+  if (!sprint) {
+    console.warn("[ProjectBoard] attachTaskFromApi: sprint not found", {
+      sid,
+      available: sRef.current.map((s) => s.id),
+    });
+    return;
+  }
 
-    // chọn statusId phù hợp với workflow của sprint
-    const statusIdRaw =
-      api.currentStatusId ?? api.workflowStatusId ?? api.statusId ?? api.current_status_id;
-    const statusId =
-      statusIdRaw && sprint.statusMeta?.[statusIdRaw]
-        ? statusIdRaw
-        : sprint.statusOrder[0];
+  const statusIdRaw =
+    api.currentStatusId ??
+    api.workflowStatusId ??
+    api.statusId ??
+    api.current_status_id;
 
-    const meta = sprint.statusMeta?.[statusId];
+  const statusId =
+    statusIdRaw && sprint.statusMeta?.[statusIdRaw]
+      ? statusIdRaw
+      : sprint.statusOrder[0];
 
-    const openedAt = api.openedAt ?? api.createAt ?? api.createdAt ?? new Date().toISOString();
-    const createdAt = api.createdAt ?? api.createAt ?? openedAt;
-    const updatedAt = api.updatedAt ?? api.updateAt ?? createdAt;
+  const meta = sprint.statusMeta?.[statusId];
+
+  const openedAt =
+    api.openedAt ??
+    api.createAt ??
+    api.createdAt ??
+    new Date().toISOString();
+  const createdAt = api.createdAt ?? api.createAt ?? openedAt;
+  const updatedAt = api.updatedAt ?? api.updateAt ?? createdAt;
+
+  applyWithColumns((prev) => {
+    const existing = prev.find((x) => x.id === api.id);
+
+    // ⭐ ticketId đúng nghĩa: lấy từ API, nếu không có thì giữ cái cũ
+    const ticketId: string | null =
+      api.sourceTicketId ?? api.ticketId ??
+      api.sourceTaskId ?? // phòng trường hợp BE dùng tên này
+      existing?.sourceTicketId ??
+      null;
+
+    const ticketCode: string | null =
+      api.sourceTicketCode ?? api.ticketName ??
+      api.sourceTaskCode ?? 
+      existing?.sourceTicketCode ??
+      null;
 
     const vm: TaskVm = {
+      ...(existing ?? {}),
+
       id: api.id,
-      code: api.code ?? "",
-      title: api.title ?? "",
-      type: api.type ?? "Feature",
-      priority: api.priority ?? "Medium",
-      storyPoints: api.storyPoints ?? api.point ?? 0,
-      estimateHours: api.estimateHours ?? 0,
-      remainingHours: api.remainingHours ?? api.estimateHours ?? 0,
-      dueDate: api.dueDate ?? undefined,
+      code: api.code ?? existing?.code ?? "",
+      title: api.title ?? existing?.title ?? "",
+      type: api.type ?? existing?.type ?? "Feature",
+      priority: api.priority ?? existing?.priority ?? "Medium",
+
+      storyPoints:
+        api.storyPoints ??
+        api.point ??
+        existing?.storyPoints ??
+        0,
+      estimateHours:
+        api.estimateHours ?? existing?.estimateHours ?? 0,
+      remainingHours:
+        api.remainingHours ??
+        api.estimateHours ??
+        existing?.remainingHours ??
+        0,
+      dueDate: api.dueDate ?? existing?.dueDate ?? undefined,
+
       sprintId: sprint.id,
       workflowStatusId: statusId,
-      statusCode: api.status ?? meta?.code ?? "",
-      statusCategory: meta?.category ?? "TODO",
-      StatusName:  meta?.name ?? "",
-      assignees: [],
-      dependsOn: [],
-      parentTaskId: api.parentTaskId ?? null,
-      carryOverCount: api.carryOverCount ?? 0,
+      statusCode:
+        api.status ?? meta?.code ?? existing?.statusCode ?? "",
+      statusCategory:
+        meta?.category ?? existing?.statusCategory ?? "TODO",
+      StatusName: meta?.name ?? (existing as any)?.StatusName ?? "",
+
+      assignees: existing?.assignees ?? [],
+      dependsOn: existing?.dependsOn ?? [],
+      parentTaskId: api.parentTaskId ?? existing?.parentTaskId ?? null,
+      carryOverCount:
+        api.carryOverCount ?? existing?.carryOverCount ?? 0,
 
       openedAt,
       createdAt,
       updatedAt,
-      sourceTicketId: api.sourceTaskId ?? null,
-      sourceTicketCode: api.sourceTaskCode ?? api.code ?? "",
+
+      // ✅ chỉ có khi thật sự có ticket
+      sourceTicketId: ticketId,
+      sourceTicketCode: ticketId ? ticketCode : null,
     };
 
-    applyWithColumns((prev) => [...prev, vm]);
-  };
+    const others = prev.filter((x) => x.id !== api.id);
+    return [...others, vm];
+  });
+};
+
 
  const reorder = async (pid: string, sprintId: string, t: TaskVm, toStatusId: string, toIndex: number) => {
   const sp = sRef.current.find(s => s.id === sprintId);

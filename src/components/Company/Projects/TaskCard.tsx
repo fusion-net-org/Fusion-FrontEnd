@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Link as LinkIcon,
 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom"; // 👈 THÊM
 import type { TaskVm, MemberRef } from "@/types/projectBoard";
 
 /** ==== Local helpers ==== */
@@ -110,7 +111,7 @@ type Props = {
   onNext: (t: TaskVm) => void;
   onSplit: (t: TaskVm) => void;
   onMoveNext: (t: TaskVm) => void;
-  onOpenTicket?: (ticketId: string) => void;
+  onOpenTicket?: (ticketId: string) => void; // giữ lại cho type, không dùng nữa
   isNew?: boolean;
   statusColorHex?: string;
   statusLabel?: string;
@@ -133,11 +134,14 @@ export default function TaskCard({
   onNext,
   onSplit,
   onMoveNext,
-  onOpenTicket,
+  // onOpenTicket, // ⛔ không dùng nữa
   isNew,
   statusColorHex,
   statusLabel,
 }: Props) {
+  const navigate = useNavigate();
+  const { companyId, projectId } = useParams();
+
   const isAiDraft =
     (t as any).isAiDraft ||
     (t as any).source === "AI_DRAFT" ||
@@ -251,14 +255,61 @@ export default function TaskCard({
 
   const points = (t as any).point ?? (t as any).storyPoints ?? 0;
 
+  // ⭐ Ticket data (lấy từ TaskVm trước, fallback any)
+  const ticketIdRaw =
+    (t as any).sourceTicketId ??
+    (t as any).ticketId ??
+    null;
+
+  const ticketCodeRaw =
+    (t as any).sourceTicketCode ??
+    (t as any).ticketName ??
+    null;
+
+  const ticketId =
+    ticketIdRaw && String(ticketIdRaw).trim() !== ""
+      ? String(ticketIdRaw)
+      : null;
+
+  const ticketCode =
+    ticketCodeRaw && String(ticketCodeRaw).trim() !== ""
+      ? String(ticketCodeRaw)
+      : null;
+
+  const isTicketTask = !!ticketId;
+
+  // border cho ticket task nổi hơn
+  const cardBorderClass = !isNew
+    ? isTicketTask
+      ? "border-2 border-sky-500 shadow-[0_0_0_1px_rgba(56,189,248,0.35)]"
+      : `border ${cardBorderColorClass}`
+    : "";
+
+  // ====== HANDLERS ĐIỀU HƯỚNG ======
+
+  const handleOpenTaskDetail = () => {
+    if (!isPersisted || isAiDraft) return;
+    if (!companyId || !projectId) return;
+    navigate(
+      `/companies/${companyId}/project/${projectId}/task/${t.id}`,
+    );
+  };
+
+  const handleOpenTicketDetail = () => {
+    if (!ticketId) return;
+    if (!companyId || !projectId) return;
+    navigate(
+      `/companies/${companyId}/project/${projectId}/tickets/${ticketId}`,
+    );
+  };
+
   return (
     <div
       data-task-id={t.id}
       className={cn(
         "rounded-xl bg-white/95 shadow-[0_1px_2px_rgba(15,23,42,0.06)] p-3",
         "transition-all duration-300 relative hover:shadow-md hover:-translate-y-[1px]",
-        !isNew && "border",
-        !isNew && cardBorderColorClass,
+        cardBorderClass,
         !isNew && urgent && "ring-1 ring-rose-200",
         isAiDraft && "opacity-95"
       )}
@@ -275,6 +326,9 @@ export default function TaskCard({
           : {}),
         ...(urgent && !isNew
           ? { boxShadow: "0 1px 2px rgba(190,18,60,0.10)" }
+          : {}),
+        ...(isTicketTask
+          ? { backgroundImage: "linear-gradient(to bottom, #f0f9ff, #ffffff)" }
           : {}),
         transformOrigin: "center",
       }}
@@ -335,7 +389,7 @@ export default function TaskCard({
         </div>
       </div>
 
-      {/* Title: clickable chỉ khi task đã persist (Guid & không phải AI draft) */}
+      {/* Title → Task detail */}
       <button
         type="button"
         className={cn(
@@ -345,35 +399,26 @@ export default function TaskCard({
             : "text-slate-800 cursor-default",
           "focus:outline-none",
         )}
-        onClick={() => {
-          if (!isPersisted || isAiDraft) return;
-          onOpenTicket?.(t.id);
-        }}
+        onClick={handleOpenTaskDetail}
       >
         {t.title}
       </button>
 
-      {/* Ticket pill & siblings */}
-      {(t.sourceTicketId || t.sourceTicketCode) && (
+      {/* ⭐ Ticket pill (chỉ cần có ticketId là hiện) */}
+      {ticketId && (
         <div className="mt-1 flex items-center gap-2">
           <button
             type="button"
             className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-white border-sky-500 text-sky-700 hover:bg-slate-50"
-            onClick={() =>
-              t.sourceTicketId &&
-              isGuid(t.sourceTicketId) &&
-              onOpenTicket?.(t.sourceTicketId)
-            }
+            onClick={handleOpenTicketDetail}
             title="Open source ticket"
           >
             <LinkIcon className="w-3 h-3" />
-            {t.sourceTicketCode ?? "Ticket"}
-          </button>
-          {ticketSiblingsCount > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full border bg-white border-violet-500 text-violet-700">
-              {ticketSiblingsCount} tasks in same ticket
+            <span className="truncate max-w-[160px]">
+              Ticket: {ticketCode ?? "—"}
             </span>
-          )}
+          </button>
+          {/* nếu sau này muốn show siblings thì dùng ticketSiblingsCount */}
         </div>
       )}
 

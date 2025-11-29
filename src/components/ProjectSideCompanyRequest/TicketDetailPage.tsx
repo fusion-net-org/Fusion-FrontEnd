@@ -63,6 +63,7 @@ import type {
 import { toast } from 'react-toastify';
 import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
+import TicketTasksSection from "@/components/Ticket/TicketTasksSection";
 
 const { confirm } = Modal;
 
@@ -72,8 +73,6 @@ const TicketDetailPage: React.FC = () => {
   const [projects, setProject] = useState<ProjectDetailResponse>();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<IUser>();
-  const [progressValue, setProgressValue] = useState<number>();
-  const progressPercent = 65;
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
@@ -236,6 +235,45 @@ const TicketDetailPage: React.FC = () => {
   if (!ticket) {
     return <div className="text-center mt-20 text-gray-500">Ticket not found</div>;
   }
+  // ===== Ticket process summary (tự tính theo nghiệp vụ) =====
+  const process = ticket.process;
+
+  // BE trả về danh sách item chi tiết
+  const items = process?.items ?? [];
+
+  // Tổng task non-backlog của ticket
+  const totalNonBacklog =
+    process?.totalNonBacklogTasks && process.totalNonBacklogTasks > 0
+      ? process.totalNonBacklogTasks
+      : items.length;
+
+  // Đã bắt đầu: có startedAt
+  const startedCount = items.filter((x: any) => !!x.startedAt).length;
+
+  // Hoàn thành: status hiện tại IsEnd => isDone = true
+  const doneCount = items.filter((x: any) => x.isDone).length;
+
+  // Đang xử lý: đã start nhưng chưa done
+  const activeCount = items.filter(
+    (x: any) => !!x.startedAt && !x.isDone,
+  ).length;
+
+  // Có process khi có ít nhất 1 task non-backlog
+  const hasProcess = !!process && totalNonBacklog > 0;
+
+  // Progress = done / totalNonBacklog
+  const progressPercent = hasProcess && totalNonBacklog > 0
+    ? Math.max(0, Math.min(100, (doneCount * 100) / totalNonBacklog))
+    : 0;
+
+  // Thời gian bắt đầu / kết thúc (dùng luôn field BE trả về)
+  const firstStartedAt = process?.firstStartedAt
+    ? dayjs(process.firstStartedAt)
+    : null;
+
+  const lastDoneAt = process?.lastDoneAt
+    ? dayjs(process.lastDoneAt)
+    : null;
 
   const priorityColor =
     ticket.priority === 'High' ? 'red' : ticket.priority === 'Medium' ? 'orange' : 'blue';
@@ -430,21 +468,72 @@ const TicketDetailPage: React.FC = () => {
 
         <Divider className="my-4" />
 
-        <div>
+                <div>
           <p className="text-sm mb-1 text-gray-600 font-medium flex items-center justify-between">
-            <span>Workflow Progress (Workflow name hard code)</span>
-            <span className="text-gray-700 font-medium">{progressPercent}%</span>
+            <span className="flex items-center gap-1">
+              <Layers size={14} className="text-indigo-500" />
+              Ticket execution progress
+            </span>
+
+            {hasProcess && (
+              <span className="text-gray-700 font-medium">
+                {doneCount}/{totalNonBacklog} tasks done
+              </span>
+            )}
           </p>
 
           <Progress
             percent={progressPercent}
-            format={(percent) => `${percent}/100`}
+            status={
+              !hasProcess
+                ? 'normal'
+                : doneCount === totalNonBacklog && totalNonBacklog > 0
+                ? 'success'
+                : 'active'
+            }
+            format={(percent) =>
+              hasProcess
+                ? `${Math.round(percent ?? 0)}%`
+                : 'No sprint execution yet'
+            }
             strokeColor={{
-              '0%': '#108ee9',
-              '100%': '#87d068',
+              '0%': '#e5e7eb',
+              '30%': '#f97316',
+              '60%': '#3b82f6',
+              '100%': '#22c55e',
             }}
           />
+
+          {hasProcess ? (
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-600">
+              <span>
+                <b>Started:</b> {startedCount}/{totalNonBacklog}
+              </span>
+              <span>
+                <b>In progress:</b> {activeCount}
+              </span>
+              <span>
+                <b>Done:</b> {doneCount}
+              </span>
+              {firstStartedAt && (
+                <span>
+                  <b>First started:</b> {firstStartedAt.format('DD/MM/YYYY HH:mm')}
+                </span>
+              )}
+              {lastDoneAt && (
+                <span>
+                  <b>Last done:</b> {lastDoneAt.format('DD/MM/YYYY HH:mm')}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+              <Info size={14} className="text-gray-400" />
+              This ticket has no sprint execution yet. Tasks are still in backlog or not created.
+            </p>
+          )}
         </div>
+
       </Card>
 
       {/* Project Info */}
@@ -551,7 +640,12 @@ const TicketDetailPage: React.FC = () => {
           </div>
         </Card>
       </div>
-
+  {ticket && (
+        <TicketTasksSection
+          ticketId={ticket.id}
+          projectId={ticket.projectId}
+        />
+      )}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <MessageSquare size={18} className="text-indigo-500" /> Comments
