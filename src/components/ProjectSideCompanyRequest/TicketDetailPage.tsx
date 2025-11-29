@@ -63,6 +63,7 @@ import type {
 import { toast } from 'react-toastify';
 import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
+import TicketTasksSection from "@/components/Ticket/TicketTasksSection";
 
 const { confirm } = Modal;
 
@@ -551,7 +552,12 @@ const TicketDetailPage: React.FC = () => {
           </div>
         </Card>
       </div>
-
+  {ticket && (
+        <TicketTasksSection
+          ticketId={ticket.id}
+          projectId={ticket.projectId}
+        />
+      )}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <MessageSquare size={18} className="text-indigo-500" /> Comments

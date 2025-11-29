@@ -268,7 +268,7 @@ type Props = {
   // khi tạo sprint xong thì refetch board
   onReloadBoard?: () => void | Promise<void>;
   /**
-   * NEW: khi user kéo 1 quick draft từ pool sang sprint.
+   * khi user kéo 1 quick draft từ pool sang sprint.
    * Parent có thể:
    *  - Gọi API materializeDraftTask (convert backlog -> sprint)
    *  - Refetch board
@@ -298,6 +298,7 @@ type AiDraft = {
   checklist?: string[] | null;
 };
 
+// Map ProjectTaskResponse (backlog) -> QuickDraft dùng cho pool
 // Map ProjectTaskResponse (backlog) -> QuickDraft dùng cho pool
 const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
   if (!dto) {
@@ -337,6 +338,22 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
     dto.createdOn ??
     new Date().toISOString();
 
+  // 🔴 QUAN TRỌNG: lấy thông tin ticket gốc
+  const ticketId =
+    dto.ticketId ??
+    dto.ticket_id ??
+    dto.sourceTicketId ??
+    dto.source_ticket_id ??
+    null;
+
+  const ticketCode =
+    dto.ticketCode ??
+    dto.ticket_code ??
+    dto.sourceTicketCode ??
+    dto.source_ticket_code ??
+    dto.ticket?.code ??
+    null;
+
   return {
     id: String(dto.id ?? dto.taskId),
     title: dto.title ?? "",
@@ -344,8 +361,11 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
     priority,
     estimateHours: estimate,
     createdAt,
+    ticketId,
+    ticketCode,
   };
 };
+
 
 export default function KanbanBySprintBoard({
   sprints,
@@ -365,6 +385,18 @@ export default function KanbanBySprintBoard({
 
   // flash card mới tạo (animate "isNew")
   const [flashTaskId, setFlashTaskId] = useState<string | null>(null);
+
+  // UI-only: nhớ các task vừa được thêm / được move để render lên đầu cột
+  const [bumpedOrder, setBumpedOrder] = useState<Record<string, number>>({});
+  const bumpSeqRef = React.useRef(0);
+
+  const bumpTask = React.useCallback((taskId?: string | null) => {
+    if (!taskId) return;
+    setBumpedOrder((prev) => ({
+      ...prev,
+      [taskId]: (bumpSeqRef.current += 1),
+    }));
+  }, []);
 
   // update / cleanup mode
   const [updateMode, setUpdateMode] = useState(false);
@@ -402,6 +434,40 @@ export default function KanbanBySprintBoard({
     const t = setTimeout(() => setFlashTaskId(null), 900);
     return () => clearTimeout(t);
   }, [flashTaskId]);
+
+  // dọn các entry bumpOrder cho task đã không còn trên board
+  useEffect(() => {
+    setBumpedOrder((prev) => {
+      if (!Object.keys(prev).length) return prev;
+
+      const existing = new Set<string>();
+
+      if (updateMode && draftTasksBySprint) {
+        Object.values(draftTasksBySprint).forEach((list) => {
+          (list ?? []).forEach((t) => {
+            if (t?.id) existing.add(t.id);
+          });
+        });
+      } else {
+        sprints.forEach((sp) => {
+          flattenSprintTasks(sp, "ALL").forEach((t) => {
+            if (t?.id) existing.add(t.id);
+          });
+        });
+      }
+
+      let changed = false;
+      const next: Record<string, number> = {};
+      for (const [id, val] of Object.entries(prev)) {
+        if (existing.has(id)) {
+          next[id] = val;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [sprints, updateMode, draftTasksBySprint]);
 
   // detect các task mới xuất hiện (từ AI create, Quick create, refetch board...)
   useEffect(() => {
@@ -494,7 +560,20 @@ export default function KanbanBySprintBoard({
     },
     [onOpenTicket, navigate, companyId, projectId],
   );
+  const handleOpenBacklogTicket = React.useCallback(
+    (ticketId: string) => {
+      // nếu parent truyền onOpenTicket thì ưu tiên
+      if (onOpenTicket) {
+        onOpenTicket(ticketId);
+        return;
+      }
 
+      if (!companyId) return;
+      // TODO: sửa route đúng với màn ticket của bạn
+      navigate(`/companies/${companyId}/project/${projectId}/tickets/${ticketId}`);
+    },
+    [onOpenTicket, navigate, companyId],
+  );
   const [aiOpen, setAiOpen] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
 
@@ -767,6 +846,42 @@ export default function KanbanBySprintBoard({
     }
   }, [quickDraftOpen, ensureDraftsLoaded]);
 
+  /* ====== Helper: lấy tasks của 1 sprint kèm sort bump để card mới ở top ====== */
+
+  const getSprintTasks = React.useCallback(
+    (s: SprintVm): { allTasks: TaskVm[]; tasks: TaskVm[] } => {
+      const allTasks =
+        updateMode && draftTasksBySprint
+          ? draftTasksBySprint[s.id] ?? []
+          : flattenSprintTasks(s, "ALL");
+
+      let tasks =
+        filterCategory === "ALL"
+          ? allTasks
+          : allTasks.filter((t) => t.statusCategory === filterCategory);
+
+      if (tasks.length) {
+        const decorated = tasks.map((t, idx) => ({
+          t,
+          idx,
+          bump: bumpedOrder[t.id] ?? 0,
+        }));
+        const hasBump = decorated.some((d) => d.bump > 0);
+
+        if (hasBump) {
+          decorated.sort((a, b) => {
+            if (a.bump === b.bump) return a.idx - b.idx; // giữ thứ tự gốc khi bump bằng nhau
+            return b.bump - a.bump; // bump cao hơn → lên trước
+          });
+          tasks = decorated.map((d) => d.t);
+        }
+      }
+
+      return { allTasks, tasks };
+    },
+    [updateMode, draftTasksBySprint, filterCategory, bumpedOrder],
+  );
+
   /* ====== Drag handler: live vs draft + quick draft pool ====== */
 
   const handleDragStartInternal = (start: DragStart) => {
@@ -851,10 +966,10 @@ export default function KanbanBySprintBoard({
             return;
           }
 
-          // Nếu tạo / materialize thành công => flash & (optional) nhét vào layout draft
+          // Nếu tạo / materialize thành công => flash & bump lên đầu cột (UI)
           if (createdVm) {
-            // cho TaskCard nhận isNew => hiệu ứng nổi giống quick add
             setFlashTaskId(createdVm.id);
+            bumpTask(createdVm.id);
 
             // nếu đang ở update mode thì đẩy luôn vào draftTasksBySprint để nhìn thấy ngay
             if (updateMode && draftTasksBySprint) {
@@ -907,15 +1022,25 @@ export default function KanbanBySprintBoard({
     }
 
     // 2) Drag task bình thường trên board
-    // Không ở update mode: hành vi cũ – bắn thẳng ra ngoài
+    const fromSprintId = getSprintIdFromDroppable(source.droppableId);
+    const toSprintId = getSprintIdFromDroppable(destination.droppableId);
+    if (!fromSprintId || !toSprintId) return;
+
+    // Bump task vừa di chuyển để UI render nó lên đầu cột đích
+    const fromSprint = sprints.find((sp) => sp.id === fromSprintId);
+    if (fromSprint) {
+      const { tasks: visibleTasks } = getSprintTasks(fromSprint);
+      const moved = visibleTasks[source.index];
+      if (moved) {
+        bumpTask(moved.id);
+      }
+    }
+
+    // Không ở update mode: hành vi cũ – bắn thẳng ra ngoài cho parent xử lý BE
     if (!updateMode || !draftTasksBySprint) {
       onDragEnd(result);
       return;
     }
-
-    const fromSprintId = getSprintIdFromDroppable(source.droppableId);
-    const toSprintId = getSprintIdFromDroppable(destination.droppableId);
-    if (!fromSprintId || !toSprintId) return;
 
     setDraftTasksBySprint((prev) => {
       if (!prev) return prev;
@@ -1097,12 +1222,15 @@ export default function KanbanBySprintBoard({
 
           const list = next[sprintId] ?? [];
           next[sprintId] = [...list, vm];
+
+          // bump để AI task nằm top cột
+          bumpTask(fakeId);
         });
 
         return next;
       });
     },
-    [resolveStatusForAiDraft, sprints],
+    [resolveStatusForAiDraft, sprints, bumpTask],
   );
 
   // ===== Modal tạo sprint (portal) =====
@@ -1318,18 +1446,8 @@ export default function KanbanBySprintBoard({
           >
             <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5 ">
               {sprints.map((s) => {
-                // allTasks luôn ALL status (dùng cho stats + filter phía dưới)
-                const allTasks =
-                  updateMode && draftTasksBySprint
-                    ? draftTasksBySprint[s.id] ?? []
-                    : flattenSprintTasks(s, "ALL");
-
-                const tasks =
-                  filterCategory === "ALL"
-                    ? allTasks
-                    : allTasks.filter(
-                        (t) => t.statusCategory === filterCategory,
-                      );
+                // lấy tasks theo sprint + filter + bump (task mới/move lên đầu)
+                const { allTasks, tasks } = getSprintTasks(s);
 
                 const stats = computeSprintStatsFromTasks(
                   allTasks,
@@ -1435,6 +1553,8 @@ export default function KanbanBySprintBoard({
                               allowStatusPicker
                               onCreatedVM={(vm) => {
                                 setFlashTaskId(vm.id);
+                                bumpTask(vm.id); // task vừa tạo → lên đầu cột (UI)
+
                                 // nếu đang update mode thì push vào draft để layout nhất quán
                                 if (updateMode && draftTasksBySprint) {
                                   setDraftTasksBySprint((prev) => {
@@ -1563,9 +1683,11 @@ export default function KanbanBySprintBoard({
         drafts={quickDrafts}
         setDrafts={setQuickDrafts}
         draggingFromPool={draggingFromDraftPool}
-        projectId={projectId ?? undefined} 
-        loading={loadingDrafts}           
-        onReloadDrafts={loadDraftTasks}   
+        projectId={projectId ?? undefined}
+        loading={loadingDrafts}
+        onReloadDrafts={loadDraftTasks}
+        onOpenTicket={handleOpenBacklogTicket}
+
       />
 
       {aiOpen && (

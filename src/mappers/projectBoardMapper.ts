@@ -228,7 +228,19 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
   const rem = Number(dto?.remainingHours ?? dto?.remaining ?? est) || 0;
   const story = Number(dto?.storyPoints ?? dto?.points ?? 0) || 0;
 
-  return {
+  const ticketId: string | null =
+    dto?.sourceTicketId ??
+    dto?.ticketId ??
+    dto?.sourceTaskId ??
+    null;
+
+  const ticketCode: string | null =
+    dto?.sourceTicketCode ??
+    dto?.ticketName ??
+    dto?.sourceTaskCode ??
+    null;
+
+  const vm: TaskVm = {
     id: String(dto?.id ?? dto?.taskId ?? rid()),
     code: String(dto?.code ?? dto?.key ?? dto?.number ?? "T-UNKNOWN"),
     title: String(dto?.title ?? dto?.name ?? "Untitled"),
@@ -261,10 +273,18 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
     updatedAt: iso(dto?.updatedAt ?? dto?.modifiedAt ?? dto?.createdAt),
     createdAt: iso(dto?.createdAt),
 
-    sourceTicketId: dto?.sourceTicketId ?? null,
-    sourceTicketCode: dto?.sourceTicketCode ?? null,
+    // ⭐ Chuẩn field cho board
+    sourceTicketId: ticketId,
+    sourceTicketCode: ticketId ? ticketCode : null,
   };
+
+  // (optional) giữ thêm raw cho các chỗ khác nếu dùng
+  (vm as any).ticketId = ticketId;
+  (vm as any).ticketName = ticketCode;
+
+  return vm;
 }
+
 
 /* ===========================================================
  * Chuẩn hoá input

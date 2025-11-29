@@ -719,3 +719,87 @@ export const materializeDraftTask = async (
     );
   }
 };
+export const getTicketTasks = async (
+  ticketId,
+  {
+    pageNumber = 1,
+    pageSize = 50,
+    sortColumn = 'CreateAt',
+    sortDescending = false,
+  } = {},
+) => {
+  try {
+    if (!ticketId) {
+      throw new Error('ticketId is required to load ticket tasks');
+    }
+
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    const res = await axiosInstance.get(`/tickets/${ticketId}/tasks`, {
+      params,
+    });
+
+    // ResponseModel<PagedResult<ProjectTaskResponse>>
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in getTicketTasks:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching ticket tasks',
+    );
+  }
+};
+
+/**
+ * POST /api/tickets/{ticketId}/tasks
+ * Tạo 1 task backlog cho ticket:
+ *  - projectId = project của ticket
+ *  - sprintId = null  (backlog)
+ *  - IsBacklog = true (BE xử lý)
+ */
+export const createTicketTask = async (
+  ticketId,
+  {
+    projectId,
+    title,
+    type = 'Feature',
+    priority = 'Medium',
+    severity = null,
+    estimateHours = null,
+    dueDate = null,
+  } = {},
+) => {
+  try {
+    if (!ticketId) {
+      throw new Error('ticketId is required to create ticket task');
+    }
+
+    const payload = {
+      projectId,            // BE có thể tự lấy từ ticket, nhưng cho vào cho chắc
+      sprintId: null,       // backlog
+      title: title?.trim() || '',
+      type,
+      priority,
+      severity,
+      estimateHours,
+      dueDate,
+    };
+
+    const res = await axiosInstance.post(
+      `/tickets/${ticketId}/tasks`,
+      payload,
+    );
+
+    // ResponseModel<ProjectTaskResponse>
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in createTicketTask:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error creating ticket task',
+    );
+  }
+};
