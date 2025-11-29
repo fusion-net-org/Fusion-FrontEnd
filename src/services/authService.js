@@ -5,8 +5,7 @@ export const login = async (data) => {
     const response = await axiosInstance.post('/Authen/login', data);
     return response.data;
   } catch (error) {
-    const message = error.response?.data?.message || 'Error!';
-    throw new Error(message);
+    throw error.response?.data || { message: 'Error!' };
   }
 };
 
@@ -15,8 +14,7 @@ export const register = async (data) => {
     const response = await axiosInstance.post('/Authen/register', data);
     return response.data;
   } catch (error) {
-    const message = error.response?.data?.message || 'Error!';
-    throw new Error(message);
+    throw error.response?.data || { message: 'Error!' };
   }
 };
 
@@ -53,8 +51,7 @@ export const resetPassword = async (data) => {
     const response = await axiosInstance.post('/Authen/reset-password', data);
     return response.data;
   } catch (error) {
-    const message = error.response?.data?.message || 'Error!';
-    throw new Error(message);
+    throw error.response?.data || { message: 'Error!' };
   }
 };
 

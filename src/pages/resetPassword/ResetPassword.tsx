@@ -51,8 +51,13 @@ const ResetPassword: React.FC = () => {
       console.log(response);
       toast.success('Password has been reset successfully!');
       navigate('/login');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to reset password.');
+    } catch (error: any) {
+      if (error.errorData) {
+        const msgs = Object.values(error.errorData).flat() as string[];
+        msgs.forEach((msg) => toast.error(msg));
+        return;
+      }
+      toast.error((error.message as string) || 'Failed to reset password!');
     } finally {
       setLoading(false);
     }
@@ -76,8 +81,8 @@ const ResetPassword: React.FC = () => {
                 {...register('newPassword', {
                   required: 'New password is required',
                   minLength: {
-                    value: 6,
-                    message: 'Password must be at least 6 characters',
+                    value: 8,
+                    message: 'Password must be at least 8 characters',
                   },
                 })}
               />
