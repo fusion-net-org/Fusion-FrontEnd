@@ -229,6 +229,44 @@ const Partners: React.FC = () => {
       setLoading(false);
     }
   };
+  const handleFilterByResponseDate = async (startDate: any, endDate: any) => {
+    try {
+      setLoading(true);
+      if (!startDate || !endDate) {
+        fetchPartners();
+        return;
+      }
+
+      const from = startDate.format('YYYY-MM-DD');
+      const to = endDate.format('YYYY-MM-DD');
+
+      const res = await GetCompanyPartnersByCompanyID(
+        companyId,
+        null, // Keyword
+        null, // FromDate
+        null, // ToDate
+        from, // RespondFromDate
+        to, // RespondToDate
+        1,
+        pagination.pageSize,
+        null,
+        null,
+      );
+
+      const data: PartnerResponse = res.data;
+      const enrichedPartners = await enrichPartnerInfo(data.items);
+      setPartners(enrichedPartners);
+      setPagination({
+        pageNumber: data.pageNumber,
+        pageSize: data.pageSize,
+        totalCount: data.totalCount,
+      });
+    } catch (error: any) {
+      console.error('Error filtering by response date:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAccept = async (id: number) => {
     try {
@@ -327,6 +365,24 @@ const Partners: React.FC = () => {
 
           {/* Filters (Right) */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* Response Date Filter */}
+            <div className="flex flex-col">
+              <label className="font-semibold text-sm text-gray-600 mb-1">Response Date</label>
+              <RangePicker
+                format="DD/MM/YYYY"
+                className="rounded-lg border border-gray-300 !h-[37.6px]"
+                placeholder={['From', 'To']}
+                onChange={(dates) => {
+                  if (!dates) {
+                    fetchPartners();
+                    return;
+                  }
+                  const [start, end] = dates;
+                  handleFilterByResponseDate(start, end);
+                }}
+              />
+            </div>
+
             {/* Date Range */}
             <div className="flex flex-col">
               <label className="font-semibold text-sm text-gray-600 mb-1">Create Date</label>

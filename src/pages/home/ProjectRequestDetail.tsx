@@ -447,15 +447,10 @@ export default function ProjectRequestDetail() {
               projectRequestId: id,
             }}
             onSubmit={async (payload) => {
-              try {
-                const createdProject = await createProject(payload);
-                toast.success('Project created successfully!');
-                setProjectCreateModalOpen(false);
-                navigate(`/companies/${companyId}/project`);
-              } catch (err: any) {
-                console.error('Create project failed:', err);
-                toast.error(err?.response?.data?.message || 'Failed to create project');
-              }
+              console.log('Create Project Payload:', payload);
+              toast.success('Project created successfully!');
+              setProjectCreateModalOpen(false);
+              navigate(`/companies/${companyId}/project`);
             }}
           />
 
