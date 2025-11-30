@@ -34,13 +34,21 @@ const CompanyMember: React.FC = () => {
     Inactive: 0,
   });
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-
+  console.log(members);
   const [pagination, setPagination] = useState({
     pageNumber: 1,
     pageSize: 10,
     totalCount: 0,
   });
+  console.log('members:', members);
+  const isMinDate = (dateString: string) => {
+    return dateString === '0001-01-01T00:00:00' || dateString.startsWith('0001');
+  };
 
+  const renderJoinedAt = (joinedAt: string | null) => {
+    if (!joinedAt || isMinDate(joinedAt)) return '---';
+    return new Date(joinedAt).toLocaleDateString('en-GB');
+  };
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       Active: 'bg-green-100 text-green-700',
@@ -193,7 +201,7 @@ const CompanyMember: React.FC = () => {
     <>
       <LoadingOverlay loading={loading} message="Loading members..." />
 
-      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter min-h-screen">
         {/* HEADER */}
 
         <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
@@ -235,7 +243,7 @@ const CompanyMember: React.FC = () => {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Name, email..."
+                placeholder="Search Name, email, phone..."
                 value={searchTerm}
                 onChange={handleSearchChange}
                 className="w-full border border-gray-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
@@ -322,17 +330,14 @@ const CompanyMember: React.FC = () => {
                         <p className="text-gray-500 text-xs">{m.email}</p>
                       </div>
                     </td>
-                    <td
-                      className="px-6 py-4 max-w-[180px] truncate cursor-pointer"
-                      title={m.roleName}
-                    >
+                    <td className="px-6 py-4 max-w-[180px] cursor-pointer" title={m.roleName}>
                       {m.roleName}
                     </td>{' '}
                     <td className="px-6 py-4 text-gray-600">{m.phone}</td>
                     <td className="px-6 py-4 text-gray-700">{m.gender}</td>
                     <td className="px-6 py-4">{getStatusBadge(m.status)}</td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {new Date(m.joinedAt).toLocaleDateString('en-GB')}
+                    <td className="px-6 py-4 text-gray-800 font-medium">
+                      {renderJoinedAt(m.joinedAt)}
                     </td>
                     <td className="px-6 py-4">
                       <Eye
@@ -343,7 +348,9 @@ const CompanyMember: React.FC = () => {
                         }`}
                         onClick={() => {
                           if (m.status === 'Active') {
-                            navigate(`/company/members/${m.memberId}`, { state: { companyId } });
+                            navigate(`/company/${companyId}/members/${m.memberId}`, {
+                              state: { companyId },
+                            });
                           }
                         }}
                       />

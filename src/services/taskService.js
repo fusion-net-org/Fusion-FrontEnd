@@ -1,5 +1,5 @@
 import { axiosInstance } from '../apiConfig';
-import { flashTaskCard, hexToRgba } from '@/utils/flash'; 
+import { flashTaskCard, hexToRgba } from '@/utils/flash';
 
 export const getAllTask = async ({
   pageNumber = 1,
@@ -439,3 +439,367 @@ export async function getTaskComments(taskId) {
     );
   }
 }
+export const getMyTasks = async ({
+  pageNumber = 1,
+  pageSize = 200,
+  sortColumn = 'DueDate',
+  sortDescending = false,
+  search = '',
+  type = [],
+  priority = [],
+  status = [],
+  dueDateFrom = '',
+  dueDateTo = '',
+  pointMin,
+  pointMax,
+} = {}) => {
+  try {
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    if (search) params.Search = search;
+    if (Array.isArray(type) && type.length > 0) params.Type = type.join(',');
+    if (Array.isArray(priority) && priority.length > 0) params.Priority = priority.join(',');
+    if (Array.isArray(status) && status.length > 0) params.Status = status.join(',');
+    if (dueDateFrom) params.DueDateFrom = dueDateFrom;
+    if (dueDateTo) params.DueDateTo = dueDateTo;
+    if (pointMin !== undefined) params.PointMin = pointMin;
+    if (pointMax !== undefined) params.PointMax = pointMax;
+
+    // Controller: [HttpGet("tasks/user")]
+    const response = await axiosInstance.get('/tasks/user', { params });
+    return response.data;               // ResponseModel<PagedResult<TaskResponse>>
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching my tasks'
+    );
+  }
+};
+/* =========================
+ * DRAFT TASK APIs (BACKLOG / QUICK POOL)
+ * ========================= */
+
+/**
+ * GET /api/projects/{projectId}/draft-tasks
+ * Lấy danh sách task backlog (IsBacklog = true, chưa gán sprint).
+ * Dùng cho QuickDraftPool hoặc màn Backlog riêng.
+ */
+export const getDraftTasks = async (
+  projectId,
+  {
+    pageNumber = 1,
+    pageSize = 50,
+    sortColumn = 'CreatedAt',
+    sortDescending = true,
+    search = '',
+    type = [],
+    priority = [],
+    createdFrom = '',
+    createdTo = '',
+  } = {},
+) => {
+  try {
+    if (!projectId) {
+      throw new Error('projectId is required to load draft tasks');
+    }
+
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    if (search) params.Search = search;
+    if (Array.isArray(type) && type.length > 0) params.Type = type.join(',');
+    if (Array.isArray(priority) && priority.length > 0)
+      params.Priority = priority.join(',');
+    if (createdFrom) params.CreatedFrom = createdFrom;
+    if (createdTo) params.CreatedTo = createdTo;
+
+    // BE: [HttpGet("projects/{projectId}/draft-tasks")]
+    const res = await axiosInstance.get(
+      `/projects/${projectId}/draft-tasks`,
+      { params },
+    );
+
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    // cho log dễ debug
+    console.error('Error in getDraftTasks:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching draft tasks',
+    );
+  }
+};
+
+/**
+ * POST /api/projects/{projectId}/draft-tasks
+ * Tạo 1 draft task (backlog, IsBacklog = true, chưa gán sprint).
+ * Dùng cho QuickDraftPool: chỉ cần title, type, priority, estimateHours.
+ */
+export const createDraftTask = async (
+  projectId,
+  {
+    title,
+    type = 'Feature',
+    priority = 'Medium',
+    severity = null,
+    estimateHours = null,
+    dueDate = null,
+    parentTaskId = null,
+    sourceTaskId = null,
+  } = {},
+) => {
+  try {
+    if (!projectId) {
+      throw new Error('projectId is required to create draft task');
+    }
+
+    const payload = {
+      projectId,
+      sprintId: null, // bắt buộc null để BE set IsBacklog = true
+      title: title?.trim() || '',
+      type,
+      priority,
+      severity,
+      estimateHours,
+      dueDate,
+      parentTaskId,
+      sourceTaskId,
+      // BE có thể tự set IsBacklog = true nếu sprintId == null
+      // nếu BE cho phép thì gửi luôn:
+      // isBacklog: true,
+    };
+
+    const res = await axiosInstance.post(
+      `/projects/${projectId}/draft-tasks`,
+      payload,
+    );
+
+    // response: ResponseModel<ProjectTaskResponse>
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in createDraftTask:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error creating draft task',
+    );
+  }
+};
+
+/**
+ * PUT /api/draft-tasks/{id}
+ * Cập nhật nội dung draft (đổi title, priority, estimateHours, ...),
+ * vẫn giữ trạng thái backlog (IsBacklog = true).
+ */
+export const updateDraftTask = async (
+  draftTaskId,
+  {
+    title,
+    type,
+    priority,
+    severity,
+    estimateHours,
+    dueDate,
+    parentTaskId,
+    sourceTaskId,
+  } = {},
+) => {
+  try {
+    if (!draftTaskId) {
+      throw new Error('draftTaskId is required to update draft task');
+    }
+
+    const payload = {
+      // BE tái dùng ProjectTaskRequest nên gửi đúng field, cái nào không đổi có thể bỏ
+      title,
+      type,
+      priority,
+      severity,
+      estimateHours,
+      dueDate,
+      parentTaskId,
+      sourceTaskId,
+      // luôn giữ backlog – không gán sprint
+      sprintId: null,
+      // isBacklog: true,
+    };
+
+    const res = await axiosInstance.put(
+      `/draft-tasks/${draftTaskId}`,
+      payload,
+    );
+
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in updateDraftTask:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error updating draft task',
+    );
+  }
+};
+
+/**
+ * DELETE /api/draft-tasks/{id}
+ * Xoá hẳn draft khỏi backlog (không phải soft delete task thật).
+ */
+export const deleteDraftTaskApi = async (draftTaskId) => {
+  try {
+    if (!draftTaskId) {
+      throw new Error('draftTaskId is required to delete draft task');
+    }
+
+    const res = await axiosInstance.delete(
+      `/draft-tasks/${draftTaskId}`,
+    );
+
+    // ResponseModel<bool>
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in deleteDraftTaskApi:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error deleting draft task',
+    );
+  }
+};
+
+/**
+ * POST /api/draft-tasks/{id}/materialize
+ * Convert 1 draft (backlog) thành task thật trong sprint:
+ *  - Gán SprintId
+ *  - Gán WorkflowStatusId (hoặc StatusCode)
+ *  - Set IsBacklog = false, OrderInSprint phù hợp
+ *
+ * Dùng trong onDropDraftToSprint: khi kéo từ QuickDraftPool vào sprint.
+ */
+export const materializeDraftTask = async (
+  draftTaskId,
+  {
+    sprintId,
+    workflowStatusId = null,
+    statusCode = null,
+    orderInSprint = null,
+    assigneeIds = null,
+  } = {},
+) => {
+  try {
+    if (!draftTaskId) {
+      throw new Error('draftTaskId is required to materialize draft task');
+    }
+    if (!sprintId) {
+      throw new Error('sprintId is required to materialize draft task');
+    }
+
+    const payload = {
+      sprintId,
+      workflowStatusId,
+      statusCode,
+      orderInSprint,
+      ...(Array.isArray(assigneeIds) && assigneeIds.length
+        ? { assigneeIds }
+        : {}),
+    };
+
+    const res = await axiosInstance.post(
+      `/draft-tasks/${draftTaskId}/materialize`,
+      payload,
+    );
+
+    // ResponseModel<ProjectTaskResponse> – trả về task thật đã được gán sprint
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in materializeDraftTask:', error);
+    throw new Error(
+      error?.response?.data?.message ||
+        'Error converting draft to real task',
+    );
+  }
+};
+export const getTicketTasks = async (
+  ticketId,
+  {
+    pageNumber = 1,
+    pageSize = 50,
+    sortColumn = 'CreateAt',
+    sortDescending = false,
+  } = {},
+) => {
+  try {
+    if (!ticketId) {
+      throw new Error('ticketId is required to load ticket tasks');
+    }
+
+    const params = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+      SortColumn: sortColumn,
+      SortDescending: sortDescending,
+    };
+
+    const res = await axiosInstance.get(`/tickets/${ticketId}/tasks`, {
+      params,
+    });
+
+    // ResponseModel<PagedResult<ProjectTaskResponse>>
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in getTicketTasks:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error fetching ticket tasks',
+    );
+  }
+};
+
+/**
+ * POST /api/tickets/{ticketId}/tasks
+ * Tạo 1 task backlog cho ticket:
+ *  - projectId = project của ticket
+ *  - sprintId = null  (backlog)
+ *  - IsBacklog = true (BE xử lý)
+ */
+export const createTicketTask = async (
+  ticketId,
+  {
+    projectId,
+    title,
+    type = 'Feature',
+    priority = 'Medium',
+    severity = null,
+    estimateHours = null,
+    dueDate = null,
+  } = {},
+) => {
+  try {
+    if (!ticketId) {
+      throw new Error('ticketId is required to create ticket task');
+    }
+
+    const payload = {
+      projectId,            // BE có thể tự lấy từ ticket, nhưng cho vào cho chắc
+      sprintId: null,       // backlog
+      title: title?.trim() || '',
+      type,
+      priority,
+      severity,
+      estimateHours,
+      dueDate,
+    };
+
+    const res = await axiosInstance.post(
+      `/tickets/${ticketId}/tasks`,
+      payload,
+    );
+
+    // ResponseModel<ProjectTaskResponse>
+    return res?.data?.data ?? res?.data;
+  } catch (error) {
+    console.error('Error in createTicketTask:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error creating ticket task',
+    );
+  }
+};

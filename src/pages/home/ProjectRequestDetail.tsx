@@ -48,6 +48,7 @@ export default function ProjectRequestDetail() {
   const [accepting, setAccepting] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  console.log('viewMode', viewMode);
   const openRejectModal = () => {
     setSelectedProjectId(id);
     setRejectModalOpen(true);
@@ -392,7 +393,7 @@ export default function ProjectRequestDetail() {
 
                         const url =
                           viewMode === 'AsExecutor'
-                            ? `/companies/${companyId}/project`
+                            ? `/companies/${companyId}/project/${projectRequest.convertedProjectId}`
                             : // : `/companies/${companyId}/project-company-request`;
                               `/companies/${companyId}/projectRequest/${projectRequest.convertedProjectId}`;
 
@@ -446,15 +447,10 @@ export default function ProjectRequestDetail() {
               projectRequestId: id,
             }}
             onSubmit={async (payload) => {
-              try {
-                const createdProject = await createProject(payload);
-                toast.success('Project created successfully!');
-                setProjectCreateModalOpen(false);
-                navigate(`/companies/${companyId}/project`);
-              } catch (err: any) {
-                console.error('Create project failed:', err);
-                toast.error(err?.response?.data?.message || 'Failed to create project');
-              }
+              console.log('Create Project Payload:', payload);
+              toast.success('Project created successfully!');
+              setProjectCreateModalOpen(false);
+              navigate(`/companies/${companyId}/project`);
             }}
           />
 

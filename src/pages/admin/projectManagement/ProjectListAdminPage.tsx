@@ -201,9 +201,9 @@ export default function ProjectListAdminPage() {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                     Project Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  {/* <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                     Company
-                  </th>
+                  </th> */}
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                     Owner
                   </th>
@@ -223,13 +223,97 @@ export default function ProjectListAdminPage() {
                   items.map((p) => (
                     <tr key={p.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {p.name || '-'}
+                        {p.name || (
+                          <span className="text-gray-400 text-sm italic">Not provided</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{p.companyName || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{p.ownerName || '-'}</td>
+                      {/* <td className="px-6 py-4 text-sm text-gray-600">{p.companyName || '-'}</td> */}
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {p.ownerName || (
+                          <span className="text-gray-400 text-sm italic">Not provided</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{p.totalTask ?? 0}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{p.progress ?? 0}%</td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4">
+                        <style>
+                          {`
+      @keyframes progress-shine {
+        0% {
+          transform: translateX(-100%) skewX(-15deg);
+        }
+        100% {
+          transform: translateX(200%) skewX(-15deg);
+        }
+      }
+
+      @keyframes progress-glow {
+        0%, 100% {
+          box-shadow: 0 0 5px rgba(34, 197, 94, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+        }
+      }
+
+      .progress-bar-fill {
+        position: relative;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .progress-bar-fill::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 30%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.4),
+          transparent
+        );
+        animation: progress-shine 3s ease-in-out infinite;
+      }
+    `}
+                        </style>
+
+                        <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                          <div
+                            className="progress-bar-fill h-3 rounded-full"
+                            style={{
+                              width: `${p.progress ?? 0}%`,
+                              background:
+                                'linear-gradient(90deg, #10b981 0%, #22c55e 50%, #34d399 100%)',
+                              animation: 'progress-glow 2s ease-in-out infinite',
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: '40%',
+                                background:
+                                  'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%)',
+                                borderRadius: '9999px 9999px 0 0',
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <span
+                          className="text-xs font-medium text-gray-700 ml-2 inline-block"
+                          style={{
+                            transition: 'all 0.3s ease',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {p.progress ?? 0}%
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center flex items-center justify-center">
                         <Button
                           type="link"
                           icon={<Edit size={16} />}

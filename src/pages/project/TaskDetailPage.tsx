@@ -12,6 +12,7 @@ import {
   Paperclip,
   Send,
   Trash2,
+  ChevronDown as ChevronDownIcon,
 } from "lucide-react";
 
 import type { TaskVm, SprintVm, MemberRef } from "@/types/projectBoard";
@@ -70,20 +71,6 @@ type ProjectMemberOption = {
   isViewAll?: boolean;
 };
 
-type RoleAssignments = Record<string, string | null>;
-
-type WorkflowRoleDef = {
-  key: string; // role code / key
-  label: string; // label hiển thị
-  statuses: {
-    id: string;
-    name: string;
-    isStart?: boolean;
-    isFinal?: boolean;
-  }[];
-  editable: boolean; // false nếu gắn với bất kỳ status isStart (theo main assignee)
-};
-
 type ChecklistItem = {
   id: string;
   label: string;
@@ -91,6 +78,21 @@ type ChecklistItem = {
   orderIndex?: number;
   createdAt?: string;
 };
+
+/** Gom theo workflow (không tách theo role nữa) */
+type WorkflowGroupDef = {
+  key: string; // workflow group key (từ workflowKey / roles combination)
+  label: string; // nhãn hiển thị, vd "Qa / Reviewer"
+  statuses: {
+    id: string;
+    name: string;
+    isStart?: boolean;
+    isFinal?: boolean;
+  }[];
+  hasStart: boolean; // true nếu group này có status isStart
+};
+
+type WorkflowAssignmentMap = Record<string, string | null>;
 
 const fmtDateTime = (iso?: string) =>
   iso ? new Date(iso).toLocaleString() : "N/A";
@@ -128,7 +130,6 @@ export default function TaskDetailPage() {
       setBoardError(null);
 
       try {
-        // API board trả về { sprints, tasks } đã map theo SprintVm / TaskVm
         const board: any = await fetchSprintBoard(projectId);
         const bs: SprintVm[] = Array.isArray(board?.sprints)
           ? (board.sprints as SprintVm[])
@@ -235,7 +236,11 @@ function TicketDetailLayout({
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>({});
+
+  // NEW: map workflow theo group (không còn roleAssignments)
+  const [workflowAssignmentMap, setWorkflowAssignmentMap] =
+    useState<WorkflowAssignmentMap>({});
+
   const [projectMembers, setProjectMembers] = useState<ProjectMemberOption[]>(
     []
   );
@@ -263,7 +268,7 @@ function TicketDetailLayout({
   );
   const [editingChecklistLabel, setEditingChecklistLabel] = useState("");
 
-  // khi task từ board đổi (nếu sau này bạn sync lại), update model
+  // khi task từ board đổi (nếu sau này sync lại), update model
   useEffect(() => {
     setModel(task);
     const desc = (task as any)?.description;
@@ -324,6 +329,7 @@ function TicketDetailLayout({
     };
   }, [projectId]);
 
+  // ===== load chi tiết task + checklist + comments + attachments + workflowAssignments =====
   useEffect(() => {
     let cancelled = false;
 
@@ -352,7 +358,6 @@ function TicketDetailLayout({
           } else if (Array.isArray(payload.checklist)) {
             list = payload.checklist;
           } else if (Array.isArray(payload.data)) {
-            // phòng trường hợp BE lồng thêm 1 lớp data nữa
             list = payload.data;
           }
 
@@ -395,7 +400,6 @@ function TicketDetailLayout({
           }
         }
 
-        // không còn demo cứng, nếu không có thì để rỗng luôn
         setChecklist(checklistItems);
 
         // 5) Comments / activity – ưu tiên API /comments
@@ -418,13 +422,11 @@ function TicketDetailLayout({
             const mapped: CommentItem[] = list.map((c: any, idx: number) =>
               mapCommentDto(c, idx)
             );
-            // comment mới nhất lên đầu
             mapped.sort((a, b) =>
               (b.createdAt || "").localeCompare(a.createdAt || "")
             );
             setComments(mapped);
           } else {
-            // fallback dùng comments/activities trong dto
             const cmRaw = dto.comments ?? dto.activities ?? [];
             if (Array.isArray(cmRaw) && cmRaw.length) {
               const mapped: CommentItem[] = cmRaw.map(
@@ -434,13 +436,10 @@ function TicketDetailLayout({
                     c.authorName ??
                     c.author ??
                     c.createdByName ??
-                    task.assignees[0]?.name ??
+                    task.assignees?.[0]?.name ??
                     "System",
                   authorId:
-                    c.authorId ??
-                    c.createdById ??
-                    c.userId ??
-                    null,
+                    c.authorId ?? c.createdById ?? c.userId ?? null,
                   authorAvatarUrl: c.avatarUrl ?? null,
                   createdAt:
                     c.createdAt ??
@@ -457,11 +456,11 @@ function TicketDetailLayout({
               );
               setComments(mapped);
             } else {
-              // fallback hệ thống
+              // fallback hệ thống đơn giản
               setComments([
                 {
                   id: "c1",
-                  author: task.assignees[0]?.name || "System",
+                  author: task.assignees?.[0]?.name || "System",
                   createdAt: task.createdAt,
                   message: `Ticket created with status "${
                     (task as any).StatusName || task.statusCode
@@ -471,7 +470,7 @@ function TicketDetailLayout({
                 },
                 {
                   id: "c2",
-                  author: task.assignees[0]?.name || "System",
+                  author: task.assignees?.[0]?.name || "System",
                   createdAt: task.updatedAt,
                   message: `Last updated – status "${
                     (task as any).StatusName || task.statusCode
@@ -493,13 +492,10 @@ function TicketDetailLayout({
                   c.authorName ??
                   c.author ??
                   c.createdByName ??
-                  task.assignees[0]?.name ??
+                  task.assignees?.[0]?.name ??
                   "System",
                 authorId:
-                  c.authorId ??
-                  c.createdById ??
-                  c.userId ??
-                  null,
+                  c.authorId ?? c.createdById ?? c.userId ?? null,
                 authorAvatarUrl: c.avatarUrl ?? null,
                 createdAt:
                   c.createdAt ??
@@ -518,43 +514,129 @@ function TicketDetailLayout({
           }
         }
 
-        // 6) Workflow assignments -> RoleAssignments (chỉ cho các role không phải start)
-        if (dto.workflowAssignments && sprint && sprint.statusMeta) {
-          const wf = dto.workflowAssignments;
-          const items: any[] = Array.isArray(wf.items) ? wf.items : [];
-          const map: RoleAssignments = {};
+      
+               // 6) Workflow assignments:
+        //    - Lấy main assignee từ bước START
+        //    - Lấy owner cho các workflow group còn lại (Developer, QA / Reviewer,…)
+        if (sprint && sprint.statusMeta) {
+          const nextMap: WorkflowAssignmentMap = {};
+          let mainAssigneeFromWorkflow: MemberRef | null = null;
+          let hasStartInWorkflow = false;
 
-          items.forEach((it: any) => {
-            const statusId = String(it.workflowStatusId || it.statusId || "");
-            if (!statusId) return;
+          // --- BE mới: dto.workflowAssignments.items ---
+          if (dto.workflowAssignments) {
+            const wf = dto.workflowAssignments;
+            const items: any[] = Array.isArray(wf.items) ? wf.items : wf ?? [];
 
-            const meta: any = sprint.statusMeta[statusId];
-            if (!meta) return;
+            items.forEach((it: any) => {
+              const statusId = String(it.workflowStatusId || it.statusId || "");
+              if (!statusId) return;
 
-            const roles: string[] = Array.isArray(meta.roles)
-              ? meta.roles
-              : [];
-            if (!roles.length) return;
+              const meta: any = sprint.statusMeta[statusId];
+              if (!meta) return;
 
-            const uid = it.assignUserId ? String(it.assignUserId) : null;
-            if (!uid) return;
+              const rawUserId = it.assignUserId ?? it.userId ?? null;
+              const uid = rawUserId ? String(rawUserId) : null;
 
-            roles.forEach((rk) => {
-              if (!rk) return;
-              if (!map[rk]) {
-                map[rk] = uid;
+              if (meta.isStart) {
+                hasStartInWorkflow = true;
+
+                // Start có user -> main assignee
+                if (uid && !mainAssigneeFromWorkflow) {
+                  mainAssigneeFromWorkflow = {
+                    id: uid,
+                    name:
+                      it.assignUserName ||
+                      it.assignUserEmail ||
+                      "Unknown member",
+                    email: it.assignUserEmail ?? undefined,
+                    avatarUrl: it.assignUserAvatarUrl ?? undefined,
+                  } as any;
+                }
+
+                return; // Start không map vào group
+              }
+
+              // Các bước còn lại -> owner theo group (Developer, QA / Reviewer,…)
+              if (!uid) return;
+
+              const key = deriveWorkflowGroupKey(meta);
+              if (!key) return;
+
+              // BE là nguồn sự thật → luôn dùng giá trị mới nhất
+              nextMap[key] = uid;
+            });
+          }
+          // --- BE cũ: dto.roleAssignments (legacy) ---
+          else if (
+            dto.roleAssignments &&
+            typeof dto.roleAssignments === "object"
+          ) {
+            const legacy: Record<string, string | null> =
+              dto.roleAssignments as any;
+
+            (sprint.statusOrder || []).forEach((statusId) => {
+              const meta: any = sprint.statusMeta[statusId];
+              if (!meta) return;
+
+              const roles: string[] = Array.isArray(meta.roles)
+                ? meta.roles.filter(Boolean)
+                : [];
+              if (!roles.length) return;
+
+              const roleWithUser = roles.find(
+                (rk) => legacy[rk] != null && legacy[rk] !== ""
+              );
+              const uid = roleWithUser ? legacy[roleWithUser] : null;
+              if (!uid) return;
+
+              if (meta.isStart) {
+                hasStartInWorkflow = true;
+
+                if (!mainAssigneeFromWorkflow) {
+                  mainAssigneeFromWorkflow = {
+                    id: String(uid),
+                    name: "Unknown member",
+                  } as any;
+                }
+              } else {
+                const key = deriveWorkflowGroupKey(meta);
+                if (!key) return;
+                nextMap[key] = String(uid);
               }
             });
-          });
+          }
 
-          setRoleAssignments(map);
-        } else if (
-          dto.roleAssignments &&
-          typeof dto.roleAssignments === "object"
-        ) {
-          // fallback cho dữ liệu cũ nếu BE vẫn còn trả roleAssignments
-          setRoleAssignments(dto.roleAssignments as RoleAssignments);
+          if (!cancelled) {
+            // map owner cho Developer / QA / …
+            setWorkflowAssignmentMap(nextMap);
+
+            // Nếu workflow có bước Start thì Start là nguồn sự thật cho Assignee
+            if (hasStartInWorkflow) {
+              setModel((prev) => {
+                // Start có user -> set assignee mới
+                if (mainAssigneeFromWorkflow) {
+                  return {
+                    ...prev,
+                    assignees: [mainAssigneeFromWorkflow!] as any,
+                  };
+                }
+
+                // Start tồn tại nhưng tất cả assignUserId = null -> Unassigned
+                if (!prev.assignees || prev.assignees.length === 0) {
+                  return prev; // đã unassigned rồi
+                }
+
+                return {
+                  ...prev,
+                  assignees: [] as any,
+                };
+              });
+            }
+          }
         }
+
+
 
         // 7) Attachments của task
         try {
@@ -591,8 +673,9 @@ function TicketDetailLayout({
   /* ===== derived data ===== */
 
   const statusList =
-    sprint.statusOrder.map((id) => sprint.statusMeta[id]).filter(Boolean) ??
-    [];
+    (sprint.statusOrder || [])
+      .map((id) => sprint.statusMeta[id])
+      .filter(Boolean) ?? [];
 
   const activeStatusId = model.workflowStatusId;
   const activeMeta = sprint.statusMeta[activeStatusId];
@@ -601,18 +684,21 @@ function TicketDetailLayout({
       ? sprint.statusMeta[draftStatusId]
       : undefined;
 
-  const primaryAssignee: MemberRef | undefined = model.assignees[0];
+  const primaryAssignee: MemberRef | undefined =
+    (model.assignees && model.assignees[0]) || undefined;
 
   const checklistDone = checklist.filter((x) => x.done).length;
   const checklistTotal = checklist.length || 1;
   const checklistPct = Math.round((checklistDone / checklistTotal) * 100);
 
   const activeStepIndex = statusList.findIndex(
-    (st) => st.id === activeStatusId
+    (st: any) => st.id === activeStatusId
   );
   const totalSteps = statusList.length;
 
-  const currentIndex = statusList.findIndex((st) => st.id === activeStatusId);
+  const currentIndex = statusList.findIndex(
+    (st: any) => st.id === activeStatusId
+  );
   const nextStatus =
     currentIndex >= 0 && currentIndex < statusList.length - 1
       ? statusList[currentIndex + 1]
@@ -624,73 +710,59 @@ function TicketDetailLayout({
     setStatusPickerOpen(false);
   }, [activeStatusId]);
 
-  // ==== gom tất cả roles của workflow, đánh dấu role nào là start (theo main assignee) ====
-  const workflowRoles: WorkflowRoleDef[] = useMemo(() => {
-    const map: Record<string, WorkflowRoleDef> = {};
+  // ==== gom STATUS thành các workflow group (không tách theo ROLE) ====
+  const workflowGroups: WorkflowGroupDef[] = useMemo(() => {
+    if (!sprint || !sprint.statusMeta) return [];
+
+    const rawMap: Record<string, WorkflowGroupDef> = {};
 
     (sprint.statusOrder || []).forEach((statusId) => {
       const st: any = sprint.statusMeta[statusId];
       if (!st) return;
-      const roles: string[] = Array.isArray(st.roles) ? st.roles : [];
-      roles.forEach((roleKey) => {
-        if (!roleKey) return;
-        if (!map[roleKey]) {
-          const label =
-            roleKey
-              .replace(/_/g, " ")
-              .replace(/\b\w/g, (c: string) => c.toUpperCase()) || roleKey;
-          map[roleKey] = {
-            key: roleKey,
-            label,
-            statuses: [],
-            editable: true,
-          };
-        }
-        map[roleKey].statuses.push({
-          id: statusId,
-          name: st.name,
-          isStart: !!st.isStart,
-          isFinal: !!st.isFinal,
-        });
-        // role xuất hiện ở bất kỳ status isStart => controlled by main assignee
-        if (st.isStart) {
-          map[roleKey].editable = false;
-        }
+
+      // chỉ quan tâm các status có roles -> thuộc 1 workflow nào đó
+      const roles: string[] = Array.isArray(st.roles)
+        ? st.roles.filter(Boolean)
+        : [];
+      if (!roles.length) return;
+
+      const key = deriveWorkflowGroupKey(st);
+      const label = deriveWorkflowGroupLabel(st);
+      if (!key) return;
+
+      if (!rawMap[key]) {
+        rawMap[key] = {
+          key,
+          label,
+          statuses: [],
+          hasStart: false,
+        };
+      }
+
+      rawMap[key].statuses.push({
+        id: statusId,
+        name: st.name,
+        isStart: !!st.isStart,
+        isFinal: !!st.isFinal,
       });
+
+      if (st.isStart) {
+        rawMap[key].hasStart = true;
+      }
     });
 
-    return Object.values(map).sort((a, b) => a.label.localeCompare(b.label));
+    return Object.values(rawMap).sort((a, b) => a.label.localeCompare(b.label));
   }, [sprint]);
 
-  const startRoles = useMemo(
-    () => workflowRoles.filter((r) => r.statuses.some((s) => s.isStart)),
-    [workflowRoles]
+  const startWorkflowGroups = useMemo(
+    () => workflowGroups.filter((g) => g.hasStart),
+    [workflowGroups]
   );
 
-  const nonStartRoles = useMemo(
-    () => workflowRoles.filter((r) => !r.statuses.some((s) => s.isStart)),
-    [workflowRoles]
+  const nonStartWorkflowGroups = useMemo(
+    () => workflowGroups.filter((g) => !g.hasStart),
+    [workflowGroups]
   );
-
-  // đồng bộ: main assignee chính là người cho các role start
-  useEffect(() => {
-    if (!startRoles.length) return;
-    const mainId = primaryAssignee?.id ?? null;
-
-    setRoleAssignments((prev) => {
-      const next: RoleAssignments = { ...prev };
-      let changed = false;
-
-      startRoles.forEach((r) => {
-        if (next[r.key] !== mainId) {
-          next[r.key] = mainId;
-          changed = true;
-        }
-      });
-
-      return changed ? next : prev;
-    });
-  }, [primaryAssignee?.id, startRoles]);
 
   /* ===== handlers ===== */
 
@@ -709,7 +781,7 @@ function TicketDetailLayout({
 
   async function commitStatusChange(statusId: string) {
     if (!statusId || statusId === activeStatusId) return;
-    const meta = sprint.statusMeta[statusId];
+    const meta: any = sprint.statusMeta[statusId];
     if (!meta) return;
 
     const now = new Date().toISOString();
@@ -719,9 +791,10 @@ function TicketDetailLayout({
       workflowStatusId: statusId,
       statusCode: meta.code,
       statusCategory: meta.category,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       StatusName: meta.name,
       updatedAt: now,
-    };
+    } as any;
 
     setChangingStatus(true);
     setModel(next);
@@ -785,7 +858,6 @@ function TicketDetailLayout({
       return;
     }
 
-    // cập nhật label local trước cho mượt
     setChecklist((prev) =>
       prev.map((i) => (i.id === id ? { ...i, label } : i))
     );
@@ -794,7 +866,6 @@ function TicketDetailLayout({
 
     try {
       if (id.startsWith("local-")) {
-        // item mới -> gọi create
         const res = await createTaskChecklistItem(model.id, label);
         const dto: any = res?.data ?? res ?? {};
         const realId =
@@ -807,7 +878,6 @@ function TicketDetailLayout({
           );
         }
       } else {
-        // nếu sau này cho edit item cũ -> dùng update
         await updateTaskChecklistItem(model.id, { id, label });
       }
     } catch (err) {
@@ -821,13 +891,11 @@ function TicketDetailLayout({
       prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i))
     );
     try {
-      // item mới local chưa save thì không gọi API
       if (!id.startsWith("local-")) {
         await toggleTaskChecklistItemDone(model.id, id);
       }
     } catch (err) {
       console.error("[TaskDetail] toggle checklist failed", err);
-      // rollback nếu cần
       setChecklist((prev) =>
         prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i))
       );
@@ -855,7 +923,6 @@ function TicketDetailLayout({
       }
     } catch (err) {
       console.error("[TaskDetail] delete checklist failed", err);
-      // thất bại thì rollback lại
       setChecklist(prev);
     }
   }
@@ -866,7 +933,6 @@ function TicketDetailLayout({
     const files = e.target.files;
     if (!files || !files.length) return;
     setNewCommentFiles((prev) => [...prev, ...Array.from(files)]);
-    // reset để lần sau chọn cùng file vẫn trigger
     e.target.value = "";
   }
 
@@ -874,9 +940,7 @@ function TicketDetailLayout({
     setNewCommentFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function handleCommentKeyDown(
-    e: React.KeyboardEvent<HTMLTextAreaElement>
-  ) {
+  function handleCommentKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       void handleSubmitComment();
@@ -889,6 +953,8 @@ function TicketDetailLayout({
 
     try {
       setIsSendingComment(true);
+
+      // service FE nên support (taskId, body, files)
       await createTaskComment(model.id, body, newCommentFiles);
 
       setNewComment("");
@@ -935,7 +1001,7 @@ function TicketDetailLayout({
     }
   }
 
-  // ===== ATTACHMENT HANDLERS =====
+  // ===== ATTACHMENT HANDLERS (TASK LEVEL) =====
 
   async function handleUploadFiles(filesList: FileList | null) {
     if (!filesList || filesList.length === 0) return;
@@ -980,7 +1046,6 @@ function TicketDetailLayout({
   ) {
     const filesList = e.target.files;
     await handleUploadFiles(filesList);
-    // reset input để lần sau chọn lại cùng file vẫn trigger change
     e.target.value = "";
   }
 
@@ -1012,14 +1077,14 @@ function TicketDetailLayout({
     } catch (err: any) {
       console.error("[TaskDetail] delete attachment failed", err);
       toast.error(err?.message || "Delete attachment failed");
-      setAttachments(prev); // rollback
+      setAttachments(prev);
     }
   }
 
   async function handleSave() {
     try {
-      // build workflowAssignments từ roleAssignments + sprint.statusMeta
-      let workflowAssignments: any[] | undefined = undefined;
+      // build workflowAssignments từ workflowAssignmentMap + sprint.statusMeta
+      let workflowAssignmentsPayload: any[] | undefined = undefined;
 
       if (sprint && sprint.statusOrder && sprint.statusMeta) {
         const items: any[] = [];
@@ -1031,35 +1096,30 @@ function TicketDetailLayout({
           if (!meta) return;
 
           const roles: string[] = Array.isArray(meta.roles)
-            ? meta.roles
+            ? meta.roles.filter(Boolean)
             : [];
+          if (!roles.length) return;
 
           let assignUserId: string | null = null;
 
           if (meta.isStart) {
-            // nghiệp vụ: main assignee = người của bước start
+            // start step: dùng main assignee
             assignUserId = mainAssigneeId;
           } else {
-            // các bước khác: lấy theo roleAssignments
-            for (const rk of roles) {
-              const uid = roleAssignments[rk];
-              if (uid) {
-                assignUserId = uid;
-                break;
-              }
+            const key = deriveWorkflowGroupKey(meta);
+            if (key && workflowAssignmentMap[key]) {
+              assignUserId = workflowAssignmentMap[key]!;
             }
           }
 
-          // chỉ quan tâm các status có roles
-          if (roles.length > 0) {
-            items.push({
-              workflowStatusId: statusId,
-              assignUserId, // null => unassign trên BE
-            });
-          }
+          items.push({
+            name: meta.name,
+            workflowStatusId: statusId,
+            assignUserId,
+          });
         });
 
-        workflowAssignments = items;
+        workflowAssignmentsPayload = items;
       }
 
       const payload: any = {
@@ -1080,14 +1140,15 @@ function TicketDetailLayout({
         description,
       };
 
-      if (workflowAssignments && workflowAssignments.length) {
-        payload.workflowAssignments = workflowAssignments;
+      if (workflowAssignmentsPayload && workflowAssignmentsPayload.length) {
+        payload.workflowAssignments = workflowAssignmentsPayload;
       }
 
       const raw = await putTask(model.id, payload);
       const dto: any = raw?.data ?? raw ?? {};
       if (dto && dto.id) {
-        // optional: sync lại model nếu cần
+        // nếu muốn sync lại model từ BE thì có thể merge ở đây
+        // setModel((prev) => ({ ...prev, ...dto }));
       }
       console.log(payload);
       toast.success("Ticket saved successfully.");
@@ -1242,7 +1303,7 @@ function TicketDetailLayout({
             {/* Panel chọn status */}
             {statusPickerOpen && statusList.length > 0 && (
               <div className="mt-3 rounded-2xl border border-slate-100 bg-white/80 p-3 max-h-64 overflow-y-auto space-y-1.5">
-                {statusList.map((st, idx) => {
+                {statusList.map((st: any, idx: number) => {
                   const isCurrent = st.id === activeStatusId;
                   const isTarget =
                     !!draftStatusId && draftStatusId === st.id && !isCurrent;
@@ -1263,7 +1324,6 @@ function TicketDetailLayout({
                           : "bg-slate-50 text-slate-800 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                       )}
                     >
-                      {/* step number */}
                       <div
                         className={cn(
                           "flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold",
@@ -1315,7 +1375,6 @@ function TicketDetailLayout({
                         </div>
                       </div>
 
-                      {/* radio / indicator */}
                       <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center bg-white/60">
                         <div
                           className={cn(
@@ -1332,7 +1391,6 @@ function TicketDetailLayout({
                   );
                 })}
 
-                {/* Thanh confirm đổi status */}
                 {draftMeta && (
                   <div className="pt-2 mt-1 border-t border-dashed border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
                     <span>
@@ -1805,7 +1863,7 @@ function TicketDetailLayout({
                   value={primaryAssignee?.id ?? null}
                   onChange={(id) => {
                     if (!id) {
-                      updateField("assignees", []);
+                      updateField("assignees", [] as any);
                       return;
                     }
                     const u = projectMembers.find((m) => m.id === id);
@@ -1814,22 +1872,22 @@ function TicketDetailLayout({
                     const mem: MemberRef = {
                       id: u.id,
                       name: u.name,
-                      avatarUrl: u.avatarUrl,
-                      email: u.email,
+                      avatarUrl: u.avatarUrl ?? undefined,
+                      email: u.email ?? undefined,
                     } as any;
 
-                    updateField("assignees", [mem]);
+                    updateField("assignees", [mem] as any);
                   }}
                   placeholder={
                     loadingMembers ? "Loading members…" : "Unassigned"
                   }
                 />
-                {startRoles.length > 0 && (
+                {startWorkflowGroups.length > 0 && (
                   <div className="text-[10px] text-slate-400">
-                    Main assignee is used for start role
-                    {startRoles.length > 1 ? "s" : ""}:{" "}
+                    Main assignee is used for start workflow
+                    {startWorkflowGroups.length > 1 ? "s" : ""}:{" "}
                     <span className="font-medium">
-                      {startRoles.map((r) => r.label).join(", ")}
+                      {startWorkflowGroups.map((g) => g.label).join(", ")}
                     </span>
                     .
                   </div>
@@ -1837,29 +1895,28 @@ function TicketDetailLayout({
               </div>
             </Field>
 
-            {/* Workflow roles – chỉ hiển thị các role KHÔNG phải start */}
-            {nonStartRoles.length > 0 && (
+            {/* Workflow assignments – gom theo workflow, KHÔNG tách theo role */}
+            {nonStartWorkflowGroups.length > 0 && (
               <div className="mt-3 border-t border-dashed border-slate-200 pt-3">
                 <div className="text-[11px] text-slate-500 mb-2">
-                  Workflow roles for this ticket
+                  Workflow owners for this ticket
                 </div>
                 <div className="space-y-2">
-                  {nonStartRoles.map((role) => {
-                    const assignedId = roleAssignments[role.key] ?? null;
+                  {nonStartWorkflowGroups.map((group) => {
+                    const assignedId = workflowAssignmentMap[group.key] ?? null;
 
                     return (
                       <div
-                        key={role.key}
+                        key={group.key}
                         className="rounded-xl border border-slate-200 px-3 py-2"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-slate-700">
-                              {role.label}
+                              {group.label}
                             </div>
-                            {/* list các status mà role này phụ trách (không có START nữa) */}
                             <div className="mt-1 flex flex-wrap gap-1">
-                              {role.statuses.map((st) => (
+                              {group.statuses.map((st) => (
                                 <span
                                   key={st.id}
                                   className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] bg-blue-50 border-blue-200 text-blue-700"
@@ -1880,9 +1937,9 @@ function TicketDetailLayout({
                               users={projectMembers}
                               value={assignedId}
                               onChange={(val) => {
-                                setRoleAssignments((prev) => ({
+                                setWorkflowAssignmentMap((prev) => ({
                                   ...prev,
-                                  [role.key]: val,
+                                  [group.key]: val,
                                 }));
                               }}
                               placeholder={
@@ -1921,7 +1978,7 @@ function TicketDetailLayout({
               <select
                 className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
                 value={model.type}
-                onChange={(e) => updateField("type", e.target.value)}
+                onChange={(e) => updateField("type", e.target.value as any)}
               >
                 <option value="Feature">Feature</option>
                 <option value="Bug">Bug</option>
@@ -1940,7 +1997,10 @@ function TicketDetailLayout({
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={model.storyPoints ?? 0}
                   onChange={(e) =>
-                    updateField("storyPoints", Number(e.target.value) || 0)
+                    updateField(
+                      "storyPoints",
+                      (Number(e.target.value) || 0) as any
+                    )
                   }
                 />
               </Field>
@@ -1950,7 +2010,10 @@ function TicketDetailLayout({
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={model.estimateHours ?? 0}
                   onChange={(e) =>
-                    updateField("estimateHours", Number(e.target.value) || 0)
+                    updateField(
+                      "estimateHours",
+                      (Number(e.target.value) || 0) as any
+                    )
                   }
                 />
               </Field>
@@ -1964,14 +2027,17 @@ function TicketDetailLayout({
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={model.remainingHours ?? 0}
                   onChange={(e) =>
-                    updateField("remainingHours", Number(e.target.value) || 0)
+                    updateField(
+                      "remainingHours",
+                      (Number(e.target.value) || 0) as any
+                    )
                   }
                 />
               </Field>
               <Field label="Severity">
                 <select
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
-                  value={model.severity ?? "Medium"}
+                  value={(model.severity as any) ?? "Medium"}
                   onChange={(e) =>
                     updateField(
                       "severity",
@@ -1993,9 +2059,12 @@ function TicketDetailLayout({
                 <input
                   type="date"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                  value={toInputDate(model.openedAt)}
+                  value={toInputDate(model.openedAt as any)}
                   onChange={(e) =>
-                    updateField("openedAt", fromInputDate(e.target.value)!)
+                    updateField(
+                      "openedAt",
+                      fromInputDate(e.target.value) as any
+                    )
                   }
                 />
               </Field>
@@ -2003,9 +2072,12 @@ function TicketDetailLayout({
                 <input
                   type="date"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                  value={toInputDate(model.dueDate)}
+                  value={toInputDate(model.dueDate as any)}
                   onChange={(e) =>
-                    updateField("dueDate", fromInputDate(e.target.value))
+                    updateField(
+                      "dueDate",
+                      fromInputDate(e.target.value) as any
+                    )
                   }
                 />
               </Field>
@@ -2017,7 +2089,7 @@ function TicketDetailLayout({
                 className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
                 value={model.sprintId ?? ""}
                 onChange={(e) =>
-                  updateField("sprintId", e.target.value || null)
+                  updateField("sprintId", (e.target.value || null) as any)
                 }
               >
                 <option value="">Backlog / no sprint</option>
@@ -2168,7 +2240,7 @@ function UserAssignDropdown({
             </div>
           </div>
         </div>
-        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+        <ChevronDownIcon className="w-4 h-4 text-slate-400 shrink-0" />
       </button>
 
       {open && (
@@ -2262,11 +2334,7 @@ function UserAssignDropdown({
 function mapAttachmentDto(x: any, idx: number = 0): AttachmentItem {
   return {
     id: String(
-      x.id ??
-        x.attachmentId ??
-        x.taskAttachmentId ??
-        x.key ??
-        `att-${idx + 1}`
+      x.id ?? x.attachmentId ?? x.taskAttachmentId ?? x.key ?? `att-${idx + 1}`
     ),
     fileName: x.fileName ?? x.name ?? `Attachment-${idx + 1}`,
     url: x.url ?? x.link ?? "#",
@@ -2288,7 +2356,7 @@ function mapCommentDto(x: any, idx: number = 0): CommentItem {
     : [];
 
   const createdAt =
-    x.createAt ?? 
+    x.createAt ??
     x.createdAt ??
     x.time ??
     x.created_at ??
@@ -2312,7 +2380,6 @@ function mapCommentDto(x: any, idx: number = 0): CommentItem {
   };
 }
 
-
 function formatBytes(bytes?: number | null): string {
   const n = typeof bytes === "number" ? bytes : 0;
   if (!n) return "0 B";
@@ -2322,4 +2389,64 @@ function formatBytes(bytes?: number | null): string {
   const val = n / Math.pow(k, i);
   const fixed = val >= 100 ? 0 : val >= 10 ? 1 : 2;
   return `${val.toFixed(fixed)} ${sizes[i]}`;
+}
+
+/** Lấy key workflow group: ưu tiên key của workflow, fallback theo combination roles */
+function deriveWorkflowGroupKey(meta: any): string {
+  if (!meta) return "";
+  const roles: string[] = Array.isArray(meta.roles)
+    ? meta.roles.filter(Boolean)
+    : [];
+
+  const rolesKey =
+    roles.length > 0
+      ? `roles:${roles
+          .slice()
+          .sort()
+          .join("|")}`
+      : "";
+
+  const directKey =
+    meta.workflowKey ||
+    meta.workflowCode ||
+    meta.workflowGroupKey ||
+    meta.groupKey ||
+    meta.laneKey ||
+    meta.groupId;
+
+  const fallback =
+    meta.id || meta.code || (meta.name ? `status:${meta.name}` : "");
+
+  return String(directKey || rolesKey || fallback || "");
+}
+
+/** Label hiển thị cho workflow group: ưu tiên workflowName, nếu không thì join roles -> "Qa / Reviewer" */
+function deriveWorkflowGroupLabel(meta: any): string {
+  if (!meta) return "Workflow";
+
+  const roles: string[] = Array.isArray(meta.roles)
+    ? meta.roles.filter(Boolean)
+    : [];
+
+  const directLabel =
+    meta.workflowName ||
+    meta.workflowLabel ||
+    meta.groupName ||
+    meta.laneName;
+
+  if (directLabel) return String(directLabel);
+
+  if (roles.length) {
+    return roles
+      .slice()
+      .sort()
+      .map((rk) =>
+        String(rk)
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c: string) => c.toUpperCase())
+      )
+      .join(" / ");
+  }
+
+  return String(meta.name || "Workflow");
 }

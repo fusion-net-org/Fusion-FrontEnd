@@ -119,32 +119,33 @@ export default function ProjectsPage() {
   const { companyId: routeCompanyId } = useParams();
   const companyId = routeCompanyId || localStorage.getItem('currentCompanyId'); // ✅
 
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setLoading(true);
-        if (!companyId) throw new Error('Missing companyId'); // ✅ tránh gọi sai route
-        const res = await fetchProjects({
-          companyId, // ✅ dùng đúng route
-          pageSize: 200, // lấy rộng để đủ filter client
-        });
-        if (!alive) return;
-        setAll(res.items); // ✅ đã map đúng shape Project
-      } catch (err) {
-        console.error('[Projects] load error:', err);
-        setAll([]); // tránh crash UI
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+  const loadProjectsList = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      if (!companyId) throw new Error('Missing companyId'); // tránh gọi sai route
+      const res = await fetchProjects({
+        companyId,
+        pageSize: 200, // lấy rộng để đủ filter client
+      });
+      setAll(res.items); // map đúng shape Project
+    } catch (err) {
+      console.error('[Projects] load error:', err);
+      setAll([]); // tránh crash UI
+    } finally {
+      setLoading(false);
+    }
   }, [companyId]);
+
+  // ✅ gọi khi page mount / companyId đổi
+  React.useEffect(() => {
+    loadProjectsList();
+  }, [loadProjectsList]);
   const uniq = <K extends keyof Project>(k: K) =>
     Array.from(new Set(all.map((p) => (p[k] ?? '') as string))).filter(Boolean);
+const isProjectRequest = (p: Project) => p.isRequest === true;
 
+const isOutsourceExecutor = (p: Project) =>
+  !p.isRequest && p.ptype === 'Outsourced';
   // filter + sort
   const filtered = React.useMemo(() => {
     const { q, companies, statuses, types } = applied;
@@ -452,52 +453,70 @@ export default function ProjectsPage() {
                     <th className="px-4 py-2 pr-5 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {current.map((p) => (
-                    <tr
-                      key={p.id}
-                      className={['hover:bg-slate-50', p.isRequest ? 'bg-amber-50/40' : ''].join(
-                        ' ',
-                      )}
-                    >
-                      <td className="px-4">
-                        <input
-                          type="radio"
-                          readOnly
-                          checked={selectedId === p.id}
-                          className="size-4 accent-blue-600"
-                        />
-                      </td>
-                      <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
-                        <button onClick={() => openProject(p)}>{p.code}</button>
-                        {p.isRequest && (
-                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 align-middle">
-                            Project Request
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">{p.name}</td>
-                      <td className="px-4 py-2">{p.ownerCompany}</td>
-                      <td className="px-4 py-2">{p.hiredCompany || '—'}</td>
-                      <td className="px-4 py-2">{p.workflow}</td>
-                      <td className="px-4 py-2">{p.startDate || '—'}</td>
-                      <td className="px-4 py-2">
-                        <span className="text-xs">{p.status}</span>
-                      </td>
-                      <td className="px-4 py-2">
-                        <span className="text-xs">{p.ptype}</span>
-                      </td>
-                      <td className="px-4 py-2 pr-5 text-right">
-                        <button
-                          onClick={() => openProject(p)}
-                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
-                        >
-                          Manage
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+             <tbody className="divide-y divide-slate-100">
+  {current.map((p) => {
+    const isReq = isProjectRequest(p);
+    const isExec = isOutsourceExecutor(p);
+    return (
+      <tr
+        key={p.id}
+        className={[
+          'hover:bg-slate-50',
+          isReq ? 'bg-amber-50/40 ring-1 ring-amber-200' : '',
+          !isReq && isExec ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : '',
+        ].join(' ')}
+      >
+        <td className="px-4">
+          <input
+            type="radio"
+            readOnly
+            checked={selectedId === p.id}
+            className="size-4 accent-blue-600"
+          />
+        </td>
+
+        <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
+          <button onClick={() => openProject(p)}>{p.code}</button>
+
+          {/* Project Request – giống cũ, màu vàng */}
+          {isReq && (
+            <span className="ml-2 align-middle rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              Project Request
+            </span>
+          )}
+
+          {/* Outsource Executor – viền giống, chỉ khác màu xanh */}
+          {!isReq && isExec && (
+            <span className="ml-2 align-middle rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+              Outsourced (Executor)
+            </span>
+          )}
+        </td>
+
+        <td className="px-4 py-2">{p.name}</td>
+        <td className="px-4 py-2">{p.ownerCompany}</td>
+        <td className="px-4 py-2">{p.hiredCompany || '—'}</td>
+        <td className="px-4 py-2">{p.workflow}</td>
+        <td className="px-4 py-2">{p.startDate || '—'}</td>
+        <td className="px-4 py-2">
+          <span className="text-xs">{p.status}</span>
+        </td>
+        <td className="px-4 py-2">
+          <span className="text-xs">{p.ptype}</span>
+        </td>
+        <td className="px-4 py-2 pr-5 text-right">
+          <button
+            onClick={() => openProject(p)}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
+          >
+            Manage
+          </button>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
+
               </table>
             </div>
             <Pagination page={page} totalPages={totalPages} onChange={setPage} />
@@ -559,7 +578,7 @@ export default function ProjectsPage() {
           // TODO: call your API here
           // await projectService.create(payload);
           console.log('CREATE PROJECT', payload);
-
+          await loadProjectsList();
           // demo: close + optional navigate
           setOpenCreate(false);
           // nav(`/companies/${encodeURIComponent("YOUR_COMPANY")}/projects/${newId}/overview`);

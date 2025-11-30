@@ -3,6 +3,8 @@ import { axiosInstance } from '../apiConfig';
 export const createContract = async (data) => {
   try {
     const payload = {
+      executorCompanyId: data.ExecutorCompanyId,
+      requesterCompanyId: data.RequesterCompanyId,
       contractCode: data.ContractCode,
       contractName: data.ContractName,
       effectiveDate: data.EffectiveDate,

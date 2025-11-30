@@ -29,6 +29,8 @@ export const GetCompanyPartnersByCompanyID = async (
   Keyword,
   FromDate,
   ToDate,
+  RespondFromDate,
+  RespondToDate,
   pageNumber = 1,
   pageSize = 8,
   SortColumn,
@@ -41,6 +43,8 @@ export const GetCompanyPartnersByCompanyID = async (
         Keyword: Keyword,
         FromDate: FromDate,
         ToDate: ToDate,
+        RespondFromDate: RespondFromDate,
+        RespondToDate: RespondToDate,
         PageNumber: pageNumber,
         PageSize: pageSize,
         SortColumn,
@@ -128,9 +132,13 @@ export const InvitePartnert = async (data) => {
 };
 
 //https://localhost:7160/api/partners/between/DE562EA1-F67A-45CB-92A1-1199C1BC09E6/16AB11C0-D1CE-49F6-924B-B9235D5B9ACD
-export const GetPartnerBetweenTwoCompanies = async (companyIdA, companyIdB) => {
+export const GetPartnerBetweenTwoCompanies = async (companyIdA, companyIdB, friendshipId) => {
   try {
-    const response = await axiosInstance.get(`/partners/between/${companyIdA}/${companyIdB}`);
+    const response = await axiosInstance.get(`/partners/between/${companyIdA}/${companyIdB}`, {
+      params: {
+        friendshipId,
+      },
+    });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
@@ -144,6 +152,19 @@ export const DeletePartner = async (id) => {
   try {
     const response = await axiosInstance.delete(`/partners/delete/${id}`);
     return response;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const GetAllPartnersOfCompany = async (companyId, companyName = '') => {
+  try {
+    const response = await axiosInstance.get(`/partners/all-partners/${companyId}`, {
+      params: {
+        companyName,
+      },
+    });
+    return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
   }

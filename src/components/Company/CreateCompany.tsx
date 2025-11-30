@@ -6,11 +6,15 @@ import { createCompany } from '@/services/companyService.js';
 import { Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '@/common/LoadingOverlay';
+import { getAllCompanies } from '@/services/companyService.js';
+import { useDispatch } from 'react-redux';
+import { setUserCompanies } from '@/redux/userSlice';
 
 interface FormCreateCompanyProps {
   onCreated?: () => void;
 }
 const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
+  const dispatch = useDispatch();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -21,6 +25,29 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
     avatar: null,
     banner: null,
   });
+  const [errors, setErrors] = useState({
+    companyName: '',
+    taxCode: '',
+    detail: '',
+    email: '',
+    avatar: '',
+    banner: '',
+  });
+  const validateForm = () => {
+    const newErrors: any = {};
+
+    if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
+    if (!formData.taxCode.trim()) newErrors.taxCode = 'Tax code is required';
+    if (!formData.detail.trim()) newErrors.detail = 'Detail is required';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+
+    if (!formData.avatar) newErrors.avatar = 'Avatar image is required';
+    if (!formData.banner) newErrors.banner = 'Banner image is required';
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
 
   // Handlers for modal visibility
   const handleOpen = () => setIsModalOpen(true);
@@ -51,6 +78,11 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
   // Handle form submission
   const handleSubmit = async () => {
+    if (!validateForm()) {
+      toast.error('Please fill in all required fields!');
+      return;
+    }
+
     try {
       if (loading) return;
       handleClose();
@@ -66,8 +98,13 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
       const res = await createCompany(fd);
 
-      const msg = res.data?.message || 'Company created successfully!';
+      const msg = res.data?.message;
       toast.success(msg);
+
+      const companiesRes = await getAllCompanies();
+      if (companiesRes.succeeded) {
+        dispatch(setUserCompanies(companiesRes.data.items));
+      }
 
       if (onCreated) onCreated();
 
@@ -111,7 +148,9 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
         {/* Company Name */}
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-700">Company Name</label>
+            <label className="text-sm font-medium text-gray-700">
+              Company Name <span className="text-red-500">*</span>
+            </label>
             <input
               name="companyName"
               type="text"
@@ -124,7 +163,9 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
           {/* Tax Code */}
           <div>
-            <label className="text-sm font-medium text-gray-700">Tax code</label>
+            <label className="text-sm font-medium text-gray-700">
+              Tax Code <span className="text-red-500">*</span>
+            </label>
             <input
               name="taxCode"
               type="text"
@@ -137,7 +178,9 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
           {/* Detail */}
           <div>
-            <label className="text-sm font-medium text-gray-700">Detail</label>
+            <label className="text-sm font-medium text-gray-700">
+              Detail <span className="text-red-500">*</span>
+            </label>
             <input
               name="detail"
               type="text"
@@ -149,7 +192,10 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
           </div>
           {/* Email */}
           <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
+            <label className="text-sm font-medium text-gray-700">
+              Email <span className="text-red-500">*</span>
+            </label>
+
             <input
               name="email"
               type="text"
@@ -162,7 +208,10 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
           {/* Avatar Upload */}
           <div>
-            <label className="text-sm font-medium text-gray-700">Avatar Image</label>
+            <label className="text-sm font-medium text-gray-700">
+              Avatar Image <span className="text-red-500">*</span>
+            </label>
+
             <div className="mt-2 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
               <input
                 type="file"
@@ -208,7 +257,10 @@ const FormCreateCompany: React.FC<FormCreateCompanyProps> = ({ onCreated }) => {
 
           {/* Banner Upload */}
           <div>
-            <label className="text-sm font-medium text-gray-700">Banner Image</label>
+            <label className="text-sm font-medium text-gray-700">
+              Banner Image <span className="text-red-500">*</span>
+            </label>
+
             <div className="mt-2 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
               <input
                 type="file"

@@ -250,7 +250,6 @@ export async function getSprintsByProject(
     return usp.toString();
   };
 
-  // ✅ đúng route mới
   const { data } = await axiosInstance.get(`/sprints/projects/${projectId}`, {
     params,
     paramsSerializer,
@@ -263,7 +262,7 @@ export async function getSprintsByProject(
     ? payload
     : [];
 
-  return items.map(mapSprintDto); // ⬅️ KHÔNG còn ReferenceError
+  return items.map(mapSprintDto);
 }
 export async function createProject(payload) {
   const {
@@ -310,6 +309,15 @@ export async function createProject(payload) {
 export const GetProjectByProjectId = async (id) => {
   try {
     const response = await axiosInstance.get(`/projects/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
+export const GetProjectByCompanyRequest = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/companies/${id}/projects-by-company-request`);
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Error!');
@@ -400,4 +408,14 @@ export async function removeMemberFromProject(projectId, memberId) {
     `/projectmember/project/${projectId}/member/${memberId}`,
   );
   return data?.data ?? data;
+}
+
+export async function updateProject(projectId, payload) {
+  const res = await axiosInstance.put(`/projects/${projectId}`, payload);
+  return res.data;
+}
+
+export async function deleteProject(projectId) {
+  const res = await axiosInstance.delete(`/projects/${projectId}`);
+  return res.data;
 }

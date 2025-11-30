@@ -28,30 +28,42 @@ import {
   Mail,
   CheckCircle,
   XCircle,
+  Info,
+  AlertTriangle,
 } from 'lucide-react';
 import dayjs from 'dayjs';
+
+//call api
 import { GetTicketById } from '@/services/TicketService.js';
 import { GetProjectByProjectId } from '@/services/projectService.js';
-import { useParams } from 'react-router-dom';
-import type { ITicket } from '@/interfaces/Ticket/Ticket';
-import type { ProjectDetailResponse } from '@/interfaces/Project/project';
 import { getUserById } from '@/services/userService.js';
-import type { User as IUser } from '@/interfaces/User/User';
-import EditTicketModal from '@/components/ProjectSideCompanyRequest/EditTicketModal';
-import DeleteTicketModal from '@/components/ProjectSideCompanyRequest/DeleteTicketModal';
-import RestoreTicketModal from './RestoreTicketModal';
 import {
   GetCommentsByTicketId,
   CreateComment,
   DeleteComment,
 } from '@/services/ticketCommentService.js';
+import { AcceptTicket } from '@/services/TicketService.js';
+
+//modal
+import EditTicketModal from '@/components/ProjectSideCompanyRequest/EditTicketModal';
+import DeleteTicketModal from '@/components/ProjectSideCompanyRequest/DeleteTicketModal';
+import EditTicketComment from '@/components/ProjectSideCompanyRequest/EditTicketComment';
+import RejectTicketModal from '@/components/Ticket/RejectTicketModal';
+import RestoreTicketModal from './RestoreTicketModal';
+
+//inter face and react
+import { useParams } from 'react-router-dom';
+import type { ITicket } from '@/interfaces/Ticket/Ticket';
+import type { ProjectDetailResponse } from '@/interfaces/Project/project';
+import type { User as IUser } from '@/interfaces/User/User';
 import type {
   TicketCommentApiResponse,
   TicketCommentResponse,
 } from '@/interfaces/TicketComment/ticketComment';
 import { toast } from 'react-toastify';
-import EditTicketComment from '@/components/ProjectSideCompanyRequest/EditTicketComment';
 import { useDebounce } from '@/hook/Debounce';
+import { useLocation } from 'react-router-dom';
+import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
 
 const { confirm } = Modal;
 
@@ -61,8 +73,6 @@ const TicketDetailPage: React.FC = () => {
   const [projects, setProject] = useState<ProjectDetailResponse>();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<IUser>();
-  const [progressValue, setProgressValue] = useState<number>();
-  const progressPercent = 65;
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
@@ -77,6 +87,32 @@ const TicketDetailPage: React.FC = () => {
   const toDate = dateRange?.[1]?.format('YYYY-MM-DD') ?? '';
   const [loadingComments, setLoadingComments] = useState(false);
   const [sortOrder, setSortOrder] = useState<true | false>(true);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectTicketId, setRejectTicketId] = useState<string | null>(null);
+  const location = useLocation();
+  const { viewMode } =
+    (location.state as { viewMode?: 'AsRequester' | 'AsExecutor' } | undefined) ?? {};
+  // const viewMode = vw ?? 'AsRequester';
+  console.log('viewMode Ticketdetail:', viewMode);
+  console.log('ticket:', ticket);
+  const handleAcceptTicket = async (ticketId: string) => {
+    try {
+      const res = await AcceptTicket(ticketId);
+      if (res.succeeded) {
+        toast.success(res.message || 'Ticket accepted successfully!');
+        setTicket((prev) => (prev ? { ...prev, status: 'Accepted' } : prev));
+      } else {
+        toast.error(res.message || 'Failed to accept ticket');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error accepting ticket');
+    }
+  };
+  const handleOpenRejectModal = (ticketId: string) => {
+    setRejectTicketId(ticketId);
+    setIsRejectModalOpen(true);
+  };
+
   useEffect(() => {
     if (!ticketId) return;
 
@@ -132,7 +168,7 @@ const TicketDetailPage: React.FC = () => {
       try {
         setLoading(true);
         const data = await GetProjectByProjectId(ticket?.projectId ?? undefined);
-        setProject(data);
+        setProject(data.data);
       } catch (error) {
         console.error('Error fetching project:', error);
       } finally {
@@ -199,6 +235,40 @@ const TicketDetailPage: React.FC = () => {
   if (!ticket) {
     return <div className="text-center mt-20 text-gray-500">Ticket not found</div>;
   }
+  // ===== Ticket process summary (tự tính theo nghiệp vụ) =====
+  const process = ticket.process;
+
+  // BE trả về danh sách item chi tiết
+  const items = process?.items ?? [];
+
+  // Tổng task non-backlog của ticket
+  const totalNonBacklog =
+    process?.totalNonBacklogTasks && process.totalNonBacklogTasks > 0
+      ? process.totalNonBacklogTasks
+      : items.length;
+
+  // Đã bắt đầu: có startedAt
+  const startedCount = items.filter((x: any) => !!x.startedAt).length;
+
+  // Hoàn thành: status hiện tại IsEnd => isDone = true
+  const doneCount = items.filter((x: any) => x.isDone).length;
+
+  // Đang xử lý: đã start nhưng chưa done
+  const activeCount = items.filter((x: any) => !!x.startedAt && !x.isDone).length;
+
+  // Có process khi có ít nhất 1 task non-backlog
+  const hasProcess = !!process && totalNonBacklog > 0;
+
+  // Progress = done / totalNonBacklog
+  const progressPercent =
+    hasProcess && totalNonBacklog > 0
+      ? Math.max(0, Math.min(100, (doneCount * 100) / totalNonBacklog))
+      : 0;
+
+  // Thời gian bắt đầu / kết thúc (dùng luôn field BE trả về)
+  const firstStartedAt = process?.firstStartedAt ? dayjs(process.firstStartedAt) : null;
+
+  const lastDoneAt = process?.lastDoneAt ? dayjs(process.lastDoneAt) : null;
 
   const priorityColor =
     ticket.priority === 'High' ? 'red' : ticket.priority === 'Medium' ? 'orange' : 'blue';
@@ -215,6 +285,22 @@ const TicketDetailPage: React.FC = () => {
         return 'default';
     }
   };
+
+  const getTicketStatusColor = (status?: string) => {
+    switch (status) {
+      case 'Pending':
+        return 'gray';
+      case 'Accepted':
+        return 'blue';
+      case 'Rejected':
+        return 'red';
+      case 'Finished':
+        return 'green';
+      default:
+        return 'default';
+    }
+  };
+
   const handleDeleteComment = (commentId: number) => {
     confirm({
       title: 'Are you sure you want to delete this comment?',
@@ -257,32 +343,68 @@ const TicketDetailPage: React.FC = () => {
               >
                 {ticket.priority}
               </Tag>
+              <Tag
+                color={getTicketStatusColor(ticket.status)}
+                className="text-sm font-medium px-3 py-1 rounded-md mb-2"
+              >
+                {ticket.status}
+              </Tag>
             </div>
           </div>
 
-          <div className="flex gap-2 items-start lg:items-center">
-            <Button
-              type="primary"
-              icon={<Edit size={16} />}
-              onClick={() => setIsEditModalOpen(true)}
-              disabled={ticket.isDeleted}
-            >
-              Edit
-            </Button>
+          <div className="flex flex-wrap gap-2 items-start lg:items-center">
+            {/* Edit button (Requester) */}
+            {ticket.status === 'Pending' && !ticket.isDeleted && viewMode === 'AsRequester' && (
+              <Button
+                type="primary"
+                icon={<Edit size={16} />}
+                className="flex items-center gap-1"
+                onClick={() => setIsEditModalOpen(true)}
+              >
+                Edit
+              </Button>
+            )}
+
+            {/* Accept / Reject buttons (Executor) */}
+            {ticket.status === 'Pending' && !ticket.isDeleted && viewMode === 'AsExecutor' && (
+              <div className="flex gap-2">
+                <Button
+                  type="primary"
+                  icon={<CheckCircle size={16} />}
+                  style={{ backgroundColor: '#22c55e', borderColor: '#22c55e' }}
+                  className="flex items-center gap-1"
+                  onClick={() => handleAcceptTicket(ticket.id)}
+                >
+                  Accept
+                </Button>
+                <Button
+                  danger
+                  icon={<XCircle size={16} />}
+                  className="flex items-center gap-1"
+                  onClick={() => handleOpenRejectModal(ticket.id)}
+                >
+                  Reject
+                </Button>
+              </div>
+            )}
+
+            {/* Delete / Restore button */}
             {ticket.isDeleted ? (
               <Button
                 icon={<CheckCircle size={16} />}
-                style={{
-                  backgroundColor: '#22c55e',
-                  color: 'white',
-                  borderColor: '#22c55e',
-                }}
+                style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: 'white' }}
+                className="flex items-center gap-1"
                 onClick={() => setIsRestoreModalOpen(true)}
               >
                 Restore
               </Button>
             ) : (
-              <Button danger icon={<Trash2 size={16} />} onClick={() => setIsDeleteModalOpen(true)}>
+              <Button
+                danger
+                icon={<Trash2 size={16} />}
+                className="flex items-center gap-1"
+                onClick={() => setIsDeleteModalOpen(true)}
+              >
                 Delete
               </Button>
             )}
@@ -306,11 +428,11 @@ const TicketDetailPage: React.FC = () => {
           </span>
           <span className="flex items-center gap-2 text-gray-700">
             <Calendar size={14} /> <b>Resolved:</b>{' '}
-            {ticket.resolvedAt ? dayjs(ticket.resolvedAt).format('DD/MM/YYYY') : '-'}
+            {ticket.resolvedAt ? dayjs(ticket.resolvedAt).format('DD/MM/YYYY') : '---'}
           </span>
           <span className="flex items-center gap-2 text-gray-700">
             <Calendar size={14} /> <b>Closed:</b>{' '}
-            {ticket.closedAt ? dayjs(ticket.closedAt).format('DD/MM/YYYY') : '-'}
+            {ticket.closedAt ? dayjs(ticket.closedAt).format('DD/MM/YYYY') : '---'}
           </span>
           <span className="flex items-center gap-2 text-gray-700">
             <Calendar size={14} />
@@ -328,24 +450,81 @@ const TicketDetailPage: React.FC = () => {
             <Calendar size={14} /> <b>Update Date:</b>{' '}
             {ticket.updatedAt ? dayjs(ticket.updatedAt).format('DD/MM/YYYY') : '-'}
           </span>
+          <span className="flex items-center gap-2 text-gray-700">
+            <Layers size={14} /> <b>Ticket Status:</b>
+            <Tag color={getTicketStatusColor(ticket.status)} className="font-medium">
+              {ticket.status}
+            </Tag>
+          </span>
+          <span className="flex items-center gap-2 text-gray-700">
+            <AlertTriangle size={14} /> <b>Reason:</b> {ticket.reason || '---'}
+          </span>
         </div>
 
         <Divider className="my-4" />
 
         <div>
           <p className="text-sm mb-1 text-gray-600 font-medium flex items-center justify-between">
-            <span>Workflow Progress (Workflow name hard code)</span>
-            <span className="text-gray-700 font-medium">{progressPercent}%</span>
+            <span className="flex items-center gap-1">
+              <Layers size={14} className="text-indigo-500" />
+              Ticket execution progress
+            </span>
+
+            {hasProcess && (
+              <span className="text-gray-700 font-medium">
+                {doneCount}/{totalNonBacklog} tasks done
+              </span>
+            )}
           </p>
 
           <Progress
             percent={progressPercent}
-            format={(percent) => `${percent}/100`}
+            status={
+              !hasProcess
+                ? 'normal'
+                : doneCount === totalNonBacklog && totalNonBacklog > 0
+                ? 'success'
+                : 'active'
+            }
+            format={(percent) =>
+              hasProcess ? `${Math.round(percent ?? 0)}%` : 'No sprint execution yet'
+            }
             strokeColor={{
-              '0%': '#108ee9',
-              '100%': '#87d068',
+              '0%': '#e5e7eb',
+              '30%': '#f97316',
+              '60%': '#3b82f6',
+              '100%': '#22c55e',
             }}
           />
+
+          {hasProcess ? (
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-600">
+              <span>
+                <b>Started:</b> {startedCount}/{totalNonBacklog}
+              </span>
+              <span>
+                <b>In progress:</b> {activeCount}
+              </span>
+              <span>
+                <b>Done:</b> {doneCount}
+              </span>
+              {firstStartedAt && (
+                <span>
+                  <b>First started:</b> {firstStartedAt.format('DD/MM/YYYY HH:mm')}
+                </span>
+              )}
+              {lastDoneAt && (
+                <span>
+                  <b>Last done:</b> {lastDoneAt.format('DD/MM/YYYY HH:mm')}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+              <Info size={14} className="text-gray-400" />
+              This ticket has no sprint execution yet. Tasks are still in backlog or not created.
+            </p>
+          )}
         </div>
       </Card>
 
@@ -453,7 +632,7 @@ const TicketDetailPage: React.FC = () => {
           </div>
         </Card>
       </div>
-
+      {ticket && <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId} />}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <MessageSquare size={18} className="text-indigo-500" /> Comments
@@ -461,25 +640,36 @@ const TicketDetailPage: React.FC = () => {
 
         {/* Search & Filter */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4 items-start">
-          <Input
-            placeholder="Search comments..."
-            className="flex-1 rounded-xl"
-            value={searchKey}
-            onChange={(e) => setSearchKey(e.target.value)}
-          />
-          <DatePicker.RangePicker
-            className="w-full sm:w-1/3 rounded-xl"
-            onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
-          />
-          <Select
-            placeholder="Sort by Created At"
-            className="w-full sm:w-1/4 rounded-xl"
-            value={sortOrder}
-            onChange={(value: true | false) => setSortOrder(value)}
-          >
-            <Select.Option value={true}>Newest First</Select.Option>
-            <Select.Option value={false}>Oldest First</Select.Option>
-          </Select>
+          <div className="flex-1 flex flex-col">
+            <label className="text-gray-900 text-sm font-semibold mb-1">Search Comments</label>
+            <Input
+              placeholder="Search comments..."
+              className="rounded-xl"
+              value={searchKey}
+              onChange={(e) => setSearchKey(e.target.value)}
+            />
+          </div>
+
+          <div className="flex-1 flex flex-col">
+            <label className="text-gray-900 text-sm font-semibold mb-1">Filter by Date</label>
+            <DatePicker.RangePicker
+              className="w-full rounded-xl"
+              onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
+            />
+          </div>
+
+          <div className="flex-1 flex flex-col">
+            <label className="text-gray-900 text-sm font-semibold mb-1">Sort Comments</label>
+            <Select
+              placeholder="Sort by Created At"
+              className="w-full rounded-xl"
+              value={sortOrder}
+              onChange={(value: true | false) => setSortOrder(value)}
+            >
+              <Select.Option value={true}>Newest First</Select.Option>
+              <Select.Option value={false}>Oldest First</Select.Option>
+            </Select>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 mt-4">
@@ -513,14 +703,20 @@ const TicketDetailPage: React.FC = () => {
                 {c.isOwner && (
                   <div className="absolute top-2 right-2 flex gap-2 opacity-100">
                     <Button
-                      disabled={ticket.isDeleted}
+                      disabled={
+                        ticket.isDeleted ||
+                        ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                      }
                       type="text"
                       icon={<Edit size={16} />}
                       className="text-blue-500 hover:text-blue-600 p-0"
                       onClick={() => setEditingComment(c)}
                     />
                     <Button
-                      disabled={ticket.isDeleted}
+                      disabled={
+                        ticket.isDeleted ||
+                        ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                      }
                       type="text"
                       icon={<Trash2 size={16} />}
                       className="text-red-500"
@@ -555,14 +751,20 @@ const TicketDetailPage: React.FC = () => {
                     : 'Write a comment...'
                 }
                 value={newComment}
-                disabled={ticket.isDeleted}
+                disabled={
+                  ticket.isDeleted ||
+                  ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                }
                 onChange={(e) => setNewComment(e.target.value)}
                 className="border rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 resize-none p-3 text-sm"
               />
               <div className="flex justify-end">
                 <Button
                   type="primary"
-                  disabled={ticket.isDeleted}
+                  disabled={
+                    ticket.isDeleted ||
+                    ticket.status.toLocaleLowerCase() === 'Rejected'.toLocaleLowerCase()
+                  }
                   className="px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-md"
                   onClick={handleCreateComment}
                 >
@@ -615,6 +817,14 @@ const TicketDetailPage: React.FC = () => {
           }}
         />
       )}
+      <RejectTicketModal
+        open={isRejectModalOpen}
+        ticketId={rejectTicketId}
+        onClose={() => setIsRejectModalOpen(false)}
+        onSuccess={(reason: string) => {
+          setTicket((prev) => (prev ? { ...prev, status: 'Rejected', reason: reason } : prev));
+        }}
+      />
     </div>
   );
 };

@@ -1,30 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Check, CheckCircle, Eye, Inbox, Search, Send, UserPlus, X, XCircle } from 'lucide-react';
 import { DatePicker } from 'antd';
 import LoadingOverlay from '@/common/LoadingOverlay';
-import Pagination from '@mui/material/Pagination';
-import Stack from '@mui/material/Stack';
+
+//call api
 import { GetProjectRequestByCompanyId } from '@/services/projectRequest.js';
+
+//modal
+import ContractModal from '@/components/ProjectRequest/ContractModal';
+import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
+import { Paging } from '@/components/Paging/Paging';
+import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
+import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
+
+//interface and lib react
 import type {
   IProjectRequset,
   ProjectRequestResponse,
 } from '@/interfaces/ProjectRequest/projectRequest';
 import { useParams } from 'react-router-dom';
 import debounce from 'lodash/debounce';
-
-import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
-import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import { useNavigate } from 'react-router-dom';
-import ContractModal from '@/components/ProjectRequest/ContractModal';
-import ContractModalDetail from '@/components/ProjectRequest/ContractModalDetail';
-import { Paging } from '@/components/Paging/Paging';
+
 const { RangePicker } = DatePicker;
 interface ContractNextData {
   contractId: string;
   effectiveDate: string;
   expiredDate: string;
+  executorCompanyId: string;
 }
 const ProjectRequestPage: React.FC = () => {
   const navigate = useNavigate();
@@ -202,7 +207,7 @@ const ProjectRequestPage: React.FC = () => {
   };
 
   return (
-    <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
+    <div className="px-5 py-5 font-inter min-h-screen">
       <LoadingOverlay loading={loading} message="Loading project requests..." />
       <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
         <div className="flex justify-between items-center">
@@ -376,7 +381,7 @@ const ProjectRequestPage: React.FC = () => {
         <table className="min-w-[1000px] w-full text-sm">
           <thead className="bg-blue-50 text-blue-800 uppercase text-left font-semibold">
             <tr className="hover:bg-blue-100">
-              <th className="px-4 py-3 font-medium text-center">Name</th>
+              <th className="px-4 py-3 font-medium text-center">Project Name</th>
               <th className="px-4 py-3 font-medium text-center">Request Company</th>
               <th className="px-4 py-3 font-medium text-center">Executor Company</th>
               <th className="px-4 py-3 font-medium text-center">Status</th>
@@ -465,8 +470,10 @@ const ProjectRequestPage: React.FC = () => {
                         {item.status === 'Pending' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              // onClick={() => handleAccept(item.id)}
-                              onClick={() => handleAcceptClick(item.contractId, item.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAcceptClick(item.contractId, item.id);
+                              }}
                               disabled={acceptingId === item.id}
                               className={`flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-lg transition min-w-[90px]
                                 ${
@@ -509,7 +516,10 @@ const ProjectRequestPage: React.FC = () => {
                             </button>
 
                             <button
-                              onClick={() => openRejectModal(item.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRejectModal(item.id);
+                              }}
                               className="flex items-center gap-1 px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
                             >
                               <X className="h-4 w-4" />
@@ -557,10 +567,13 @@ const ProjectRequestPage: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={11}>
-                  <div className="flex flex-col items-center justify-center py-10 text-gray-500">
-                    <p className="text-lg font-medium">No project requests found</p>
-                    <p className="text-sm text-gray-400 mt-1">
+                <td colSpan={11} className="py-10">
+                  <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
+                    <Inbox className="w-12 h-12 text-gray-300" />
+
+                    <p className="text-gray-500 text-sm font-medium">No project requests found</p>
+
+                    <p className="text-gray-400 text-xs">
                       Try adjusting filters or create a new request
                     </p>
                   </div>
@@ -622,7 +635,7 @@ const ProjectRequestPage: React.FC = () => {
         open={modalOpenInviteProjectRequest}
         onClose={handleClose}
         requesterCompanyId={companyId || ''}
-        executorCompanyId=""
+        executorCompanyId={contractData?.executorCompanyId || ''}
         contractId={contractData?.contractId}
         effectiveDate={contractData?.effectiveDate}
         expiredDate={contractData?.expiredDate}

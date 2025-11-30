@@ -174,15 +174,20 @@ const Chip = ({
   active,
   children,
   onClick,
+  disabled = false,
 }: {
   active?: boolean;
   children: React.ReactNode;
   onClick?: () => void;
+  disabled?: boolean;
 }) => (
   <button
-    onClick={onClick}
+    type="button"
+    onClick={disabled ? undefined : onClick}
+    disabled={disabled}
     className={[
       'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition',
+      disabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : '',
       active
         ? 'bg-blue-600 text-white border-blue-600'
         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50',
@@ -695,7 +700,7 @@ export default function CreateProjectModal({
     workflowName: '',
     memberIds: [],
   });
-
+  const canEditType = false;
   // đồng bộ khi URL đổi công ty
   React.useEffect(() => {
     setForm((prev) => ({ ...prev, companyId }));
@@ -783,17 +788,17 @@ export default function CreateProjectModal({
 
         // Nếu cha truyền onSubmit thì ưu tiên dùng callback
 
-         const res = await createProject(payloadToPost);
+        const res = await createProject(payloadToPost);
 
-    // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
-    if (onSubmit) {
-      await onSubmit(payloadToPost);
-    }
+        // nếu cha có truyền onSubmit thì gọi thêm (không thay thế API)
+        if (onSubmit) {
+          await onSubmit(payloadToPost);
+        }
 
         onClose(); // đóng modal sau khi tạo thành công
       } catch (err: any) {
         console.error('Create project failed:', err);
-         toast.error(err?.response?.data?.message || err.message || "Create project failed");
+        toast.error(err?.response?.data?.message || err.message || 'Create project failed');
       } finally {
         setSaving(false);
       }
@@ -943,14 +948,23 @@ export default function CreateProjectModal({
                 {/* type */}
                 <Field label="Type">
                   <div className="flex flex-wrap gap-2">
-                    <Chip active={!form.isHired} onClick={() => set('isHired', false)}>
+                    <Chip
+                      active={!form.isHired}
+                      onClick={canEditType ? () => set('isHired', false) : undefined}
+                      disabled={!canEditType}
+                    >
                       Internal
                     </Chip>
-                    <Chip active={form.isHired} onClick={() => set('isHired', true)}>
+                    <Chip
+                      active={form.isHired}
+                      onClick={canEditType ? () => set('isHired', true) : undefined}
+                      disabled={!canEditType}
+                    >
                       Outsourced
                     </Chip>
                   </div>
                 </Field>
+
                 {form.isHired && (
                   <Field label="Hired company" required>
                     {defaultValues?.companyId ? (

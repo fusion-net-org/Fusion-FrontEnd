@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
@@ -5,7 +6,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
 import { login, loginGG, confirmAccount } from '@/services/authService.js';
-import { loginUser } from '@/redux/userSlice';
+import { loginUser, setUserCompanies } from '@/redux/userSlice';
+import { getAllCompanies } from '@/services/companyService.js';
 import { GoogleLogin } from '@react-oauth/google';
 import loginIllustration from '@/assets/auth/login.png';
 
@@ -65,6 +67,11 @@ const Login: React.FC = () => {
         };
         dispatch(loginUser({ user }));
 
+        const companiesRes = await getAllCompanies();
+        if (companiesRes.succeeded) {
+          dispatch(setUserCompanies(companiesRes.data.items));
+        }
+
         toast.success('Login successful!');
         if (user.role === 'Admin') {
           navigate('/admin');
@@ -75,7 +82,20 @@ const Login: React.FC = () => {
         toast.error('Login failed!');
       }
     } catch (error: any) {
-      toast.error(error.response?.message || 'Incorrect login information!');
+      if (error.errorData) {
+        if (typeof error.errorData === 'string') {
+          toast.error(error.errorData);
+          return;
+        }
+
+        if (typeof error.errorData === 'object') {
+          const msgs = Object.values(error.errorData).flat() as string[];
+          msgs.forEach((msg) => toast.error(msg));
+          return;
+        }
+      }
+
+      toast.error((error.message as string) || 'Incorrect login information!');
     }
   };
 
@@ -102,6 +122,10 @@ const Login: React.FC = () => {
         };
 
         dispatch(loginUser({ user }));
+        const companiesRes = await getAllCompanies();
+        if (companiesRes.succeeded) {
+          dispatch(setUserCompanies(companiesRes.data.items));
+        }
         toast.success('Login with Google successful!');
         navigate('/company');
       } else {

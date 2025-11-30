@@ -25,7 +25,11 @@ import { getCompanyById } from '@/services/companyService.js';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import UnfriendPartner from '@/components/Partner/UnfriendPartner';
-import { GetPartnerBetweenTwoCompanies } from '@/services/partnerService.js';
+import {
+  GetPartnerBetweenTwoCompanies,
+  CancelInvitePartner,
+  AcceptInvitePartnert,
+} from '@/services/partnerService.js';
 import type { Partner } from '@/interfaces/Partner/partner';
 import type { ILogActivity } from '@/interfaces/LogActivity/LogActivity';
 import { AllActivityLogCompanyById } from '@/services/companyLogActivity.js';
@@ -40,10 +44,19 @@ import type {
 import { GetProjectRequestByCompanyIdAndPartnerId } from '@/services/projectRequest.js';
 import InviteProjectRequestModal from '@/components/ProjectRequest/InviteProjectRequest';
 import Card from '@mui/material/Card';
+import { toast } from 'react-toastify';
+import ContractModal from '@/components/ProjectRequest/ContractModal';
+import { useNavigate } from 'react-router-dom';
 
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
-
+interface ContractNextData {
+  contractId: string;
+  effectiveDate: string;
+  expiredDate: string;
+  executorCompanyId: string;
+}
 const PartnerDetails: React.FC = () => {
+  const navigate = useNavigate();
   const { state } = useLocation();
   const myCompanyId = state?.companyId;
   const partnerId = state?.partnerId;
@@ -62,6 +75,50 @@ const PartnerDetails: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const [loadingAccept, setLoadingAccept] = useState(false);
+  const [loadingReject, setLoadingReject] = useState(false);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractData, setContractData] = useState<ContractNextData>();
+  const [modalOpenInviteProjectRequest, setModalOpenInviteProjectRequest] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+
+  console.log('partnerV2', partnerV2);
+  console.log('partnerid', partnerId);
+  console.log('id', id);
+  console.log('myCompanyId', myCompanyId);
+  const handleNewClick = () => setContractModalOpen(true);
+  const handleContractNext = (data: any) => {
+    setContractData(data);
+    setContractModalOpen(false);
+    setModalOpenInviteProjectRequest(true);
+  };
+  const handleClose = () => setModalOpenInviteProjectRequest(false);
+
+  const handleAccept = async (id: number) => {
+    try {
+      setLoadingAccept(true);
+      const res = await AcceptInvitePartnert(id);
+      toast.success(res.data.message || 'Accepted successfully!');
+      await fetchAllData();
+    } catch (error: any) {
+      toast.error(error.data?.message || 'Failed to accept!');
+    } finally {
+      setLoadingAccept(false);
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    try {
+      setLoadingReject(true);
+      const res = await CancelInvitePartner(id);
+      toast.info(res.data.message || 'Invite rejected!');
+      await fetchAllData();
+    } catch (error: any) {
+      toast.error(error.data?.message || 'Failed to reject!');
+    } finally {
+      setLoadingReject(false);
+    }
+  };
 
   // State cho filter + search + pagination project request
   const [searchProject, setSearchProject] = useState('');
@@ -69,9 +126,6 @@ const PartnerDetails: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
 
-  //open popup invite project request
-  const [openInviteProject, setOpenInviteProject] = useState(false);
-  console.log(openInviteProject);
   //loading tab state
   const [tabLoading, setTabLoading] = useState(false);
   const handleTabChange = (tab: typeof activeTab) => {
@@ -87,13 +141,11 @@ const PartnerDetails: React.FC = () => {
       setLoading(true);
       const [companyRes, partnerRes, projectRequestRes] = await Promise.all([
         getCompanyById(id),
-        GetPartnerBetweenTwoCompanies(myCompanyId, id),
+        GetPartnerBetweenTwoCompanies(myCompanyId, id, partnerId),
         GetProjectRequestByCompanyIdAndPartnerId(myCompanyId, id),
       ]);
 
       const dataProjectRequest: ProjectRequestResponse = projectRequestRes;
-
-      console.log(dataProjectRequest.items);
 
       setPartner(companyRes?.data ?? null);
       setPartnerV2(partnerRes?.data ?? null);
@@ -299,14 +351,35 @@ const PartnerDetails: React.FC = () => {
                 </p>
               </div>
 
-              {partner?.isDeleted === false && partnerV2?.status === 'Active' ? (
-                <button
-                  className="ml-auto mt-5 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                  onClick={() => setOpenInviteProject(true)}
-                >
-                  Invite Project Request
-                </button>
-              ) : null}
+              <div className="absolute top-25 right-10 flex gap-3 mt-5">
+                {partnerV2?.status?.toLowerCase() === 'pending' && (
+                  <>
+                    <button
+                      className="px-4 py-2 text-sm rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center justify-center"
+                      onClick={() => handleAccept(partnerV2.id!)}
+                      disabled={loadingAccept}
+                    >
+                      {loadingAccept ? 'Accepting...' : 'Accept'}
+                    </button>
+                    <button
+                      className="px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-md flex items-center justify-center"
+                      onClick={() => handleReject(partnerV2.id!)}
+                      disabled={loadingReject}
+                    >
+                      {loadingReject ? 'Rejecting...' : 'Cancel'}
+                    </button>
+                  </>
+                )}
+
+                {partner?.isDeleted === false && partnerV2?.status?.toLowerCase() === 'active' && (
+                  <button
+                    className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                    onClick={handleNewClick}
+                  >
+                    Invite Project Request
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Actions */}
@@ -319,10 +392,10 @@ const PartnerDetails: React.FC = () => {
                 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all duration-200
                 ${
                   partnerV2?.status?.toLowerCase() === 'active'
-                    ? 'border-red-500 bg-red-50 text-red-600 hover:bg-red-100 hover:shadow-md'
+                    ? 'border-red-500 bg-red-100 text-red-600 hover:bg-red-100 hover:shadow-md'
                     : partnerV2?.status?.toLowerCase() === 'pending'
-                    ? 'border-amber-400 bg-amber-50 text-amber-600 cursor-not-allowed'
-                    : 'border-gray-400 bg-gray-100 text-gray-600 cursor-not-allowed'
+                    ? 'border-amber-400 bg-amber-100 text-amber-600 cursor-not-allowed'
+                    : 'border-gray-400 bg-gray-200 text-gray-600 cursor-not-allowed'
                 }
               `}
                 onClick={() => {
@@ -852,15 +925,25 @@ const PartnerDetails: React.FC = () => {
             setLoading(false);
           }}
         />
-      )}{' '}
+      )}
       <InviteProjectRequestModal
-        open={openInviteProject}
-        onClose={() => setOpenInviteProject(false)}
-        requesterCompanyId={myCompanyId}
-        executorCompanyId={id}
+        open={modalOpenInviteProjectRequest}
+        onClose={handleClose}
+        requesterCompanyId={myCompanyId || ''}
+        executorCompanyId={contractData?.executorCompanyId || ''}
+        contractId={contractData?.contractId}
+        effectiveDate={contractData?.effectiveDate}
+        expiredDate={contractData?.expiredDate}
         onSuccess={() => {
           fetchAllData();
+          setRejectModalOpen(false);
+          navigate(`/company/${myCompanyId}/project-request`);
         }}
+      />
+      <ContractModal
+        open={contractModalOpen}
+        onClose={() => setContractModalOpen(false)}
+        onNext={handleContractNext}
       />
     </>
   );
