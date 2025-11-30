@@ -180,6 +180,7 @@ export const GetProjectsByCompany = async (
     throw error;
   }
 };
+
 export const AcceptTicket = async (ticketId) => {
   try {
     const res = await axiosInstance.put(`/ticket/${ticketId}/accept`);

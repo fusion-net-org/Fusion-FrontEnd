@@ -4,13 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, Eye, UserPlus, Send, Inbox } from 'lucide-react';
 import { DatePicker } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
-import type {
-  IProject,
-  IProjectResponse,
-  ITicketResponse,
-  ITicketResponseData,
-} from '@/interfaces/Ticket/Ticket';
-import { GetTicketPaged, GetProjectsByCompany, AcceptTicket } from '@/services/TicketService.js';
+import type { IProject, ITicketResponse, ITicketResponseData } from '@/interfaces/Ticket/Ticket';
+import { GetTicketPaged, AcceptTicket } from '@/services/TicketService.js';
+import { GetProjectByCompanyRequest } from '@/services/projectService.js';
 const { RangePicker } = DatePicker;
 import { useDebounce } from '@/hook/Debounce';
 import type { Dayjs } from 'dayjs';
@@ -37,7 +33,7 @@ const TicketPage: React.FC = () => {
   const [rejectTicketId, setRejectTicketId] = useState<string | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
-  console.log('ticketPage', viewMode);
+
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       setLoading(true);
@@ -79,6 +75,32 @@ const TicketPage: React.FC = () => {
     );
   };
 
+  const getPriorityBadge = (priority: string) => {
+    const styleMap: Record<string, string> = {
+      Urgent: 'bg-red-100 text-red-700',
+      High: 'bg-orange-100 text-orange-700',
+      Medium: 'bg-yellow-100 text-yellow-700',
+      Low: 'bg-green-100 text-green-700',
+      Unknown: 'bg-gray-50 text-gray-600',
+    };
+
+    return (
+      <span
+        className={`px-3 py-1 rounded-full text-xs font-medium border ${
+          styleMap[priority] || styleMap['Unknown']
+        }`}
+      >
+        {priority}
+      </span>
+    );
+  };
+
+  const navigateToDetail = (item: any) => {
+    const projectIdToUse = selectedProjectId || item.projectId;
+    navigate(`/companies/${companyId}/project/${projectIdToUse}/tickets/${item.id}`, {
+      state: { viewMode },
+    });
+  };
   const handleProjectChange = (projectId: string) => {
     setSelectedProjectId(projectId);
 
@@ -89,28 +111,19 @@ const TicketPage: React.FC = () => {
     const proj = projects.find((p) => p.id === projectId) || null;
     setSelectedProject(proj);
   };
-  console.log('project', projects);
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const res: IProjectResponse = await GetProjectsByCompany(
-        companyId || '',
-        '', // companyRequestId
-        '', // executorCompanyId
-      );
+      const res = await GetProjectByCompanyRequest(companyId);
+      console.log('Fetched Projects:', res);
       setProjects(res.data);
-
-      // if (!isProjectLoaded && res.data.length > 0) {
-      //   setSelectedProjectId(res.data[0].id);
-      //   setIsProjectLoaded(true);
-      // }
     } catch (error) {
       console.error('Failed to fetch projects', error);
     } finally {
       setLoading(false);
     }
   };
-  console.log('ticketData', ticketData);
+
   const fetchTicketData = async () => {
     const projectParam = selectedProjectId || '';
 
@@ -137,6 +150,7 @@ const TicketPage: React.FC = () => {
         null, // SortColumn
         null, // SortDescending
       );
+      console.log('Fetched Tickets:', res.data);
       setTicketData(res.data);
       setPagination((prev) => ({
         ...prev,
@@ -171,7 +185,7 @@ const TicketPage: React.FC = () => {
   return (
     <>
       <LoadingOverlay loading={loading} />
-      <div className="px-5 py-5 font-inter bg-gray-50 min-h-screen">
+      <div className="px-5 py-5 font-inter min-h-screen">
         <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 rounded-2xl p-6 mb-8 text-white shadow-lg border border-blue-300/30">
           <div className="flex justify-between items-center">
             <div>
@@ -179,12 +193,7 @@ const TicketPage: React.FC = () => {
               <p className="text-blue-100 text-sm">Manage tickets for projects</p>
             </div>
             <button
-              disabled={!selectedProjectId}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full transition text-sm ${
-                !selectedProjectId
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-white/20 hover:bg-white/30'
-              }`}
+              className="flex items-center gap-2 px-4 py-2 rounded-full transition text-sm bg-white/20 hover:bg-white/30"
               onClick={() => setIsCreateTicketOpen(true)}
             >
               <UserPlus className="w-4 h-4" /> New Ticket
@@ -355,12 +364,7 @@ const TicketPage: React.FC = () => {
                   <tr
                     key={item.id}
                     className="border-t hover:bg-blue-50 transition duration-200 cursor-pointer"
-                    onClick={() =>
-                      navigate(
-                        `/companies/${companyId}/project/${selectedProjectId}/tickets/${item.id}`,
-                        { state: { viewMode } },
-                      )
-                    }
+                    onClick={() => navigateToDetail(item)}
                   >
                     <td className="px-4 py-3 text-gray-800 text-center">{item.ticketName}</td>
                     <td className="px-4 py-3 text-gray-700 text-center">{item.projectName}</td>
@@ -371,7 +375,9 @@ const TicketPage: React.FC = () => {
                         day: '2-digit',
                       })}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 text-center">{item.priority}</td>
+                    <td className="px-4 py-3 text-center">
+                      {getPriorityBadge(item.priority || 'Unknown')}
+                    </td>
 
                     <td className="px-4 py-3 text-center">{getStatusBadge(item.status)}</td>
                     <td className="px-4 py-3 text-center">
@@ -444,10 +450,7 @@ const TicketPage: React.FC = () => {
                         className="w-5 h-5 text-gray-500 hover:text-blue-600 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(
-                            `/companies/${companyId}/project/${selectedProjectId}/tickets/${item.id}`,
-                            { state: { viewMode } },
-                          );
+                          navigateToDetail(item);
                         }}
                       />
                     </td>
@@ -494,6 +497,7 @@ const TicketPage: React.FC = () => {
         onClose={() => setIsCreateTicketOpen(false)}
         onSuccess={fetchTicketData}
         projects={projects}
+        defaultProjectId={selectedProjectId}
       />
     </>
   );

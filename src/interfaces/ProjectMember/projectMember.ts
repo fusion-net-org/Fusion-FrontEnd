@@ -6,6 +6,8 @@ export interface IProject {
   isHired: boolean;
   startDate: string;
   endDate: string;
+  companyExecutorName: string;
+  companyRequestName: string;
 }
 
 export interface IProjectMember {

@@ -45,6 +45,8 @@ export interface CompanyMemberItem {
   userEmail: string;
   userPhone: string;
   userAvatar: string;
+
+  roles: string[];
 }
 
 export interface CompanyMemberPagedData {

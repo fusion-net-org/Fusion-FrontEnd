@@ -63,7 +63,7 @@ import type {
 import { toast } from 'react-toastify';
 import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
-import TicketTasksSection from "@/components/Ticket/TicketTasksSection";
+import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
 
 const { confirm } = Modal;
 
@@ -235,36 +235,40 @@ const TicketDetailPage: React.FC = () => {
   if (!ticket) {
     return <div className="text-center mt-20 text-gray-500">Ticket not found</div>;
   }
+  // ===== Ticket process summary (tự tính theo nghiệp vụ) =====
   const process = ticket.process;
 
+  // BE trả về danh sách item chi tiết
   const items = process?.items ?? [];
 
+  // Tổng task non-backlog của ticket
   const totalNonBacklog =
     process?.totalNonBacklogTasks && process.totalNonBacklogTasks > 0
       ? process.totalNonBacklogTasks
       : items.length;
 
+  // Đã bắt đầu: có startedAt
   const startedCount = items.filter((x: any) => !!x.startedAt).length;
 
+  // Hoàn thành: status hiện tại IsEnd => isDone = true
   const doneCount = items.filter((x: any) => x.isDone).length;
 
-  const activeCount = items.filter(
-    (x: any) => !!x.startedAt && !x.isDone,
-  ).length;
+  // Đang xử lý: đã start nhưng chưa done
+  const activeCount = items.filter((x: any) => !!x.startedAt && !x.isDone).length;
 
+  // Có process khi có ít nhất 1 task non-backlog
   const hasProcess = !!process && totalNonBacklog > 0;
 
-  const progressPercent = hasProcess && totalNonBacklog > 0
-    ? Math.max(0, Math.min(100, (doneCount * 100) / totalNonBacklog))
-    : 0;
+  // Progress = done / totalNonBacklog
+  const progressPercent =
+    hasProcess && totalNonBacklog > 0
+      ? Math.max(0, Math.min(100, (doneCount * 100) / totalNonBacklog))
+      : 0;
 
-  const firstStartedAt = process?.firstStartedAt
-    ? dayjs(process.firstStartedAt)
-    : null;
+  // Thời gian bắt đầu / kết thúc (dùng luôn field BE trả về)
+  const firstStartedAt = process?.firstStartedAt ? dayjs(process.firstStartedAt) : null;
 
-  const lastDoneAt = process?.lastDoneAt
-    ? dayjs(process.lastDoneAt)
-    : null;
+  const lastDoneAt = process?.lastDoneAt ? dayjs(process.lastDoneAt) : null;
 
   const priorityColor =
     ticket.priority === 'High' ? 'red' : ticket.priority === 'Medium' ? 'orange' : 'blue';
@@ -459,7 +463,7 @@ const TicketDetailPage: React.FC = () => {
 
         <Divider className="my-4" />
 
-                <div>
+        <div>
           <p className="text-sm mb-1 text-gray-600 font-medium flex items-center justify-between">
             <span className="flex items-center gap-1">
               <Layers size={14} className="text-indigo-500" />
@@ -483,9 +487,7 @@ const TicketDetailPage: React.FC = () => {
                 : 'active'
             }
             format={(percent) =>
-              hasProcess
-                ? `${Math.round(percent ?? 0)}%`
-                : 'No sprint execution yet'
+              hasProcess ? `${Math.round(percent ?? 0)}%` : 'No sprint execution yet'
             }
             strokeColor={{
               '0%': '#e5e7eb',
@@ -524,7 +526,6 @@ const TicketDetailPage: React.FC = () => {
             </p>
           )}
         </div>
-
       </Card>
 
       {/* Project Info */}
@@ -631,12 +632,7 @@ const TicketDetailPage: React.FC = () => {
           </div>
         </Card>
       </div>
-  {ticket && (
-        <TicketTasksSection
-          ticketId={ticket.id}
-          projectId={ticket.projectId}
-        />
-      )}
+      {ticket && <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId} />}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <MessageSquare size={18} className="text-indigo-500" /> Comments
