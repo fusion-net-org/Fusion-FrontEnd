@@ -99,6 +99,8 @@ const Partners: React.FC = () => {
         null,
         null,
         null,
+        null,
+        null,
         pageNumber,
         pagination.pageSize,
         null,

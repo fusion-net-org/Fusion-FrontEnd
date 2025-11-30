@@ -10,6 +10,7 @@ import { getCompanyById, getAllCompanies } from '@/services/companyService.js';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import { AutoComplete } from 'antd';
 import { debounce } from 'lodash';
+import { Steps } from 'antd';
 
 const { TextArea } = Input;
 
@@ -210,6 +211,11 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       centered
       width={600}
     >
+      <Steps
+        current={1}
+        items={[{ title: 'Create Contract' }, { title: 'Create Project Request' }]}
+        style={{ marginBottom: 20 }}
+      />
       <LoadingOverlay loading={loading} message="Creating project..." />
 
       <div className="flex flex-col gap-4 mt-2">
