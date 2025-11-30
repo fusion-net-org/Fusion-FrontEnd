@@ -1,5 +1,5 @@
 // src/pages/admin/TransactionListPage.tsx
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Search,
@@ -109,9 +109,7 @@ function statusTag(status: PaymentStatus) {
 function sortLabel(col: string, active: string | undefined, desc: boolean | undefined) {
   const isActive = active === col;
   return (
-    <span className="inline-flex items-center gap-1 cursor-pointer select-none">
-      <ArrowUpDown className={cn('w-3.5 h-3.5', isActive ? 'text-brand-500' : 'text-slate-400')} />
-    </span>
+    <ArrowUpDown className={cn('w-3.5 h-3.5', isActive ? 'text-indigo-500' : 'text-slate-400')} />
   );
 }
 
@@ -128,7 +126,7 @@ export default function TransactionListPage() {
     setLoading(true);
     try {
       const res = await getAllTransactionForAdmin(filters);
-      setData(res);
+      setData(res || null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -214,9 +212,14 @@ export default function TransactionListPage() {
     };
   }, [data]);
 
+  const totalPages =
+    data?.pageSize && data?.totalCount
+      ? Math.max(1, Math.ceil(data.totalCount / data.pageSize))
+      : 1;
+
   return (
     <div className="space-y-5">
-      {/* Header with icon */}
+      {/* Header */}
       <div className="flex items-center gap-3 rounded-2xl bg-white border border-slate-100 shadow-sm px-4 py-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500">
           <CreditCard className="w-5 h-5 text-white" />
@@ -277,60 +280,56 @@ export default function TransactionListPage() {
             {/* Status */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-slate-600">Status</span>
-              <div className="w-full md:max-w-[160px]">
-                <Select
-                  size="middle"
-                  allowClear
-                  placeholder="All"
-                  value={filters.status || undefined}
-                  onChange={(value) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      status: value || '',
-                      pageNumber: 1,
-                    }))
-                  }
-                  className="w-full"
-                >
-                  <Option value="Pending">Pending</Option>
-                  <Option value="Success">Success</Option>
-                  <Option value="Failed">Failed</Option>
-                  <Option value="Cancelled">Cancelled</Option>
-                  <Option value="Refunded">Refunded</Option>
-                </Select>
-              </div>
+              <Select
+                size="middle"
+                allowClear
+                placeholder="All"
+                value={filters.status || undefined}
+                onChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    status: (value as PaymentStatus) || '',
+                    pageNumber: 1,
+                  }))
+                }
+                className="w-full"
+              >
+                <Option value="Pending">Pending</Option>
+                <Option value="Success">Success</Option>
+                <Option value="Failed">Failed</Option>
+                <Option value="Cancelled">Cancelled</Option>
+                <Option value="Refunded">Refunded</Option>
+              </Select>
             </div>
           </div>
 
           {/* Right: date range + reset */}
           <div className="flex flex-col gap-2 lg:items-end">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-slate-600">Transaction date range</span>
-                <RangePicker
-                  allowEmpty={[true, true]}
-                  showTime={false}
-                  onChange={(values) => {
-                    if (!values) {
-                      setFilters((prev) => ({
-                        ...prev,
-                        paymentDateFrom: undefined,
-                        paymentDateTo: undefined,
-                        pageNumber: 1,
-                      }));
-                      return;
-                    }
-                    const [from, to] = values;
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-slate-600">Transaction date range</span>
+              <RangePicker
+                allowEmpty={[true, true]}
+                showTime={false}
+                onChange={(values) => {
+                  if (!values) {
                     setFilters((prev) => ({
                       ...prev,
-                      paymentDateFrom: from ? from.startOf('day').toISOString() : undefined,
-                      paymentDateTo: to ? to.endOf('day').toISOString() : undefined,
+                      paymentDateFrom: undefined,
+                      paymentDateTo: undefined,
                       pageNumber: 1,
                     }));
-                  }}
-                  placeholder={['From', 'To']}
-                />
-              </div>
+                    return;
+                  }
+                  const [from, to] = values;
+                  setFilters((prev) => ({
+                    ...prev,
+                    paymentDateFrom: from ? from.startOf('day').toISOString() : undefined,
+                    paymentDateTo: to ? to.endOf('day').toISOString() : undefined,
+                    pageNumber: 1,
+                  }));
+                }}
+                placeholder={['From', 'To']}
+              />
             </div>
 
             <button
@@ -345,14 +344,13 @@ export default function TransactionListPage() {
         </div>
       </div>
 
-      {/* Stats: 2 totals (row 1) + 3 statuses (row 2) */}
-      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-5 py-4 space-y-3">
-        {/* Row 1: totals */}
-        <div className="grid gap-6 md:grid-cols-2">
+      {/* Stats block - 5 ô thẳng hàng */}
+      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-4 py-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Total revenue */}
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-              <DollarSign className="w-5 h-5 text-emerald-600" />
+          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
+              <DollarSign className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
@@ -365,9 +363,9 @@ export default function TransactionListPage() {
           </div>
 
           {/* Total transactions */}
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
-              <CreditCard className="w-5 h-5 text-sky-600" />
+          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50">
+              <CreditCard className="w-4 h-4 text-sky-600" />
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
@@ -378,14 +376,11 @@ export default function TransactionListPage() {
               </span>
             </div>
           </div>
-        </div>
 
-        {/* Row 2: statuses */}
-        <div className="flex gap-4">
           {/* Success */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 flex-1">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
-              <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
@@ -398,9 +393,9 @@ export default function TransactionListPage() {
           </div>
 
           {/* Pending */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100 flex-1">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
-              <Clock3 className="w-5 h-5 text-amber-700" />
+          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50">
+              <Clock3 className="w-4 h-4 text-amber-600" />
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
@@ -413,9 +408,9 @@ export default function TransactionListPage() {
           </div>
 
           {/* Failed */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-rose-50/50 border border-rose-100 flex-1">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
-              <XCircle className="w-5 h-5 text-rose-700" />
+          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50">
+              <XCircle className="w-4 h-4 text-rose-600" />
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-rose-700 uppercase tracking-wide">
@@ -429,7 +424,7 @@ export default function TransactionListPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* TABLE + PAGINATION */}
       <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
         <div className="border-b border-slate-100 px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -573,10 +568,7 @@ export default function TransactionListPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
             <span>
-              Page {filters.pageNumber} /{' '}
-              {data?.pageSize && data?.totalCount
-                ? Math.max(1, Math.ceil(data.totalCount / data.pageSize))
-                : 1}
+              Page {filters.pageNumber} / {totalPages}
             </span>
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
@@ -602,10 +594,7 @@ export default function TransactionListPage() {
                 <button
                   type="button"
                   className="px-2 py-1 rounded-md border border-slate-200 text-xs disabled:opacity-50"
-                  disabled={
-                    !data ||
-                    filters.pageNumber >= Math.ceil((data.totalCount || 0) / filters.pageSize)
-                  }
+                  disabled={filters.pageNumber >= totalPages}
                   onClick={() => handlePageChange(filters.pageNumber + 1)}
                 >
                   Next

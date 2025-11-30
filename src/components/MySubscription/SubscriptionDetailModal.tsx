@@ -96,6 +96,13 @@ export default function UserSubscriptionDetailModal({
   onClose,
 }: Props) {
   const detail = data;
+  const isAutoMonthly = !!detail && detail.unitPrice === 0; // free auto-month plan
+
+  // Số company còn có thể share (ưu tiên field companyShareRemaining nếu có)
+  const companyShareRemaining =
+    (detail as any)?.companyShareRemaining ??
+    detail?.companyShareLimit ??
+    null;
 
   // ===== SHARE STATE =====
   const [shareOpen, setShareOpen] = useState(false);
@@ -104,7 +111,6 @@ export default function UserSubscriptionDetailModal({
   const [listError, setListError] = useState<string | null>(null);
   const [shareLoaded, setShareLoaded] = useState(false);
 
-  // trạng thái share từng company
   const [shareSubmittingId, setShareSubmittingId] = useState<string | null>(
     null
   );
@@ -152,19 +158,17 @@ export default function UserSubscriptionDetailModal({
     }
   };
 
-  // mở confirm cho 1 company
   const handleShareToCompany = (company: CompanyListResponse) => {
     setConfirmTargetCompany(company);
     setConfirmVisible(true);
   };
 
   const handleCancelConfirm = () => {
-    if (shareSubmittingId) return; // đang gọi BE thì không cho đóng
+    if (shareSubmittingId) return;
     setConfirmVisible(false);
     setConfirmTargetCompany(null);
   };
 
-  // thực hiện gọi BE tạo CompanySubscription
   const doShareToCompany = async (company: CompanyListResponse) => {
     if (!detail) return;
     if (!company.id) {
@@ -198,7 +202,6 @@ export default function UserSubscriptionDetailModal({
       console.error(err);
       const msg =
         err?.message || "Failed to share subscription to this company.";
-      // chỉ toast, không set listError -> tránh kẹt panel share
       message.error(msg);
     } finally {
       setShareSubmittingId(null);
@@ -210,6 +213,10 @@ export default function UserSubscriptionDetailModal({
     await doShareToCompany(confirmTargetCompany);
   };
 
+  // Có cho share nữa không? (nếu biết rõ còn 0 thì disable)
+  const canShareMore =
+    companyShareRemaining === null || companyShareRemaining > 0;
+
   return (
     <>
       <Modal
@@ -217,7 +224,7 @@ export default function UserSubscriptionDetailModal({
         onCancel={onClose}
         footer={null}
         centered
-        width={760}
+        width={780}
         destroyOnClose
         title={
           <div className="flex items-center justify-between gap-3 pr-12">
@@ -230,27 +237,31 @@ export default function UserSubscriptionDetailModal({
                   Subscription details
                 </div>
                 <div className="truncate text-[11px] text-slate-500">
-                  Review your current plan configuration, billing, and
-                  entitlements.
+                  Review your plan, billing, company share and entitlements.
                 </div>
               </div>
             </div>
 
-            {/* Nút Share nằm bên phải, chừa khoảng cho nút X của Modal */}
             <div className="flex-shrink-0">
               <Button
                 size="small"
                 type="default"
                 onClick={handleToggleShare}
+                disabled={!canShareMore}
                 className={cn(
                   "flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium",
-                  shareOpen
+                  !canShareMore && "opacity-60 cursor-not-allowed",
+                  shareOpen && canShareMore
                     ? "!border-indigo-500 !bg-indigo-600 !text-white hover:!bg-indigo-700"
                     : "!border-indigo-200 !bg-white !text-indigo-700 hover:!border-indigo-400"
                 )}
                 icon={<Share2 className="h-3.5 w-3.5" />}
               >
-                {shareOpen ? "Hide share" : "Share to company"}
+                {!canShareMore
+                  ? "No share left"
+                  : shareOpen
+                  ? "Hide share"
+                  : "Share to company"}
               </Button>
             </div>
           </div>
@@ -266,9 +277,9 @@ export default function UserSubscriptionDetailModal({
           </div>
         ) : (
           <div className="space-y-5 pb-2">
-            {/* Top summary */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
-              {/* Left: plan info */}
+            {/* TOP: PLAN OVERVIEW */}
+            <section className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+              {/* Left: plan / status / term */}
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Plan
@@ -276,6 +287,7 @@ export default function UserSubscriptionDetailModal({
                 <p className="text-base font-semibold text-slate-900">
                   {detail.planName}
                 </p>
+
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
                   <span
                     className={cn(
@@ -286,21 +298,29 @@ export default function UserSubscriptionDetailModal({
                     <span className="mr-1 h-1.5 w-1.5 rounded-full bg-current opacity-70" />
                     {detail.status}
                   </span>
+
                   <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5">
                     <CalendarDays className="mr-1 h-3.5 w-3.5 text-slate-500" />
                     {formatDate(detail.termStart)}&nbsp;-&nbsp;
                     {formatDate(detail.termEnd)}
                   </span>
-                  {detail.nextPaymentDueAt && (
+
+                  {detail.nextPaymentDueAt && !isAutoMonthly && (
                     <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-slate-600">
                       <Clock className="mr-1 h-3.5 w-3.5 text-amber-500" />
                       Next payment: {formatDate(detail.nextPaymentDueAt)}
                     </span>
                   )}
+
+                  {isAutoMonthly && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 font-medium text-emerald-700">
+                      Free monthly plan
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Right: Created at + price */}
+              {/* Right: Created + unit price */}
               <div className="rounded-2xl bg-white px-4 py-3 text-right text-xs text-slate-600 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Created at
@@ -308,18 +328,142 @@ export default function UserSubscriptionDetailModal({
                 <p className="mt-1 text-sm font-medium text-slate-900">
                   {formatDate(detail.createdAt)}
                 </p>
+
                 <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Unit price
                 </p>
-                <p className="mt-1 text-sm font-semibold text-indigo-600">
-                  {formatCurrency(detail.unitPrice, detail.currency)}
+                <p
+                  className={cn(
+                    "mt-1 text-sm font-semibold",
+                    isAutoMonthly ? "text-emerald-600" : "text-indigo-600"
+                  )}
+                >
+                  {isAutoMonthly
+                    ? "Free"
+                    : formatCurrency(detail.unitPrice, detail.currency)}
                 </p>
               </div>
-            </div>
+            </section>
+
+            {/* BILLING + SCOPE / COMPANY SHARE */}
+            <section className="grid gap-4 md:grid-cols-2">
+              {/* Billing */}
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Billing & payment
+                  </span>
+                  <CreditCard className="h-4 w-4 text-indigo-500" />
+                </div>
+                <div className="mt-1">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {isAutoMonthly
+                      ? "Free monthly plan"
+                      : formatBillingShort(
+                          detail.billingPeriod as BillingPeriod,
+                          detail.periodCount
+                        )}
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-600">
+                    {isAutoMonthly
+                      ? "Free plan · limited free uses reset every month on specific features."
+                      : formatPaymentMode(
+                          detail.paymentMode as PaymentMode,
+                          detail.installmentCount,
+                          detail.installmentInterval as BillingPeriod | null
+                        )}
+                  </p>
+                </div>
+                {detail.nextPaymentDueAt && !isAutoMonthly && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Next payment due on{" "}
+                    <span className="font-medium text-slate-800">
+                      {formatDate(detail.nextPaymentDueAt)}
+                    </span>
+                    .
+                  </p>
+                )}
+              </div>
+
+              {/* Scope + Company share */}
+              <div className="space-y-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    License scope & company share
+                  </span>
+                  <Users className="h-4 w-4 text-indigo-500" />
+                </div>
+
+                <p className="mt-1 text-sm font-semibold text-slate-900">
+                  {formatLicenseScope(
+                    detail.licenseScope as LicenseScope | string
+                  )}
+                </p>
+
+                <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                  {/* Company share block – highlight "3 companies" */}
+                  <div className="flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                    <Building2 className="mt-0.5 h-4 w-4 text-slate-400" />
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Company share
+                      </p>
+                      {companyShareRemaining !== null ? (
+                        <>
+                          <p className="text-base font-semibold text-slate-900">
+                            {companyShareRemaining}{" "}
+                            <span className="text-xs font-normal text-slate-500">
+                              companies left
+                            </span>
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            You can still share this plan to{" "}
+                            <span className="font-medium">
+                              {companyShareRemaining}
+                            </span>{" "}
+                            more company(ies).
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-base font-semibold text-slate-900">
+                            Up to 3{" "}
+                            <span className="text-xs font-normal text-slate-500">
+                              companies
+                            </span>
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            You can share this plan to multiple companies.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Seats per company */}
+                  <div className="flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                    <Users className="mt-0.5 h-4 w-4 text-slate-400" />
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Seats per company
+                      </p>
+                      <p className="text-base font-semibold text-slate-900">
+                        {detail.seatsPerCompanyLimit != null
+                          ? `${detail.seatsPerCompanyLimit} seats`
+                          : "Unlimited"}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        Maximum number of users in each company using this plan.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
 
             {/* SHARE PANEL */}
             {shareOpen && (
-              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-xs text-slate-700">
+              <section className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-xs text-slate-700">
                 <div className="mb-1 flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
                     Share this subscription to company
@@ -331,7 +475,11 @@ export default function UserSubscriptionDetailModal({
                   )}
                 </div>
 
-                {listError ? (
+                {!canShareMore ? (
+                  <p className="text-[11px] text-slate-600">
+                    You have used all company shares for this plan.
+                  </p>
+                ) : listError ? (
                   <p className="text-[11px] text-rose-600">{listError}</p>
                 ) : companies.length === 0 && !shareLoading ? (
                   <p className="text-[11px] text-slate-600">
@@ -347,7 +495,7 @@ export default function UserSubscriptionDetailModal({
                       return (
                         <li
                           key={id || c.companyName || Math.random().toString(36)}
-                          className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-1 hover:bg-white"
+                          className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-1 hover:bg-white"
                         >
                           <div className="flex items-center gap-2">
                             <Building2 className="h-3.5 w-3.5 text-indigo-500" />
@@ -381,126 +529,109 @@ export default function UserSubscriptionDetailModal({
                 )}
 
                 <p className="mt-2 text-[10px] text-slate-500">
-                  Click <span className="font-semibold">Share</span> to assign
-                  this subscription to the selected company. A company
-                  subscription will be created after you confirm.
+                  A company subscription will be created based on this plan&apos;s
+                  entitlements when you share.
                 </p>
-              </div>
+              </section>
             )}
 
-            {/* Billing & scope */}
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Billing card */}
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Billing & payment
-                  </span>
-                  <CreditCard className="h-4 w-4 text-indigo-500" />
-                </div>
-                <div className="mt-1">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {formatBillingShort(
-                      detail.billingPeriod as BillingPeriod,
-                      detail.periodCount
-                    )}
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-600">
-                    {formatPaymentMode(
-                      detail.paymentMode as PaymentMode,
-                      detail.installmentCount,
-                      detail.installmentInterval as BillingPeriod | null
-                    )}
-                  </p>
-                </div>
-                {detail.nextPaymentDueAt && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Next payment due on{" "}
-                    <span className="font-medium text-slate-800">
-                      {formatDate(detail.nextPaymentDueAt)}
-                    </span>
-                    .
-                  </p>
-                )}
-              </div>
-
-              {/* Scope card */}
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    License scope & limits
-                  </span>
-                  <Users className="h-4 w-4 text-indigo-500" />
-                </div>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatLicenseScope(
-                    detail.licenseScope as LicenseScope | string
-                  )}
-                </p>
-                <div className="mt-2 grid gap-2 text-[11px] text-slate-600 sm:grid-cols-2">
-                  <div className="flex items-start gap-2">
-                    <Building2 className="mt-0.5 h-4 w-4 text-slate-400" />
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        Company share
-                      </p>
-                      <p>
-                        {detail.companyShareLimit != null
-                          ? `${detail.companyShareLimit} companies`
-                          : "3 companies"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Users className="mt-0.5 h-4 w-4 text-slate-400" />
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        Seats per company
-                      </p>
-                      <p>
-                        {detail.seatsPerCompanyLimit != null
-                          ? `${detail.seatsPerCompanyLimit} seats`
-                          : "Unlimited seats per company"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Entitlements */}
-            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
-              <p className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                <span>Entitlements</span>
-                <span className="text-[10px] font-medium text-slate-400">
-                  Features granted by this subscription
+            {/* ENTITLEMENTS – GIỐNG COMPANY SUBSCRIPTION, CÓ "USES LEFT" */}
+            <section className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-xs text-slate-700 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Entitlements
                 </span>
-              </p>
+                <span className="text-[10px] font-medium text-slate-400">
+                  {isAutoMonthly
+                    ? "Remaining free uses this month"
+                    : "Features granted by this subscription"}
+                </span>
+              </div>
 
               {detail.entitlements?.length ? (
-                <ul className="grid gap-1.5 sm:grid-cols-2">
-                  {detail.entitlements.map((e) => (
-                    <li
-                      key={e.featureId}
-                      className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-50"
-                    >
-                      {e.enabled ? (
-                        <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
-                      ) : (
-                        <span className="h-2 w-2 flex-shrink-0 rounded-full bg-slate-300" />
-                      )}
-                      <span className="text-[11px] font-medium text-slate-800">
-                        {e.name || e.code || e.featureId.toString().slice(0, 8)}
-                      </span>
-                    </li>
-                  ))}
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {detail.entitlements.map((e) => {
+                    const featureName =
+                      (e as any).featureName ??
+                      (e as any).featureCode ??
+                      (e as any).name ??
+                      (e as any).code ??
+                      e.featureId.toString().slice(0, 8);
+
+                    const monthlyLimit = (e as any).monthlyLimit;
+                    const hasMonthlyLimit =
+                      isAutoMonthly && monthlyLimit !== undefined;
+                    const remaining =
+                      hasMonthlyLimit && monthlyLimit != null
+                        ? monthlyLimit
+                        : null;
+                    const unlimited =
+                      hasMonthlyLimit && monthlyLimit == null;
+
+                    return (
+                      <li
+                        key={e.featureId}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 hover:border-slate-200 hover:bg-slate-50"
+                      >
+                        {/* LEFT: Feature + mô tả */}
+                        <div className="flex flex-1 items-start gap-2">
+                          {e.enabled ? (
+                            <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+                          ) : (
+                            <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-slate-300" />
+                          )}
+
+                          <div className="space-y-0.5">
+                            <p className="text-[12px] font-semibold text-slate-900">
+                              {featureName}
+                            </p>
+
+                            {hasMonthlyLimit && remaining != null && (
+                              <p className="text-[11px] text-slate-500">
+                                Remaining for this month.
+                              </p>
+                            )}
+
+                            {hasMonthlyLimit && unlimited && (
+                              <p className="text-[11px] text-slate-500">
+                                Unlimited free uses this month.
+                              </p>
+                            )}
+
+                            {!hasMonthlyLimit && (
+                              <p className="text-[11px] text-slate-500">
+                                Included in this plan.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* RIGHT: Uses left 4 this month */}
+                        {hasMonthlyLimit && (remaining != null || unlimited) && (
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                              Uses left
+                            </p>
+                            <p className="text-xl font-semibold leading-none text-slate-900">
+                              {unlimited
+                                ? "∞"
+                                : remaining?.toLocaleString("vi-VN")}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              this month
+                            </p>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-[11px] text-slate-400">
                   No entitlements recorded for this subscription.
                 </p>
               )}
-            </div>
+            </section>
           </div>
         )}
       </Modal>

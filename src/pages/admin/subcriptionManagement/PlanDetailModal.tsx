@@ -82,6 +82,14 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
               {data.isFullPackage ? <Tag color="blue">Full feature</Tag> : <Tag>Custom</Tag>}
             </Descriptions.Item>
 
+            <Descriptions.Item label="Auto-grant monthly">
+              {data.autoGrantMonthly ? (
+                <Tag color="gold">Yes (free monthly quota)</Tag>
+              ) : (
+                <Tag>No</Tag>
+              )}
+            </Descriptions.Item>
+
             <Descriptions.Item label="Limits">
               <Space size={8} wrap>
                 <Tag className="nowrap">share: {data.companyShareLimit ?? "∞"}</Tag>
@@ -168,7 +176,7 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
                         .sort((a, b) => a.installmentIndex - b.installmentIndex)
                         .map((d) => (
                           <tr key={d.installmentIndex} className="border-t">
-                            <td className="px-4 py-2">Kỳ {d.installmentIndex}</td>
+                            <td className="px-4 py-2">Period {d.installmentIndex}</td>
                             <td className="px-4 py-2">
                               {d.discountValue ?? 0}
                               <span className="ml-1 text-xs text-gray-500">%</span>
@@ -211,6 +219,9 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
                     <th className="px-4 py-2 text-left text-gray-600 font-medium">
                       Enabled
                     </th>
+                    <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                      Monthly limit
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -221,11 +232,18 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
                       <td className="px-4 py-2">
                         {f.enabled ? <Tag color="green">Enabled</Tag> : <Tag>Off</Tag>}
                       </td>
+                      <td className="px-4 py-2">
+                        {typeof f.monthlyLimit === "number"
+                          ? f.monthlyLimit
+                          : data.autoGrantMonthly
+                          ? "∞"
+                          : "—"}
+                      </td>
                     </tr>
                   ))}
                   {(!data.features || data.features.length === 0) && (
                     <tr className="border-t">
-                      <td colSpan={3} className="px-4 py-6 text-center text-gray-400">
+                      <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
                         No features
                       </td>
                     </tr>

@@ -229,3 +229,34 @@ export type TransactionPlanRevenueInsightResponse = {
   year: number;
   items: TransactionPlanRevenueInsightItem[];
 };
+
+//9.
+export type SubscriptionPlanPurchaseStatItem = {
+  planId: string;
+  planName: string;
+  purchaseCount: number;
+  totalAmount: number;
+  percentage: number;   // đúng với field BE
+  isOther?: boolean;    // nếu sau này BE có gộp “Other”
+};
+// 10. Monthly plan purchases (per month in a year)
+export type SubscriptionPlanMonthlyPurchaseItem = {
+  planId: string;
+  planName: string;
+  month: number;
+  purchaseCount: number;
+};
+
+export type SubscriptionPlanMonthlyPurchaseResponse = {
+  year: number;
+  items: SubscriptionPlanMonthlyPurchaseItem[];
+};
+//11. Raw DTO đúng với API backend
+export type PlanMonthlyPurchaseCountRowDto = {
+  planId: string;
+  planName: string;
+  year: number;
+  month: number;        // 1..12
+  purchaseCount: number;
+  totalAmount: number;
+};

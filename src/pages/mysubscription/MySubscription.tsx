@@ -1,16 +1,14 @@
+// src/pages/my-subscription/UserSubscriptionsPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Tag, Button, Input, Select, Spin, Modal } from "antd";
-import { Info, CreditCard, Layers, CalendarDays } from "lucide-react";
-
+import { Info, CreditCard, Layers, CalendarDays, X } from "lucide-react";
 import {
   getUserSubscriptionsPaged,
   getUserSubscriptionDetail,
 } from "@/services/userSubscription.js";
 import UserSubscriptionDetailModal from "@/components/MySubscription/SubscriptionDetailModal";
 
-import {
-  getNextPendingInstallment,
-} from "@/services/transactionService.js";
+import { getNextPendingInstallment } from "@/services/transactionService.js";
 import { createPaymentLink } from "@/services/payosService.js";
 
 import type {
@@ -22,6 +20,7 @@ import type { TransactionPaymentDetailResponse } from "@/interfaces/Transaction/
 
 const { Search } = Input;
 const { Option } = Select;
+
 
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
@@ -74,7 +73,7 @@ export default function UserSubscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(
     undefined
   );
-
+ const [usageNoteVisible, setUsageNoteVisible] = useState(true);
   // Cache detail cho modal subscription detail
   const [detailCache, setDetailCache] = useState<
     Record<string, UserSubscriptionDetailResponse>
@@ -97,14 +96,21 @@ export default function UserSubscriptionsPage() {
   );
 
   const installmentSubsCount = useMemo(
-    () => rows.filter((r) => !!r.nextPaymentDueAt).length,
+    () => rows.filter((r) => !!r.nextPaymentDueAt && r.unitPrice !== 0).length,
+    [rows]
+  );
+
+  // Đếm các gói auto-month (unitPrice === 0)
+  const autoMonthlyCount = useMemo(
+    () => rows.filter((r) => r.unitPrice === 0).length,
     [rows]
   );
 
   // ================== PAYMENT CHECKOUT MODAL STATE ==================
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentTx, setPaymentTx] = useState<TransactionPaymentDetailResponse | null>(null);
+  const [paymentTx, setPaymentTx] =
+    useState<TransactionPaymentDetailResponse | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentSubscription, setPaymentSubscription] =
@@ -242,8 +248,9 @@ export default function UserSubscriptionsPage() {
 
   /* ---------- Columns ---------- */
 
+  // Title có màu + box xanh bao quanh
   const headerTitle = (label: string) => (
-    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+    <span className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
       {label}
     </span>
   );
@@ -253,9 +260,15 @@ export default function UserSubscriptionsPage() {
       title: headerTitle("Plan"),
       dataIndex: "planName",
       key: "planName",
-      render: (text: string) => (
-        <span className="text-sm font-semibold text-slate-900">{text}</span>
-      ),
+      render: (_: string, record: UserSubscriptionResponse) => {
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-slate-900">
+              {record.planName}
+            </span>
+          </div>
+        );
+      },
     },
     {
       title: headerTitle("Status"),
@@ -289,11 +302,21 @@ export default function UserSubscriptionsPage() {
     {
       title: headerTitle("Unit price"),
       key: "unitPrice",
-      render: (_: unknown, record: UserSubscriptionResponse) => (
-        <span className="text-sm font-semibold text-indigo-600">
-          {formatCurrency(record.unitPrice, record.currency)}
-        </span>
-      ),
+      render: (_: unknown, record: UserSubscriptionResponse) => {
+        const isAutoMonthly = record.unitPrice === 0;
+        if (isAutoMonthly) {
+          return (
+            <span className="text-xs font-semibold text-emerald-600">
+              Free monthly quota
+            </span>
+          );
+        }
+        return (
+          <span className="text-sm font-semibold text-indigo-600">
+            {formatCurrency(record.unitPrice, record.currency)}
+          </span>
+        );
+      },
     },
     {
       title: headerTitle("Created at"),
@@ -310,7 +333,8 @@ export default function UserSubscriptionsPage() {
       key: "actions",
       align: "center" as const,
       render: (_: unknown, record: UserSubscriptionResponse) => {
-        const showPayment = !!record.nextPaymentDueAt;
+        const isAutoMonthly = record.unitPrice === 0;
+        const showPayment = !!record.nextPaymentDueAt && !isAutoMonthly;
 
         return (
           <div
@@ -336,7 +360,7 @@ export default function UserSubscriptionsPage() {
               View detail
             </Button>
 
-            {/* Payment (nếu có nextPaymentDueAt) */}
+            {/* Payment (nếu có nextPaymentDueAt và không phải auto-month) */}
             {showPayment && (
               <Button
                 size="small"
@@ -363,13 +387,13 @@ export default function UserSubscriptionsPage() {
     <div className="min-h-[calc(100vh-96px)] bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100 px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         {/* Header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-gradient-to-r from-indigo-50 via-sky-50 to-purple-50 px-5 py-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-sky-50 to-purple-50 px-5 py-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm">
               <Layers className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+              <h1 className="text-xl font-semibold tracking-tight text-indigo-700 sm:text-2xl">
                 My subscriptions
               </h1>
               <p className="mt-1 text-sm text-slate-600">
@@ -387,6 +411,13 @@ export default function UserSubscriptionsPage() {
                   <span className="font-medium">{installmentSubsCount}</span>
                   &nbsp;installment plans
                 </span>
+                {autoMonthlyCount > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-slate-700 shadow-sm">
+                    <Layers className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />
+                    <span className="font-medium">{autoMonthlyCount}</span>
+                    &nbsp;auto monthly quotas
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -414,9 +445,37 @@ export default function UserSubscriptionsPage() {
             </Select>
           </div>
         </header>
+          {/* Usage order note */}
+      {usageNoteVisible && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-800 shadow-sm">
+          <div className="mt-0.5">
+            <Info className="h-4 w-4 text-amber-500" />
+          </div>
 
+          <div className="flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+              Usage order
+            </p>
+            <p className="mt-1 text-[13px] leading-snug">
+              Your subscriptions are consumed automatically from your oldest
+              active plan to your newest. When an older plan is fully used or
+              expires, the system will automatically switch to the next
+              available plan — you don&apos;t need to do anything.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            aria-label="Dismiss usage order note"
+            onClick={() => setUsageNoteVisible(false)}
+            className="ml-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-500 hover:bg-amber-200 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
         {/* List */}
-        <section className="rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+        <section className="rounded-2xl border border-indigo-100 bg-white/95 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
           {loading ? (
             <div className="flex min-h-[200px] items-center justify-center py-16">
               <Spin />
@@ -584,7 +643,10 @@ export default function UserSubscriptionsPage() {
                   gateway (PayOS) to complete this installment.
                 </p>
                 <div className="flex gap-2">
-                  <Button onClick={handleClosePayment} disabled={checkoutLoading}>
+                  <Button
+                    onClick={handleClosePayment}
+                    disabled={checkoutLoading}
+                  >
                     Cancel
                   </Button>
                   <Button

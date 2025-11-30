@@ -1,7 +1,7 @@
 // src/pages/home/CompanySubscriptionsPage.tsx
 import React from "react";
 import { useParams } from "react-router-dom";
-import { Search, Layers, Eye } from "lucide-react";
+import { Search, Layers, Eye, RefreshCcw, X, AlertTriangle } from "lucide-react";
 import { Spin } from "antd";
 
 import {
@@ -56,14 +56,16 @@ const Chip: React.FC<
 
 type SortPreset = "newest" | "oldest" | "expiredSoon" | "status";
 
+function isAutoMonthly(sub: { expiredAt?: string | null }) {
+  return !sub.expiredAt; // gói free auto-month
+}
+
 export default function CompanySubscriptionsPage() {
   const { companyId: routeCompanyId } = useParams<{ companyId: string }>();
   const companyId =
     routeCompanyId || localStorage.getItem("currentCompanyId") || undefined;
 
-  const [items, setItems] = React.useState<CompanySubscriptionListResponse[]>(
-    []
-  );
+  const [items, setItems] = React.useState<CompanySubscriptionListResponse[]>([]);
   const [total, setTotal] = React.useState(0);
   const [page, setPage] = React.useState(1);
   const pageSize = 8;
@@ -81,6 +83,9 @@ export default function CompanySubscriptionsPage() {
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [detail, setDetail] =
     React.useState<CompanySubscriptionDetailResponse | null>(null);
+
+  // ===== USAGE NOTE BANNER STATE =====
+  const [usageNoteVisible, setUsageNoteVisible] = React.useState(true);
 
   const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
 
@@ -202,6 +207,35 @@ export default function CompanySubscriptionsPage() {
             </div>
           </div>
         </div>
+
+        {/* USAGE NOTE BANNER */}
+        {usageNoteVisible && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-800 shadow-sm">
+            <div className="mt-0.5">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+                How company subscriptions are used
+              </p>
+              <p className="mt-1 text-[13px] leading-snug">
+                For this company, subscriptions are consumed automatically from
+                the oldest active share to the newest. When an older
+                subscription is fully used or expires, the system will
+                automatically switch to the next available subscription — no
+                manual changes are required.
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss usage note"
+              onClick={() => setUsageNoteVisible(false)}
+              className="ml-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-500 hover:bg-amber-200 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* SUMMARY CHIPS */}
         <div className="mb-4 flex flex-wrap gap-3">
@@ -367,77 +401,87 @@ export default function CompanySubscriptionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[13px]">
-                  {items.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-50/70">
-                      <td className="px-5 py-3" />
-                      <td className="px-5 py-3">
-                        <span className="text-sm font-semibold text-slate-900">
-                          {s.planName || "(Unnamed plan)"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="text-xs text-slate-700">
-                          {s.companyName || "(Unnamed company)"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="text-xs text-slate-700">
-                          {s.userName || "—"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-                            statusTagClass(s.status)
-                          )}
-                        >
-                          {s.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="text-xs text-slate-700">
-                          {formatDate(s.sharedOn)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="text-xs text-slate-700">
-                          {formatDate(s.expiredAt)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        {s.seatsLimitSnapshot != null ? (
+                  {items.map((s) => {
+                    const autoMonth = isAutoMonthly(s);
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50/70">
+                        <td className="px-5 py-3" />
+                        <td className="px-5 py-3">
+                          <span className="text-sm font-semibold text-slate-900">
+                            {s.planName || "(Unnamed plan)"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
                           <span className="text-xs text-slate-700">
-                            {s.seatsLimitSnapshot} seats
+                            {s.companyName || "(Unnamed company)"}
                           </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">
-                            Unlimited
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="text-xs text-slate-700">
+                            {s.userName || "—"}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 pr-7 text-right">
-                        {/* Nút con mắt: nền trắng, viền xám nhạt, icon xám */}
-                        <button
-                          onClick={() => openDetail(s)}
-                          className={cn(
-                            "inline-flex h-8 w-8 items-center justify-center rounded-full border text-slate-400",
-                            "border-slate-200 bg-white hover:border-slate-300 hover:text-slate-600"
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+                              statusTagClass(s.status)
+                            )}
+                          >
+                            {s.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="text-xs text-slate-700">
+                            {formatDate(s.sharedOn)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {autoMonth ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                              <RefreshCcw className="h-3 w-3" />
+                              Auto-month
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-700">
+                              {formatDate(s.expiredAt)}
+                            </span>
                           )}
-                          aria-label="View detail"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-5 py-3">
+                          {s.seatsLimitSnapshot != null ? (
+                            <span className="text-xs text-slate-700">
+                              {s.seatsLimitSnapshot} seats
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">
+                              Unlimited
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 pr-7 text-right">
+                          {/* Nút con mắt: nền trắng, viền xám nhạt, icon xám */}
+                          <button
+                            onClick={() => openDetail(s)}
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-full border text-slate-400",
+                              "border-slate-200 bg-white hover:border-slate-300 hover:text-slate-600"
+                            )}
+                            aria-label="View detail"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
               {/* Pagination giống Members */}
               <div className="flex items-center justify-between px-6 pb-5 pt-3">
                 <span className="text-[11px] text-slate-500">
-
+                  {/* có thể thêm text nếu cần */}
                 </span>
 
                 <div className="flex items-center gap-2 text-[13px]">
@@ -455,9 +499,7 @@ export default function CompanySubscriptionsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setPage((p) => Math.max(1, p - 1))
-                    }
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-lg border text-xs",
@@ -473,9 +515,7 @@ export default function CompanySubscriptionsPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setPage((p) =>
-                        Math.min(totalPages, p + 1)
-                      )
+                      setPage((p) => Math.min(totalPages, p + 1))
                     }
                     disabled={page === totalPages}
                     className={cn(

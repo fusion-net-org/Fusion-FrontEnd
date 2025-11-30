@@ -31,6 +31,7 @@ export type CompanySubscriptionEntitlementDetailResponse = {
   featureName?: string | null;
   category?: string | null;
   enabled: boolean;
+  monthlyLimit?: number | null;
 };
 
 export type CompanySubscriptionDetailResponse =
