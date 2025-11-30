@@ -182,9 +182,22 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
                 isCollapsed ? 'justify-center w-full' : 'justify-start gap-3'
               }`}
             >
-              <div className="bg-blue-600 p-2 rounded-full flex items-center justify-center">
-                <img src={logo_fusion} alt="Fusion logo" className="w-6 h-6" />
-              </div>
+           <div className="flex items-center gap-3">
+  {/* Logo bự hơn, không nền, giữ tỉ lệ */}
+  <img
+    src={logo_fusion}
+    alt="Fusion logo"
+    className="
+      w-24 h-24    
+      sm:w-14 sm:h-14  
+      object-contain
+    "
+  />
+
+
+</div>
+
+
               {!isCollapsed && (
                 <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Fusion
