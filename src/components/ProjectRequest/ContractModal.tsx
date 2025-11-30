@@ -12,6 +12,7 @@ import { useParams } from 'react-router-dom';
 import { getCompanyById } from '@/services/companyService.js';
 import type { CompanyRequest, CompanyRequestV2 } from '@/interfaces/Company/company';
 import { GetAllPartnersOfCompany } from '@/services/partnerService.js';
+import { Steps } from 'antd';
 interface ContractFormValues {
   executorCompanyId: string;
   requesterCompanyId: string;
@@ -169,6 +170,11 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
         </Button>,
       ]}
     >
+      <Steps
+        current={0}
+        items={[{ title: 'Create Contract' }, { title: 'Create Project Request' }]}
+        style={{ marginBottom: 20 }}
+      />
       <Form
         form={form}
         layout="vertical"
@@ -201,22 +207,45 @@ const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) 
           />
         </Form.Item>
 
-        <Form.Item label="Contract Code" name="contractCode" rules={[{ required: true }]}>
-          <Input placeholder="Enter contract code" />
-        </Form.Item>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Form.Item
+            label="Contract Code"
+            name="contractCode"
+            rules={[{ required: true }]}
+            style={{ flex: 1 }}
+          >
+            <Input placeholder="Enter contract code" />
+          </Form.Item>
 
-        <Form.Item label="Contract Name" name="contractName" rules={[{ required: true }]}>
-          <Input placeholder="Enter contract name" />
-        </Form.Item>
+          <Form.Item
+            label="Contract Name"
+            name="contractName"
+            rules={[{ required: true }]}
+            style={{ flex: 1 }}
+          >
+            <Input placeholder="Enter contract name" />
+          </Form.Item>
+        </div>
 
-        <Form.Item label="Effective Date" name="effectiveDate" rules={[{ required: true }]}>
-          <DatePicker className="w-full" />
-        </Form.Item>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Form.Item
+            label="Effective Date"
+            name="effectiveDate"
+            rules={[{ required: true }]}
+            style={{ flex: 1 }}
+          >
+            <DatePicker className="w-full" />
+          </Form.Item>
 
-        <Form.Item label="Expired Date" name="expiredDate" rules={[{ required: true }]}>
-          <DatePicker className="w-full" />
-        </Form.Item>
-
+          <Form.Item
+            label="Expired Date"
+            name="expiredDate"
+            rules={[{ required: true }]}
+            style={{ flex: 1 }}
+          >
+            <DatePicker className="w-full" />
+          </Form.Item>
+        </div>
         <Form.Item
           label="Budget"
           name="budget"
