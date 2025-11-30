@@ -9,7 +9,8 @@ import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
 import { Paging } from '@/components/Paging/Paging';
 import { useParams, useNavigate } from 'react-router-dom';
-
+import { GetProjectByProjectId } from '@/services/ProjectService.js';
+import type { IProject } from '@/interfaces/ProjectMember/projectMember';
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
@@ -27,7 +28,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const [ticketPriority, setTicketPriority] = useState('');
   const [ticketRange, setTicketRange] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-
+  const [projects, setProjects] = useState<IProject[]>([]);
   const debouncedSearch = useDebounce(ticketSearch, 500);
 
   const [pagination, setPagination] = useState({
@@ -35,7 +36,15 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
     pageSize: 10,
     totalCount: 0,
   });
-
+  const fetchProjects = async () => {
+    try {
+      const response = await GetProjectByProjectId(projectId);
+      console.log('Fetched projects:', response.data);
+      setProjects([response.data]);
+    } catch (error) {
+      console.error('Failed to fetch projects', error);
+    }
+  };
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
@@ -86,6 +95,9 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
     fetchTickets();
   }, [fetchTickets]);
 
+  useEffect(() => {
+    fetchProjects();
+  }, []);
   const tickets: ITicketTab[] = ticketsResponse?.data?.items || [];
 
   const handleGoToDetail = (ticket: ITicketTab) => {
@@ -96,6 +108,24 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
       },
     });
   };
+
+  const getPriorityBadge = (priority?: string) => {
+    const styleMap: Record<string, string> = {
+      Urgent: 'bg-red-100 text-red-700',
+      High: 'bg-orange-100 text-orange-700',
+      Medium: 'bg-yellow-100 text-yellow-700',
+      Low: 'bg-green-100 text-green-700',
+      Unknown: 'bg-gray-50 text-gray-600',
+    };
+
+    const display = priority || 'Unknown';
+    const style = styleMap[display] || styleMap['Unknown'];
+
+    return (
+      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${style}`}>{display}</span>
+    );
+  };
+
   return (
     <div>
       {/* SEARCH & FILTER */}
@@ -199,19 +229,8 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                     </td>
                     <td className="px-6 py-3 text-gray-700">{t.ticketName}</td>
                     <td className="px-6 py-3 text-gray-600">{t.submittedByName}</td>
-                    <td className="px-6 py-3">
-                      <span
-                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                          t.priority === 'High'
-                            ? 'bg-red-100 text-red-700'
-                            : t.priority === 'Medium'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {t.priority || '-'}
-                      </span>
-                    </td>
+                    <td className="px-6 py-3">{getPriorityBadge(t.priority)}</td>
+
                     <td className="px-6 py-3 text-gray-700">
                       {t.budget != null ? t.budget.toLocaleString('vi-VN') : '-'}
                     </td>
@@ -287,6 +306,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
         visible={showCreatePopup}
         onClose={() => setShowCreatePopup(false)}
         defaultProjectId={projectId}
+        projects={projects}
         onSuccess={() => {
           fetchTickets();
           onTicketCreated?.();

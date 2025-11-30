@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Switch } from 'antd';
@@ -34,17 +35,16 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
   const [isBillable, setIsBillable] = useState(false);
   const [budget, setBudget] = useState<string>('0');
   const [loading, setLoading] = useState(false);
-  const [workflowStatuses, setWorkflowStatuses] = useState<{ id: string; name: string }[]>([]);
-  const [statusId, setStatusId] = useState<string>('');
+  const [companyRequestName, setCompanyRequestName] = useState('');
+  const [companyExecutorName, setCompanyExecutorName] = useState('');
 
   const formatNumber = (value: string) =>
     value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
+  console.log('projects,', projects);
   const handleBudgetChange = (e: any) => {
     const raw = e.target.value.replace(/\./g, '');
     setBudget(formatNumber(raw));
   };
-
   const resetForm = () => {
     setSelectedProjectId(defaultProjectId || projects[0]?.id || '');
     setPriority('Medium');
@@ -53,34 +53,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
     setDescription('');
     setIsBillable(false);
     setBudget('0');
-    setStatusId('');
   };
-
-  // Load workflow statuses khi project thay đổi
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setWorkflowStatuses([]);
-      setStatusId('');
-      return;
-    }
-
-    const fetchWorkflowStatuses = async () => {
-      try {
-        setLoading(true);
-        const res = await GetWorkflowStatusByProjectId(selectedProjectId);
-        const items = res.data?.items ?? [];
-        setWorkflowStatuses(items.map((i: any) => ({ id: i.id, name: i.name })));
-        setStatusId(items[0]?.id ?? '');
-      } catch (err: any) {
-        toast.error('Failed to load workflow statuses');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWorkflowStatuses();
-  }, [selectedProjectId]);
 
   const handleCreate = async () => {
     if (!ticketName.trim()) {
@@ -98,7 +71,6 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
     };
 
     if (selectedProjectId) payload.projectId = selectedProjectId;
-    if (statusId) payload.statusId = statusId;
 
     try {
       setLoading(true);
@@ -114,6 +86,20 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (defaultProjectId) {
+      setSelectedProjectId(defaultProjectId);
+    }
+  }, [defaultProjectId]);
+
+  useEffect(() => {
+    if (selectedProjectId && projects.length > 0) {
+      const selected = projects.find((p) => p.id === selectedProjectId);
+      setCompanyRequestName(selected?.companyRequestName || '');
+      setCompanyExecutorName(selected?.companyExecutorName || '');
+    }
+  }, [selectedProjectId, projects]);
 
   return (
     <>
@@ -140,7 +126,12 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
               <label className="font-semibold mb-1">Project</label>
               <Select
                 value={selectedProjectId}
-                onChange={setSelectedProjectId}
+                onChange={(value) => {
+                  setSelectedProjectId(value);
+                  const selected = projects.find((p) => p.id === value);
+                  setCompanyRequestName(selected?.companyRequestName || '');
+                  setCompanyExecutorName(selected?.companyExecutorName || '');
+                }}
                 allowClear
                 className="w-full"
                 placeholder="Select project (optional)"
@@ -151,6 +142,19 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
                   </Option>
                 ))}
               </Select>
+            </div>
+          )}
+          {selectedProjectId && (
+            <div className="flex gap-3 mt-2">
+              <div className="flex flex-col w-1/2">
+                <label className="font-semibold mb-1">Company Request Name</label>
+                <Input value={companyRequestName} disabled />
+              </div>
+
+              <div className="flex flex-col w-1/2">
+                <label className="font-semibold mb-1">Company Executor Name</label>
+                <Input value={companyExecutorName} disabled />
+              </div>
             </div>
           )}
 
@@ -175,9 +179,16 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
             />
           </div>
 
-          {/* Priority & Workflow status */}
-          <div className="flex gap-3">
-            <div className="flex flex-col w-1/2">
+          {/* Budget, Priority & Highest Urgency */}
+          <div className="flex gap-3 items-end">
+            {/* Budget */}
+            <div className="flex flex-col w-1/3">
+              <label className="font-semibold mb-1">Budget (VNĐ)</label>
+              <Input placeholder="0" value={budget} onChange={handleBudgetChange} />
+            </div>
+
+            {/* Priority */}
+            <div className="flex flex-col w-1/3">
               <label className="font-semibold mb-1">Priority</label>
               <Select value={priority} onChange={setPriority} className="w-full">
                 <Option value="Urgent">Urgent</Option>
@@ -187,40 +198,11 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
               </Select>
             </div>
 
-            {/* {workflowStatuses.length > 0 && ( */}
-            <div className="flex flex-col w-1/2">
-              <label className="font-semibold mb-1">Workflow Status</label>
-              <Select
-                showSearch
-                placeholder="Select workflow status"
-                value={statusId}
-                onChange={setStatusId}
-                allowClear
-                filterOption={(input, option: any) =>
-                  (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-                className="w-full"
-              >
-                {workflowStatuses.map((status) => (
-                  <Option key={status.id} value={status.id}>
-                    {status.name}
-                  </Option>
-                ))}
-              </Select>
+            {/* Highest Urgency */}
+            <div className="flex items-center w-1/3 gap-2 mb-1.5 ml-1">
+              <Switch checked={isHighestUrgen} onChange={setIsHighestUrgen} />
+              <label className="font-semibold mb-0">Highest Urgency</label>
             </div>
-            {/* )} */}
-          </div>
-
-          {/* Highest Urgency */}
-          <label className="flex gap-2 items-center">
-            <Switch checked={isHighestUrgen} onChange={setIsHighestUrgen} />
-            Highest Urgency
-          </label>
-
-          {/* Budget */}
-          <div className="flex flex-col w-full">
-            <label className="font-semibold mb-1">Budget (VNĐ)</label>
-            <Input placeholder="0" value={budget} onChange={handleBudgetChange} />
           </div>
         </div>
       </Modal>

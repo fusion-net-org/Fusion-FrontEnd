@@ -168,6 +168,31 @@ const InvitationPage: React.FC = () => {
         !date || date.startsWith('0001-01-01') ? '---' : moment(date).format('DD/MM/YYYY'),
     },
     {
+      title: 'Roles',
+      dataIndex: 'roles',
+      align: 'start',
+      render: (roles: string[]) =>
+        roles && roles.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'start',
+              gap: '6px',
+            }}
+          >
+            {roles.map((role, index) => (
+              <Tag key={index} color="blue" style={{ width: 'fit-content' }}>
+                {role}
+              </Tag>
+            ))}
+          </div>
+        ) : (
+          <Tag style={{ margin: '0 auto' }}>None</Tag>
+        ),
+    },
+
+    {
       title: 'Status',
       dataIndex: 'status',
       render: getStatusTag,

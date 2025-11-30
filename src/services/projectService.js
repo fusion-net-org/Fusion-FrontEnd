@@ -315,6 +315,15 @@ export const GetProjectByProjectId = async (id) => {
   }
 };
 
+export const GetProjectByCompanyRequest = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/companies/${id}/projects-by-company-request`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
 export const getAllProjectByAdmin = async ({
   CompanyName = '',
   PageNumber = 1,
