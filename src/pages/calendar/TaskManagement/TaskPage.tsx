@@ -8,7 +8,9 @@ import TaskList from "./TaskList";
 import TaskFormModal from "./TaskFormModal";
 import { deleteTask, postTask, putTask } from "@/services/taskService.js";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import TaskDetailModal from "./TaskDetailModal";
+// ❌ BỎ TaskDetailModal cũ
+// import TaskDetailModal from "./TaskDetailModal";
+import TaskCalendarDetailModal from "@/components/Calendar/TaskCalendarDetailModal";
 import type { Task } from "@/interfaces/Task/task";
 
 const TaskPage: React.FC = () => {
@@ -16,8 +18,11 @@ const TaskPage: React.FC = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [openDetailModal, setOpenDetailModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // === State cho modal chi tiết kiểu Calendar ===
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [detailInitialTask, setDetailInitialTask] =
+    useState<any | null>(null);
 
   const [sortColumn, setSortColumn] = useState("DueDate");
   const [sortDescending, setSortDescending] = useState(false);
@@ -70,12 +75,59 @@ const TaskPage: React.FC = () => {
     }
   };
 
+  // === Khi click vào tên task trong list => mở modal chi tiết mới ===
+  const handleOpenDetail = (task: Task) => {
+    const anyTask: any = task;
+    const id = anyTask.id ?? anyTask.taskId;
+
+    setDetailTaskId(String(id));
+
+    // Map tạm sang shape TaskCalendarItem cho modal
+    setDetailInitialTask({
+      id: String(id),
+      taskId: String(id),
+      code: anyTask.code,
+      title: anyTask.title,
+      description: anyTask.description ?? null,
+
+      type: anyTask.type ?? null,
+      priority: anyTask.priority ?? null,
+      severity: anyTask.severity ?? null,
+      status: anyTask.status ?? null,
+
+      point: anyTask.point ?? null,
+      estimateHours: anyTask.estimateHours ?? null,
+      remainingHours: anyTask.remainingHours ?? null,
+
+      createAt: anyTask.createAt ?? anyTask.createdAt ?? null,
+      startDate: anyTask.startDate ?? null,
+      endDate: anyTask.endDate ?? null,
+      dueDate: anyTask.dueDate ?? null,
+
+      createByName: anyTask.createByName ?? null,
+
+      project: anyTask.project ?? null,
+      sprint: anyTask.sprint ?? null,
+      workflowStatus: anyTask.workflowStatus ?? null,
+      members: anyTask.members ?? [],
+
+      // Cho đẹp pill bên modal
+      workflowStatusOptions:
+        anyTask.workflowAssignments?.items?.map((x: any) => ({
+          id: x.workflowStatusId,
+          name: x.statusName,
+          isEnd: false,
+        })) ?? undefined,
+    });
+
+    setDetailOpen(true);
+  };
+
   return (
     <div className="rounded-xl bg-white ring-1 ring-gray-200 p-6 text-gray-600">
       {/* Header trên cùng: title + sort, giữ lại cho tiện, dưới là list style mới */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <SyncOutlined className="text-blue-500" spin />
           <h2 className="m-0 text-lg font-semibold text-gray-700">My tasks</h2>
         </div>
 
@@ -116,30 +168,29 @@ const TaskPage: React.FC = () => {
         key={refreshKey}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onViewDetail={(task) => {
-          setSelectedTask(task);
-          setOpenDetailModal(true);
-        }}
+        onViewDetail={handleOpenDetail} // ⬅ bấm vào tên sẽ gọi thằng này
         sortColumn={sortColumn}
         sortDescending={sortDescending}
         onAddClick={handleAdd}
       />
 
-      <TaskDetailModal
-        open={openDetailModal}
-        task={selectedTask}
-        onClose={() => setOpenDetailModal(false)}
-        onEdit={(task) => {
-          setEditingTask(task);
-          setOpenDetailModal(false);
-          setOpenModal(true);
+      {/* Modal chi tiết kiểu Calendar – read only + đổi status + open full page */}
+      <TaskCalendarDetailModal
+        open={detailOpen}
+        taskId={detailTaskId}
+        initialTask={detailInitialTask}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailTaskId(null);
+          setDetailInitialTask(null);
         }}
-        onDelete={async (taskId) => {
-          await handleDelete(taskId);
-          setOpenDetailModal(false);
+        onStatusChanged={async () => {
+          // reload lại list khi đổi status
+          setRefreshKey((k) => k + 1);
         }}
       />
 
+      {/* Modal create / edit */}
       <TaskFormModal
         open={openModal}
         onCancel={() => setOpenModal(false)}

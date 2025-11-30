@@ -16,17 +16,19 @@ import {
   MoreHorizontal,
   ListChecks,
 } from "lucide-react";
-import { mapTasksToEvents } from "./event-utils";
-import TaskPage from "../TaskManagement/TaskPage";
 import { toast } from "react-toastify";
+
+import { mapTasksToEvents, type TaskCalendarItem } from "./event-utils";
+import TaskPage from "../TaskManagement/TaskPage";
 import TaskFormModal from "../TaskManagement/TaskFormModal";
+import TaskCalendarDetailModal from "@/components/Calendar/TaskCalendarDetailModal";
+
 import {
   getMyTasks,
   postTask,
   putTask,
-  getTaskById,
 } from "@/services/taskService.js";
-import TaskDetailModal from "../TaskManagement/TaskDetailModal";
+
 import "@/pages/calendar/css/calendar.css";
 
 const menuItems = [
@@ -34,46 +36,98 @@ const menuItems = [
   { id: "list" as const, label: "List", icon: ListChecks },
 ];
 
-// helper: hex -> rgba để tô nền theo màu workflow
-const hexToRgba = (hex: string | null | undefined, alpha: number) => {
-  if (!hex) return `rgba(148,163,184,${alpha})`; // slate-400
-  let h = hex.replace("#", "");
-  if (h.length === 3) {
-    h = h
-      .split("")
-      .map((ch) => ch + ch)
-      .join("");
-  }
-  const num = parseInt(h, 16);
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
-};
+/* ========= Viên task hiển thị trên Calendar ========= */
+
+function EventPill(arg: EventContentArg) {
+  const { event, timeText } = arg;
+  const ex: any = event.extendedProps || {};
+
+  const wfColor: string | undefined = ex.workflowStatus?.color;
+
+  const pillClass =
+    wfColor != null
+      ? "text-white"
+      : ex.pillClass || "bg-slate-100 text-slate-900";
+
+  const owner: string = ex.owner || "";
+  const ownerColor: string = ex.ownerColor || "bg-slate-600";
+  const tags: string[] = ex.tags || [];
+
+  const priorityLabel: string = ex.priority || "Low";
+  const typeLabel: string = ex.type || "Task";
+
+  const from = ex.createAt ? String(ex.createAt).slice(0, 10) : "—";
+  const to = ex.dueDate ? String(ex.dueDate).slice(0, 10) : "—";
+  const statusText: string = ex.workflowStatus?.name || ex.status || "";
+
+  return (
+    <div
+      className={`
+        flex items-center gap-2 rounded-md px-2 py-1 text-xs
+        transition-all duration-150 ease-in-out cursor-pointer
+        hover:opacity-95 hover:scale-[1.02] hover:shadow-md
+        active:scale-[0.98] active:shadow-sm
+        ${pillClass}
+      `}
+      style={wfColor ? { backgroundColor: wfColor } : undefined}
+      title={`${event.title}
+Status: ${statusText}
+Priority: ${priorityLabel}
+Type: ${typeLabel}
+From: ${from} → To: ${to}`}
+    >
+      {owner ? (
+        <span
+          className={`
+            inline-flex h-5 w-5 shrink-0 items-center justify-center
+            rounded-full text-[10px] font-bold text-white ${ownerColor}
+          `}
+          title={ex.assigneeName || ex.assignedTo || owner}
+        >
+          {owner}
+        </span>
+      ) : null}
+
+      {timeText ? (
+        <b className="mr-1 hidden sm:inline">{timeText}</b>
+      ) : null}
+
+      <span className="min-w-0 truncate font-medium">{event.title}</span>
+
+      {tags.length > 0 && (
+        <span className="ml-auto flex gap-1">
+          {tags.map((colorClass, i) => (
+            <span key={i} className={`h-3 w-3 rounded-sm ${colorClass}`} />
+          ))}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ========= MAIN COMPONENT ========= */
 
 const Calendar: React.FC = () => {
   const calendarRef = useRef<FullCalendar | null>(null);
   const [title, setTitle] = useState<string>("");
+
   const [activeTab, setActiveTab] = useState<"list" | "calendar">("calendar");
+
   const [openModal, setOpenModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [detailInitialTask, setDetailInitialTask] =
+    useState<TaskCalendarItem | null>(null);
+
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Task detail modal
-  const [openDetailModal, setOpenDetailModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [loadingTaskDetail, setLoadingTaskDetail] = useState(false);
-
-  // Task edit
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [formInitialValues, setFormInitialValues] = useState<any>(null);
-
-  // ======= Load tasks từ API /tasks/user =======
+  /* ======= Load tasks từ API /tasks/user ======= */
   const fetchTasks = async () => {
     try {
       setLoadingTasks(true);
@@ -141,7 +195,7 @@ const Calendar: React.FC = () => {
   const handleAddOrUpdateTask = async (values: any) => {
     setLoading(true);
     try {
-      if (isEditMode && values?.id) {
+      if (values?.id) {
         const res = await putTask(values.id, values);
         if (res?.succeeded) {
           toast.success("Task updated successfully!");
@@ -159,8 +213,6 @@ const Calendar: React.FC = () => {
 
       await fetchTasks();
       setOpenModal(false);
-      setIsEditMode(false);
-      setFormInitialValues(null);
     } catch (err) {
       console.error("Save task error", err);
       toast.error("An error occurred while saving the task.");
@@ -275,7 +327,7 @@ const Calendar: React.FC = () => {
               </div>
             ) : (
               <FullCalendar
-                ref={calendarRef}
+                ref={calendarRef as any}
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
                 headerToolbar={false}
@@ -313,29 +365,13 @@ const Calendar: React.FC = () => {
                     el.style.zIndex = "";
                   });
                 }}
-                eventClick={async (info) => {
+                eventClick={(info) => {
                   const taskId = info.event.id;
+                  const ex = info.event.extendedProps as any;
 
-                  setSelectedTask(null);
-                  setLoadingTaskDetail(true);
-                  setOpenDetailModal(true);
-
-                  try {
-                    const res = await getTaskById(taskId);
-
-                    if (res?.succeeded && res.data) {
-                      setSelectedTask(res.data);
-                    } else {
-                      toast.error("Failed to load task details");
-                    }
-                  } catch (err) {
-                    console.error("Load task detail error", err);
-                    toast.error(
-                      "An error occurred while loading task details",
-                    );
-                  } finally {
-                    setLoadingTaskDetail(false);
-                  }
+                  setDetailTaskId(taskId);
+                  setDetailInitialTask(ex as TaskCalendarItem);
+                  setDetailOpen(true);
                 }}
               />
             )}
@@ -350,107 +386,36 @@ const Calendar: React.FC = () => {
         </div>
       )}
 
+      {/* Modal create / edit task */}
       <TaskFormModal
         open={openModal}
         onCancel={() => {
           setOpenModal(false);
-          setIsEditMode(false);
-          setFormInitialValues(null);
         }}
         onSubmit={handleAddOrUpdateTask}
-        task={formInitialValues}
+        task={null}
       />
 
-      <TaskDetailModal
-        open={openDetailModal}
-        loading={loadingTaskDetail}
-        task={selectedTask}
-        onClose={() => setOpenDetailModal(false)}
+      {/* Modal chi tiết (read-only + change status + open full page) */}
+      <TaskCalendarDetailModal
+        open={detailOpen}
+        taskId={detailTaskId}
+        initialTask={detailInitialTask}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailTaskId(null);
+          setDetailInitialTask(null);
+        }}
+        onStatusChanged={async (
+          _taskId: string,
+          _newStatusIdOrName: string,
+        ) => {
+          // Reload lại list để calendar sync màu/status
+          await fetchTasks();
+        }}
       />
     </div>
   );
 };
-
-/* =======================
- * EventPill – viên task trên calendar
- * ======================= */
-
-function EventPill(arg: EventContentArg) {
-  const { event, timeText } = arg;
-  const ex: any = event.extendedProps || {};
-
-  // màu từ workflowStatus
-  const wfColor: string | undefined = ex.workflowStatus?.color;
-
-  // nếu có màu workflow => dùng màu đó, text trắng
-  // không thì fallback màu nhạt như cũ
-  const pillClass =
-    wfColor
-      ? "text-white" // bg sẽ set bằng inline style
-      : ex.pillClass || "bg-slate-100 text-slate-900";
-
-  const owner: string = ex.owner || "";
-  const ownerColor: string = ex.ownerColor || "bg-slate-600";
-  const tags: string[] = ex.tags || [];
-
-  const priorityLabel: string = ex.priority || "Low";
-  const typeLabel: string = ex.type || "Task";
-
-  const from = ex.createAt ? String(ex.createAt).slice(0, 10) : "—";
-  const to = ex.dueDate ? String(ex.dueDate).slice(0, 10) : "—";
-  const statusText: string =
-    ex.workflowStatus?.name || ex.status || "";
-
-  return (
-    <div
-      className={`
-        flex items-center gap-2 rounded-md px-2 py-1 text-xs
-        transition-all duration-150 ease-in-out cursor-pointer
-        hover:opacity-95 hover:scale-[1.02] hover:shadow-md
-        active:scale-[0.98] active:shadow-sm
-        ${pillClass}
-      `}
-      // nền ĐẬM, không trong suốt, lấy đúng màu workflow
-      style={wfColor ? { backgroundColor: wfColor } : undefined}
-      title={`${event.title}
-Status: ${statusText}
-Priority: ${priorityLabel}
-Type: ${typeLabel}
-From: ${from} → To: ${to}`}
-    >
-      {owner ? (
-        <span
-          className={`
-            inline-flex h-5 w-5 shrink-0 items-center justify-center
-            rounded-full text-[10px] font-bold text-white ${ownerColor}
-          `}
-          title={ex.assigneeName || ex.assignedTo || owner}
-        >
-          {owner}
-        </span>
-      ) : null}
-
-      {timeText ? (
-        <b className="mr-1 hidden sm:inline">{timeText}</b>
-      ) : null}
-
-      <span className="min-w-0 truncate font-medium">
-        {event.title}
-      </span>
-
-      {tags.length > 0 && (
-        <span className="ml-auto flex gap-1">
-          {tags.map((colorClass, i) => (
-            <span
-              key={i}
-              className={`h-3 w-3 rounded-sm ${colorClass}`}
-            />
-          ))}
-        </span>
-      )}
-    </div>
-  );
-}
-
 
 export default Calendar;

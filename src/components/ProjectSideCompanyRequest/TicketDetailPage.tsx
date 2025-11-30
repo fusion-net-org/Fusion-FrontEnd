@@ -235,38 +235,29 @@ const TicketDetailPage: React.FC = () => {
   if (!ticket) {
     return <div className="text-center mt-20 text-gray-500">Ticket not found</div>;
   }
-  // ===== Ticket process summary (tự tính theo nghiệp vụ) =====
   const process = ticket.process;
 
-  // BE trả về danh sách item chi tiết
   const items = process?.items ?? [];
 
-  // Tổng task non-backlog của ticket
   const totalNonBacklog =
     process?.totalNonBacklogTasks && process.totalNonBacklogTasks > 0
       ? process.totalNonBacklogTasks
       : items.length;
 
-  // Đã bắt đầu: có startedAt
   const startedCount = items.filter((x: any) => !!x.startedAt).length;
 
-  // Hoàn thành: status hiện tại IsEnd => isDone = true
   const doneCount = items.filter((x: any) => x.isDone).length;
 
-  // Đang xử lý: đã start nhưng chưa done
   const activeCount = items.filter(
     (x: any) => !!x.startedAt && !x.isDone,
   ).length;
 
-  // Có process khi có ít nhất 1 task non-backlog
   const hasProcess = !!process && totalNonBacklog > 0;
 
-  // Progress = done / totalNonBacklog
   const progressPercent = hasProcess && totalNonBacklog > 0
     ? Math.max(0, Math.min(100, (doneCount * 100) / totalNonBacklog))
     : 0;
 
-  // Thời gian bắt đầu / kết thúc (dùng luôn field BE trả về)
   const firstStartedAt = process?.firstStartedAt
     ? dayjs(process.firstStartedAt)
     : null;
