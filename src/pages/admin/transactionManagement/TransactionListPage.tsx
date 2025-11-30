@@ -513,16 +513,16 @@ export default function TransactionListPage() {
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Mode</th>
-<th className="px-4 py-2 text-left">
-  <button
-    type="button"
-    onClick={() => handleSort("Status")}
-    className="inline-flex items-center gap-1 hover:text-slate-700"
-  >
-    <span>Status</span>
-    {sortLabel("Status", filters.sortColumn, filters.sortDescending)}
-  </button>
-</th>
+                  <th className="px-4 py-2 text-left">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("Status")}
+                      className="inline-flex items-center gap-1 hover:text-slate-700"
+                    >
+                      <span>Status</span>
+                      {sortLabel("Status", filters.sortColumn, filters.sortDescending)}
+                    </button>
+                  </th>
                   <th className="px-4 py-2 text-left">Gateway</th>
                   <th className="px-4 py-2 text-left">Order code</th>
                 </tr>

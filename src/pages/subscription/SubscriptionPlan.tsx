@@ -69,7 +69,7 @@ function formatChargeUnit(
 }
 
 function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
-  if (scope === "CompanyWide") {
+  if (scope === "EntireCompany") {
     return "All members in the company";
   }
   if (!seats || seats <= 0) return "Unlimited seats per company";
@@ -350,7 +350,7 @@ export default function SubscriptionPlan() {
                     {plan.isFullPackage ? "Yes" : "No"}
                   </td>
                   <td className="py-2 px-4">
-                    {plan.licenseScope === "UserLimits"
+                    {plan.licenseScope === "Userlimits"
                       ? "User-limits"
                       : "Company-wide"}
                   </td>
@@ -716,7 +716,7 @@ export default function SubscriptionPlan() {
                     if (!scope) return null;
                     return (
                       <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                        {scope === "UserLimits"
+                        {scope === "Userlimits"
                           ? "Seat-based license"
                           : "Company-wide license"}
                       </span>
