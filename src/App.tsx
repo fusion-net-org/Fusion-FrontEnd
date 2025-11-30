@@ -67,6 +67,10 @@ import CompanyProtectedRoute from './components/CompanyProtectedRoute/CompanyPro
 import UserProfile from './pages/userProfile/UserProfile';
 import ProjectOverviewPage from './pages/admin/projectManagement/ProjectOverviewPage';
 import TicketPage from './pages/home/TicketPage';
+import ProjectRequestListAdminPage from './pages/admin/projectRequest/ProjectRequestListAdminPage';
+import ProjectRequestDetailAdminPage from './pages/admin/projectRequest/ProjectRequestDetailAdminPage';
+import TicketListAdminPage from './pages/admin/ticketManagement/TicketListAdminPage';
+import TicketDetailAdminPage from './pages/admin/ticketManagement/TicketDetailAdminPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -132,6 +136,15 @@ function App() {
           <Route path="/admin/transactions/overview" element={<TransactionOverviewPage />} />
           <Route path="/admin/notifications/list" element={<NotificationListPage />} />
           <Route path="/admin/features/list" element={<FeatureListPage />} />
+          <Route path="/admin/project-request/list" element={<ProjectRequestListAdminPage />} />
+          <Route
+            path="/admin/project-request/detail/:id"
+            element={<ProjectRequestDetailAdminPage />}
+          />
+          <Route path="/admin/project-request/detail" element={<ProjectRequestDetailAdminPage />} />
+          <Route path="/admin/tickets/list" element={<TicketListAdminPage />} />
+          <Route path="/admin/tickets/detail/:id" element={<TicketDetailAdminPage />} />
+          <Route path="/admin/tickets/detail" element={<TicketDetailAdminPage />} />
         </Route>
         {/* route company layout */}
         <Route

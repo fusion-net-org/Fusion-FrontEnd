@@ -90,8 +90,7 @@ export const changePassword = async (data) => {
     const response = await axiosInstance.post('/User/change-password', data);
     return response.data;
   } catch (error) {
-    const message = error.response?.data?.message || 'Error!';
-    throw new Error(message);
+    throw error.response?.data || { message: 'Error!' };
   }
 };
 //https://localhost:7160/api/User/fa5aa664-0d66-4620-8fd1-4b42bfc18578

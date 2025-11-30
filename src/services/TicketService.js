@@ -201,3 +201,42 @@ export const RejectTicket = async (ticketId, reason = '') => {
     throw error;
   }
 };
+
+export const GetTicketPagedByAdmin = async (
+  Keyword,
+  ProjectId,
+  CompanyRequestId,
+  CompanyExecutorId,
+  Status,
+  ViewMode,
+  CreatedFrom,
+  CreatedTo,
+  IsDeleted,
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn,
+  SortDescending,
+) => {
+  try {
+    const params = {};
+
+    if (Keyword) params.Keyword = Keyword;
+    if (ProjectId) params.ProjectId = ProjectId;
+    if (CompanyRequestId) params.CompanyRequestId = CompanyRequestId;
+    if (CompanyExecutorId) params.CompanyExecutorId = CompanyExecutorId;
+    if (Status) params.Status = Status;
+    if (ViewMode) params.ViewMode = ViewMode;
+    if (CreatedFrom) params.CreatedFrom = CreatedFrom;
+    if (CreatedTo) params.CreatedTo = CreatedTo;
+    if (IsDeleted !== undefined && IsDeleted !== null) params.IsDeleted = IsDeleted;
+    if (PageNumber) params.PageNumber = PageNumber;
+    if (PageSize) params.PageSize = PageSize;
+    if (SortColumn) params.SortColumn = SortColumn;
+    if (SortDescending !== undefined) params.SortDescending = SortDescending;
+
+    const res = await axiosInstance.get(`/ticket/paged/admin`, { params });
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};
