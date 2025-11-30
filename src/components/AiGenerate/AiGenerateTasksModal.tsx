@@ -69,7 +69,7 @@ export default function AiGenerateTasksModal({
   const [workTypes, setWorkTypes] = useState<string[]>(["Feature"]);
   const [modules, setModules] = useState<string[]>([]);
 
-  const [quantity, setQuantity] = useState(10);
+  const [quantity, setQuantity] = useState(3);
   const [granularity, setGranularity] = useState<"Epic" | "Task" | "SubTask">(
     "Task",
   );

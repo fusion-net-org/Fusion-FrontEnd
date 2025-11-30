@@ -76,43 +76,62 @@ export default function ProjectCard({
   onManage?: (p: Project) => void;
 }) {
   const open = () => onOpen?.(data);
-  const req = !!data.isRequest; // <-- flag từ BE/mapper
+
+  const req = !!data.isRequest; // project request
+  const exec = !req && data.ptype === 'Outsourced'; // outsource executor
+
+  const cardBase =
+    'group relative flex cursor-pointer flex-col rounded-2xl p-5 border transition backdrop-blur-sm';
+
+  const cardVariant = req
+    ? 'border-amber-300 bg-amber-50/85 shadow-[0_1px_1px_rgba(146,64,14,0.08),0_10px_22px_-12px_rgba(217,119,6,0.35)] hover:shadow-[0_2px_6px_rgba(146,64,14,0.10),0_24px_32px_-12px_rgba(217,119,6,0.45)]'
+    : exec
+    ? 'border-blue-300 bg-blue-50/85 shadow-[0_1px_1px_rgba(30,64,175,0.10),0_10px_22px_-12px_rgba(37,99,235,0.40)] hover:shadow-[0_2px_6px_rgba(30,64,175,0.12),0_24px_32px_-12px_rgba(37,99,235,0.48)]'
+    : 'border-slate-200 bg-white/90 shadow-[0_1px_1px_rgba(17,24,39,0.06),0_10px_22px_-12px_rgba(30,64,175,0.30)] hover:shadow-[0_2px_6px_rgba(17,24,39,0.08),0_24px_32px_-12px_rgba(30,64,175,0.38)]';
+
+  const bgImage = req
+    ? 'radial-gradient(1200px 140px at 50% -50px, rgba(245,158,11,.16), transparent 60%)'
+    : exec
+    ? 'radial-gradient(1200px 140px at 50% -50px, rgba(37,99,235,.16), transparent 60%)'
+    : 'radial-gradient(1200px 140px at 50% -50px, rgba(59,130,246,.12), transparent 60%)';
 
   return (
     <div
       role="button"
       onClick={open}
-      className={[
-        'group relative flex cursor-pointer flex-col rounded-2xl p-5 border transition backdrop-blur-sm',
-        req
-          ? 'border-amber-300 bg-amber-50/85 shadow-[0_1px_1px_rgba(146,64,14,0.08),0_10px_22px_-12px_rgba(217,119,6,0.35)] hover:shadow-[0_2px_6px_rgba(146,64,14,0.10),0_24px_32px_-12px_rgba(217,119,6,0.45)]'
-          : 'border-slate-200 bg-white/90 shadow-[0_1px_1px_rgba(17,24,39,0.06),0_10px_22px_-12px_rgba(30,64,175,0.30)] hover:shadow-[0_2px_6px_rgba(17,24,39,0.08),0_24px_32px_-12px_rgba(30,64,175,0.38)]',
-      ].join(' ')}
-      style={{
-        backgroundImage: req
-          ? 'radial-gradient(1200px 140px at 50% -50px, rgba(245,158,11,.16), transparent 60%)'
-          : 'radial-gradient(1200px 140px at 50% -50px, rgba(59,130,246,.12), transparent 60%)',
-      }}
+      className={[cardBase, cardVariant].join(' ')}
+      style={{ backgroundImage: bgImage }}
     >
-      {/* dải màu subtle bên trái khi là request */}
-      {req && (
+      {/* dải màu bên trái cho Request + Executor */}
+      {(req || exec) && (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-2xl bg-amber-500/80"
+          className={`pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-2xl ${
+            req ? 'bg-amber-500/80' : 'bg-blue-500/80'
+          }`}
         />
       )}
 
       <div className="flex items-start justify-between">
-        <div className="text-[11px] font-semibold tracking-wide text-blue-600">{data.code}</div>
+        <div className="text-[11px] font-semibold tracking-wide text-blue-600">
+          {data.code}
+        </div>
         <div className="flex items-center gap-1.5">
-          <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-medium text-white ${
-              req ? 'bg-amber-500/95' : 'bg-blue-600/95'
-            }`}
-            title={req ? 'This project is requested to your company' : 'Executor of the project'}
-          >
-            {req ? 'Request' : 'Execute'}
-          </span>
+          {(req || exec) && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-medium text-white ${
+                req ? 'bg-amber-500/95' : 'bg-blue-600/95'
+              }`}
+              title={
+                req
+                  ? 'This project is requested to your company'
+                  : 'Executor of the project'
+              }
+            >
+              {req ? 'Request' : 'Execute'}
+            </span>
+          )}
+
           {selected && (
             <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white">
               Selected
@@ -121,7 +140,9 @@ export default function ProjectCard({
         </div>
       </div>
 
-      <div className="mt-1 text-base font-semibold text-slate-800">{data.name}</div>
+      <div className="mt-1 text-base font-semibold text-slate-800">
+        {data.name}
+      </div>
 
       <div className="mt-3 space-y-1.5 text-xs text-slate-600">
         <div className="flex items-center gap-2">
@@ -155,7 +176,9 @@ export default function ProjectCard({
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        <p className="line-clamp-2 text-sm text-slate-600">{data.description || '—'}</p>
+        <p className="line-clamp-2 text-sm text-slate-600">
+          {data.description || '—'}
+        </p>
         <button
           onClick={(e) => {
             e.stopPropagation();

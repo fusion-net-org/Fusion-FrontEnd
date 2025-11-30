@@ -1155,26 +1155,7 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
-            {/* Tips */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5 text-xs text-slate-600">
-              <div className="mb-1 text-sm font-semibold text-slate-800">
-                Tips for better project detail
-              </div>
-              <ul className="list-disc space-y-1 pl-4">
-                <li>
-                  Giữ description rõ ràng để member mới hiểu scope trong vài
-                  phút.
-                </li>
-                <li>
-                  Khai báo workflow đúng thực tế để board phản ánh pipeline
-                  chuẩn.
-                </li>
-                <li>
-                  Chia nhỏ sprint (1–2 tuần) để velocity dễ đo và tránh task kéo
-                  dài quá lâu.
-                </li>
-              </ul>
-            </div>
+         
           </div>
         </div>
       )}

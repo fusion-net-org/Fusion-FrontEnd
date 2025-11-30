@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DropResult } from '@hello-pangea/dnd';
-import { FileText, TicketIcon, Workflow as WorkflowIcon } from 'lucide-react';
+import { FileText, TicketIcon, Workflow as WorkflowIcon, Info } from 'lucide-react';
 
 import { ProjectBoardProvider, useProjectBoard } from '@/context/ProjectBoardContext';
 import { ViewSwitchNav, SearchBar } from '@/components/Company/Projects/BoardNavBits';
@@ -23,18 +23,32 @@ import TicketPopup from '@/components/ProjectSideCompanyRequest/TicketPopup';
 
 /* ========== Inner: logic view board ========== */
 function Inner() {
-  const { sprints, tasks, loading, changeStatus, moveToNextSprint, reorder, done, split, reloadBoard } =
-    useProjectBoard();
+  const {
+    sprints,
+    tasks,
+    loading,
+    changeStatus,
+    moveToNextSprint,
+    reorder,
+    done,
+    split,
+    reloadBoard,
+  } = useProjectBoard();
+
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
   const effectiveProjectId = projectId || (window as any).__projectId;
   const { companyId } = useParams<{ companyId: string }>();
-  const [projectRequest, setProjectRequest] = React.useState<any>(null);
+
+  // id của ProjectRequest (nếu project đến từ request)
+  const [projectRequestId, setProjectRequestId] = React.useState<string | null>(null);
+  const hasProjectRequest = !!projectRequestId;
+
   const [view, setView] = React.useState<'Kanban' | 'Sprint' | 'List'>('Kanban');
   const [query, setQuery] = React.useState('');
   const [kanbanFilter, setKanbanFilter] = React.useState<'ALL' | StatusCategory>('ALL');
 
-  //tiket
+  // ticket popup
   const [openTicketPopup, setOpenTicketPopup] = useState(false);
 
   // meta cho header
@@ -42,7 +56,7 @@ function Inner() {
   const [workflowId, setWorkflowId] = React.useState<string | null>(null);
   const [workflowPreviewOpen, setWorkflowPreviewOpen] = React.useState(false);
 
-  // Load meta project (tên + workflowId)
+  // Load meta project (tên + workflowId + projectRequestId)
   React.useEffect(() => {
     let alive = true;
 
@@ -56,12 +70,13 @@ function Inner() {
 
         setProjectTitle(detail.name ?? detail.code ?? 'Project board');
         setWorkflowId(detail.workflowId ? String(detail.workflowId) : null);
-        setProjectRequest(detail.projectRequestId ?? null);
+        setProjectRequestId(detail.projectRequestId ? String(detail.projectRequestId) : null);
       } catch (err) {
         console.error('Load project meta failed', err);
         if (!alive) return;
         setProjectTitle('Project board');
         setWorkflowId(null);
+        setProjectRequestId(null);
       }
     })();
 
@@ -154,31 +169,47 @@ function Inner() {
           <ViewSwitchNav title={projectTitle} view={view} onChange={setView} />
 
           <div className="flex items-center gap-2">
-            {/* Project Request button */}
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
-              onClick={() => {
-                if (companyId) {
-                  navigate(`/company/${companyId}/project-request/${projectRequest}`, {
+            {/* Detail button – luôn có nếu có companyId + projectId */}
+            {companyId && projectId && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
+                onClick={() =>
+                  navigate(`/companies/${companyId}/project/${projectId}/detail`)
+                }
+              >
+                <Info className="size-3.5 text-slate-500" />
+                <span>Detail</span>
+              </button>
+            )}
+
+            {/* Project Request button – chỉ hiện khi có projectRequestId */}
+            {hasProjectRequest && companyId && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
+                onClick={() => {
+                  navigate(`/company/${companyId}/project-request/${projectRequestId}`, {
                     state: { viewMode: 'AsExecutor' },
                   });
-                }
-              }}
-            >
-              <FileText className="size-3.5 text-slate-500" />
-              <span>Project Request</span>
-            </button>
+                }}
+              >
+                <FileText className="size-3.5 text-slate-500" />
+                <span>Project Request</span>
+              </button>
+            )}
 
-            {/* Ticket button */}
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
-              onClick={() => setOpenTicketPopup(true)}
-            >
-              <TicketIcon className="size-3.5 text-slate-500" />
-              <span>Ticket</span>
-            </button>
+            {/* Ticket button – chỉ hiện khi có projectRequestId */}
+            {hasProjectRequest && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
+                onClick={() => setOpenTicketPopup(true)}
+              >
+                <TicketIcon className="size-3.5 text-slate-500" />
+                <span>Ticket</span>
+              </button>
+            )}
 
             {/* Workflow button */}
             {workflowId && (
@@ -195,6 +226,7 @@ function Inner() {
           </div>
         </div>
       </div>
+
       {/* List có search */}
       {view === 'List' && (
         <div className="px-8 mt-5 flex items-center justify-between">
@@ -239,11 +271,6 @@ function Inner() {
             onReloadBoard={reloadBoard}
             {...eventApi}
           />
-          <TicketPopup
-            visible={openTicketPopup}
-            projectId={projectId}
-            onClose={() => setOpenTicketPopup(false)}
-          />
         </>
       )}
 
@@ -252,6 +279,15 @@ function Inner() {
 
       {/* List view */}
       {view === 'List' && <ProjectTaskList tasks={listTasks} {...eventApi} />}
+
+      {/* Ticket popup – chỉ mount nếu có ProjectRequest */}
+      {hasProjectRequest && (
+        <TicketPopup
+          visible={openTicketPopup}
+          projectId={projectId}
+          onClose={() => setOpenTicketPopup(false)}
+        />
+      )}
 
       {/* Modal preview workflow lớn */}
       {workflowPreviewOpen && workflowId && (
