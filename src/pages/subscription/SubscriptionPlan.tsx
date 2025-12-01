@@ -22,6 +22,7 @@ const cn = (...xs: Array<string | false | null | undefined>) =>
 /* =========================================================
  * Helpers
  * =======================================================*/
+
 function formatCurrency(amount: number, currency: string) {
   try {
     return amount.toLocaleString("vi-VN") + " " + currency;
@@ -42,7 +43,7 @@ function formatPriceShortUnit(p: PlanPricePreviewResponse) {
   return `/${p.periodCount} ${unit}s`;
 }
 
-/** Note hiển thị dưới giá, xử lý cả installments và prepaid */
+/** Note under the price, handles both installments and prepaid */
 function formatPaymentNote(p: PlanPricePreviewResponse) {
   if (p.paymentMode === "Installments") {
     const count = p.installmentCount ?? 0;
@@ -60,6 +61,57 @@ function formatPaymentNote(p: PlanPricePreviewResponse) {
   return "One-time payment";
 }
 
+/** Dùng cho UI (cards, compare table): newAmount nếu có, fallback amount */
+function getEffectiveAmount(p: PlanPricePreviewResponse): number {
+  if (typeof p.newAmount === "number" && p.newAmount !== null) {
+    return p.newAmount;
+  }
+  return p.amount;
+}
+
+/** Dùng RIÊNG cho CHECKOUT:
+ * - Nếu Prepaid và có newAmount/newPrice thì lấy newAmount
+ * - Còn lại dùng amount (giá gốc / tổng contract)
+ */
+function getCheckoutAmount(p: PlanPricePreviewResponse): number {
+  if (
+    p.paymentMode === "Prepaid" &&
+    typeof p.newAmount === "number" &&
+    p.newAmount !== null
+  ) {
+    return p.newAmount;
+  }
+  return p.amount;
+}
+
+/** Centralized discount info for UI (cards, table, checkout…) */
+function getDiscountInfo(p: PlanPricePreviewResponse) {
+  const effective = getEffectiveAmount(p);
+  const hasDiscount = effective < p.amount;
+
+  if (!hasDiscount) {
+    return {
+      hasDiscount: false,
+      percent: null as number | null,
+      savings: 0,
+    };
+  }
+
+  const savings = p.amount - effective;
+  const percent =
+    typeof p.discountPercent === "number" && p.discountPercent > 0
+      ? p.discountPercent
+      : p.amount > 0
+      ? Math.round((savings * 100) / p.amount)
+      : null;
+
+  return {
+    hasDiscount: true,
+    percent,
+    savings,
+  };
+}
+
 function formatChargeUnit(
   _scope: LicenseScope,
   chargeUnit: PlanPricePreviewResponse["chargeUnit"]
@@ -69,7 +121,7 @@ function formatChargeUnit(
 }
 
 function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
-  if (scope === "CompanyWide") {
+  if (scope === "EntireCompany") {
     return "All members in the company";
   }
   if (!seats || seats <= 0) return "Unlimited seats per company";
@@ -81,11 +133,22 @@ function formatCompanyShareLimit(limit?: number | null) {
   return `Up to ${limit} companies`;
 }
 
+/** Subtitle in compare table – based on *effective* (discounted) price */
 function buildPriceLabel(price?: PlanPricePreviewResponse | null) {
   if (!price) return "Contact sales";
-  const main = formatCurrency(price.amount, price.currency);
+
+  const effectiveAmount = getEffectiveAmount(price);
   const period = formatBillingPeriod(price);
-  return `${main} · ${period}`;
+  const { hasDiscount, percent } = getDiscountInfo(price);
+
+  if (hasDiscount && percent) {
+    return `${formatCurrency(
+      effectiveAmount,
+      price.currency
+    )} (was ${formatCurrency(price.amount, price.currency)}, -${percent}%) · ${period}`;
+  }
+
+  return `${formatCurrency(effectiveAmount, price.currency)} · ${period}`;
 }
 
 /* =========================================================
@@ -130,8 +193,8 @@ export default function SubscriptionPlan() {
   const sortedPlans = useMemo(() => {
     const copy = [...plans];
     copy.sort((a, b) => {
-      const pa = a.price?.amount ?? Number.MAX_SAFE_INTEGER;
-      const pb = b.price?.amount ?? Number.MAX_SAFE_INTEGER;
+      const pa = a.price ? getEffectiveAmount(a.price) : Number.MAX_SAFE_INTEGER;
+      const pb = b.price ? getEffectiveAmount(b.price) : Number.MAX_SAFE_INTEGER;
       return pa - pb;
     });
     return copy;
@@ -145,7 +208,7 @@ export default function SubscriptionPlan() {
       const pa = a.price as PlanPricePreviewResponse;
       const pb = b.price as PlanPricePreviewResponse;
       if (pa.periodCount !== pb.periodCount) return pa.periodCount - pb.periodCount;
-      return pa.amount - pb.amount;
+      return getEffectiveAmount(pa) - getEffectiveAmount(pb);
     });
   }, [sortedPlans]);
 
@@ -157,7 +220,7 @@ export default function SubscriptionPlan() {
       const pa = a.price as PlanPricePreviewResponse;
       const pb = b.price as PlanPricePreviewResponse;
       if (pa.periodCount !== pb.periodCount) return pa.periodCount - pb.periodCount;
-      return pa.amount - pb.amount;
+      return getEffectiveAmount(pa) - getEffectiveAmount(pb);
     });
   }, [sortedPlans]);
 
@@ -176,20 +239,36 @@ export default function SubscriptionPlan() {
 
   const effectivePlan = checkoutDetail || checkoutTarget || null;
 
+  /** Gom price từ detail.price (SubscriptionPlanPriceResponse) hoặc public.price (PlanPricePreviewResponse)
+   * về đúng shape PlanPricePreviewResponse cho checkout
+   */
   const checkoutPrice: PlanPricePreviewResponse | null = useMemo(() => {
     const raw: any =
       (checkoutDetail as any)?.price ?? (checkoutTarget as any)?.price ?? null;
     if (!raw) return null;
 
-    const amount =
+    const baseAmount =
       typeof raw.amount === "number"
         ? raw.amount
         : typeof raw.price === "number"
         ? raw.price
         : 0;
 
-    return {
-      amount,
+    const rawNewAmount =
+      typeof raw.newAmount === "number"
+        ? raw.newAmount
+        : typeof raw.newPrice === "number"
+        ? raw.newPrice
+        : null;
+
+    const mapped: PlanPricePreviewResponse = {
+      amount: baseAmount,
+      newAmount:
+        typeof rawNewAmount === "number" ? (rawNewAmount as number) : undefined,
+      discountPercent:
+        typeof raw.discountPercent === "number"
+          ? (raw.discountPercent as number)
+          : undefined,
       currency: raw.currency,
       billingPeriod: raw.billingPeriod,
       periodCount: raw.periodCount,
@@ -198,18 +277,24 @@ export default function SubscriptionPlan() {
       installmentCount: raw.installmentCount ?? null,
       installmentInterval: raw.installmentInterval ?? null,
     };
+
+    return mapped;
   }, [checkoutDetail, checkoutTarget]);
 
-  // số tiền phải trả mỗi lần thanh toán
+  // Amount per payment (per installment or full)
   const perChargeAmount = useMemo(() => {
     if (!checkoutPrice) return 0;
+
+    // 🔹 contractAmount = newPrice nếu Prepaid có discount, ngược lại = amount
+    const contractAmount = getCheckoutAmount(checkoutPrice);
+
     if (
       checkoutPrice.paymentMode === "Installments" &&
       (checkoutPrice.installmentCount ?? 0) > 0
     ) {
-      return checkoutPrice.amount / (checkoutPrice.installmentCount as number);
+      return contractAmount / (checkoutPrice.installmentCount as number);
     }
-    return checkoutPrice.amount;
+    return contractAmount;
   }, [checkoutPrice]);
 
   const isInstallments =
@@ -269,7 +354,6 @@ export default function SubscriptionPlan() {
 
       // 2) Create PayOS checkout link
       const linkRes = await createPaymentLink(transactionId);
-      // service createPaymentLink trả về nguyên axios response
       const checkoutUrl =
         linkRes?.data?.data ?? linkRes?.data ?? linkRes ?? null;
 
@@ -282,8 +366,7 @@ export default function SubscriptionPlan() {
       window.location.href = checkoutUrl;
     } catch (err: any) {
       console.error(err);
-      // TODO: dùng notification/toast của bạn
-      // message.error(err?.message || "Payment initialization failed!");
+      // TODO: message.error(err?.message || "Payment initialization failed!");
     } finally {
       setCheckoutLoading(false);
     }
@@ -321,14 +404,16 @@ export default function SubscriptionPlan() {
               <th className="py-2 px-4 text-xs font-semibold text-slate-600">
                 Payment
               </th>
-             <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Number Of times
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
+                Number of times
               </th>
             </tr>
           </thead>
           <tbody>
             {items.map((plan) => {
               const price = plan.price ?? null;
+              const info = price ? getDiscountInfo(price) : null;
+
               return (
                 <tr
                   key={plan.id}
@@ -350,7 +435,7 @@ export default function SubscriptionPlan() {
                     {plan.isFullPackage ? "Yes" : "No"}
                   </td>
                   <td className="py-2 px-4">
-                    {plan.licenseScope === "UserLimits"
+                    {plan.licenseScope === "Userlimits"
                       ? "User-limits"
                       : "Company-wide"}
                   </td>
@@ -364,15 +449,26 @@ export default function SubscriptionPlan() {
                     {formatCompanyShareLimit(plan.companyShareLimit)}
                   </td>
                   <td className="py-2 px-4">
-                    {price ? price.paymentMode : "—"}
+                    {price ? (
+                      <div className="flex flex-col">
+                        <span>{price.paymentMode}</span>
+                        {info?.hasDiscount && info.percent && (
+                          <span className="text-[11px] font-medium text-emerald-600">
+                            -{info.percent}% discount
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="py-2 px-4">
-                     {price
-                         ? price.paymentMode === "Installments"
-                         ? price.installmentCount
-                            : 1
-                            : "—"}
-                   </td>
+                    {price
+                      ? price.paymentMode === "Installments"
+                        ? price.installmentCount
+                        : 1
+                      : "—"}
+                  </td>
                 </tr>
               );
             })}
@@ -470,10 +566,14 @@ export default function SubscriptionPlan() {
                 {visiblePlans.map((plan) => {
                   const price = plan.price ?? null;
                   const isHighlight = plan.id === highlightedId;
-                  const featureNames = plan.featuresPreview?.map((f) => f.name) ?? [];
+                  const featureNames =
+                    plan.featuresPreview?.map((f) => f.name) ?? [];
                   const maxChips = 4;
                   const visibleChips = featureNames.slice(0, maxChips);
                   const remaining = featureNames.length - visibleChips.length;
+
+                  const info = price ? getDiscountInfo(price) : null;
+                  const displayAmount = price ? getEffectiveAmount(price) : null;
 
                   return (
                     <article
@@ -528,52 +628,86 @@ export default function SubscriptionPlan() {
 
                         {/* Price */}
                         <div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-semibold text-slate-900">
-                              {price
-                                ? formatCurrency(price.amount, price.currency)
-                                : "Contact sales"}
-                            </span>
-                            {price && (
-                              <span className="text-xs font-medium text-slate-500">
-                                {formatPriceShortUnit(price)}
-                              </span>
-                            )}
-                          </div>
+                          {price ? (
+                            <>
+                              <div className="flex flex-wrap items-baseline gap-2">
+                                <span className="text-2xl font-semibold text-slate-900">
+                                  {displayAmount !== null
+                                    ? formatCurrency(
+                                        displayAmount,
+                                        price.currency
+                                      )
+                                    : "Contact sales"}
+                                </span>
 
-                          {price && (
-                            <p className="mt-1 text-[11px] text-slate-500">
-                              {formatPaymentNote(price)}
-                            </p>
-                          )}
+                                {info?.hasDiscount && (
+                                  <span className="text-xs font-medium text-slate-400 line-through">
+                                    {formatCurrency(price.amount, price.currency)}
+                                  </span>
+                                )}
 
-                          {price && (
-                            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-slate-600">
-                              <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
-                                <Users className="mr-1.5 h-3.5 w-3.5" />
-                                {formatSeatsLimit(
-                                  plan.licenseScope,
-                                  plan.seatsPerCompanyLimit
+                                <span className="text-xs font-medium text-slate-500">
+                                  {formatPriceShortUnit(price)}
+                                </span>
+                              </div>
+
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <p className="text-[11px] text-slate-500">
+                                  {formatPaymentNote(price)}
+                                </p>
+                                {info?.hasDiscount && info.percent && (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-[2px] text-[10px] font-semibold text-emerald-700">
+                                    Save {info.percent}% today
+                                  </span>
                                 )}
-                              </span>
-                              <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
-                                {formatChargeUnit(
-                                  plan.licenseScope,
-                                  price.chargeUnit
-                                )}
-                              </span>
-                              {typeof plan.companyShareLimit !== "undefined" && (
+                              </div>
+
+                              {info?.hasDiscount && info.savings > 0 && (
+                                <p className="mt-1 text-[11px] text-emerald-700">
+                                  You save{" "}
+                                  <span className="font-semibold">
+                                    {formatCurrency(
+                                      info.savings,
+                                      price.currency
+                                    )}
+                                  </span>{" "}
+                                  compared to the original price.
+                                </p>
+                              )}
+
+                              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-slate-600">
                                 <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
-                                  {formatCompanyShareLimit(
-                                    plan.companyShareLimit
+                                  <Users className="mr-1.5 h-3.5 w-3.5" />
+                                  {formatSeatsLimit(
+                                    plan.licenseScope,
+                                    plan.seatsPerCompanyLimit
                                   )}
                                 </span>
-                              )}
-                              {price.paymentMode === "Installments" && (
-                                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
-                                  Installments available
+                                <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
+                                  {formatChargeUnit(
+                                    plan.licenseScope,
+                                    price.chargeUnit
+                                  )}
                                 </span>
-                              )}
+                                {typeof plan.companyShareLimit !== "undefined" && (
+                                  <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
+                                    {formatCompanyShareLimit(
+                                      plan.companyShareLimit
+                                    )}
+                                  </span>
+                                )}
+                                {price.paymentMode === "Installments" && (
+                                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                                    Installments available
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div>
+                              <span className="text-2xl font-semibold text-slate-900">
+                                Contact sales
+                              </span>
                             </div>
                           )}
                         </div>
@@ -716,7 +850,7 @@ export default function SubscriptionPlan() {
                     if (!scope) return null;
                     return (
                       <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                        {scope === "UserLimits"
+                        {scope === "Userlimits"
                           ? "Seat-based license"
                           : "Company-wide license"}
                       </span>
@@ -728,20 +862,48 @@ export default function SubscriptionPlan() {
                 <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
                   {checkoutPrice ? (
                     <>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-xl font-semibold text-slate-900">
-                          {formatCurrency(
-                            checkoutPrice.amount,
-                            checkoutPrice.currency
-                          )}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500">
-                          {formatPriceShortUnit(checkoutPrice)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {formatPaymentNote(checkoutPrice)}
-                      </p>
+                      {(() => {
+                        // 🔹 Dùng newPrice nếu Prepaid, otherwise amount
+                        const effective = getCheckoutAmount(checkoutPrice);
+                        const info = getDiscountInfo(checkoutPrice);
+
+                        return (
+                          <>
+                            <div className="flex flex-wrap items-baseline gap-2">
+                              <span className="text-xl font-semibold text-slate-900">
+                                {formatCurrency(
+                                  effective,
+                                  checkoutPrice.currency
+                                )}
+                              </span>
+
+                              {info.hasDiscount && (
+                                <span className="text-xs font-medium text-slate-400 line-through">
+                                  {formatCurrency(
+                                    checkoutPrice.amount,
+                                    checkoutPrice.currency
+                                  )}
+                                </span>
+                              )}
+
+                              <span className="text-xs font-medium text-slate-500">
+                                {formatPriceShortUnit(checkoutPrice)}
+                              </span>
+                            </div>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <p className="text-xs text-slate-500">
+                                {formatPaymentNote(checkoutPrice)}
+                              </p>
+                              {info.hasDiscount && info.percent && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-[2px] text-[10px] font-semibold text-emerald-700">
+                                  Save {info.percent}% on this contract
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   ) : (
                     <p className="text-sm font-medium text-slate-800">
@@ -822,19 +984,49 @@ export default function SubscriptionPlan() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span>
-                        Unit price
-                        {isInstallments && " (per installment)"}
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        {checkoutPrice
-                          ? formatCurrency(
-                              perChargeAmount,
-                              checkoutPrice.currency
-                            )
-                          : "Contact sales"}
-                      </span>
+                    {/* Unit price + before discount per charge */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span>
+                          Unit price
+                          {isInstallments && " (per installment)"}
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          {checkoutPrice
+                            ? formatCurrency(
+                                perChargeAmount,
+                                checkoutPrice.currency
+                              )
+                            : "Contact sales"}
+                        </span>
+                      </div>
+
+                      {checkoutPrice &&
+                        (() => {
+                          const info = getDiscountInfo(checkoutPrice);
+                          if (!info.hasDiscount) return null;
+
+                          const originalContract = checkoutPrice.amount;
+
+                          const originalPerCharge =
+                            checkoutPrice.paymentMode === "Installments" &&
+                            (checkoutPrice.installmentCount ?? 0) > 0
+                              ? originalContract /
+                                (checkoutPrice.installmentCount as number)
+                              : originalContract;
+
+                          return (
+                            <div className="flex items-center justify-between text-[11px] text-slate-500">
+                              <span>Before discount</span>
+                              <span className="line-through">
+                                {formatCurrency(
+                                  originalPerCharge,
+                                  checkoutPrice.currency
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })()}
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -856,16 +1048,37 @@ export default function SubscriptionPlan() {
                             : "-"}
                         </span>
                       </div>
-                      {isInstallments && checkoutPrice && (
+
+                      {checkoutPrice && (
                         <p className="mt-1 text-[11px] text-slate-500">
                           Contract value{" "}
                           {formatCurrency(
-                            checkoutPrice.amount,
+                            getCheckoutAmount(checkoutPrice),
                             checkoutPrice.currency
                           )}{" "}
-                          over {checkoutPrice.installmentCount} installments.
+                          {isInstallments && checkoutPrice.installmentCount
+                            ? `over ${checkoutPrice.installmentCount} installments.`
+                            : "for the selected billing period."}
                         </p>
                       )}
+
+                      {checkoutPrice &&
+                        (() => {
+                          const info = getDiscountInfo(checkoutPrice);
+                          if (!info.hasDiscount || info.savings <= 0) return null;
+                          return (
+                            <p className="mt-1 text-[11px] text-emerald-700">
+                              You save{" "}
+                              <span className="font-semibold">
+                                {formatCurrency(
+                                  info.savings,
+                                  checkoutPrice.currency
+                                )}
+                              </span>{" "}
+                              compared to the original contract value.
+                            </p>
+                          );
+                        })()}
                     </div>
                   </div>
                 </div>
