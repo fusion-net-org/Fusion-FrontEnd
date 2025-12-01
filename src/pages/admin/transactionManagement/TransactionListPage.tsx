@@ -14,7 +14,10 @@ import {
 } from 'lucide-react';
 import { DatePicker, Select, Input, Spin } from 'antd';
 
-import { getAllTransactionForAdmin, getTransactionById } from '@/services/transactionService.js';
+import {
+  getAllTransactionForAdmin,
+  getTransactionById,
+} from '@/services/transactionService.js';
 
 import type {
   TransactionPaymentPagedSummaryResponse,
@@ -28,7 +31,8 @@ import TransactionDetailModal from '@/pages/admin/transactionManagement/Transact
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(' ');
+const cn = (...xs: Array<string | false | null | undefined>) =>
+  xs.filter(Boolean).join(' ');
 
 type FiltersState = {
   userName: string;
@@ -109,14 +113,18 @@ function statusTag(status: PaymentStatus) {
 function sortLabel(col: string, active: string | undefined, desc: boolean | undefined) {
   const isActive = active === col;
   return (
-    <ArrowUpDown className={cn('w-3.5 h-3.5', isActive ? 'text-indigo-500' : 'text-slate-400')} />
+    <ArrowUpDown
+      className={cn('w-3.5 h-3.5', isActive ? 'text-indigo-500' : 'text-slate-400')}
+    />
   );
 }
 
 export default function TransactionListPage() {
   const [filters, setFilters] = useState<FiltersState>(defaultFilters);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<TransactionPaymentPagedSummaryResponse | null>(null);
+  const [data, setData] = useState<TransactionPaymentPagedSummaryResponse | null>(
+    null,
+  );
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -306,7 +314,9 @@ export default function TransactionListPage() {
           {/* Right: date range + reset */}
           <div className="flex flex-col gap-2 lg:items-end">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold text-slate-600">Transaction date range</span>
+              <span className="text-xs font-semibold text-slate-600">
+                Transaction date range
+              </span>
               <RangePicker
                 allowEmpty={[true, true]}
                 showTime={false}
@@ -323,7 +333,9 @@ export default function TransactionListPage() {
                   const [from, to] = values;
                   setFilters((prev) => ({
                     ...prev,
-                    paymentDateFrom: from ? from.startOf('day').toISOString() : undefined,
+                    paymentDateFrom: from
+                      ? from.startOf('day').toISOString()
+                      : undefined,
                     paymentDateTo: to ? to.endOf('day').toISOString() : undefined,
                     pageNumber: 1,
                   }));
@@ -344,7 +356,7 @@ export default function TransactionListPage() {
         </div>
       </div>
 
-      {/* Stats block - 5 ô thẳng hàng */}
+      {/* Stats block */}
       <div className="rounded-2xl bg-white border border-slate-100 shadow-sm px-4 py-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Total revenue */}
@@ -430,7 +442,10 @@ export default function TransactionListPage() {
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <CalendarDays className="w-4 h-4" />
             <span>
-              Result: <span className="font-medium text-slate-700">{data?.totalCount ?? 0}</span>{' '}
+              Result:{' '}
+              <span className="font-medium text-slate-700">
+                {data?.totalCount ?? 0}
+              </span>{' '}
               transactions
             </span>
           </div>
@@ -454,7 +469,11 @@ export default function TransactionListPage() {
                       className="inline-flex items-center gap-1 hover:text-slate-700"
                     >
                       <span>Time</span>
-                      {sortLabel('TransactionDateTime', filters.sortColumn, filters.sortDescending)}
+                      {sortLabel(
+                        'TransactionDateTime',
+                        filters.sortColumn,
+                        filters.sortDescending,
+                      )}
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">User</th>
@@ -473,25 +492,18 @@ export default function TransactionListPage() {
                   <th className="px-4 py-2 text-left">
                     <button
                       type="button"
-<<<<<<< HEAD
-                      onClick={() => handleSort("Status")}
-                      className="inline-flex items-center gap-1 hover:text-slate-700"
-                    >
-                      <span>Status</span>
-                      {sortLabel("Status", filters.sortColumn, filters.sortDescending)}
-=======
                       onClick={() => handleSort('Status')}
                       className="inline-flex items-center gap-1 hover:text-slate-700"
                     >
                       <span>Status</span>
                       {sortLabel('Status', filters.sortColumn, filters.sortDescending)}
->>>>>>> f604f1a9b0bcc796eae41118009fe64d17a0d928
                     </button>
                   </th>
                   <th className="px-4 py-2 text-left">Gateway</th>
                   <th className="px-4 py-2 text-left">Order code</th>
                 </tr>
               </thead>
+
               <tbody>
                 {data?.items?.length ? (
                   data.items.map((row) => (
@@ -503,7 +515,9 @@ export default function TransactionListPage() {
                       <td className="px-4 py-2 align-top whitespace-nowrap text-slate-700">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {formatDateTime(row.transactionDateTime || row.createdAt)}
+                            {formatDateTime(
+                              row.transactionDateTime || row.createdAt,
+                            )}
                           </span>
                           {row.dueAt && (
                             <span className="text-[11px] text-slate-500">
@@ -514,16 +528,23 @@ export default function TransactionListPage() {
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">{row.userName ?? '—'}</span>
-                          <span className="text-[11px] text-slate-500">UserId: {row.userId}</span>
+                          <span className="font-medium text-slate-800">
+                            {row.userName ?? '—'}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            UserId: {row.userId}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">{row.planName ?? '—'}</span>
+                          <span className="font-medium text-slate-800">
+                            {row.planName ?? '—'}
+                          </span>
                           {row.paymentModeSnapshot === 'Installments' && (
                             <span className="text-[11px] text-slate-500">
-                              Inst. {row.installmentIndex ?? '-'} / {row.installmentTotal ?? '-'}
+                              Inst. {row.installmentIndex ?? '-'} /{' '}
+                              {row.installmentTotal ?? '-'}
                             </span>
                           )}
                         </div>
@@ -551,7 +572,9 @@ export default function TransactionListPage() {
                             {row.provider ?? '—'}
                           </span>
                           {row.paymentMethod && (
-                            <span className="text-[11px] text-slate-500">{row.paymentMethod}</span>
+                            <span className="text-[11px] text-slate-500">
+                              {row.paymentMethod}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -564,7 +587,10 @@ export default function TransactionListPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-8 text-center text-sm text-slate-500"
+                    >
                       No transactions match current filters.
                     </td>
                   </tr>
