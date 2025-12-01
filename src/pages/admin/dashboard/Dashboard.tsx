@@ -22,6 +22,7 @@ import {
 import { getAllTransactionForAdmin, getTransactionById } from '@/services/transactionService.js';
 import { Modal, Descriptions } from 'antd';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 ChartJS.register(ArcElement, ChartTooltip, Legend, RadialLinearScale);
 
 type MonthlyStat = {
@@ -75,6 +76,7 @@ const Dashboard = () => {
   const [planRate, setPlanRate] = useState<{ planName: string; percentage: number }[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [totalTrans, setTotalTrans] = useState(0);
+  const navigate = useNavigate();
 
   //Modal detail transaction
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -272,6 +274,13 @@ const Dashboard = () => {
 
   const totalPlanPages = Math.ceil(planData.length / itemsPerPage);
   const totalTransPages = Math.ceil(totalTrans / itemsPerPage);
+
+  // Handle user click
+  const handleUserClick = (uId: any) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', uId);
+    navigate(`/admin/users/detail/${uId}`);
+  };
 
   return (
     <>
@@ -583,7 +592,16 @@ const Dashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">User ID</p>
-                  <p className="text-sm text-gray-800">
+                  <p
+                    className={`text-sm ${
+                      selectedTransaction.userId
+                        ? 'text-gray-700 cursor-pointer hover:underline'
+                        : 'text-gray-800'
+                    }`}
+                    onClick={() =>
+                      selectedTransaction.userId && handleUserClick(selectedTransaction.userId)
+                    }
+                  >
                     {selectedTransaction.userId || (
                       <span className="text-gray-400 text-sm italic">Not provided</span>
                     )}

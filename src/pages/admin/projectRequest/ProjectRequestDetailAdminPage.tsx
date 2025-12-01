@@ -109,6 +109,19 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
     );
   }
 
+  // Click detail
+  const handleMemberClick = (uId: any) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', uId);
+    nav(`/admin/users/detail/${uId}`);
+  };
+
+  const handleCompanyClick = (cId: any) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', cId);
+    nav(`/admin/companies/detail/${cId}`);
+  };
+
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
       {/* Breadcrumb */}
@@ -177,7 +190,9 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
           >
             <Space direction="vertical" style={{ width: '100%' }}>
               <Text strong>{item.createdName}</Text>
-              <Paragraph copyable>ID: {item.createdBy}</Paragraph>
+              <Paragraph copyable onClick={() => handleMemberClick(item.createdBy)}>
+                ID: <span className="cursor-pointer hover:underline">{item.createdBy}</span>
+              </Paragraph>
             </Space>
           </Card>
         </Col>
@@ -203,8 +218,13 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
                     {item.requesterCompanyName}
                   </Text>
                 </div>
-                <Paragraph type="secondary" copyable>
-                  ID: {item.requesterCompanyId}
+                <Paragraph
+                  type="secondary"
+                  copyable
+                  onClick={() => handleCompanyClick(item.requesterCompanyId)}
+                >
+                  ID:{' '}
+                  <span className="cursor-pointer hover:underline">{item.requesterCompanyId}</span>
                 </Paragraph>
               </Col>
 
@@ -215,8 +235,13 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
                     {item.executorCompanyName}
                   </Text>
                 </div>
-                <Paragraph type="secondary" copyable>
-                  ID: {item.executorCompanyId}
+                <Paragraph
+                  type="secondary"
+                  copyable
+                  onClick={() => handleCompanyClick(item.executorCompanyId)}
+                >
+                  ID:{' '}
+                  <span className="cursor-pointer hover:underline">{item.executorCompanyId}</span>
                 </Paragraph>
               </Col>
             </Row>
@@ -271,7 +296,12 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
                 </Paragraph>
 
                 {item.isHaveProject && (
-                  <Paragraph copyable>Converted Project ID: {item.convertedProjectId}</Paragraph>
+                  <Paragraph copyable onClick={() => handleCompanyClick(item.convertedProjectId)}>
+                    Converted Project ID:{' '}
+                    <span className="cursor-pointer hover:underline">
+                      {item.convertedProjectId}
+                    </span>
+                  </Paragraph>
                 )}
               </div>
             </Space>

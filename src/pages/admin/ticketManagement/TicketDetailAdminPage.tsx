@@ -139,6 +139,19 @@ const TicketDetailAdminPage: React.FC = () => {
     );
   }
 
+  // Handle click detail
+  const handleMemberClick = (uId: any) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', uId);
+    nav(`/admin/users/detail/${uId}`);
+  };
+
+  const handleProjectClick = (pId: any) => {
+    localStorage.setItem('projectDetailEnabled', 'true');
+    localStorage.setItem('projectDetailId', pId);
+    nav(`/admin/projects/detail/${pId}`);
+  };
+
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
       {/* Breadcrumb */}
@@ -241,7 +254,15 @@ const TicketDetailAdminPage: React.FC = () => {
           >
             <Space direction="vertical">
               <Text strong>{item.submittedByName}</Text>
-              <Paragraph copyable>ID: {item.submittedBy}</Paragraph>
+              <Paragraph copyable>
+                ID:{' '}
+                <span
+                  className="cursor-pointer hover:underline"
+                  onClick={() => handleMemberClick(item.submittedBy)}
+                >
+                  {item.submittedBy}
+                </span>
+              </Paragraph>
 
               <Divider />
 
@@ -271,7 +292,13 @@ const TicketDetailAdminPage: React.FC = () => {
             <Paragraph strong>{item.projectName}</Paragraph>
 
             <Paragraph type="secondary" copyable>
-              ID: {item.projectId}
+              ID:{' '}
+              <span
+                className="cursor-pointer hover:underline"
+                onClick={() => handleProjectClick(item.projectId)}
+              >
+                {item.projectId}
+              </span>
             </Paragraph>
           </Card>
 

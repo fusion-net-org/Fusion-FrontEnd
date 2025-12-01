@@ -147,7 +147,7 @@ export default function TicketListAdminPage() {
 
   const handleView = (t: Ticket) => {
     localStorage.setItem('ticketDetailEnabled', 'true');
-    localStorage.setItem('ticketId', t.id);
+    localStorage.setItem('ticketDetailId', t.id);
     navigate(`/admin/tickets/detail/${t.id}`);
   };
 
