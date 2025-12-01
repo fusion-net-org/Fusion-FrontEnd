@@ -39,6 +39,10 @@ const userSlice = createSlice({
       localStorage.removeItem('companyDetailId');
       localStorage.removeItem('projectDetailEnabled');
       localStorage.removeItem('projectDetailId');
+      localStorage.removeItem('projectRequestDetailEnabled');
+      localStorage.removeItem('projectRequestId');
+      localStorage.removeItem('ticketDetailEnabled');
+      localStorage.removeItem('ticketDetailId');
     },
     updateUserRedux: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {

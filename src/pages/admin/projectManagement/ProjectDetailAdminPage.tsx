@@ -60,10 +60,10 @@ interface ProjectDetail {
   id: string;
   name: string;
   projectType: string;
-  companyId: string;
-  companyName: string;
-  companyHiredId: string;
-  companyHiredName: string;
+  companyRequestId: string;
+  companyRequestName: string;
+  companyExecutorId: string;
+  companyExecutorName: string;
   workflowId: string;
   workflowName: string;
   ownerId: string;
@@ -134,6 +134,13 @@ const ProjectDetailAdminPage: React.FC = () => {
     localStorage.setItem('userDetailEnabled', 'true');
     localStorage.setItem('userDetailId', uId);
     navigate(`/admin/users/detail/${uId}`);
+  };
+
+  // Detail company
+  const handleCompanyClick = (cId: any) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', cId);
+    navigate(`/admin/companies/detail/${cId}`);
   };
 
   // No project
@@ -249,7 +256,11 @@ const ProjectDetailAdminPage: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
                 <Text type="secondary">Project Owner</Text>
-                <div style={{ marginTop: '8px' }}>
+                <div
+                  style={{ marginTop: '8px' }}
+                  className="cursor-pointer"
+                  onClick={() => handleMemberClick(project.ownerId)}
+                >
                   <Space>
                     <Avatar icon={<UserOutlined />} />
                     <Text strong>{project.ownerName}</Text>
@@ -259,7 +270,12 @@ const ProjectDetailAdminPage: React.FC = () => {
               <Divider style={{ margin: '12px 0' }} />
               <div>
                 <Text type="secondary">Owner ID</Text>
-                <Paragraph copyable style={{ marginTop: '4px', marginBottom: 0 }}>
+                <Paragraph
+                  copyable
+                  style={{ marginTop: '4px', marginBottom: 0 }}
+                  className="cursor-pointer hover:underline"
+                  onClick={() => handleMemberClick(project.ownerId)}
+                >
                   {project.ownerId}
                 </Paragraph>
               </div>
@@ -278,34 +294,38 @@ const ProjectDetailAdminPage: React.FC = () => {
           >
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
               <div>
-                <Text type="secondary">Primary Company</Text>
+                <Text type="secondary">Company request</Text>
                 <div style={{ marginTop: '8px' }}>
                   <Text strong style={{ fontSize: '16px' }}>
-                    {project.companyName}
+                    {project.companyRequestName}
                   </Text>
                 </div>
                 <Paragraph
                   type="secondary"
                   copyable
                   style={{ marginTop: '4px', marginBottom: 0, fontSize: '12px' }}
+                  className="cursor-pointer hover:underline"
+                  onClick={() => handleCompanyClick(project.companyRequestId)}
                 >
-                  ID: {project.companyId}
+                  ID: {project.companyRequestId}
                 </Paragraph>
               </div>
               <Divider style={{ margin: '8px 0' }} />
               <div>
-                <Text type="secondary">Hired Company</Text>
+                <Text type="secondary">Company excutor</Text>
                 <div style={{ marginTop: '8px' }}>
                   <Text strong style={{ fontSize: '16px' }}>
-                    {project.companyHiredName}
+                    {project.companyExecutorName}
                   </Text>
                 </div>
                 <Paragraph
                   type="secondary"
                   copyable
                   style={{ marginTop: '4px', marginBottom: 0, fontSize: '12px' }}
+                  className="cursor-pointer hover:underline"
+                  onClick={() => handleCompanyClick(project.companyExecutorId)}
                 >
-                  ID: {project.companyHiredId}
+                  ID: {project.companyExecutorId}
                 </Paragraph>
               </div>
             </Space>

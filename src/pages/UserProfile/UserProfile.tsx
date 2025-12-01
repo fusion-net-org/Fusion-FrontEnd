@@ -147,9 +147,21 @@ const UserProfile = () => {
       await changePassword(passwordForm);
       toast.success('Password changed successfully!');
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Change password failed';
-      toast.error(msg);
+    } catch (error: any) {
+      if (error.errorData) {
+        if (typeof error.errorData === 'string') {
+          toast.error(error.errorData);
+          return;
+        }
+
+        if (typeof error.errorData === 'object') {
+          const msgs = Object.values(error.errorData).flat() as string[];
+          msgs.forEach((msg) => toast.error(msg));
+          return;
+        }
+      }
+
+      toast.error((error.message as string) || 'Change password failed!');
     } finally {
       setIsLoading(false);
     }

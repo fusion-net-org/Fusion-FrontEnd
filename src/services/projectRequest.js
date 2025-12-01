@@ -230,3 +230,49 @@ export const RestoreProjectRequest = async (id) => {
     );
   }
 };
+
+export const GetAllProjectRequestByAdmin = async (
+  companyId,
+  Keyword = null,
+  Status = null,
+  Deleted,
+  IsHaveProject,
+  ViewMode,
+  DateFilterType = 'StartEndDate',
+  DateRangeFrom = null,
+  DateRangeTo = null,
+  PageNumber = null,
+  PageSize = null,
+  SortColumn = null,
+  SortDescending = null,
+) => {
+  try {
+    const response = await axiosInstance.get(`/projectrequest/paged/admin`, {
+      params: {
+        Keyword,
+        Status,
+        Deleted,
+        IsHaveProject,
+        ViewMode,
+        DateFilterType,
+        'DateRange.From': DateRangeFrom,
+        'DateRange.To': DateRangeTo,
+        PageNumber,
+        PageSize,
+        SortColumn,
+        SortDescending,
+      },
+    });
+
+    return (
+      response.data?.data || {
+        items: [],
+        totalCount: 0,
+        pageNumber: 1,
+        pageSize: 10,
+      }
+    );
+  } catch (error) {
+    return { data: { items: [], totalCount: 0, pageNumber: 1, pageSize: 10 } };
+  }
+};

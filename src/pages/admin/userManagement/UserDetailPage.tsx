@@ -200,30 +200,63 @@ const UserDetailPage = () => {
   ];
 
   const companyOwnerColumns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: '15%' },
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: '25%',
+      render: (id: string) => (
+        <span className=" cursor-pointer hover:underline" onClick={() => handleOwnerClick(id)}>
+          {id}
+        </span>
+      ),
+    },
     { title: 'Name', dataIndex: 'name', key: 'name', width: '40%' },
     { title: 'Tax Code', dataIndex: 'taxCode', key: 'taxCode', width: '20%' },
     {
       title: 'Created At',
       dataIndex: 'createAt',
       key: 'createAt',
-      width: '25%',
+      width: '15%',
       render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm'),
     },
   ];
 
   const companyMemberColumns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: '15%' },
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: '25%',
+      render: (id: string) => (
+        <span className=" cursor-pointer hover:underline" onClick={() => handleMemberClick(id)}>
+          {id}
+        </span>
+      ),
+    },
     { title: 'Name', dataIndex: 'name', key: 'name', width: '40%' },
     { title: 'Tax Code', dataIndex: 'taxCode', key: 'taxCode', width: '20%' },
     {
       title: 'Join At',
       dataIndex: 'joinAt',
       key: 'joinAt',
-      width: '25%',
+      width: '15%',
       render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm'),
     },
   ];
+
+  // Handle click id
+  const handleOwnerClick = (companyId: string) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', companyId);
+    navigate(`/admin/companies/detail/${companyId}`);
+  };
+
+  const handleMemberClick = (companyId: string) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', companyId);
+    navigate(`/admin/companies/detail/${companyId}`);
+  };
 
   return (
     <div style={{ padding: '24px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>

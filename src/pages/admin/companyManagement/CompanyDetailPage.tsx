@@ -4,6 +4,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin, Tabs, Table, Tag, Avatar, Descriptions } from 'antd';
 import { getCompanyById } from '@/services/companyService.js';
 
+interface Member {
+  id: number;
+  memberId: string;
+  memberName: string;
+  memberAvatar: string;
+  email: string;
+  phone: string;
+  status: string;
+  joinedAt: string;
+  isOwner: boolean;
+}
+
 const { TabPane } = Tabs;
 
 export default function CompanyDetailPage() {
@@ -45,6 +57,19 @@ export default function CompanyDetailPage() {
     );
 
   if (!company) return <div className="text-center text-gray-500">Company not found.</div>;
+
+  // Handle click
+  const handleProjectClick = (projectId: string) => {
+    localStorage.setItem('projectDetailEnabled', 'true');
+    localStorage.setItem('projectDetailId', projectId);
+    navigate(`/admin/projects/detail/${projectId}`);
+  };
+
+  const handleMemberClick = (memberId: string) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', memberId);
+    navigate(`/admin/users/detail/${memberId}`);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -150,7 +175,19 @@ export default function CompanyDetailPage() {
               pagination={false}
               columns={[
                 { title: 'Code', dataIndex: 'code', key: 'code' },
-                { title: 'Name', dataIndex: 'name', key: 'name' },
+                {
+                  title: 'Name',
+                  dataIndex: 'name',
+                  key: 'name',
+                  render: (_: any, record: any) => (
+                    <span
+                      className=" hover:underline cursor-pointer"
+                      onClick={() => handleProjectClick(record.id)}
+                    >
+                      {record.name}
+                    </span>
+                  ),
+                },
                 { title: 'Description', dataIndex: 'description', key: 'description' },
                 { title: 'Status', dataIndex: 'status', key: 'status' },
                 {
@@ -181,7 +218,19 @@ export default function CompanyDetailPage() {
                   key: 'avatar',
                   render: (v: string) => <Avatar src={v} size="small" />,
                 },
-                { title: 'Name', dataIndex: 'memberName', key: 'memberName' },
+                {
+                  title: 'Name',
+                  dataIndex: 'memberName',
+                  key: 'memberName',
+                  render: (_: any, record: any) => (
+                    <span
+                      className=" hover:underline cursor-pointer"
+                      onClick={() => handleMemberClick(record.memberId)}
+                    >
+                      {record.memberName}
+                    </span>
+                  ),
+                },
                 { title: 'Email', dataIndex: 'email', key: 'email' },
                 { title: 'Phone', dataIndex: 'phone', key: 'phone' },
                 {

@@ -11,6 +11,8 @@ import {
   FolderKanban,
   Bell,
   Layers,
+  FilePlus,
+  TicketCheck,
 } from 'lucide-react';
 import logo_fusion from '@/assets/logo_fusion.png';
 
@@ -31,6 +33,8 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
   const [userDetailEnabled, setUserDetailEnabled] = useState(false);
   const [companyDetailEnabled, setCompanyDetailEnabled] = useState(false);
   const [projectDetailEnabled, setProjectDetailEnabled] = useState(false);
+  const [projectRequestDetailEnabled, setProjectRequestDetailEnabled] = useState(false);
+  const [ticketDetailEnabled, setTicketDetailEnabled] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -38,6 +42,10 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       setUserDetailEnabled(localStorage.getItem('userDetailEnabled') === 'true');
       setCompanyDetailEnabled(localStorage.getItem('companyDetailEnabled') === 'true');
       setProjectDetailEnabled(localStorage.getItem('projectDetailEnabled') === 'true');
+      setProjectRequestDetailEnabled(
+        localStorage.getItem('projectRequestDetailEnabled') === 'true',
+      );
+      setTicketDetailEnabled(localStorage.getItem('ticketDetailEnabled') === 'true');
     };
 
     updateStates();
@@ -84,6 +92,29 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
         { to: '/admin/projects/overview', label: 'Overview' },
         { to: '/admin/projects/list', label: 'Project list' },
         { to: '/admin/projects/detail', label: 'Project detail', enabled: projectDetailEnabled },
+      ],
+    },
+
+    {
+      to: '/admin/project-request',
+      label: 'Project request',
+      icon: FilePlus,
+      children: [
+        { to: '/admin/project-request/list', label: 'Project request list' },
+        {
+          to: '/admin/project-request/detail',
+          label: 'Project request detail',
+          enabled: projectRequestDetailEnabled,
+        },
+      ],
+    },
+    {
+      to: '/admin/tickets',
+      label: 'Ticket management',
+      icon: TicketCheck,
+      children: [
+        { to: '/admin/tickets/list', label: 'Ticket list' },
+        { to: '/admin/tickets/detail', label: 'Ticket detail', enabled: ticketDetailEnabled },
       ],
     },
     {
