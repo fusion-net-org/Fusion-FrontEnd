@@ -37,16 +37,19 @@ interface ContractModalProps {
 }
 
 const DEFAULT_APPENDICES = [
-  { label: 'Phụ lục A - Quy trình làm việc', value: 'Phụ lục A - Quy trình làm việc' },
-  { label: 'Phụ lục B - Bảo mật thông tin', value: 'Phụ lục B - Bảo mật thông tin' },
-  { label: 'Phụ lục C - Điều khoản thanh toán', value: 'Phụ lục C - Điều khoản thanh toán' },
-  { label: 'Phụ lục D - Chính sách nhân sự', value: 'Phụ lục D - Chính sách nhân sự' },
-  { label: 'Phụ lục E - Hướng dẫn sử dụng', value: 'Phụ lục E - Hướng dẫn sử dụng' },
-  { label: 'Phụ lục F - Báo cáo tài chính', value: 'Phụ lục F - Báo cáo tài chính' },
-  { label: 'Phụ lục G - Quy định bảo mật', value: 'Phụ lục G - Quy định bảo mật' },
-  { label: 'Phụ lục H - Tiêu chuẩn chất lượng', value: 'Phụ lục H - Tiêu chuẩn chất lượng' },
-  { label: 'Phụ lục I - Điều khoản pháp lý', value: 'Phụ lục I - Điều khoản pháp lý' },
-  { label: 'Phụ lục J - Hợp đồng phụ trợ', value: 'Phụ lục J - Hợp đồng phụ trợ' },
+  { label: 'Appendix A - Workflow Process', value: 'Appendix A - Workflow Process' },
+  { label: 'Appendix B - Information Security', value: 'Appendix B - Information Security' },
+  { label: 'Appendix C - Payment Terms', value: 'Appendix C - Payment Terms' },
+  { label: 'Appendix D - Human Resources Policy', value: 'Appendix D - Human Resources Policy' },
+  { label: 'Appendix E - User Guide', value: 'Appendix E - User Guide' },
+  { label: 'Appendix F - Financial Report', value: 'Appendix F - Financial Report' },
+  {
+    label: 'Appendix G - Confidentiality Regulations',
+    value: 'Appendix G - Confidentiality Regulations',
+  },
+  { label: 'Appendix H - Quality Standards', value: 'Appendix H - Quality Standards' },
+  { label: 'Appendix I - Legal Terms', value: 'Appendix I - Legal Terms' },
+  { label: 'Appendix J - Supporting Agreement', value: 'Appendix J - Supporting Agreement' },
 ];
 
 const ContractModal: React.FC<ContractModalProps> = ({ open, onClose, onNext }) => {
