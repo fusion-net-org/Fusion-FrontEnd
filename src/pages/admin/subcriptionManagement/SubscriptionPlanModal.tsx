@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Form, Input, InputNumber, Select, Switch, Divider } from "antd";
-import { AlertTriangle } from "lucide-react"; 
+import { AlertTriangle } from "lucide-react";
 import type {
   SubscriptionPlanDetailResponse,
   SubscriptionPlanCreateRequest,
@@ -50,7 +50,12 @@ const DEFAULT: SubscriptionPlanCreateRequest = {
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 
-export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit }: Props) {
+export default function SubscriptionPlanModal({
+  open,
+  onClose,
+  initial,
+  onSubmit,
+}: Props) {
   const [form] = Form.useForm();
   const [featureOpts, setFeatureOpts] = useState<{ value: string; label: string }[]>([]);
   const isEdit = !!initial;
@@ -63,10 +68,14 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
     if (!open) return;
 
     if (initial) {
+      const mode = initial.price?.paymentMode ?? "Prepaid";
       const ic = initial.price?.installmentCount ?? null;
-      let discounts: Array<{ discountValue?: number; note?: string | null }> | undefined;
+      let discounts:
+        | Array<{ discountValue?: number; note?: string | null }>
+        | undefined;
 
-      if (ic && ic > 0) {
+      if (mode === "Installments" && ic && ic > 0) {
+        // map từng kỳ installment từ response -> form
         discounts = Array.from({ length: ic }, (_, idx) => {
           const index = idx + 1;
           const found = initial.price?.discounts?.find(
@@ -77,6 +86,19 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
             note: found?.note ?? undefined,
           };
         });
+      } else if (mode === "Prepaid") {
+        // Prepaid: lấy discount kỳ 1 (nếu có) đưa vào index 0
+        const found = initial.price?.discounts?.find(
+          (d) => d.installmentIndex === 1
+        );
+        if (found) {
+          discounts = [
+            {
+              discountValue: found.discountValue,
+              note: found.note ?? undefined,
+            },
+          ];
+        }
       }
 
       // map monthlyLimit cho từng feature (nếu response có)
@@ -123,7 +145,7 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
 
   // watch các field
   const paymentMode: PaymentMode =
-    Form.useWatch(["price", "paymentMode"], form) || "Prepaid";
+    (Form.useWatch(["price", "paymentMode"], form) as PaymentMode) || "Prepaid";
   const isFullPackage: boolean = Form.useWatch("isFullPackage", form) ?? false;
   const licenseScope: LicenseScope =
     (Form.useWatch("licenseScope", form) as LicenseScope) || "Userlimits";
@@ -154,180 +176,201 @@ export default function SubscriptionPlanModal({ open, onClose, initial, onSubmit
     }
   }, [autoGrantMonthly, form]);
 
-const submit = async () => {
-  const v = await form.validateFields();
+  const submit = async () => {
+    const v = await form.validateFields();
 
-  // chuẩn hoá discounts cho payload
-  let discountsPayload: any[] | null = null;
-  if (v.price.paymentMode === "Installments" && v.price.installmentCount) {
-    const n = Number(v.price.installmentCount) || 0;
-    const rawDiscounts: Array<{ discountValue?: number; note?: string }> =
-      v.price.discounts ?? [];
+    const autoGrantMonthlyFlag = !!v.autoGrantMonthly;
 
-    const arr: any[] = [];
-    for (let i = 1; i <= n; i++) {
-      const d = rawDiscounts?.[i - 1] ?? {};
-      const value = Number(d.discountValue ?? 0);
-      const note = (d.note ?? "").trim();
-      if (!value && !note) continue;
+    // chuẩn hoá discounts cho payload
+    let discountsPayload: any[] | null = null;
 
-      arr.push({
-        installmentIndex: i,
-        discountValue: value,
-        note: note || null,
+    if (!autoGrantMonthlyFlag) {
+      if (v.price.paymentMode === "Installments" && v.price.installmentCount) {
+        const n = Number(v.price.installmentCount) || 0;
+        const rawDiscounts: Array<{ discountValue?: number; note?: string }> =
+          v.price.discounts ?? [];
+
+        const arr: any[] = [];
+        for (let i = 1; i <= n; i++) {
+          const d = rawDiscounts?.[i - 1] ?? {};
+          const value = Number(d.discountValue ?? 0);
+          const note = (d.note ?? "").trim();
+          if (!value && !note) continue;
+
+          arr.push({
+            installmentIndex: i,
+            discountValue: value,
+            note: note || null,
+          });
+        }
+        discountsPayload = arr.length > 0 ? arr : null;
+      } else if (v.price.paymentMode === "Prepaid") {
+        // Prepaid: chỉ 1 discount, installmentIndex = 1
+        const first = (v.price.discounts?.[0] ??
+          {}) as { discountValue?: number; note?: string };
+
+        const value = Number(first.discountValue ?? 0);
+        const note = (first.note ?? "").trim();
+
+        if (value || note) {
+          discountsPayload = [
+            {
+              installmentIndex: 1,
+              discountValue: value,
+              note: note || null,
+            },
+          ];
+        }
+      }
+    }
+
+    // chuẩn hoá featureMonthlyLimits cho autoGrantMonthly
+    let featureMonthlyLimits:
+      | { featureId: string; monthlyLimit: number | null }[]
+      | undefined;
+
+    if (autoGrantMonthlyFlag && Array.isArray(v.featureIds)) {
+      const featureLimitsObj = v.featureLimits || {};
+      featureMonthlyLimits = v.featureIds.map((fid: string) => {
+        const entry = featureLimitsObj?.[fid] || {};
+        const raw = entry?.monthlyLimit;
+        const hasValue = raw !== undefined && raw !== null && raw !== "";
+        return {
+          featureId: fid,
+          monthlyLimit: hasValue ? Number(raw) : null,
+        };
       });
     }
-    discountsPayload = arr.length > 0 ? arr : null;
-  }
 
-  const autoGrantMonthlyFlag = !!v.autoGrantMonthly;
+    const payload: SubscriptionPlanCreateRequest = {
+      name: v.name,
+      description: v.description,
+      isActive: !!v.isActive,
+      licenseScope: v.licenseScope as LicenseScope,
+      isFullPackage: !!v.isFullPackage,
+      autoGrantMonthly: autoGrantMonthlyFlag,
+      companyShareLimit: v.companyShareLimit ?? null,
+      seatsPerCompanyLimit:
+        v.licenseScope === "EntireCompany" ? null : v.seatsPerCompanyLimit ?? null,
+      featureIds: v.isFullPackage ? [] : v.featureIds ?? [],
+      featureMonthlyLimits,
+      price: {
+        billingPeriod: autoGrantMonthlyFlag
+          ? "Month"
+          : (v.price.billingPeriod as BillingPeriod),
+        periodCount: autoGrantMonthlyFlag ? 1 : Number(v.price.periodCount),
+        chargeUnit: v.price.chargeUnit as ChargeUnit,
+        price: autoGrantMonthlyFlag ? 0 : Number(v.price.price),
+        currency: v.price.currency,
+        paymentMode: autoGrantMonthlyFlag
+          ? "Prepaid"
+          : (v.price.paymentMode as PaymentMode),
+        installmentCount:
+          !autoGrantMonthlyFlag && v.price.paymentMode === "Installments"
+            ? Number(v.price.installmentCount || 0) || 0
+            : null,
+        installmentInterval:
+          !autoGrantMonthlyFlag && v.price.paymentMode === "Installments"
+            ? (v.price.installmentInterval as BillingPeriod)
+            : null,
+        discounts: autoGrantMonthlyFlag ? undefined : discountsPayload ?? undefined,
+      },
+    };
 
-  let featureMonthlyLimits:
-    | { featureId: string; monthlyLimit: number | null }[]
-    | undefined;
+    // 🔸 XÁC NHẬN CHO UPDATE
+    if (isEdit && initial) {
+      Modal.confirm({
+        centered: true,
+        icon: (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          </div>
+        ),
+        title: (
+          <span className="text-sm font-semibold text-slate-900">
+            Confirm subscription plan update
+          </span>
+        ),
+        content: (
+          <div className="mt-1 text-xs leading-relaxed text-slate-600">
+            <p>
+              All changes to this subscription plan, especially its{" "}
+              <span className="font-semibold text-amber-600 underline decoration-dotted">
+                status
+              </span>
+              , will directly affect end users&apos; experience.
+            </p>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Please double-check limits, pricing and feature access before confirming
+              this update.
+            </p>
+          </div>
+        ),
+        okText: "Confirm update",
+        cancelText: "Cancel",
+        okButtonProps: {
+          className:
+            "bg-indigo-600 hover:bg-indigo-700 border-none text-white font-semibold",
+        },
+        cancelButtonProps: {
+          className: "border-slate-200 text-slate-600 hover:text-slate-800",
+        },
+        onOk: () => {
+          onSubmit({ ...payload, id: initial.id });
+        },
+      });
+      return;
+    }
 
-  if (autoGrantMonthlyFlag && Array.isArray(v.featureIds)) {
-    const featureLimitsObj = v.featureLimits || {};
-    featureMonthlyLimits = v.featureIds.map((fid: string) => {
-      const entry = featureLimitsObj?.[fid] || {};
-      const raw = entry?.monthlyLimit;
-      const hasValue = raw !== undefined && raw !== null && raw !== "";
-      return {
-        featureId: fid,
-        monthlyLimit: hasValue ? Number(raw) : null,
-      };
-    });
-  }
+    // 🔹 CREATE + AUTO-GRANT MONTHLY → POPUP XÁC NHẬN
+    if (!isEdit && autoGrantMonthlyFlag) {
+      Modal.confirm({
+        centered: true,
+        icon: (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50">
+            <AlertTriangle className="h-4 w-4 text-sky-600" />
+          </div>
+        ),
+        title: (
+          <span className="text-sm font-semibold text-slate-900">
+            Create auto-grant monthly plan?
+          </span>
+        ),
+        content: (
+          <div className="mt-1 text-xs leading-relaxed text-slate-600">
+            <p>
+              This plan is marked as{" "}
+              <span className="font-semibold text-sky-700 underline decoration-dotted">
+                Auto-grant monthly
+              </span>
+              .
+            </p>
+            <p className="mt-2">
+              Auto-grant monthly plans can be automatically applied by the system to
+              users and companies across your workspace. Please double-check features
+              and monthly limits before confirming this creation.
+            </p>
+          </div>
+        ),
+        okText: "Create plan",
+        cancelText: "Cancel",
+        okButtonProps: {
+          className:
+            "bg-indigo-600 hover:bg-indigo-700 border-none text-white font-semibold",
+        },
+        cancelButtonProps: {
+          className: "border-slate-200 text-slate-600 hover:text-slate-800",
+        },
+        onOk: () => {
+          onSubmit(payload);
+        },
+      });
+      return;
+    }
 
-  const payload: SubscriptionPlanCreateRequest = {
-    name: v.name,
-    description: v.description,
-    isActive: !!v.isActive,
-    licenseScope: v.licenseScope as LicenseScope,
-    isFullPackage: !!v.isFullPackage,
-    autoGrantMonthly: autoGrantMonthlyFlag,
-    companyShareLimit: v.companyShareLimit ?? null,
-    seatsPerCompanyLimit:
-      v.licenseScope === "EntireCompany" ? null : v.seatsPerCompanyLimit ?? null,
-    featureIds: v.isFullPackage ? [] : v.featureIds ?? [],
-    featureMonthlyLimits,
-    price: {
-      billingPeriod: autoGrantMonthlyFlag
-        ? "Month"
-        : (v.price.billingPeriod as BillingPeriod),
-      periodCount: autoGrantMonthlyFlag ? 1 : Number(v.price.periodCount),
-      chargeUnit: v.price.chargeUnit as ChargeUnit,
-      price: autoGrantMonthlyFlag ? 0 : Number(v.price.price),
-      currency: v.price.currency,
-      paymentMode: autoGrantMonthlyFlag
-        ? "Prepaid"
-        : (v.price.paymentMode as PaymentMode),
-      installmentCount:
-        !autoGrantMonthlyFlag && v.price.paymentMode === "Installments"
-          ? Number(v.price.installmentCount || 0) || 0
-          : null,
-      installmentInterval:
-        !autoGrantMonthlyFlag && v.price.paymentMode === "Installments"
-          ? (v.price.installmentInterval as BillingPeriod)
-          : null,
-      discounts: autoGrantMonthlyFlag ? undefined : discountsPayload ?? undefined,
-    },
+    // 🔹 CREATE thường: gửi luôn
+    onSubmit(payload);
   };
-
-  // 🔸 XÁC NHẬN CHO UPDATE
-  if (isEdit && initial) {
-    Modal.confirm({
-      centered: true,
-      icon: (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-        </div>
-      ),
-      title: (
-        <span className="text-sm font-semibold text-slate-900">
-          Confirm subscription plan update
-        </span>
-      ),
-      content: (
-        <div className="mt-1 text-xs leading-relaxed text-slate-600">
-          <p>
-            All changes to this subscription plan, especially its{" "}
-            <span className="font-semibold text-amber-600 underline decoration-dotted">
-              status
-            </span>
-            , will directly affect end users&apos; experience.
-          </p>
-          <p className="mt-2 text-[11px] text-slate-500">
-            Please double-check limits, pricing and feature access before confirming
-            this update.
-          </p>
-        </div>
-      ),
-      okText: "Confirm update",
-      cancelText: "Cancel",
-      okButtonProps: {
-        className:
-          "bg-indigo-600 hover:bg-indigo-700 border-none text-white font-semibold",
-      },
-      cancelButtonProps: {
-        className: "border-slate-200 text-slate-600 hover:text-slate-800",
-      },
-      onOk: () => {
-        onSubmit({ ...payload, id: initial.id });
-      },
-    });
-    return;
-  }
-
-  // 🔹 CREATE + AUTO-GRANT MONTHLY → POPUP XÁC NHẬN
-  if (!isEdit && autoGrantMonthlyFlag) {
-    Modal.confirm({
-      centered: true,
-      icon: (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50">
-          <AlertTriangle className="h-4 w-4 text-sky-600" />
-        </div>
-      ),
-      title: (
-        <span className="text-sm font-semibold text-slate-900">
-          Create auto-grant monthly plan?
-        </span>
-      ),
-      content: (
-        <div className="mt-1 text-xs leading-relaxed text-slate-600">
-          <p>
-            This plan is marked as{" "}
-            <span className="font-semibold text-sky-700 underline decoration-dotted">
-              Auto-grant monthly
-            </span>
-            .
-          </p>
-          <p className="mt-2">
-            Auto-grant monthly plans can be automatically applied by the system to
-            users and companies across your workspace. Please double-check features
-            and monthly limits before confirming this creation.
-          </p>
-        </div>
-      ),
-      okText: "Create plan",
-      cancelText: "Cancel",
-      okButtonProps: {
-        className:
-          "bg-indigo-600 hover:bg-indigo-700 border-none text-white font-semibold",
-      },
-      cancelButtonProps: {
-        className: "border-slate-200 text-slate-600 hover:text-slate-800",
-      },
-      onOk: () => {
-        onSubmit(payload);
-      },
-    });
-    return;
-  }
-
-  // 🔹 CREATE thường: gửi luôn
-  onSubmit(payload);
-};
 
   return (
     <Modal
@@ -375,7 +418,11 @@ const submit = async () => {
             <div className="flex flex-col items-start gap-1 md:items-end">
               <span className="text-xs font-medium text-slate-700">Status</span>
               <Form.Item name="isActive" valuePropName="checked" className="mb-0">
-                <Switch size="small" checkedChildren="Active" unCheckedChildren="Inactive" />
+                <Switch
+                  size="small"
+                  checkedChildren="Active"
+                  unCheckedChildren="Inactive"
+                />
               </Form.Item>
             </div>
           </div>
@@ -478,17 +525,21 @@ const submit = async () => {
             </div>
 
             {/* Auto grant monthly toggle */}
-            <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 flex items-center justify-between gap-2">
+            <div className="mt-4 flex items-center justify-between gap-2 rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
               <div>
                 <div className="text-xs font-medium text-slate-800">
                   Auto-grant monthly
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  When enabled, this plan is granted by the system as a free monthly quota.
-                  Full feature mode is disabled; configure feature limits below.
+                  When enabled, this plan is granted by the system as a free monthly
+                  quota. Full feature mode is disabled; configure feature limits below.
                 </div>
               </div>
-              <Form.Item name="autoGrantMonthly" valuePropName="checked" className="mb-0">
+              <Form.Item
+                name="autoGrantMonthly"
+                valuePropName="checked"
+                className="mb-0"
+              >
                 <Switch size="small" />
               </Form.Item>
             </div>
@@ -696,6 +747,7 @@ const submit = async () => {
                 </Select>
               </Form.Item>
 
+              {/* Installment config */}
               {paymentMode === "Installments" && !autoGrantMonthly && (
                 <>
                   <Form.Item
@@ -736,6 +788,42 @@ const submit = async () => {
                 </>
               )}
             </div>
+
+            {/* Prepaid discount (one-time) */}
+            {paymentMode === "Prepaid" && !autoGrantMonthly && (
+              <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-xs font-medium text-slate-700">
+                     Discount
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-[120px_minmax(0,1fr)]">
+                  <Form.Item
+                    name={["price", "discounts", 0, "discountValue"]}
+                    className="mb-0"
+                  >
+                    <InputNumber
+                      min={0}
+                      max={100}
+                      className="w-full"
+                      addonAfter="%"
+                      placeholder="0"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name={["price", "discounts", 0, "note"]}
+                    className="mb-0"
+                  >
+                    <Input
+                      placeholder="Optional note for this discount"
+                      maxLength={250}
+                    />
+                  </Form.Item>
+                </div>
+              </div>
+            )}
 
             {/* Discount per installment */}
             {paymentMode === "Installments" &&

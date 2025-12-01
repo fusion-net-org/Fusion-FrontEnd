@@ -26,6 +26,18 @@ const money = (n?: number, c?: string) =>
   typeof n === "number" ? `${n.toLocaleString()} ${c ?? ""}`.trim() : "—";
 
 export default function PlanDetailModal({ open, onClose, data, loading }: Props) {
+  // tiện: finalPrice = newPrice ?? price
+  const finalPrice =
+    data?.price && typeof (data.price as any).newPrice === "number"
+      ? (data.price as any).newPrice as number
+      : data?.price?.price;
+
+  // prepaid discount (installmentIndex = 1)
+  const prepaidDiscount =
+    data?.price?.paymentMode === "Prepaid"
+      ? data.price.discounts?.find((d) => d.installmentIndex === 1)
+      : undefined;
+
   return (
     <Modal
       open={open}
@@ -36,7 +48,12 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
       title="Plan detail"
       destroyOnClose
       styles={{
-        body: { maxHeight: "72vh", overflow: "auto", paddingTop: 12, paddingBottom: 20 },
+        body: {
+          maxHeight: "72vh",
+          overflow: "auto",
+          paddingTop: 12,
+          paddingBottom: 20,
+        },
       }}
     >
       {/* CSS nhỏ để tránh chữ đứng dọc + tràn */}
@@ -79,7 +96,11 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
             </Descriptions.Item>
 
             <Descriptions.Item label="Package">
-              {data.isFullPackage ? <Tag color="blue">Full feature</Tag> : <Tag>Custom</Tag>}
+              {data.isFullPackage ? (
+                <Tag color="blue">Full feature</Tag>
+              ) : (
+                <Tag>Custom</Tag>
+              )}
             </Descriptions.Item>
 
             <Descriptions.Item label="Auto-grant monthly">
@@ -92,8 +113,12 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
 
             <Descriptions.Item label="Limits">
               <Space size={8} wrap>
-                <Tag className="nowrap">share: {data.companyShareLimit ?? "∞"}</Tag>
-                <Tag className="nowrap">seats/company: {data.seatsPerCompanyLimit ?? "∞"}</Tag>
+                <Tag className="nowrap">
+                  share: {data.companyShareLimit ?? "∞"}
+                </Tag>
+                <Tag className="nowrap">
+                  seats/company: {data.seatsPerCompanyLimit ?? "∞"}
+                </Tag>
               </Space>
             </Descriptions.Item>
 
@@ -124,13 +149,26 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
                   {data.price.chargeUnit}
                 </Descriptions.Item>
                 <Descriptions.Item label="Payment mode">
-                  <Tag color={data.price.paymentMode === "Prepaid" ? "cyan" : "volcano"}>
+                  <Tag
+                    color={
+                      data.price.paymentMode === "Prepaid" ? "cyan" : "volcano"
+                    }
+                  >
                     {data.price.paymentMode}
                   </Tag>
                 </Descriptions.Item>
 
-                <Descriptions.Item label="Price">
+                {/* Base & final price */}
+                <Descriptions.Item label="Base price">
                   {money(Number(data.price.price), data.price.currency)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Final price">
+                  {money(
+                    typeof finalPrice === "number"
+                      ? Number(finalPrice)
+                      : Number(data.price.price),
+                    data.price.currency
+                  )}
                 </Descriptions.Item>
                 <Descriptions.Item label="Installment count">
                   {data.price.paymentMode === "Installments"
@@ -150,36 +188,44 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
             )}
           </Descriptions>
 
-          {/* 2b) Discounts (installments only) */}
+          {/* 2b) Discounts */}
           {data.price && data.price.paymentMode === "Installments" && (
             <div>
-              <div className="mb-3 text-base font-semibold">Discounts per installment</div>
-              <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <div className="mb-3 text-base font-semibold">
+                Discounts per installment
+              </div>
+              <div className="overflow-hidden rounded-lg border border-gray-200">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-gray-600 font-medium w-32">
+                      <th className="w-32 px-4 py-2 text-left font-medium text-gray-600">
                         Installment
                       </th>
-                      <th className="px-4 py-2 text-left text-gray-600 font-medium w-40">
+                      <th className="w-40 px-4 py-2 text-left font-medium text-gray-600">
                         Discount
                       </th>
-                      <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                      <th className="px-4 py-2 text-left font-medium text-gray-600">
                         Note
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {(data.price.discounts && data.price.discounts.length > 0 ? (
+                    {data.price.discounts && data.price.discounts.length > 0 ? (
                       data.price.discounts
                         .slice()
-                        .sort((a, b) => a.installmentIndex - b.installmentIndex)
+                        .sort(
+                          (a, b) => a.installmentIndex - b.installmentIndex,
+                        )
                         .map((d) => (
                           <tr key={d.installmentIndex} className="border-t">
-                            <td className="px-4 py-2">Period {d.installmentIndex}</td>
+                            <td className="px-4 py-2">
+                              Period {d.installmentIndex}
+                            </td>
                             <td className="px-4 py-2">
                               {d.discountValue ?? 0}
-                              <span className="ml-1 text-xs text-gray-500">%</span>
+                              <span className="ml-1 text-xs text-gray-500">
+                                %
+                              </span>
                             </td>
                             <td className="px-4 py-2">
                               {d.note && d.note.trim().length > 0 ? (
@@ -192,13 +238,46 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
                         ))
                     ) : (
                       <tr className="border-t">
-                        <td colSpan={3} className="px-4 py-4 text-center text-gray-400">
+                        <td
+                          colSpan={3}
+                          className="px-4 py-4 text-center text-gray-400"
+                        >
                           No discounts configured for this plan.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* 2c) Prepaid discount */}
+          {data.price && data.price.paymentMode === "Prepaid" && (
+            <div>
+              <div className="mb-3 text-base font-semibold">
+                Prepaid discount
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                {prepaidDiscount ? (
+                  <>
+                    <div className="text-sm">
+                      <span className="font-medium">Discount:</span>{" "}
+                      {prepaidDiscount.discountValue ?? 0}
+                      <span className="ml-1 text-xs text-gray-500">%</span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-600">
+                      {prepaidDiscount.note &&
+                      prepaidDiscount.note.trim().length > 0
+                        ? prepaidDiscount.note
+                        : "No note for this discount."}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-400">
+                    No discount configured for this prepaid plan.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -206,31 +285,42 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
           {/* 3) Features */}
           <div>
             <div className="mb-3 text-base font-semibold">Features</div>
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-gray-200">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">
                       Feature code
                     </th>
-                    <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">
                       Feature name
                     </th>
-                    <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">
                       Enabled
                     </th>
-                    <th className="px-4 py-2 text-left text-gray-600 font-medium">
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">
                       Monthly limit
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
                   {(data.features ?? []).map((f) => (
-                    <tr key={`${f.featureId}-${f.featureCode ?? ""}`} className="border-t">
-                      <td className="px-4 py-2">{f.featureCode ?? "—"}</td>
-                      <td className="px-4 py-2">{f.featureName ?? "—"}</td>
+                    <tr
+                      key={`${f.featureId}-${f.featureCode ?? ""}`}
+                      className="border-t"
+                    >
                       <td className="px-4 py-2">
-                        {f.enabled ? <Tag color="green">Enabled</Tag> : <Tag>Off</Tag>}
+                        {f.featureCode ?? "—"}
+                      </td>
+                      <td className="px-4 py-2">
+                        {f.featureName ?? "—"}
+                      </td>
+                      <td className="px-4 py-2">
+                        {f.enabled ? (
+                          <Tag color="green">Enabled</Tag>
+                        ) : (
+                          <Tag>Off</Tag>
+                        )}
                       </td>
                       <td className="px-4 py-2">
                         {typeof f.monthlyLimit === "number"
@@ -243,7 +333,10 @@ export default function PlanDetailModal({ open, onClose, data, loading }: Props)
                   ))}
                   {(!data.features || data.features.length === 0) && (
                     <tr className="border-t">
-                      <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                      <td
+                        colSpan={4}
+                        className="px-4 py-6 text-center text-gray-400"
+                      >
                         No features
                       </td>
                     </tr>

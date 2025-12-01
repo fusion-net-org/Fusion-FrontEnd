@@ -45,6 +45,7 @@ export type SubscriptionPlanPriceResponse = {
   periodCount: number;
   chargeUnit: ChargeUnit; // "PerSubscription" | "PerSeat"
   price: number;
+  newPrice?: number | null;
   currency: string; // "VND" ...
   paymentMode: PaymentMode; // "Prepaid" | "Installments"
   installmentCount?: number | null;
@@ -167,6 +168,8 @@ export type GetPlansPagedParams = {
 // ---------- Public (customer) view ----------
 export type PlanPricePreviewResponse = {
   amount: number;
+  newAmount?: number | null;
+  discountPercent?: number | null;
   currency: string;
   billingPeriod: BillingPeriod;
   periodCount: number;
@@ -174,7 +177,6 @@ export type PlanPricePreviewResponse = {
   paymentMode: PaymentMode;
   installmentCount?: number | null;
   installmentInterval?: BillingPeriod | null;
-  discounts?: SubscriptionPlanPriceDiscountResponse[] | null;
 };
 
 export type PlanFeatureChipResponse = {
