@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Table, Avatar, Tag, Button, Space, Input, DatePicker, Select, Pagination } from 'antd';
-import { UnorderedListOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { UnorderedListOutlined, AppstoreOutlined, InboxOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import moment from 'moment';
 import { Calendar, Clock, Mail, MapPin, Phone, User } from 'lucide-react';
@@ -168,6 +168,31 @@ const InvitationPage: React.FC = () => {
         !date || date.startsWith('0001-01-01') ? '---' : moment(date).format('DD/MM/YYYY'),
     },
     {
+      title: 'Roles',
+      dataIndex: 'roles',
+      align: 'start',
+      render: (roles: string[]) =>
+        roles && roles.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'start',
+              gap: '6px',
+            }}
+          >
+            {roles.map((role, index) => (
+              <Tag key={index} color="blue" style={{ width: 'fit-content' }}>
+                {role}
+              </Tag>
+            ))}
+          </div>
+        ) : (
+          <Tag style={{ margin: '0 auto' }}>None</Tag>
+        ),
+    },
+
+    {
       title: 'Status',
       dataIndex: 'status',
       render: getStatusTag,
@@ -211,8 +236,8 @@ const InvitationPage: React.FC = () => {
             <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 180 }}>
               <Option value="All">All</Option>
               <Option value="Pending">Pending</Option>
-              <Option value="Accepted">Accepted</Option>
-              <Option value="Rejected">Rejected</Option>
+              <Option value="Active">Active</Option>
+              <Option value="Inactive">Inactive</Option>
             </Select>
           </div>
         </Space>
@@ -237,65 +262,72 @@ const InvitationPage: React.FC = () => {
       </div>
 
       {/* GRID VIEW */}
-      {viewGrid ? (
+      {viewGrid && (
         <div>
-          <div className="grid gap-6 mt-4 auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {members.map((company) => (
-              <div
-                key={company.id}
-                className="bg-white rounded-2xl shadow-md p-6 hover:-translate-y-1 transition"
-              >
-                {/* Header */}
-                <div className="flex items-center gap-4 mb-5 border-b pb-4">
-                  <Avatar
-                    src={company.companyAvatar || undefined}
-                    size={72}
-                    alt={company.companyName}
-                  >
-                    {company.companyName?.[0]}
-                  </Avatar>
-                  <div>
-                    <h3 className="font-bold text-xl truncate">{company.companyName}</h3>
-                    {getStatusTag(company.status)}
+          {members.length === 0 ? (
+            <div className="flex flex-col items-center justify-center mt-20 text-gray-400">
+              <InboxOutlined style={{ fontSize: 64 }} />
+              <p className="mt-4 text-lg">No Data</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 mt-4 auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {members.map((company) => (
+                <div
+                  key={company.id}
+                  className="bg-white rounded-2xl shadow-md p-6 hover:-translate-y-1 transition"
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-4 mb-5 border-b pb-4">
+                    <Avatar
+                      src={company.companyAvatar || undefined}
+                      size={72}
+                      alt={company.companyName}
+                    >
+                      {company.companyName?.[0]}
+                    </Avatar>
+                    <div>
+                      <h3 className="font-bold text-xl truncate">{company.companyName}</h3>
+                      {getStatusTag(company.status)}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="space-y-2 text-sm text-gray-700 mb-6">
+                    <p className="flex items-center gap-1 truncate">
+                      <User size={16} /> <span className="font-semibold">Owner:</span>{' '}
+                      {company.companyOwner}
+                    </p>
+                    <p className="flex items-center gap-1 truncate">
+                      <Phone size={16} /> <span className="font-semibold">Phone:</span>{' '}
+                      {company.companyPhone}
+                    </p>
+                    <p className="flex items-center gap-1 truncate">
+                      <MapPin size={16} /> <span className="font-semibold">Address:</span>{' '}
+                      {company.companyAddress}
+                    </p>
+                    <p className="flex items-center gap-1 truncate">
+                      <Calendar size={16} /> <span className="font-semibold">Created At:</span>{' '}
+                      {moment(company.companyCreateAt).format('DD/MM/YYYY')}
+                    </p>
+                    <p className="flex items-center gap-1 truncate">
+                      <Clock size={16} /> <span className="font-semibold">Join At:</span>{' '}
+                      {!company.memberJoinAt || company.memberJoinAt.startsWith('0001-01-01')
+                        ? '--'
+                        : moment(company.memberJoinAt).format('DD/MM/YYYY')}
+                    </p>
+                  </div>
+
+                  {/* Action */}
+                  <div className="flex gap-3 border-t pt-4">
+                    {renderActionButton(company.status, company.id)}
                   </div>
                 </div>
-
-                {/* Info with labels */}
-                <div className="space-y-2 text-sm text-gray-700 mb-6">
-                  <p className="flex items-center gap-1 truncate">
-                    <User size={16} /> <span className="font-semibold">Owner:</span>{' '}
-                    {company.companyOwner}
-                  </p>
-                  <p className="flex items-center gap-1 truncate">
-                    <Phone size={16} /> <span className="font-semibold">Phone:</span>{' '}
-                    {company.companyPhone}
-                  </p>
-                  <p className="flex items-center gap-1 truncate">
-                    <MapPin size={16} /> <span className="font-semibold">Address:</span>{' '}
-                    {company.companyAddress}
-                  </p>
-                  <p className="flex items-center gap-1 truncate">
-                    <Calendar size={16} /> <span className="font-semibold">Created At:</span>{' '}
-                    {moment(company.companyCreateAt).format('DD/MM/YYYY')}
-                  </p>
-                  <p className="flex items-center gap-1 truncate">
-                    <Clock size={16} /> <span className="font-semibold">Join At:</span>{' '}
-                    {!company.memberJoinAt || company.memberJoinAt.startsWith('0001-01-01')
-                      ? '--'
-                      : moment(company.memberJoinAt).format('DD/MM/YYYY')}
-                  </p>
-                </div>
-
-                {/* Action */}
-                <div className="flex gap-3 border-t pt-4">
-                  {renderActionButton(company.status, company.id)}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
-          <div className="w-full">
+          <div className="w-full mt-4">
             <Paging
               page={pageNumber}
               pageSize={pageSize}
@@ -305,9 +337,8 @@ const InvitationPage: React.FC = () => {
             />
           </div>
         </div>
-      ) : (
-        <></>
       )}
+
       {/* TABLE VIEW */}
       {!viewGrid && (
         <div>

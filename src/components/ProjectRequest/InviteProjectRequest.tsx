@@ -10,6 +10,7 @@ import { getCompanyById, getAllCompanies } from '@/services/companyService.js';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import { AutoComplete } from 'antd';
 import { debounce } from 'lodash';
+import { Steps } from 'antd';
 
 const { TextArea } = Input;
 
@@ -43,7 +44,9 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
     startDate: effectiveDate ? dayjs(effectiveDate) : null,
     endDate: expiredDate ? dayjs(expiredDate) : null,
   });
-
+  console.log('requesterCompanyId', requesterCompanyId);
+  console.log('executorCompanyId', executorCompanyId);
+  console.log('contractId', contractId);
   //state executor company
   const [executorSearch, setExecutorSearch] = useState('');
   const [executorOptions, setExecutorOptions] = useState<{ label: string; value: string }[]>([]);
@@ -165,7 +168,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       return;
     }
     try {
-      const res = await getAllCompanies(keyword, '', '', 1, 10);
+      const res = await getAllCompanies(keyword, '', '', null, null, 1, 50);
       const options = res.data.items.map((c: CompanyRequest) => ({
         label: c.name,
         value: c.id,
@@ -208,6 +211,11 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       centered
       width={600}
     >
+      <Steps
+        current={1}
+        items={[{ title: 'Create Contract' }, { title: 'Create Project Request' }]}
+        style={{ marginBottom: 20 }}
+      />
       <LoadingOverlay loading={loading} message="Creating project..." />
 
       <div className="flex flex-col gap-4 mt-2">

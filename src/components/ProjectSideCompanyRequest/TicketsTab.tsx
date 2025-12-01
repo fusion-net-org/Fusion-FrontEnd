@@ -4,12 +4,13 @@ import { Eye, MessageSquare, Search } from 'lucide-react';
 import { Input, Select, DatePicker, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { GetTicketByProjectId } from '@/services/TicketService.js';
-import type { ITicketResponse, ITicket } from '@/interfaces/Ticket/Ticket';
-import { useNavigate } from 'react-router-dom';
+import type { ITicketResponseTab, ITicketTab } from '@/interfaces/Ticket/Ticket';
 import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
 import { Paging } from '@/components/Paging/Paging';
-
+import { useParams, useNavigate } from 'react-router-dom';
+import { GetProjectByProjectId } from '@/services/ProjectService.js';
+import type { IProject } from '@/interfaces/ProjectMember/projectMember';
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
@@ -21,13 +22,13 @@ interface TicketsTabProps {
 const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) => {
   const navigate = useNavigate();
   const [showCreatePopup, setShowCreatePopup] = useState(false);
-
-  const [ticketsResponse, setTicketsResponse] = useState<ITicketResponse | null>(null);
+  const { companyId } = useParams();
+  const [ticketsResponse, setTicketsResponse] = useState<ITicketResponseTab | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketPriority, setTicketPriority] = useState('');
   const [ticketRange, setTicketRange] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-
+  const [projects, setProjects] = useState<IProject[]>([]);
   const debouncedSearch = useDebounce(ticketSearch, 500);
 
   const [pagination, setPagination] = useState({
@@ -35,11 +36,19 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
     pageSize: 10,
     totalCount: 0,
   });
-
+  const fetchProjects = async () => {
+    try {
+      const response = await GetProjectByProjectId(projectId);
+      console.log('Fetched projects:', response.data);
+      setProjects([response.data]);
+    } catch (error) {
+      console.error('Failed to fetch projects', error);
+    }
+  };
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
-      const res: ITicketResponse = await GetTicketByProjectId(
+      const res: ITicketResponseTab = await GetTicketByProjectId(
         projectId,
         debouncedSearch,
         ticketPriority,
@@ -86,12 +95,35 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
     fetchTickets();
   }, [fetchTickets]);
 
-  const tickets: ITicket[] = ticketsResponse?.data?.items || [];
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+  const tickets: ITicketTab[] = ticketsResponse?.data?.items || [];
 
-  const handleGoToDetail = (ticket: ITicket) => {
-    navigate(`/project/${projectId}/tickets/${ticket.id}`, {
-      state: { isDeleted: ticket.isDeleted },
+  const handleGoToDetail = (ticket: ITicketTab) => {
+    navigate(`/companies/${companyId}/project/${projectId}/tickets/${ticket.id}`, {
+      state: {
+        isDeleted: ticket.isDeleted,
+        viewMode: 'AsRequester',
+      },
     });
+  };
+
+  const getPriorityBadge = (priority?: string) => {
+    const styleMap: Record<string, string> = {
+      Urgent: 'bg-red-100 text-red-700',
+      High: 'bg-orange-100 text-orange-700',
+      Medium: 'bg-yellow-100 text-yellow-700',
+      Low: 'bg-green-100 text-green-700',
+      Unknown: 'bg-gray-50 text-gray-600',
+    };
+
+    const display = priority || 'Unknown';
+    const style = styleMap[display] || styleMap['Unknown'];
+
+    return (
+      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${style}`}>{display}</span>
+    );
   };
 
   return (
@@ -127,6 +159,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                 className="w-full"
               >
                 <Option value="All">All</Option>
+                <Option value="Urgent">Urgent</Option>
                 <Option value="High">High</Option>
                 <Option value="Medium">Medium</Option>
                 <Option value="Low">Low</Option>
@@ -179,6 +212,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                   Created At
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Deleted</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Detail</th>
               </tr>
             </thead>
@@ -195,19 +229,8 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                     </td>
                     <td className="px-6 py-3 text-gray-700">{t.ticketName}</td>
                     <td className="px-6 py-3 text-gray-600">{t.submittedByName}</td>
-                    <td className="px-6 py-3">
-                      <span
-                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                          t.priority === 'High'
-                            ? 'bg-red-100 text-red-700'
-                            : t.priority === 'Medium'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {t.priority || '-'}
-                      </span>
-                    </td>
+                    <td className="px-6 py-3">{getPriorityBadge(t.priority)}</td>
+
                     <td className="px-6 py-3 text-gray-700">
                       {t.budget != null ? t.budget.toLocaleString('vi-VN') : '-'}
                     </td>
@@ -223,6 +246,24 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
                         }
                       >
                         {t.isDeleted ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full
+                      ${
+                        t.status === 'Pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : t.status === 'Accepted'
+                          ? 'bg-green-100 text-green-700'
+                          : t.status === 'Rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : t.status === 'Finished'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                      >
+                        {t.status}
                       </span>
                     </td>
                     <td className="px-6 py-3 text-center">
@@ -264,7 +305,8 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
       <CreateTicketPopup
         visible={showCreatePopup}
         onClose={() => setShowCreatePopup(false)}
-        projectId={projectId}
+        defaultProjectId={projectId}
+        projects={projects}
         onSuccess={() => {
           fetchTickets();
           onTicketCreated?.();

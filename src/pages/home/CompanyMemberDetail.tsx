@@ -16,6 +16,7 @@ import {
   Eye,
   Trash,
   UserPlus,
+  Inbox,
 } from 'lucide-react';
 import {
   BarChart,
@@ -32,7 +33,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { getUserById } from '@/services/userService.js';
+import { getUserById, GetUserRolesByCompany } from '@/services/userService.js';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { User as IUser } from '@/interfaces/User/User';
 import {
@@ -50,6 +51,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useDebounce } from '@/hook/Debounce';
 import { Paging } from '@/components/Paging/Paging';
 import AddRoleModal from '@/components/Company/AccessRole/AddRoleCompanyMemberModal';
+import RemoveRoleModal from '@/components/Company/AccessRole/RemoveRoleModal';
+import type { IRoleDto } from '@/interfaces/Role/Role';
 
 export default function CompanyMemberDetail() {
   const navigate = useNavigate();
@@ -107,7 +110,6 @@ export default function CompanyMemberDetail() {
 
   //state user
   const [user, setUser] = useState<IUser | undefined>();
-
   //state member
   const [member, setMember] = useState<CompanyMemberInterface | undefined>();
 
@@ -119,13 +121,15 @@ export default function CompanyMemberDetail() {
   const { Id } = useParams<{ Id: string }>();
   const debouncedSearch = useDebounce(searchProjectName, 300);
   const debouncedFilter = useDebounce(statusFilter, 300);
-
+  console.log('companyId:', companyId);
   const data = [
     { name: 'Productivity', value: performance?.productivity || 75 },
     { name: 'Communication', value: performance?.communication || 60 },
     { name: 'Teamwork', value: performance?.teamwork || 85 },
     { name: 'Problem Solving', value: performance?.problemSolving || 65 },
   ];
+  const [roles, setRoles] = useState<IRoleDto[]>([]);
+  const [isRemoveRoleOpen, setIsRemoveRoleOpen] = useState(false);
 
   //handle remove member
   const handleRemoveMember = async (memberId: string, reason: string) => {
@@ -201,6 +205,21 @@ export default function CompanyMemberDetail() {
       setTimeout(() => setLoading(false), 200);
     }
   };
+  const fetchUserRoleByUserIdAndCompanyId = async () => {
+    try {
+      setLoading(true);
+      if (!companyId) return;
+      const response = await GetUserRolesByCompany(companyId, Id);
+      const data: IRoleDto[] = response.data;
+      console.log('Fetched user roles:', data);
+      setRoles(data);
+    } catch (error: any) {
+      console.log(error);
+    } finally {
+      setTimeout(() => setLoading(false), 200);
+    }
+  };
+
   //fetch api get company member by company id and userid
   const fetchCompanyMemberByCompanyIdAndUserId = async () => {
     try {
@@ -233,6 +252,7 @@ export default function CompanyMemberDetail() {
   };
   useEffect(() => {
     fetchGetUserById();
+    fetchUserRoleByUserIdAndCompanyId();
     fetchGetProjectMemberByCompanyIdAndUserId();
     fetchCompanyMemberByCompanyIdAndUserId();
   }, [Id]);
@@ -267,7 +287,9 @@ export default function CompanyMemberDetail() {
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold">{user?.userName}</h2>
-                  <p className="text-gray-500">Product Manager</p>
+                  <p className="text-gray-500">
+                    {roles.length > 0 ? roles.map((r) => r.name).join(', ') : 'No role assigned'}
+                  </p>
                 </div>
 
                 <div className="text-sm space-y-2 text-gray-600 -mt-[5px]">
@@ -287,14 +309,20 @@ export default function CompanyMemberDetail() {
                 </div>
 
                 <div className="flex gap-3 w-full mt-4">
-                  <button className="flex-1 py-2 rounded-lg border bg-gray-300 border-gray-300 hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-medium">
+                  {/* <button className="flex-1 py-2 rounded-lg border bg-gray-300 border-gray-300 hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-medium">
                     <MessageSquare size={16} /> Message
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => setIsDeleteOpen(true)}
                     className="flex-1 py-2 rounded-lg border border-red-300 bg-red-500 text-white hover:bg-red-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
                   >
                     <Trash size={16} /> Remove Member
+                  </button>
+                  <button
+                    onClick={() => setIsRemoveRoleOpen(true)}
+                    className="flex-1 py-2 rounded-lg border border-red-300 bg-red-500 text-white hover:bg-red-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <Trash size={16} /> Remove Role
                   </button>
                   <button
                     onClick={() => setIsAddRoleOpen(true)}
@@ -374,47 +402,49 @@ export default function CompanyMemberDetail() {
                 </div>
 
                 {/* Priority Distribution */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex-1 flex flex-col items-center">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex-1 flex flex-col">
                   <h4 className="font-semibold mb-2">Priority Distribution</h4>
 
-                  {/* PieChart */}
-                  <div className="w-full flex justify-center">
-                    <ResponsiveContainer width={200} height={200}>
-                      <PieChart>
-                        <Pie
-                          data={performance?.priorityDistribution?.segments ?? []}
-                          dataKey="value"
-                          nameKey="name"
-                          innerRadius={50}
-                          outerRadius={80}
-                          paddingAngle={3}
-                          cx="50%"
-                          cy="50%"
-                        >
-                          {(performance?.priorityDistribution?.segments ?? []).map(
-                            (seg: any, i: number) => (
-                              <Cell key={i} fill={seg.color || '#8884d8'} />
-                            ),
-                          )}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <div className="flex w-full items-center justify-between ml-10">
+                    {/* PieChart - start */}
+                    <div className="w-1/2 h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={performance?.priorityDistribution?.segments ?? []}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={3}
+                            cx="50%"
+                            cy="50%"
+                          >
+                            {(performance?.priorityDistribution?.segments ?? []).map(
+                              (seg: any, i: number) => (
+                                <Cell key={i} fill={seg.color || '#8884d8'} />
+                              ),
+                            )}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
 
-                  {/* Legend */}
-                  <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm">
-                    {(performance?.priorityDistribution?.segments ?? []).map(
-                      (seg: any, i: number) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: seg.color || '#8884d8' }}
-                          ></span>
-                          {seg.name}: {seg.value}
-                        </div>
-                      ),
-                    )}
+                    {/* Legend - vertical center */}
+                    <div className="w-1/2 flex flex-col justify-center gap-3 text-sm">
+                      {(performance?.priorityDistribution?.segments ?? []).map(
+                        (seg: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: seg.color || '#8884d8' }}
+                            ></span>
+                            {seg.name}: {seg.value}
+                          </div>
+                        ),
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -448,29 +478,36 @@ export default function CompanyMemberDetail() {
 
               {/* Projects Table */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                {/* Search & Filter */}
                 <div className="flex justify-between items-center mb-4">
                   {/* Search */}
-                  <div className="relative w-1/3 ">
-                    <Search size={18} className="absolute left-2 top-2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search project..."
-                      className="pl-8 pr-3 py-2 border-2 rounded-lg text-sm w-full focus:ring-2 focus:ring-blue-300 outline-none"
-                      onChange={(e) => setSearchProjectName(e.target.value)}
-                    />
+                  <div className="flex flex-col w-1/3">
+                    <label className="text-sm font-semibold text-gray-700 mb-1">Search</label>
+                    <div className="relative">
+                      <Search size={18} className="absolute left-2 top-2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search project..."
+                        className="pl-8 pr-3 py-2 border-2 rounded-lg text-sm w-full focus:ring-2 focus:ring-blue-300 outline-none"
+                        onChange={(e) => setSearchProjectName(e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   {/* Filter */}
-                  <select
-                    className="px-3 py-2 border-2 rounded-lg text-sm text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-300"
-                    onChange={(e) =>
-                      setStatusFilter(e.target.value === 'All' ? '' : e.target.value)
-                    }
-                  >
-                    <option>All</option>
-                    <option>Active</option>
-                    <option>Inactive</option>
-                  </select>
+                  <div className="flex flex-col">
+                    <label className="text-sm font-semibold text-gray-700 mb-1">Filter</label>
+                    <select
+                      className="px-3 py-2 border-2 rounded-lg text-sm text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-300"
+                      onChange={(e) =>
+                        setStatusFilter(e.target.value === 'All' ? '' : e.target.value)
+                      }
+                    >
+                      <option>All</option>
+                      <option>Active</option>
+                      <option>Inactive</option>
+                    </select>
+                  </div>
                 </div>
 
                 <table className="w-full text-sm border-collapse">
@@ -534,9 +571,17 @@ export default function CompanyMemberDetail() {
                         </tr>
                       ))
                     ) : (
-                      <tr>
-                        <td colSpan={7} className="text-center py-6 text-gray-500">
-                          Don't have project for members with company
+                      <tr className="border-b border-gray-200 hover:bg-blue-50 transition duration-200">
+                        <td colSpan={7} className="py-10">
+                          <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
+                            <Inbox className="w-12 h-12 text-gray-300" />
+                            <p className="text-gray-500 text-sm font-medium">
+                              Don’t have project for members with company.
+                            </p>
+                            <p className="text-gray-400 text-xs">
+                              Try adding a new project or selecting another company.
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -580,13 +625,23 @@ export default function CompanyMemberDetail() {
               roleIds: selectedRoles.map((role) => role.id),
             });
             toast.success('Roles added successfully!');
+            fetchUserRoleByUserIdAndCompanyId();
           } catch (error: any) {
             toast.error(error.message || 'Failed to add roles');
           } finally {
             setIsAddRoleOpen(false);
           }
         }}
+        userRoles={roles}
       />
+      <RemoveRoleModal
+        companyId={companyId}
+        userId={Id || ''}
+        isOpen={isRemoveRoleOpen}
+        onClose={() => setIsRemoveRoleOpen(false)}
+        onConfirm={fetchUserRoleByUserIdAndCompanyId}
+      />
+
       <LoadingOverlay loading={loadingDelete} message="Removing member..." />
     </div>
   );

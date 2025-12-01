@@ -63,8 +63,10 @@ import RequireAdmin from './components/RequireAdmin/RequireAdmin';
 import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetailPage';
 import TaskDetailPage from './pages/project/TaskDetailPage';
 import InvitationPage from './components/Member/Invitations';
-import UserProfile from './pages/UserProfile/UserProfile';
+import CompanyProtectedRoute from './components/CompanyProtectedRoute/CompanyProtectedRoute';
+import UserProfile from './pages/userProfile/UserProfile';
 import ProjectOverviewPage from './pages/admin/projectManagement/ProjectOverviewPage';
+import TicketPage from './pages/home/TicketPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -132,11 +134,17 @@ function App() {
           <Route path="/admin/features/list" element={<FeatureListPage />} />
         </Route>
         {/* route company layout */}
-        <Route element={<CompanyLayout />}>
+        <Route
+          element={
+            <CompanyProtectedRoute>
+              <CompanyLayout />
+            </CompanyProtectedRoute>
+          }
+        >
           <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
           <Route path="/company/:companyId" element={<CompanyDetail />} />
           <Route path="/company/:companyId/partners" element={<Partners />} />
-          <Route path="/company/partners/:id" element={<PartnerDetails />} />
+          <Route path="/company/:companyId/partners/:id" element={<PartnerDetails />} />
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
@@ -145,14 +153,19 @@ function App() {
             path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
           />
-          <Route path="project/:projectId/tickets/:ticketId" element={<TicketDetailPage />} />
+          <Route
+            path="/companies/:companyId/project/:projectId/tickets/:ticketId"
+            element={<TicketDetailPage />}
+          />
 
           <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
           <Route
             path="/company/:companyId/project-request/:id"
             element={<ProjectRequestDetail />}
           />
-          <Route path="/company/members/:Id" element={<CompanyMemberDetail />} />
+          <Route path="/company/:companyId/ticket" element={<TicketPage />} />
+
+          <Route path="/company/:companyId/members/:Id" element={<CompanyMemberDetail />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
           <Route
             path="/companies/:companyId/workflows/:workflowId"
@@ -182,14 +195,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/request-reset-password" element={<RequestResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route
-          path="/my-profile"
-          element={
-            <RequireAuth>
-              <UserProfile />
-            </RequireAuth>
-          }
-        />
+        <Route path="/my-profile" element={<UserProfile />} />
 
         <Route path="*" element={<NotFound />} />
         {/*Route payment-result */}

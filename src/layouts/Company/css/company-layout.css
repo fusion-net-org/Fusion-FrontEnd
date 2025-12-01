@@ -272,3 +272,34 @@
   color: var(--cmp-gray-500);
   font-size: var(--cmp-text-xs);
 }
+
+.cmp-nav__company {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.cmp-nav__companyLogo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f3f3f3;
+  border: 1px solid rgba(0,0,0,0.05);
+  flex-shrink: 0;
+}
+
+.cmp-nav__companyName {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: wrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
