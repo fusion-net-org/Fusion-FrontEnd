@@ -23,6 +23,7 @@ import { logoutUser } from '@/redux/userSlice';
 
 type NavLeftProps = {
   isCollapsed: boolean;
+  toggleSidebar: () => void;
 };
 
 type SubItem = {
@@ -182,21 +183,18 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
                 isCollapsed ? 'justify-center w-full' : 'justify-start gap-3'
               }`}
             >
-           <div className="flex items-center gap-3">
-  {/* Logo bự hơn, không nền, giữ tỉ lệ */}
-  <img
-    src={logo_fusion}
-    alt="Fusion logo"
-    className="
+              <div className="flex items-center gap-3">
+                {/* Logo bự hơn, không nền, giữ tỉ lệ */}
+                <img
+                  src={logo_fusion}
+                  alt="Fusion logo"
+                  className="
       w-24 h-24    
       sm:w-14 sm:h-14  
       object-contain
     "
-  />
-
-
-</div>
-
+                />
+              </div>
 
               {!isCollapsed && (
                 <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
