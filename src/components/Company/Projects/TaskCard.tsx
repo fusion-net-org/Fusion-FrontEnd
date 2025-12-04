@@ -309,6 +309,8 @@ export default function TaskCard({
       className={cn(
         "rounded-xl bg-white/95 shadow-[0_1px_2px_rgba(15,23,42,0.06)] p-3",
         "transition-all duration-300 relative hover:shadow-md hover:-translate-y-[1px]",
+         "border border-slate-200 shadow-[0_2px_0_rgba(195,212,234,1),0_6px_12px_rgba(148,163,184,0.16)]",
+
         cardBorderClass,
         !isNew && urgent && "ring-1 ring-rose-200",
         isAiDraft && "opacity-95"

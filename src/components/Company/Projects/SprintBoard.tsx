@@ -23,6 +23,219 @@ type Id = string;
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
+// ===== Analytics helpers: burn-up + velocity + work-mix =====
+
+// dùng storyPoints, nếu không có thì = 0 (chart sẽ phẳng, đúng data)
+const taskPoints = (t: TaskVm) => Math.max(0, t.storyPoints || 0);
+
+// build burn-up cho 1 sprint theo ngày
+function buildBurnupData(
+  sprint: SprintVm | null,
+  sprints: SprintVm[],
+  tasks: TaskVm[],
+): Array<{ date: string; scope: number; completed: number; ideal: number }> {
+  if (!sprint) return [];
+
+  const startIso = sprint.start;
+  const endIso = sprint.end;
+  if (!startIso || !endIso) return [];
+
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return [];
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const totalDays = Math.max(1, Math.floor((end.getTime() - start.getTime()) / dayMs) + 1);
+
+  const validSprintIds = new Set(sprints.map((s) => s.id));
+
+  // giống committedPoints: task có sprintId rác -> tính chung cho sprint active
+  const sprintTasks = tasks.filter(
+    (t) =>
+      (t.sprintId ?? "") === sprint.id ||
+      !validSprintIds.has(t.sprintId ?? ""),
+  );
+  if (!sprintTasks.length) return [];
+
+  const clampIndex = (idx: number) => Math.max(0, Math.min(totalDays - 1, idx));
+
+  const dailyScopeAdd = new Array<number>(totalDays).fill(0);
+  const dailyCompletedAdd = new Array<number>(totalDays).fill(0);
+
+  const getAnchorDate = (t: TaskVm): string | null =>
+    (t.openedAt as any) ||
+    (t.createdAt as any) ||
+    (t.dueDate as any) ||
+    startIso;
+
+  const getDoneDate = (t: TaskVm): string | null => {
+    if (t.statusCategory !== "DONE") return null;
+    return (
+      (t.updatedAt as any) ||
+      (t.dueDate as any) ||
+      endIso
+    );
+  };
+
+  let totalScope = 0;
+
+  for (const t of sprintTasks) {
+    const pts = taskPoints(t);
+    if (!pts) continue;
+
+    // scope: ngày task “vào” sprint
+    const anchorIso = getAnchorDate(t);
+    if (anchorIso) {
+      const d = new Date(anchorIso);
+      const idx = clampIndex(Math.floor((d.getTime() - start.getTime()) / dayMs));
+      dailyScopeAdd[idx] += pts;
+      totalScope += pts;
+    }
+
+    // completed: ngày task DONE (approx = updatedAt)
+    const doneIso = getDoneDate(t);
+    if (doneIso) {
+      const d2 = new Date(doneIso);
+      const idx2 = clampIndex(Math.floor((d2.getTime() - start.getTime()) / dayMs));
+      dailyCompletedAdd[idx2] += pts;
+    }
+  }
+
+  if (!totalScope) {
+    // không có storyPoints -> không vẽ burn-up (tránh vẽ sai)
+    return [];
+  }
+
+  const data: Array<{ date: string; scope: number; completed: number; ideal: number }> = [];
+  let cumScope = 0;
+  let cumDone = 0;
+
+  for (let i = 0; i < totalDays; i++) {
+    cumScope += dailyScopeAdd[i];
+    cumDone += dailyCompletedAdd[i];
+
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const label = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
+    const ideal =
+      totalScope && totalDays > 1
+        ? Math.round((totalScope * i) / (totalDays - 1))
+        : totalScope;
+
+    data.push({
+      date: label,
+      scope: cumScope,
+      completed: cumDone,
+      ideal,
+    });
+  }
+
+  return data;
+}
+
+// velocity: committed vs completed / sprint
+function buildVelocityData(
+  sprints: SprintVm[],
+  tasks: TaskVm[],
+): Array<{ name: string; committed: number; completed: number }> {
+  if (!sprints.length) return [];
+
+  const byId = new Map<
+    string,
+    { id: string; name: string; startMs: number; committed: number; completed: number }
+  >();
+
+  for (const s of sprints) {
+    const startMs = s.start ? new Date(s.start).getTime() : 0;
+    byId.set(s.id, {
+      id: s.id,
+      name: s.name,
+      startMs,
+      committed: 0,
+      completed: 0,
+    });
+  }
+
+  for (const t of tasks) {
+    const sid = t.sprintId ?? "";
+    const rec = byId.get(sid);
+    if (!rec) continue;
+    const pts = taskPoints(t);
+    rec.committed += pts;
+    if (t.statusCategory === "DONE") {
+      rec.completed += pts;
+    }
+  }
+
+  return Array.from(byId.values())
+    .filter((x) => x.committed > 0 || x.completed > 0)
+    .sort((a, b) => a.startMs - b.startMs)
+    .map((x) => ({
+      name: x.name,
+      committed: x.committed,
+      completed: x.completed,
+    }));
+}
+
+// work-mix: storyPoints theo type cho từng sprint
+function buildWorkMixData(
+  sprints: SprintVm[],
+  tasks: TaskVm[],
+): Array<{ name: string; Feature: number; Bug: number; Chore: number; Other: number }> {
+  if (!sprints.length) return [];
+
+  const byId = new Map<
+    string,
+    { id: string; name: string; startMs: number; Feature: number; Bug: number; Chore: number; Other: number }
+  >();
+
+  for (const s of sprints) {
+    const startMs = s.start ? new Date(s.start).getTime() : 0;
+    byId.set(s.id, {
+      id: s.id,
+      name: s.name,
+      startMs,
+      Feature: 0,
+      Bug: 0,
+      Chore: 0,
+      Other: 0,
+    });
+  }
+
+  for (const t of tasks) {
+    const sid = t.sprintId ?? "";
+    const rec = byId.get(sid);
+    if (!rec) continue;
+
+    const pts = taskPoints(t);
+    if (!pts) continue;
+
+    const rawType = (t.type || "Task").toLowerCase();
+    let bucket: keyof typeof rec = "Other";
+    if (rawType.includes("feature")) bucket = "Feature";
+    else if (rawType.includes("bug")) bucket = "Bug";
+    else if (rawType.includes("chore") || rawType.includes("task")) bucket = "Chore";
+
+    rec[bucket] += pts;
+  }
+
+  return Array.from(byId.values())
+    .filter((x) => x.Feature || x.Bug || x.Chore || x.Other)
+    .sort((a, b) => a.startMs - b.startMs)
+    .map((x) => ({
+      name: x.name,
+      Feature: x.Feature,
+      Bug: x.Bug,
+      Chore: x.Chore,
+      Other: x.Other,
+    }));
+}
 
 /* ===== helpers màu từ API ===== */
 function hexToRgba(hex?: string, a = 1) {
@@ -190,7 +403,20 @@ useEffect(() => {
   }, [tasks, activeSprint, sprints]);
 
   const completionPct = committedPoints > 0 ? Math.round((100 * completedPoints) / committedPoints) : 0;
+ const burnupData = useMemo(
+    () => buildBurnupData(activeSprint, sprints, tasks),
+    [activeSprint, sprints, tasks],
+  );
 
+  const velocityData = useMemo(
+    () => buildVelocityData(sprints, tasks),
+    [sprints, tasks],
+  );
+
+  const workMixData = useMemo(
+    () => buildWorkMixData(sprints, tasks),
+    [sprints, tasks],
+  );
   // ===== Handlers =====
   function toNextStatusId(t: TaskVm, sp: SprintVm): string | null {
     const idx = sp.statusOrder.indexOf(resolveStatusId(t, sp));
@@ -325,55 +551,111 @@ useEffect(() => {
       </div>
     );
   }
-  function BurnUpCard() {
-    const base = snapshots.length > 0
-      ? snapshots
-      : [
-          { name: "W-1", committed: 21, completed: 9 },
-          { name: "W-2", committed: 18, completed: 14 },
-          { name: "W-3", committed: 24, completed: 12 },
-        ];
-    const data = base.map((p, i) => {
-      const prev = i === 0 ? { committed: 0, completed: 0 }
-        : base.slice(0, i).reduce((a, b) => ({ committed: a.committed + b.committed, completed: a.completed + b.completed }), { committed: 0, completed: 0 });
-      return { name: p.name, scope: prev.committed + p.committed, completed: prev.completed + p.completed };
-    });
+   function BurnUpCard({
+    sprint,
+    data,
+  }: {
+    sprint: SprintVm | null;
+    data: Array<{ date: string; scope: number; completed: number; ideal: number }>;
+  }) {
+    const hasData = sprint && data.length > 0;
+    const totalScope = hasData ? data[data.length - 1].scope : 0;
+    const totalCompleted = hasData ? data[data.length - 1].completed : 0;
 
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-[15px] font-semibold mb-3">Burn-up (Scope vs Completed)</div>
-        <div className="h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="gScope" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#93C5FD" stopOpacity={0.8} />
-                  <stop offset="100%" stopColor="#93C5FD" stopOpacity={0.15} />
-                </linearGradient>
-                <linearGradient id="gDone" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#86EFAC" stopOpacity={0.9} />
-                  <stop offset="100%" stopColor="#86EFAC" stopOpacity={0.2} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="scope" name="scope" stroke="#60A5FA" fill="url(#gScope)" />
-              <Area type="monotone" dataKey="completed" name="completed" stroke="#34D399" fill="url(#gDone)" />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <div className="text-[15px] font-semibold">
+              Burn-up – {sprint?.name ?? "Sprint"}
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Scope vs completed story points over days
+            </div>
+          </div>
+          {hasData && (
+            <div className="text-right text-[11px] text-slate-500">
+              <div>Scope: <span className="font-semibold">{totalScope}</span> pts</div>
+              <div>Done: <span className="font-semibold">{totalCompleted}</span> pts</div>
+            </div>
+          )}
+        </div>
+
+        <div className="h-[230px]">
+          {hasData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data}>
+                <defs>
+                  <linearGradient id="gScope" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#93C5FD" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#93C5FD" stopOpacity={0.15} />
+                  </linearGradient>
+                  <linearGradient id="gDone" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#86EFAC" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#86EFAC" stopOpacity={0.2} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis allowDecimals={false} />
+                <Tooltip
+                  formatter={(value, key) => {
+                    if (key === "scope") return [value, "Scope"];
+                    if (key === "completed") return [value, "Completed"];
+                    if (key === "ideal") return [value, "Ideal"];
+                    return [value, key];
+                  }}
+                />
+                <Legend />
+                {/* scope = area xanh dương */}
+                <Area
+                  type="monotone"
+                  dataKey="scope"
+                  name="Scope"
+                  stroke="#60A5FA"
+                  fill="url(#gScope)"
+                />
+                {/* completed = line xanh lá */}
+                <Line
+                  type="monotone"
+                  dataKey="completed"
+                  name="Completed"
+                  stroke="#22C55E"
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  activeDot={{ r: 3 }}
+                />
+                {/* ideal = line chấm chấm xám */}
+                <Line
+                  type="monotone"
+                  dataKey="ideal"
+                  name="Ideal"
+                  stroke="#9CA3AF"
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-sm text-slate-500">
+              Not enough story points data to build burn-up.
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  const SummaryAndChart = (
+
+   const SummaryAndChart = (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-[15px] font-semibold">{activeSprint?.name ?? "Sprint"}</div>
-        <div className="text-xs text-slate-500">{fmtDate(activeSprint?.start)} – {fmtDate(activeSprint?.end)}</div>
+        <div className="text-[15px] font-semibold">
+          {activeSprint?.name ?? "Sprint"}
+        </div>
+        <div className="text-xs text-slate-500">
+          {fmtDate(activeSprint?.start)} – {fmtDate(activeSprint?.end)}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <MetricCard label="Committed pts" value={committedPoints} />
           <MetricCard label="Done pts" value={completedPoints} />
@@ -381,7 +663,9 @@ useEffect(() => {
             label="Team capacity"
             value={`${activeSprint?.capacityHours ?? 160}h`}
             sub={`Estimate sum: ${
-              tasks.filter((t) => (t.sprintId ?? "") === activeSprintId).reduce((s, t) => s + (t.estimateHours || 0), 0)
+              tasks
+                .filter((t) => (t.sprintId ?? "") === activeSprintId)
+                .reduce((s, t) => s + (t.estimateHours || 0), 0)
             }h`}
           />
           <MetricCard
@@ -390,16 +674,21 @@ useEffect(() => {
               <div className="flex items-center gap-3">
                 <span className="font-semibold">{completionPct}%</span>
                 <div className="h-1.5 w-24 bg-slate-100 rounded-full">
-                  <div className="h-1.5 rounded-full" style={{ width: `${completionPct}%`, background: brand }} />
+                  <div
+                    className="h-1.5 rounded-full"
+                    style={{ width: `${completionPct}%`, background: brand }}
+                  />
                 </div>
               </div>
             }
           />
         </div>
       </div>
-      <BurnUpCard />
+
+      <BurnUpCard sprint={activeSprint} data={burnupData} />
     </div>
   );
+
 
   /* ===== Board ===== */
   function Board() {
@@ -573,28 +862,133 @@ useEffect(() => {
         </>
       )}
 
-      {view === "Analytics" && (
-        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-slate-600 text-sm mb-2">Velocity (last sprints)</div>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart
-              data={snapshots.length ? snapshots : [
-                { name: "W-1", committed: 22, completed: 10 },
-                { name: "W-2", committed: 18, completed: 14 },
-                { name: "W-3", committed: 25, completed: 12 },
-              ]}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="committed" dot />
-              <Line type="monotone" dataKey="completed" dot />
-            </LineChart>
-          </ResponsiveContainer>
+           {view === "Analytics" && (
+        <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {/* Velocity per sprint */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
+              {velocityData.length > 0 && (
+                <div className="text-[11px] text-slate-500">
+                  Avg done:&nbsp;
+                  <span className="font-semibold">
+                    {Math.round(
+                      velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
+                        Math.max(1, velocityData.length),
+                    )}
+                  </span>{" "}
+                  pts / sprint
+                </div>
+              )}
+            </div>
+
+            <div className="h-[260px]">
+              {velocityData.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={velocityData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value, key) => {
+                        if (key === "committed") return [value, "Committed"];
+                        if (key === "completed") return [value, "Completed"];
+                        return [value, key];
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="committed"
+                      name="Committed"
+                      stroke="#60A5FA"
+                      dot
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="completed"
+                      name="Completed"
+                      stroke="#22C55E"
+                      dot
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                  No story points data across sprints yet.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Work mix by type */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-slate-600 text-sm">Work mix (story points by type)</div>
+              <div className="text-[11px] text-slate-500">
+                Feature / Bug / Chore / Other
+              </div>
+            </div>
+
+            <div className="h-[260px]">
+              {workMixData.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={workMixData} stackOffset="expand">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} />
+                    <Tooltip
+                      formatter={(value, key) => {
+                        const pct = typeof value === "number" ? `${Math.round(value * 100)}%` : value;
+                        return [pct, key];
+                      }}
+                    />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="Feature"
+                      name="Feature"
+                      stackId="1"
+                      stroke="#60A5FA"
+                      fill="#BFDBFE"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Bug"
+                      name="Bug"
+                      stackId="1"
+                      stroke="#F97316"
+                      fill="#FED7AA"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Chore"
+                      name="Chore"
+                      stackId="1"
+                      stroke="#A855F7"
+                      fill="#E9D5FF"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Other"
+                      name="Other"
+                      stackId="1"
+                      stroke="#6B7280"
+                      fill="#E5E7EB"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                  Not enough typed tasks to show work mix.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
+
+
 
       {view === "Roadmap" && <Roadmap />}
 
