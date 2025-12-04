@@ -519,7 +519,6 @@ export default function CompanyMemberDetail() {
                       <th className="p-3 font-medium text-center">Start Date</th>
                       <th className="p-3 font-medium text-center">End Date</th>
                       <th className="p-3 font-medium text-center">Status</th>
-                      <th className="p-3 font-medium text-center">Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -558,15 +557,6 @@ export default function CompanyMemberDetail() {
                             >
                               {proj.status ?? '--'}
                             </span>
-                          </td>
-
-                          <td className="p-3 text-center">
-                            <button
-                              className="text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1 text-sm mx-auto"
-                              onClick={() => navigate(`/project-detail/${proj.id}`)}
-                            >
-                              <Eye size={16} />
-                            </button>
                           </td>
                         </tr>
                       ))

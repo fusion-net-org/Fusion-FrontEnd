@@ -303,27 +303,49 @@ const CompanyDetails: React.FC = () => {
               </div>
             </div>
           </div>
-          {/* Projects Info */}
+          {/* Projects Info (Column Chart) */}
           <div className="bg-white rounded-2xl shadow hover:shadow-md transition p-6">
             <div className="flex items-center gap-2 mb-4">
               <Contact className="w-5 h-5 text-gray-500" />
               <h2 className="text-lg font-semibold text-gray-800 mb-auto">Projects Information</h2>
             </div>
+
             <Card className="bg-white-500 p-0 rounded-xl border-none">
               <Chart
-                type="donut"
-                height={300}
+                type="bar"
+                height={330}
                 series={[
-                  company?.totalMember ?? 0,
-                  company?.totalProject ?? 0,
-                  company?.totalPartners ?? 0,
-                  company?.totalApproved ?? 0,
+                  {
+                    name: 'Count',
+                    data: [
+                      company?.totalMember ?? 0,
+                      company?.totalProject ?? 0,
+                      company?.totalPartners ?? 0,
+                      company?.totalApproved ?? 0,
+                    ],
+                  },
                 ]}
                 options={{
-                  labels: ['Members', 'Projects', 'Partners', 'Approved'],
-                  colors: ['#3B82F6', '#10B981', '#F59E0B', '#6366F1'],
-                  legend: { position: 'bottom' },
-                  dataLabels: { enabled: true },
+                  chart: { toolbar: { show: true } },
+                  xaxis: {
+                    categories: ['Members', 'Projects', 'Partners', 'Approved'],
+                    labels: { style: { fontSize: '14px' } },
+                  },
+                  plotOptions: {
+                    bar: {
+                      borderRadius: 6,
+                      columnWidth: '40%',
+                    },
+                  },
+                  dataLabels: {
+                    enabled: true,
+                    style: { fontSize: '14px', fontWeight: 'bold' }, // luôn hiện số, không hiện %
+                    formatter: (val: number) => val.toString(),
+                  },
+                  colors: ['#3B82F6'],
+                  tooltip: {
+                    y: { formatter: (val: number) => `${val}` },
+                  },
                 }}
               />
             </Card>
@@ -399,14 +421,39 @@ const CompanyDetails: React.FC = () => {
                 className="shadow-inner border rounded-2xl p-4"
               >
                 <Chart
-                  type="donut"
-                  height={300}
-                  series={[company?.totalProjectCreated ?? 0, company?.totalProjectHired ?? 0]}
+                  type="bar"
+                  height={330}
+                  series={[
+                    {
+                      name: 'Count',
+                      data: [company?.totalProjectCreated ?? 0, company?.totalProjectHired ?? 0],
+                    },
+                  ]}
                   options={{
-                    labels: ['Created', 'Hired'],
+                    chart: {
+                      toolbar: { show: true },
+                    },
+                    xaxis: {
+                      categories: ['Created', 'Hired'],
+                      labels: { style: { fontSize: '14px' } },
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 6,
+                        columnWidth: '40%',
+                        distributed: true,
+                      },
+                    },
                     colors: ['#F59E0B', '#3B82F6'],
-                    legend: { position: 'bottom' },
-                    dataLabels: { enabled: true },
+                    dataLabels: {
+                      enabled: true,
+                      formatter: (val) => `${val}`,
+                      style: { fontSize: '14px', fontWeight: '600' },
+                    },
+                    tooltip: {
+                      y: { formatter: (val) => `${val}` },
+                    },
+                    legend: { show: false },
                   }}
                 />
               </Card>

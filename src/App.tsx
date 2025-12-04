@@ -71,7 +71,7 @@ import ProjectRequestListAdminPage from './pages/admin/projectRequest/ProjectReq
 import ProjectRequestDetailAdminPage from './pages/admin/projectRequest/ProjectRequestDetailAdminPage';
 import TicketListAdminPage from './pages/admin/ticketManagement/TicketListAdminPage';
 import TicketDetailAdminPage from './pages/admin/ticketManagement/TicketDetailAdminPage';
-
+import CompanyRole from './pages/home/CompanyRole';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -159,6 +159,7 @@ function App() {
           <Route path="/company/:companyId/partners" element={<Partners />} />
           <Route path="/company/:companyId/partners/:id" element={<PartnerDetails />} />
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
+          <Route path="/company/:companyId/roles" element={<CompanyRole />} />
           <Route path="/companies/:companyId/workflow" element={<WorkflowPage />} />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route path="/company/:companyId/subscription" element={<CompanySubscriptionPage />} />
