@@ -92,7 +92,7 @@ const TicketDetailAdminPage: React.FC = () => {
   const { id: paramId } = useParams();
   const nav = useNavigate();
 
-  const id = paramId || localStorage.getItem('ticketId');
+  const id = paramId || localStorage.getItem('ticketDetailId');
 
   const [loading, setLoading] = useState(true);
   const [item, setItem] = useState<TicketDetail | null>(null);

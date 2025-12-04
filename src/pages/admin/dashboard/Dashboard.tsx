@@ -240,7 +240,7 @@ const Dashboard = () => {
   };
 
   const payBadge = (status: string) =>
-    status === 'Paid'
+    status == 'Success'
       ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
       : 'bg-amber-50 text-amber-600 border border-amber-200';
 
@@ -323,17 +323,22 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height={340}>
               <BarChart data={revenueChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                 <YAxis
+                  yAxisId="right"
+                  orientation="right"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12 }}
                   tickFormatter={(value) => `${value / 1000}k`}
                 />
+
                 <Tooltip />
-                <Bar dataKey="User" fill="#f48fb1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Company" fill="#4db6ac" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Revenue" fill="#64b5f6" radius={[4, 4, 0, 0]} />
+
+                <Bar yAxisId="left" dataKey="User" fill="#f48fb1" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="Company" fill="#4db6ac" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="Revenue" fill="#64b5f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
