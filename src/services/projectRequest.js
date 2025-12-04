@@ -276,3 +276,18 @@ export const GetAllProjectRequestByAdmin = async (
     return { data: { items: [], totalCount: 0, pageNumber: 1, pageSize: 10 } };
   }
 };
+
+export const getProjectRequestIdByAdmin = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/projectrequest/${id}/admin`);
+    return response.data;
+  } catch (error) {
+    console.error('Error:', error);
+    return (
+      error.response?.data || {
+        succeeded: false,
+        message: 'Unexpected error occurred',
+      }
+    );
+  }
+};

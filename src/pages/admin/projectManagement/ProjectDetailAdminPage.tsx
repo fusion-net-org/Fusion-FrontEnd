@@ -181,9 +181,9 @@ const ProjectDetailAdminPage: React.FC = () => {
           </Tag>
         </Space>
 
-        <Paragraph type="secondary" style={{ marginTop: '8px', marginBottom: 0 }}>
+        {/* <Paragraph type="secondary" style={{ marginTop: '8px', marginBottom: 0 }}>
           Project ID: {project.id}
-        </Paragraph>
+        </Paragraph> */}
       </div>
 
       {/* Statistics Cards */}
@@ -268,7 +268,7 @@ const ProjectDetailAdminPage: React.FC = () => {
                 </div>
               </div>
               <Divider style={{ margin: '12px 0' }} />
-              <div>
+              {/* <div>
                 <Text type="secondary">Owner ID</Text>
                 <Paragraph
                   copyable
@@ -278,7 +278,7 @@ const ProjectDetailAdminPage: React.FC = () => {
                 >
                   {project.ownerId}
                 </Paragraph>
-              </div>
+              </div> */}
             </Space>
           </Card>
 
@@ -296,11 +296,16 @@ const ProjectDetailAdminPage: React.FC = () => {
               <div>
                 <Text type="secondary">Company request</Text>
                 <div style={{ marginTop: '8px' }}>
-                  <Text strong style={{ fontSize: '16px' }}>
+                  <Text
+                    strong
+                    style={{ fontSize: '16px' }}
+                    className="cursor-pointer hover:underline"
+                    onClick={() => handleCompanyClick(project.companyRequestId)}
+                  >
                     {project.companyRequestName}
                   </Text>
                 </div>
-                <Paragraph
+                {/* <Paragraph
                   type="secondary"
                   copyable
                   style={{ marginTop: '4px', marginBottom: 0, fontSize: '12px' }}
@@ -308,17 +313,22 @@ const ProjectDetailAdminPage: React.FC = () => {
                   onClick={() => handleCompanyClick(project.companyRequestId)}
                 >
                   ID: {project.companyRequestId}
-                </Paragraph>
+                </Paragraph> */}
               </div>
               <Divider style={{ margin: '8px 0' }} />
               <div>
                 <Text type="secondary">Company excutor</Text>
                 <div style={{ marginTop: '8px' }}>
-                  <Text strong style={{ fontSize: '16px' }}>
+                  <Text
+                    strong
+                    style={{ fontSize: '16px' }}
+                    className="cursor-pointer hover:underline"
+                    onClick={() => handleCompanyClick(project.companyExecutorId)}
+                  >
                     {project.companyExecutorName}
                   </Text>
                 </div>
-                <Paragraph
+                {/* <Paragraph
                   type="secondary"
                   copyable
                   style={{ marginTop: '4px', marginBottom: 0, fontSize: '12px' }}
@@ -326,7 +336,7 @@ const ProjectDetailAdminPage: React.FC = () => {
                   onClick={() => handleCompanyClick(project.companyExecutorId)}
                 >
                   ID: {project.companyExecutorId}
-                </Paragraph>
+                </Paragraph> */}
               </div>
             </Space>
           </Card>
@@ -350,12 +360,12 @@ const ProjectDetailAdminPage: React.FC = () => {
                 </div>
               </div>
               <Divider style={{ margin: '12px 0' }} />
-              <div>
+              {/* <div>
                 <Text type="secondary">Workflow ID</Text>
                 <Paragraph copyable style={{ marginTop: '4px', marginBottom: 0 }}>
                   {project.workflowId}
                 </Paragraph>
-              </div>
+              </div> */}
             </Space>
           </Card>
         </Col>

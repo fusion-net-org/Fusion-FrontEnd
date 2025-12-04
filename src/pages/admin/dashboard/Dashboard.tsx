@@ -58,6 +58,7 @@ type Transaction = {
   counterAccountBankName?: string;
   counterAccountName?: string;
   counterAccountNumber?: string;
+  type?: string;
   paymentMethod?: string;
 };
 
@@ -284,11 +285,11 @@ const Dashboard = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-gray-50 px-4 py-6 sm:px-6">
         {/* KPI Cards + Revenue Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* KPI Cards */}
-          <div className="grid grid-cols-3 gap-2 auto-rows-min">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-min">
             {kpis.map((kpi, index) => (
               <div
                 key={index}
@@ -320,7 +321,7 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <ResponsiveContainer width="100%" height={340}>
+            <ResponsiveContainer width="100%" height={260} className="sm:!h-[300px] lg:!h-[340px]">
               <BarChart data={revenueChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
@@ -345,7 +346,7 @@ const Dashboard = () => {
         </div>
 
         {/* Request Plan + Subscription Ratio */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {/* Request Plan List */}
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
@@ -354,7 +355,7 @@ const Dashboard = () => {
                 <MoreVertical className="w-5 h-5" />
               </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full scrollbar-thin scrollbar-thumb-gray-300">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50">
@@ -449,21 +450,21 @@ const Dashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">
                     Order Code
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Amount</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
+
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">Status</th>
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">
                     Payment time
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    User name
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">User name</th>
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">Plan name</th>
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">Type</th>
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">
+                    Payment method
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Plan name
-                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-600">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -473,11 +474,12 @@ const Dashboard = () => {
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleTransactionClick(t)}
                   >
-                    <td className="py-3 px-4 text-sm text-gray-700">{t.id}</td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{t.orderCode || '---'}</td>
                     <td className="py-3 px-4 text-sm text-gray-700">
-                      {t.amount} {t.currency}
+                      {t.orderCode || (
+                        <span className="text-gray-400 text-sm italic">Not provided</span>
+                      )}
                     </td>
+
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center h-7 px-3 text-xs font-medium rounded-full ${payBadge(
@@ -490,8 +492,28 @@ const Dashboard = () => {
                     <td className="py-3 px-4 text-sm text-gray-700">
                       {new Date(t.transactionDateTime).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{t.userName}</td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{t.planName}</td>
+                    <td className="py-3 px-4 text-sm text-gray-700">
+                      {t.userName || (
+                        <span className="text-gray-400 text-sm italic">Not provided</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-700">
+                      {t.planName || (
+                        <span className="text-gray-400 text-sm italic">Not provided</span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-4 text-sm text-gray-700">
+                      {t.type || <span className="text-gray-400 text-sm italic">Not provided</span>}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-700">
+                      {t.paymentMethod || (
+                        <span className="text-gray-400 text-sm italic">Not provided</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-700">
+                      {t.amount || '0'} {t.currency || 'vnd'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -529,7 +551,7 @@ const Dashboard = () => {
         onCancel={() => setIsModalOpen(false)}
         footer={null}
         width={700}
-        className="transaction-modal"
+        className="transaction-modal max-w-[95vw] md:max-w-[700px]"
       >
         {selectedTransaction ? (
           <div className="space-y-4">
@@ -551,15 +573,7 @@ const Dashboard = () => {
 
             {/* Information */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Transaction ID</p>
-                  <p className="font-semibold text-gray-800">
-                    {selectedTransaction.id || (
-                      <span className="text-gray-400 text-sm italic">Not provided</span>
-                    )}
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Order Code</p>
                   <p className="font-semibold text-gray-800">
@@ -596,7 +610,7 @@ const Dashboard = () => {
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">User ID</p>
+                  <p className="text-xs text-gray-500 mb-1">User Name</p>
                   <p
                     className={`text-sm ${
                       selectedTransaction.userId
@@ -607,14 +621,6 @@ const Dashboard = () => {
                       selectedTransaction.userId && handleUserClick(selectedTransaction.userId)
                     }
                   >
-                    {selectedTransaction.userId || (
-                      <span className="text-gray-400 text-sm italic">Not provided</span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">User Name</p>
-                  <p className="text-sm text-gray-800">
                     {selectedTransaction.userName || (
                       <span className="text-gray-400 text-sm italic">Not provided</span>
                     )}
@@ -630,9 +636,11 @@ const Dashboard = () => {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Plan ID / Package Name</p>
+                <p className="text-xs text-gray-500 mb-1">Package Name</p>
                 <p className="text-sm text-gray-800">
-                  {selectedTransaction.planId} / {selectedTransaction.planName}
+                  {selectedTransaction.planName || (
+                    <span className="text-gray-400 text-sm italic">Not provided</span>
+                  )}
                 </p>
               </div>
               {selectedTransaction.description && (

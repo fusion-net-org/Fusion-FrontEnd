@@ -2,10 +2,22 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin, Tabs, Table, Tag, Avatar, Descriptions } from 'antd';
-import { getCompanyById } from '@/services/companyService.js';
+import { Search } from 'lucide-react';
+import { getCompanyById, getProjectsOfCompanyByAdmin } from '@/services/companyService.js';
+import { getMembersOfCompanyByAdmin } from '@/services/companyMemberService.js';
+import { useDebounce } from '@/hook/Debounce';
 
-interface Member {
-  id: number;
+const { TabPane } = Tabs;
+
+interface ProjectRecord {
+  id: string;
+  name?: string;
+  ownerId?: string;
+  ownerName?: string;
+}
+
+interface MemberRecord {
+  id: string;
   memberId: string;
   memberName: string;
   memberAvatar: string;
@@ -16,7 +28,303 @@ interface Member {
   isOwner: boolean;
 }
 
-const { TabPane } = Tabs;
+/* --------------------------- PROJECT LIST TAB --------------------------- */
+const ProjectListTab = ({ companyId }: { companyId: string }) => {
+  const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+
+  const debouncedSearch = useDebounce(search, 500);
+  const navigate = useNavigate();
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    try {
+      const res = await getProjectsOfCompanyByAdmin({
+        CompanyId: companyId,
+        ProjectName: debouncedSearch,
+        Status: status,
+        PageNumber: page,
+        PageSize: pageSize,
+      });
+
+      if (res?.succeeded) {
+        setProjects(res.data.items || []);
+        setTotal(res.data.totalCount || 0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, [page, pageSize, debouncedSearch, status]);
+
+  const handleProjectClick = (projectId: string) => {
+    localStorage.setItem('projectDetailEnabled', 'true');
+    localStorage.setItem('projectDetailId', projectId);
+    navigate(`/admin/projects/detail/${projectId}`);
+  };
+
+  const handleUserClick = (uId: any) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', uId);
+    navigate(`/admin/users/detail/${uId}`);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* FILTERS */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+
+          <input
+            placeholder="Search by project name..."
+            className="
+              pl-9 pr-3 py-2
+              border border-gray-300
+              rounded-md
+              w-[250px]
+              text-sm
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+              focus:border-blue-500
+              transition-all
+            "
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <Table<ProjectRecord>
+        bordered
+        loading={loading}
+        dataSource={projects}
+        rowKey="id"
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          onChange: (p, ps) => {
+            setPage(p);
+            setPageSize(ps);
+          },
+        }}
+        columns={[
+          {
+            title: 'Code',
+            dataIndex: 'code',
+            key: 'code',
+            render: (value: string | null | undefined) =>
+              value ? value : <span className="text-gray-400 italic">N/A</span>,
+          },
+          {
+            title: 'Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (_, r) => (
+              <span
+                className="cursor-pointer hover:underline"
+                onClick={() => handleProjectClick(r.id)}
+              >
+                {r.name}
+              </span>
+            ),
+          },
+          { title: 'Description', dataIndex: 'description', key: 'description' },
+          {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (v) => <Tag color="blue">{v}</Tag>,
+          },
+          {
+            title: 'Type',
+            dataIndex: 'projectType',
+            key: 'projectType',
+          },
+          {
+            title: 'Owner',
+            dataIndex: 'ownerName',
+            key: 'ownerName',
+            render: (_, r) => (
+              <span
+                className="cursor-pointer hover:underline"
+                onClick={() => handleUserClick(r.ownerId)}
+              >
+                {r.ownerName}
+              </span>
+            ),
+          },
+        ]}
+      />
+    </div>
+  );
+};
+
+/* --------------------------- MEMBER LIST TAB --------------------------- */
+const MemberListTab = ({ companyId }: { companyId: string }) => {
+  const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState<MemberRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+
+  const debouncedSearch = useDebounce(search, 500);
+  const navigate = useNavigate();
+
+  const fetchMembers = async () => {
+    setLoading(true);
+    try {
+      const res = await getMembersOfCompanyByAdmin({
+        CompanyId: companyId,
+        MemberName: debouncedSearch,
+        PageNumber: page,
+        PageSize: pageSize,
+      });
+
+      if (res?.succeeded) {
+        setMembers(res.data.items || []);
+        setTotal(res.data.totalCount || 0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMembers();
+  }, [page, pageSize, debouncedSearch]);
+
+  const handleMemberClick = (memberId: string) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', memberId);
+    navigate(`/admin/users/detail/${memberId}`);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* FILTER */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+
+          <input
+            placeholder="Search by member name..."
+            className="
+              pl-9 pr-3 py-2
+              border border-gray-300
+              rounded-md
+              w-[250px]
+              text-sm
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+              focus:border-blue-500
+              transition-all
+            "
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <Table<MemberRecord>
+        bordered
+        loading={loading}
+        dataSource={members}
+        rowKey="id"
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          onChange: (p, ps) => {
+            setPage(p);
+            setPageSize(ps);
+          },
+        }}
+        onRow={(record) => ({
+          onClick: () => handleMemberClick(record.memberId),
+          style: { cursor: 'pointer' },
+        })}
+        columns={[
+          {
+            title: 'Avatar',
+            dataIndex: 'memberAvatar',
+            key: 'avatar',
+            render: (v: string) => <Avatar src={v} size="small" />,
+          },
+          {
+            title: 'Name',
+            dataIndex: 'memberName',
+            key: 'memberName',
+            render: (_, r) => (
+              <span
+                className="cursor-pointer hover:underline"
+                onClick={() => handleMemberClick(r.memberId)}
+              >
+                {r.memberName}
+              </span>
+            ),
+          },
+          {
+            title: 'Email',
+            dataIndex: 'email',
+            key: 'email',
+          },
+          {
+            title: 'Phone',
+            dataIndex: 'phone',
+            key: 'phone',
+            render: (v) => (v ? v : <span className="text-gray-400 italic">Not provided</span>),
+          },
+          {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (st) => (st === 'Active' ? <Tag color="green">Active</Tag> : <Tag>{st}</Tag>),
+          },
+          {
+            title: 'Joined At',
+            dataIndex: 'joinedAt',
+            key: 'joinedAt',
+            render: (v) => new Date(v).toLocaleString(),
+          },
+          {
+            title: 'Role',
+            dataIndex: 'isOwner',
+            key: 'isOwner',
+            render: (ok) => (ok ? <Tag color="blue">Owner</Tag> : <Tag>Member</Tag>),
+          },
+        ]}
+      />
+    </div>
+  );
+};
+/* --------------------------- MAIN PAGE --------------------------- */
 
 export default function CompanyDetailPage() {
   const { id: paramId } = useParams<{ id: string }>();
@@ -58,19 +366,6 @@ export default function CompanyDetailPage() {
 
   if (!company) return <div className="text-center text-gray-500">Company not found.</div>;
 
-  // Handle click
-  const handleProjectClick = (projectId: string) => {
-    localStorage.setItem('projectDetailEnabled', 'true');
-    localStorage.setItem('projectDetailId', projectId);
-    navigate(`/admin/projects/detail/${projectId}`);
-  };
-
-  const handleMemberClick = (memberId: string) => {
-    localStorage.setItem('userDetailEnabled', 'true');
-    localStorage.setItem('userDetailId', memberId);
-    navigate(`/admin/users/detail/${memberId}`);
-  };
-
   return (
     <div className="p-6 space-y-6">
       <Card
@@ -79,21 +374,21 @@ export default function CompanyDetailPage() {
         className="shadow-md"
       >
         <Tabs defaultActiveKey="1">
+          {/* ---------------- Company Detail ---------------- */}
           <TabPane tab="Company detail" key="1">
             <div className="flex flex-col md:flex-row gap-6">
-              {/* LEFT: Avatar + Name */}
+              {/* LEFT */}
               <div className="flex flex-col items-center">
                 <Avatar src={company.avatarCompany || company.imageCompany} size={120} />
-
                 <h2 className="mt-3 text-xl font-semibold text-center w-[180px] break-words">
                   {company.name}
                 </h2>
               </div>
 
-              {/* RIGHT: Detail Info */}
+              {/* RIGHT */}
               <div className="flex-1">
                 <Descriptions bordered size="small" column={1}>
-                  <Descriptions.Item label="Company ID">{company.id}</Descriptions.Item>
+                  <Descriptions.Item label="Company Name">{company.name}</Descriptions.Item>
 
                   <Descriptions.Item label="Owner">
                     <div className="flex items-center gap-2">
@@ -106,35 +401,21 @@ export default function CompanyDetailPage() {
                   <Descriptions.Item label="Tax Code">{company.taxCode}</Descriptions.Item>
 
                   <Descriptions.Item label="Phone">
-                    {company.phoneNumber ? (
-                      company.phoneNumber
-                    ) : (
+                    {company.phoneNumber || (
                       <span className="text-gray-400 italic">Not provided</span>
                     )}
                   </Descriptions.Item>
 
                   <Descriptions.Item label="Address">
-                    {company.address ? (
-                      company.address
-                    ) : (
-                      <span className="text-gray-400 italic">Not provided</span>
-                    )}
+                    {company.address || <span className="text-gray-400 italic">Not provided</span>}
                   </Descriptions.Item>
 
                   <Descriptions.Item label="Website">
-                    {company.website ? (
-                      company.website
-                    ) : (
-                      <span className="text-gray-400 italic">Not provided</span>
-                    )}
+                    {company.website || <span className="text-gray-400 italic">Not provided</span>}
                   </Descriptions.Item>
 
                   <Descriptions.Item label="Detail">
-                    {company.detail ? (
-                      company.detail
-                    ) : (
-                      <span className="text-gray-400 italic">Not provided</span>
-                    )}
+                    {company.detail || <span className="text-gray-400 italic">Not provided</span>}
                   </Descriptions.Item>
 
                   <Descriptions.Item label="Created At">
@@ -167,94 +448,14 @@ export default function CompanyDetailPage() {
             </div>
           </TabPane>
 
+          {/* ---------------- Project list (API + filter) ---------------- */}
           <TabPane tab="Project list" key="2">
-            <Table
-              bordered
-              dataSource={company.listProjects}
-              rowKey="id"
-              pagination={false}
-              columns={[
-                { title: 'Code', dataIndex: 'code', key: 'code' },
-                {
-                  title: 'Name',
-                  dataIndex: 'name',
-                  key: 'name',
-                  render: (_: any, record: any) => (
-                    <span
-                      className=" hover:underline cursor-pointer"
-                      onClick={() => handleProjectClick(record.id)}
-                    >
-                      {record.name}
-                    </span>
-                  ),
-                },
-                { title: 'Description', dataIndex: 'description', key: 'description' },
-                { title: 'Status', dataIndex: 'status', key: 'status' },
-                {
-                  title: 'Start - End',
-                  key: 'dates',
-                  render: (r: any) => `${r.startDate} → ${r.endDate}`,
-                },
-                {
-                  title: 'Created At',
-                  dataIndex: 'createAt',
-                  key: 'createAt',
-                  render: (v: string) => new Date(v).toLocaleString(),
-                },
-              ]}
-            />
+            <ProjectListTab companyId={company.id} />
           </TabPane>
 
+          {/* ---------------- Member list ---------------- */}
           <TabPane tab="Member list" key="3">
-            <Table
-              bordered
-              dataSource={company.listMembers}
-              rowKey="id"
-              pagination={false}
-              columns={[
-                {
-                  title: 'Avatar',
-                  dataIndex: 'memberAvatar',
-                  key: 'avatar',
-                  render: (v: string) => <Avatar src={v} size="small" />,
-                },
-                {
-                  title: 'Name',
-                  dataIndex: 'memberName',
-                  key: 'memberName',
-                  render: (_: any, record: any) => (
-                    <span
-                      className=" hover:underline cursor-pointer"
-                      onClick={() => handleMemberClick(record.memberId)}
-                    >
-                      {record.memberName}
-                    </span>
-                  ),
-                },
-                { title: 'Email', dataIndex: 'email', key: 'email' },
-                { title: 'Phone', dataIndex: 'phone', key: 'phone' },
-                {
-                  title: 'Status',
-                  dataIndex: 'status',
-                  key: 'status',
-                  render: (status: string) =>
-                    status === 'Active' ? <Tag color="green">Active</Tag> : <Tag>{status}</Tag>,
-                },
-                {
-                  title: 'Joined At',
-                  dataIndex: 'joinedAt',
-                  key: 'joinedAt',
-                  render: (v: string) => new Date(v).toLocaleString(),
-                },
-                {
-                  title: 'Owner',
-                  dataIndex: 'isOwner',
-                  key: 'isOwner',
-                  render: (isOwner: boolean) =>
-                    isOwner ? <Tag color="blue">Owner</Tag> : <Tag>Member</Tag>,
-                },
-              ]}
-            />
+            <MemberListTab companyId={company.id} />
           </TabPane>
         </Tabs>
       </Card>
