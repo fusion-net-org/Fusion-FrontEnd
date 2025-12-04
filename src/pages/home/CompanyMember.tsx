@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
-import { Eye, Ban, UserPlus, Search } from 'lucide-react';
+import { Eye, Ban, UserPlus, Search, Inbox } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import LoadingOverlay from '@/common/LoadingOverlay';
@@ -306,7 +306,7 @@ const CompanyMember: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-gray-500">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <Ban className="w-6 h-6 text-gray-400" />
+                      <Inbox className="w-6 h-6 text-gray-400" />
                       {searchTerm ? `No results found for "${searchTerm}".` : 'No members found.'}
                     </div>
                   </td>

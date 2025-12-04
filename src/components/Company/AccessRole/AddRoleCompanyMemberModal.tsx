@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
-import { getRoles } from '@/services/roleService.js';
 import type { Role } from '@/interfaces/Role/Role';
+import { GetRolesPaged } from '@/services/companyRoleService.js';
 
 interface AddRoleModalProps {
   companyId: string;
@@ -23,9 +24,23 @@ export default function AddRoleModal({
 
   useEffect(() => {
     if (!isOpen) return;
+
     setLoading(true);
-    getRoles(companyId)
-      .then(setRoles)
+
+    GetRolesPaged(
+      companyId,
+      '', // Keyword
+      'Active', // Status
+      null, // CreatedAtFrom
+      null, // CreatedAtTo
+      1, // PageNumber
+      1000, // PageSize (lấy nhiều để modal chọn thoải mái)
+      null,
+      null,
+    )
+      .then((res: any) => {
+        setRoles(res.items || []);
+      })
       .finally(() => setLoading(false));
   }, [isOpen, companyId]);
 
@@ -48,6 +63,7 @@ export default function AddRoleModal({
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-96 p-6 shadow-lg">
         <h2 className="text-lg font-semibold mb-4">Add Roles</h2>
+
         {loading ? (
           <div className="text-center py-10">Loading...</div>
         ) : (
@@ -65,11 +81,11 @@ export default function AddRoleModal({
                     type="checkbox"
                     checked={alreadyHasRole || selectedRoles.includes(role.id)}
                     onChange={() => toggleRole(role.id)}
-                    className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    className="mr-2 h-4 w-4 border-gray-300 rounded"
                     disabled={alreadyHasRole}
                   />
                   <div>
-                    <span className="font-medium">{role.name}</span>
+                    <span className="font-medium">{role.roleName}</span>
                     {role.description && (
                       <p className="text-gray-500 text-xs">{role.description}</p>
                     )}
@@ -79,6 +95,7 @@ export default function AddRoleModal({
             })}
           </div>
         )}
+
         <div className="mt-4 flex justify-end gap-2">
           <button
             className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
