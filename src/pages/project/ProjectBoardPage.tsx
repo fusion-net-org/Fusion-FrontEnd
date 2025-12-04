@@ -3,10 +3,18 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DropResult } from '@hello-pangea/dnd';
-import { FileText, TicketIcon, Workflow as WorkflowIcon, Info } from 'lucide-react';
+import {
+  Info,
+  FileText,
+  TicketIcon,
+  Workflow as WorkflowIcon,
+  LayoutGrid,
+  Flag,
+  ListChecks,
+} from 'lucide-react';
 
 import { ProjectBoardProvider, useProjectBoard } from '@/context/ProjectBoardContext';
-import { ViewSwitchNav, SearchBar } from '@/components/Company/Projects/BoardNavBits';
+import { SearchBar } from '@/components/Company/Projects/BoardNavBits';
 import KanbanBySprintBoard from '@/components/Company/Projects/KanbanBySprintBoard';
 import SprintBoard from '@/components/Company/Projects/SprintBoard';
 import ProjectTaskList from '@/components/Company/Projects/ProjectTaskList';
@@ -20,6 +28,7 @@ import { normalizeBoardInput } from '@/mappers/projectBoardMapper';
 import { fetchSprintBoard } from '@/services/projectBoardService.js';
 import { GetProjectByProjectId } from '@/services/projectService.js';
 import TicketPopup from '@/components/ProjectSideCompanyRequest/TicketPopup';
+import type { JSX } from '@fullcalendar/core/preact.js';
 
 /* ========== Inner: logic view board ========== */
 function Inner() {
@@ -40,6 +49,13 @@ function Inner() {
   const effectiveProjectId = projectId || (window as any).__projectId;
   const { companyId } = useParams<{ companyId: string }>();
 
+  // config tabs cho view
+  const viewTabs: { id: 'Kanban' | 'Sprint' | 'List'; label: string; icon: JSX.Element }[] = [
+    { id: 'Kanban', label: 'Kanban', icon: <LayoutGrid className="size-3.5" /> },
+    { id: 'Sprint', label: 'Sprint', icon: <Flag className="size-3.5" /> },
+    { id: 'List', label: 'List', icon: <ListChecks className="size-3.5" /> },
+  ];
+
   // id của ProjectRequest (nếu project đến từ request)
   const [projectRequestId, setProjectRequestId] = React.useState<string | null>(null);
   const hasProjectRequest = !!projectRequestId;
@@ -55,9 +71,10 @@ function Inner() {
   const [projectTitle, setProjectTitle] = React.useState('Project board');
   const [workflowId, setWorkflowId] = React.useState<string | null>(null);
   const [workflowPreviewOpen, setWorkflowPreviewOpen] = React.useState(false);
+  const [projectDescription, setProjectDescription] = React.useState<string>(''); 
 
   // Load meta project (tên + workflowId + projectRequestId)
-  React.useEffect(() => {
+     React.useEffect(() => {
     let alive = true;
 
     (async () => {
@@ -69,12 +86,14 @@ function Inner() {
         if (!alive) return;
 
         setProjectTitle(detail.name ?? detail.code ?? 'Project board');
+        setProjectDescription(detail.description ?? ''); // NEW: lấy description
         setWorkflowId(detail.workflowId ? String(detail.workflowId) : null);
         setProjectRequestId(detail.projectRequestId ? String(detail.projectRequestId) : null);
       } catch (err) {
         console.error('Load project meta failed', err);
         if (!alive) return;
         setProjectTitle('Project board');
+        setProjectDescription(''); // NEW: clear nếu lỗi
         setWorkflowId(null);
         setProjectRequestId(null);
       }
@@ -84,6 +103,8 @@ function Inner() {
       alive = false;
     };
   }, [projectId]);
+
+
 
   // DnD — Sprint view: đổi cột trong cùng sprint (dùng statusId động)
   const onDragEndSprint = async (result: DropResult) => {
@@ -162,123 +183,137 @@ function Inner() {
   }, [tasks, query]);
 
   return (
-    <div className="w-full min-h-screen bg-[#F7F8FA] overflow-x-hidden">
-      {/* Header + icon workflow */}
-      <div className="sticky top-0 z-30 bg-[#F7F8FA] border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          <ViewSwitchNav title={projectTitle} view={view} onChange={setView} />
+    <div className="w-full min-h-screen bg-50 overflow-x-hidden">
+      {/* ========== HEADER GRADIENT: project info + actions ========== */}
+      <div className="relative mx-4 mt-4 mb-2 overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 text-white border border-blue-300/40">
+        {/* overlay nhẹ */}
+        <div className="pointer-events-none absolute inset-0 opacity-35">
+          <div className="h-full w-full bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.35),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(37,99,235,0.7),transparent_60%)]" />
+        </div>
 
-          <div className="flex items-center gap-2">
-            {/* Detail button – luôn có nếu có companyId + projectId */}
-            {companyId && projectId && (
+             <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2 max-w-[50%]">
+          <h1 className="text-2xl font-semibold leading-tight">{projectTitle}</h1>
+          <p className="text-sm text-white/85 line-clamp-2">
+            {projectDescription?.trim()
+              ? projectDescription
+              : 'Connect sprints, tickets and workflows into one unified project board.'}
+          </p>
+        </div>
+
+
+          {/* actions */}
+          <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
+            {hasProjectRequest && (
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
-                onClick={() =>
-                  navigate(`/companies/${companyId}/project/${projectId}/detail`)
-                }
+                onClick={() => setOpenTicketPopup(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-white/25 px-4 py-2 text-xs font-semibold text-white shadow-md backdrop-blur-sm transition hover:bg-white/35 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               >
-                <Info className="size-3.5 text-slate-500" />
-                <span>Detail</span>
+                <TicketIcon className="size-4" />
+                <span>Tickets</span>
               </button>
             )}
 
-            {/* Project Request button – chỉ hiện khi có projectRequestId */}
+            {workflowId && (
+              <button
+                type="button"
+                onClick={() => setWorkflowPreviewOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-sm transition hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                title="View workflow"
+              >
+                <WorkflowIcon className="size-3.5" />
+                <span className="hidden sm:inline">Workflow</span>
+              </button>
+            )}
+
             {hasProjectRequest && companyId && (
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
+                className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-sm transition hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 onClick={() => {
                   navigate(`/company/${companyId}/project-request/${projectRequestId}`, {
                     state: { viewMode: 'AsExecutor' },
                   });
                 }}
               >
-                <FileText className="size-3.5 text-slate-500" />
-                <span>Project Request</span>
+                <FileText className="size-3.5" />
+                <span className="hidden sm:inline">Project Request</span>
               </button>
             )}
 
-            {/* Ticket button – chỉ hiện khi có projectRequestId */}
-            {hasProjectRequest && (
+            {companyId && projectId && (
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
-                onClick={() => setOpenTicketPopup(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-sm transition hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                onClick={() =>
+                  navigate(`/companies/${companyId}/project/${projectId}/detail`)
+                }
               >
-                <TicketIcon className="size-3.5 text-slate-500" />
-                <span>Ticket</span>
-              </button>
-            )}
-
-            {/* Workflow button */}
-            {workflowId && (
-              <button
-                type="button"
-                onClick={() => setWorkflowPreviewOpen(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-gray-50"
-                title="View workflow"
-              >
-                <WorkflowIcon className="size-3.5 text-slate-500" />
-                <span className="hidden sm:inline">Workflow</span>
+                <Info className="size-3.5" />
+                <span className="hidden sm:inline">Detail</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* List có search */}
-      {view === 'List' && (
-        <div className="px-8 mt-5 flex items-center justify-between">
-          <SearchBar value={query} onChange={setQuery} />
-          <div className="text-sm text-gray-600">
-            {loading ? 'Loading…' : `${listTasks.length} tasks`}
+      {/* ========== TAB BAR: Kanban / Sprint / List (kiểu Jira) ========== */}
+      <div className="border-b border-slate-200 bg-white/90">
+        <nav className="flex gap-6 px-8 text-sm font-medium">
+          {viewTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setView(tab.id)}
+              className={`inline-flex items-center gap-1 pb-2 pt-3 border-b-2 transition-colors ${
+                view === tab.id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* ========== BOARD WRAPPER ========== */}
+      <section className="">
+        <div className="rounded-3xl border border-slate-200/80 bg-50/90 p-3 sm:p-4 shadow-[0_18px_45px_rgba(15,23,42,0.12)]">
+          {/* Top bar tuỳ view */}
+
+          {/* List view: search */}
+          {view === 'List' && (
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            
+             
+            </div>
+          )}
+
+          {/* Kanban view: filter theo StatusCategory */}
+       
+          {/* Body: board theo view */}
+          <div className="mt-1">
+            {view === 'Kanban' && (
+              <KanbanBySprintBoard
+                sprints={sprints}
+                filterCategory={kanbanFilter}
+                onDragEnd={onDragEndKanban}
+                onReloadBoard={reloadBoard}
+                {...eventApi}
+              />
+            )}
+
+            {view === 'Sprint' && (
+              <SprintBoard onDragEnd={onDragEndSprint} {...eventApi} />
+            )}
+
+            {view === 'List' && <ProjectTaskList tasks={listTasks} {...eventApi} />}
           </div>
         </div>
-      )}
-
-      {/* Kanban: filter theo StatusCategory */}
-      {view === 'Kanban' && (
-        <>
-          <div className="px-8 mt-5 flex items-center gap-2 flex-wrap">
-            {(['ALL', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const).map((k) => (
-              <button
-                key={k}
-                onClick={() => setKanbanFilter(k)}
-                className={`h-8 px-3 rounded-full border text-xs shadow-sm ${
-                  kanbanFilter === k
-                    ? 'text-white border-transparent'
-                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
-                style={kanbanFilter === k ? { backgroundColor: '#2E8BFF' } : {}}
-              >
-                {k === 'ALL'
-                  ? 'All'
-                  : k === 'TODO'
-                  ? 'To do'
-                  : k === 'IN_PROGRESS'
-                  ? 'In progress'
-                  : k === 'REVIEW'
-                  ? 'In review'
-                  : 'Done'}
-              </button>
-            ))}
-          </div>
-          <KanbanBySprintBoard
-            sprints={sprints}
-            filterCategory={kanbanFilter}
-            onDragEnd={onDragEndKanban}
-            onReloadBoard={reloadBoard}
-            {...eventApi}
-          />
-        </>
-      )}
-
-      {/* Sprint view */}
-      {view === 'Sprint' && <SprintBoard onDragEnd={onDragEndSprint} {...eventApi} />}
-
-      {/* List view */}
-      {view === 'List' && <ProjectTaskList tasks={listTasks} {...eventApi} />}
+      </section>
 
       {/* Ticket popup – chỉ mount nếu có ProjectRequest */}
       {hasProjectRequest && (

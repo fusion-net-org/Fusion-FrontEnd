@@ -29,7 +29,13 @@ export async function moveTaskOnBoard(projectId, _sprintId, taskId, body) {
     );
     return data?.data ?? data ?? true;
 }
-
+export async function getProjectTaskList(projectId, query) {
+  const { data } = await axiosInstance.get(
+    `/projects/${projectId}/sprint-board/tasks`,
+    { params: query },
+  );
+  return data?.data; // PagedResult<TaskVmDto>
+}
 /** POST /api/projects/{projectId}/sprint-board/{sprintId}/columns/{statusId}/reorder
  * body: { taskIds: string[] }  // thứ tự mới trong cột
  */
