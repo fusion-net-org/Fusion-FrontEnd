@@ -279,15 +279,13 @@ const CompanyNavbar: React.FC<CompanyNavbarProps> = ({
     visibleItems = items.filter((i) => i.key === 'member-detail');
   } else if (isProjectRequestDetailPage) {
     visibleItems = items.filter((i) => i.key === 'project-request-detail');
-  } else if (isOwner) {
+  } else {
     visibleItems = items.filter(
       (i) =>
         i.key !== 'partner-detail' &&
         i.key !== 'member-detail' &&
         i.key !== 'project-request-detail',
     );
-  } else {
-    visibleItems = items.filter((i) => i.key === 'company-detail');
   }
 
   const resolvePath = (template?: string) => {
