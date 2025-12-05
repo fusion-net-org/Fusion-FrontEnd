@@ -12,7 +12,7 @@ import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import { Input, Select, Button, DatePicker, Tag } from 'antd';
 import { toast } from 'react-toastify';
-import { GetTicketPagedByAdmin } from '@/services/ticketService.js';
+import { GetTicketPagedByAdmin } from '@/services/TicketService.js';
 
 const { RangePicker } = DatePicker;
 
