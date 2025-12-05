@@ -332,7 +332,7 @@ export const getAllProjectByAdmin = async ({
   SortDescending = false,
 }) => {
   try {
-    const response = await axiosInstance.get('/admin', {
+    const response = await axiosInstance.get('/admin/projects', {
       params: {
         CompanyName,
         PageNumber,

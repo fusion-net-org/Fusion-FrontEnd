@@ -179,9 +179,9 @@ const TicketDetailAdminPage: React.FC = () => {
           </Tag>
         </Space>
 
-        <Paragraph type="secondary" style={{ marginTop: 8 }}>
+        {/* <Paragraph type="secondary" style={{ marginTop: 8 }}>
           Ticket ID: {item.id}
-        </Paragraph>
+        </Paragraph> */}
       </div>
 
       <Row gutter={[16, 16]}>
@@ -289,9 +289,15 @@ const TicketDetailAdminPage: React.FC = () => {
             style={{ marginBottom: 16 }}
           >
             <Text type="secondary">Project Name</Text>
-            <Paragraph strong>{item.projectName}</Paragraph>
+            <Paragraph
+              strong
+              className="cursor-pointer hover:underline"
+              onClick={() => handleProjectClick(item.projectId)}
+            >
+              {item.projectName}
+            </Paragraph>
 
-            <Paragraph type="secondary" copyable>
+            {/* <Paragraph type="secondary" copyable>
               ID:{' '}
               <span
                 className="cursor-pointer hover:underline"
@@ -299,7 +305,7 @@ const TicketDetailAdminPage: React.FC = () => {
               >
                 {item.projectId}
               </span>
-            </Paragraph>
+            </Paragraph> */}
           </Card>
 
           {/* Ticket Details */}

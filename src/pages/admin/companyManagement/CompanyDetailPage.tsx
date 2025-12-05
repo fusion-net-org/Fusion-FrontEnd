@@ -5,6 +5,7 @@ import { Card, Spin, Tabs, Table, Tag, Avatar, Descriptions } from 'antd';
 import { Search } from 'lucide-react';
 import { getCompanyById, getProjectsOfCompanyByAdmin } from '@/services/companyService.js';
 import { getMembersOfCompanyByAdmin } from '@/services/companyMemberService.js';
+import { GetAllPartnersOfCompany } from '@/services/partnerService.js';
 import { useDebounce } from '@/hook/Debounce';
 
 const { TabPane } = Tabs;
@@ -324,6 +325,120 @@ const MemberListTab = ({ companyId }: { companyId: string }) => {
     </div>
   );
 };
+
+/* --------------------------- PARTNER LIST TAB --------------------------- */
+const PartnerListTab = ({ companyId }: { companyId: string }) => {
+  const [loading, setLoading] = useState(false);
+  const [partners, setPartners] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
+
+  const navigate = useNavigate();
+
+  const fetchPartners = async () => {
+    setLoading(true);
+    try {
+      const res = await GetAllPartnersOfCompany(companyId, debouncedSearch);
+      if (res?.succeeded) {
+        setPartners(res.data || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPartners();
+  }, [debouncedSearch]);
+
+  const handlePartnerClick = (pId: string) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', pId);
+    navigate(`/admin/companies/detail/${pId}`);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* FILTER */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+          <input
+            placeholder="Search by partner name..."
+            className="
+              pl-9 pr-3 py-2
+              border border-gray-300
+              rounded-md
+              w-[250px]
+              text-sm
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+              focus:border-blue-500
+              transition-all
+            "
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <Table<any>
+        bordered
+        loading={loading}
+        dataSource={partners}
+        rowKey="id"
+        pagination={false}
+        onRow={(record) => ({
+          onClick: () => handlePartnerClick(record.id),
+          style: { cursor: 'pointer' },
+        })}
+        columns={[
+          {
+            title: 'Avatar',
+            dataIndex: 'avatarCompany',
+            key: 'avatar',
+            render: (v: string, r) => <Avatar src={v || r.imageCompany} size="small" />,
+          },
+          {
+            title: 'Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (_, r) => <span className="cursor-pointer hover:underline">{r.name}</span>,
+          },
+          {
+            title: 'Email',
+            dataIndex: 'email',
+            key: 'email',
+          },
+          {
+            title: 'Phone',
+            dataIndex: 'phoneNumber',
+            key: 'phone',
+            render: (v) => (v ? v : <span className="text-gray-400 italic">Not provided</span>),
+          },
+          {
+            title: 'Partner Status',
+            key: 'isPartner',
+            render: (_, r) =>
+              r.isPartner ? <Tag color="green">Partner</Tag> : <Tag color="orange">Pending</Tag>,
+          },
+          {
+            title: 'Created At',
+            dataIndex: 'createAt',
+            key: 'createAt',
+            render: (v) => new Date(v).toLocaleString(),
+          },
+        ]}
+      />
+    </div>
+  );
+};
+
 /* --------------------------- MAIN PAGE --------------------------- */
 
 export default function CompanyDetailPage() {
@@ -456,6 +571,9 @@ export default function CompanyDetailPage() {
           {/* ---------------- Member list ---------------- */}
           <TabPane tab="Member list" key="3">
             <MemberListTab companyId={company.id} />
+          </TabPane>
+          <TabPane tab="Partner list" key="4">
+            <PartnerListTab companyId={company.id} />
           </TabPane>
         </Tabs>
       </Card>
