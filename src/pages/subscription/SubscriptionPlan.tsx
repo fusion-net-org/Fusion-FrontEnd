@@ -1,23 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Spin, Modal } from "antd";
-import { Check, Star, ArrowRight, Shield, Users, Info } from "lucide-react";
+import React, { useEffect, useMemo, useState } from 'react';
+import { Spin, Modal } from 'antd';
+import { Check, Star, ArrowRight, Shield, Users, Info } from 'lucide-react';
 
-import {
-  getPublicPlans,
-  getPlanById,
-} from "@/services/subscriptionPlanService.js";
-import { createTransactionPayment } from "@/services/transactionService.js";
-import { createPaymentLink } from "@/services/payOSService.js";
+import { getPublicPlans, getPlanById } from '@/services/subscriptionPlanService.js';
+import { createTransactionPayment } from '@/services/transactionService.js';
+import { createPaymentLink } from '@/services/payosService.js';
 
 import type {
   SubscriptionPlanCustomerResponse,
   SubscriptionPlanDetailResponse,
   PlanPricePreviewResponse,
   LicenseScope,
-} from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
+} from '@/interfaces/SubscriptionPlan/SubscriptionPlan';
 
-const cn = (...xs: Array<string | false | null | undefined>) =>
-  xs.filter(Boolean).join(" ");
+const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(' ');
 
 /* =========================================================
  * Helpers
@@ -25,7 +21,7 @@ const cn = (...xs: Array<string | false | null | undefined>) =>
 
 function formatCurrency(amount: number, currency: string) {
   try {
-    return amount.toLocaleString("vi-VN") + " " + currency;
+    return amount.toLocaleString('vi-VN') + ' ' + currency;
   } catch {
     return `${amount} ${currency}`;
   }
@@ -45,25 +41,25 @@ function formatPriceShortUnit(p: PlanPricePreviewResponse) {
 
 /** Note under the price, handles both installments and prepaid */
 function formatPaymentNote(p: PlanPricePreviewResponse) {
-  if (p.paymentMode === "Installments") {
+  if (p.paymentMode === 'Installments') {
     const count = p.installmentCount ?? 0;
     const interval = p.installmentInterval ?? p.billingPeriod;
     const unit = interval.toLowerCase();
 
     if (count > 0) {
-      const times = count === 1 ? "1 installment" : `${count} installments`;
+      const times = count === 1 ? '1 installment' : `${count} installments`;
       return `${times} · paid every ${unit}`;
     }
     return `Installments · paid every ${unit}`;
   }
 
   // Prepaid
-  return "One-time payment";
+  return 'One-time payment';
 }
 
 /** Dùng cho UI (cards, compare table): newAmount nếu có, fallback amount */
 function getEffectiveAmount(p: PlanPricePreviewResponse): number {
-  if (typeof p.newAmount === "number" && p.newAmount !== null) {
+  if (typeof p.newAmount === 'number' && p.newAmount !== null) {
     return p.newAmount;
   }
   return p.amount;
@@ -74,11 +70,7 @@ function getEffectiveAmount(p: PlanPricePreviewResponse): number {
  * - Còn lại dùng amount (giá gốc / tổng contract)
  */
 function getCheckoutAmount(p: PlanPricePreviewResponse): number {
-  if (
-    p.paymentMode === "Prepaid" &&
-    typeof p.newAmount === "number" &&
-    p.newAmount !== null
-  ) {
+  if (p.paymentMode === 'Prepaid' && typeof p.newAmount === 'number' && p.newAmount !== null) {
     return p.newAmount;
   }
   return p.amount;
@@ -99,7 +91,7 @@ function getDiscountInfo(p: PlanPricePreviewResponse) {
 
   const savings = p.amount - effective;
   const percent =
-    typeof p.discountPercent === "number" && p.discountPercent > 0
+    typeof p.discountPercent === 'number' && p.discountPercent > 0
       ? p.discountPercent
       : p.amount > 0
       ? Math.round((savings * 100) / p.amount)
@@ -114,38 +106,38 @@ function getDiscountInfo(p: PlanPricePreviewResponse) {
 
 function formatChargeUnit(
   _scope: LicenseScope,
-  chargeUnit: PlanPricePreviewResponse["chargeUnit"]
+  chargeUnit: PlanPricePreviewResponse['chargeUnit'],
 ) {
-  if (chargeUnit === "PerSeat") return "Charged per seat";
-  return "Charged per subscription";
+  if (chargeUnit === 'PerSeat') return 'Charged per seat';
+  return 'Charged per subscription';
 }
 
 function formatSeatsLimit(scope: LicenseScope, seats?: number | null) {
-  if (scope === "EntireCompany") {
-    return "All members in the company";
+  if (scope === 'EntireCompany') {
+    return 'All members in the company';
   }
-  if (!seats || seats <= 0) return "Unlimited seats per company";
+  if (!seats || seats <= 0) return 'Unlimited seats per company';
   return `Up to ${seats} seats per company`;
 }
 
 function formatCompanyShareLimit(limit?: number | null) {
-  if (!limit || limit <= 0) return "Unlimited companies";
+  if (!limit || limit <= 0) return 'Unlimited companies';
   return `Up to ${limit} companies`;
 }
 
 /** Subtitle in compare table – based on *effective* (discounted) price */
 function buildPriceLabel(price?: PlanPricePreviewResponse | null) {
-  if (!price) return "Contact sales";
+  if (!price) return 'Contact sales';
 
   const effectiveAmount = getEffectiveAmount(price);
   const period = formatBillingPeriod(price);
   const { hasDiscount, percent } = getDiscountInfo(price);
 
   if (hasDiscount && percent) {
-    return `${formatCurrency(
-      effectiveAmount,
-      price.currency
-    )} (was ${formatCurrency(price.amount, price.currency)}, -${percent}%) · ${period}`;
+    return `${formatCurrency(effectiveAmount, price.currency)} (was ${formatCurrency(
+      price.amount,
+      price.currency,
+    )}, -${percent}%) · ${period}`;
   }
 
   return `${formatCurrency(effectiveAmount, price.currency)} · ${period}`;
@@ -158,16 +150,14 @@ function buildPriceLabel(price?: PlanPricePreviewResponse | null) {
 export default function SubscriptionPlan() {
   const [plans, setPlans] = useState<SubscriptionPlanCustomerResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeBillingTab, setActiveBillingTab] = useState<"Month" | "Year">(
-    "Month"
-  );
+  const [activeBillingTab, setActiveBillingTab] = useState<'Month' | 'Year'>('Month');
 
   // ===== Checkout state =====
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [checkoutTarget, setCheckoutTarget] =
-    useState<SubscriptionPlanCustomerResponse | null>(null);
-  const [checkoutDetail, setCheckoutDetail] =
-    useState<SubscriptionPlanDetailResponse | null>(null);
+  const [checkoutTarget, setCheckoutTarget] = useState<SubscriptionPlanCustomerResponse | null>(
+    null,
+  );
+  const [checkoutDetail, setCheckoutDetail] = useState<SubscriptionPlanDetailResponse | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   /* ----------------- Load public plans ----------------- */
@@ -201,9 +191,7 @@ export default function SubscriptionPlan() {
   }, [plans]);
 
   const monthlyPlansSorted = useMemo(() => {
-    const list = sortedPlans.filter(
-      (p) => p.price?.billingPeriod === "Month" && p.price
-    );
+    const list = sortedPlans.filter((p) => p.price?.billingPeriod === 'Month' && p.price);
     return list.slice().sort((a, b) => {
       const pa = a.price as PlanPricePreviewResponse;
       const pb = b.price as PlanPricePreviewResponse;
@@ -213,9 +201,7 @@ export default function SubscriptionPlan() {
   }, [sortedPlans]);
 
   const yearlyPlansSorted = useMemo(() => {
-    const list = sortedPlans.filter(
-      (p) => p.price?.billingPeriod === "Year" && p.price
-    );
+    const list = sortedPlans.filter((p) => p.price?.billingPeriod === 'Year' && p.price);
     return list.slice().sort((a, b) => {
       const pa = a.price as PlanPricePreviewResponse;
       const pb = b.price as PlanPricePreviewResponse;
@@ -225,8 +211,8 @@ export default function SubscriptionPlan() {
   }, [sortedPlans]);
 
   const visiblePlans = useMemo(
-    () => (activeBillingTab === "Month" ? monthlyPlansSorted : yearlyPlansSorted),
-    [activeBillingTab, monthlyPlansSorted, yearlyPlansSorted]
+    () => (activeBillingTab === 'Month' ? monthlyPlansSorted : yearlyPlansSorted),
+    [activeBillingTab, monthlyPlansSorted, yearlyPlansSorted],
   );
 
   const highlightedId = useMemo(() => {
@@ -243,32 +229,24 @@ export default function SubscriptionPlan() {
    * về đúng shape PlanPricePreviewResponse cho checkout
    */
   const checkoutPrice: PlanPricePreviewResponse | null = useMemo(() => {
-    const raw: any =
-      (checkoutDetail as any)?.price ?? (checkoutTarget as any)?.price ?? null;
+    const raw: any = (checkoutDetail as any)?.price ?? (checkoutTarget as any)?.price ?? null;
     if (!raw) return null;
 
     const baseAmount =
-      typeof raw.amount === "number"
-        ? raw.amount
-        : typeof raw.price === "number"
-        ? raw.price
-        : 0;
+      typeof raw.amount === 'number' ? raw.amount : typeof raw.price === 'number' ? raw.price : 0;
 
     const rawNewAmount =
-      typeof raw.newAmount === "number"
+      typeof raw.newAmount === 'number'
         ? raw.newAmount
-        : typeof raw.newPrice === "number"
+        : typeof raw.newPrice === 'number'
         ? raw.newPrice
         : null;
 
     const mapped: PlanPricePreviewResponse = {
       amount: baseAmount,
-      newAmount:
-        typeof rawNewAmount === "number" ? (rawNewAmount as number) : undefined,
+      newAmount: typeof rawNewAmount === 'number' ? (rawNewAmount as number) : undefined,
       discountPercent:
-        typeof raw.discountPercent === "number"
-          ? (raw.discountPercent as number)
-          : undefined,
+        typeof raw.discountPercent === 'number' ? (raw.discountPercent as number) : undefined,
       currency: raw.currency,
       billingPeriod: raw.billingPeriod,
       periodCount: raw.periodCount,
@@ -288,10 +266,7 @@ export default function SubscriptionPlan() {
     // 🔹 contractAmount = newPrice nếu Prepaid có discount, ngược lại = amount
     const contractAmount = getCheckoutAmount(checkoutPrice);
 
-    if (
-      checkoutPrice.paymentMode === "Installments" &&
-      (checkoutPrice.installmentCount ?? 0) > 0
-    ) {
+    if (checkoutPrice.paymentMode === 'Installments' && (checkoutPrice.installmentCount ?? 0) > 0) {
       return contractAmount / (checkoutPrice.installmentCount as number);
     }
     return contractAmount;
@@ -299,7 +274,7 @@ export default function SubscriptionPlan() {
 
   const isInstallments =
     !!checkoutPrice &&
-    checkoutPrice.paymentMode === "Installments" &&
+    checkoutPrice.paymentMode === 'Installments' &&
     (checkoutPrice.installmentCount ?? 0) > 0;
 
   const checkoutFeatures: string[] = useMemo(() => {
@@ -307,10 +282,7 @@ export default function SubscriptionPlan() {
       return checkoutDetail.features
         .filter((f) => f.enabled)
         .map(
-          (f) =>
-            f.featureName ||
-            f.featureCode ||
-            `Feature ${f.featureId?.toString().slice(0, 6)}`
+          (f) => f.featureName || f.featureCode || `Feature ${f.featureId?.toString().slice(0, 6)}`,
         );
     }
     if (checkoutTarget?.featuresPreview?.length) {
@@ -329,9 +301,7 @@ export default function SubscriptionPlan() {
     (async () => {
       try {
         setCheckoutLoading(true);
-        const detail = (await getPlanById(
-          plan.id
-        )) as SubscriptionPlanDetailResponse | null;
+        const detail = (await getPlanById(plan.id)) as SubscriptionPlanDetailResponse | null;
         if (detail) setCheckoutDetail(detail);
       } finally {
         setCheckoutLoading(false);
@@ -349,20 +319,19 @@ export default function SubscriptionPlan() {
       const tx = await createTransactionPayment({ planId: checkoutTarget.id });
       const transactionId = tx?.id;
       if (!transactionId) {
-        throw new Error("Missing transactionId");
+        throw new Error('Missing transactionId');
       }
 
       // 2) Create PayOS checkout link
       const linkRes = await createPaymentLink(transactionId);
-      const checkoutUrl =
-        linkRes?.data?.data ?? linkRes?.data ?? linkRes ?? null;
+      const checkoutUrl = linkRes?.data?.data ?? linkRes?.data ?? linkRes ?? null;
 
-      if (!checkoutUrl || typeof checkoutUrl !== "string") {
-        throw new Error("Missing checkoutUrl");
+      if (!checkoutUrl || typeof checkoutUrl !== 'string') {
+        throw new Error('Missing checkoutUrl');
       }
 
       // 3) Redirect to PayOS
-      sessionStorage.setItem("fusion:lastTxId", transactionId);
+      sessionStorage.setItem('fusion:lastTxId', transactionId);
       window.location.href = checkoutUrl;
     } catch (err: any) {
       console.error(err);
@@ -386,27 +355,13 @@ export default function SubscriptionPlan() {
         <table className="min-w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              <th className="py-2 pr-4 text-xs font-semibold text-slate-600">
-                Plan
-              </th>
-              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Full feature
-              </th>
-              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                License scope
-              </th>
-              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Seats / company
-              </th>
-              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Companies
-              </th>
-              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Payment
-              </th>
-              <th className="py-2 px-4 text-xs font-semibold text-slate-600">
-                Number of times
-              </th>
+              <th className="py-2 pr-4 text-xs font-semibold text-slate-600">Plan</th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">Full feature</th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">License scope</th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">Seats / company</th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">Companies</th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">Payment</th>
+              <th className="py-2 px-4 text-xs font-semibold text-slate-600">Number of times</th>
             </tr>
           </thead>
           <tbody>
@@ -421,33 +376,20 @@ export default function SubscriptionPlan() {
                 >
                   <td className="py-2 pr-4">
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-slate-900">
-                        {plan.name}
-                      </span>
+                      <span className="text-sm font-medium text-slate-900">{plan.name}</span>
                       {price && (
-                        <span className="text-xs text-slate-500">
-                          {buildPriceLabel(price)}
-                        </span>
+                        <span className="text-xs text-slate-500">{buildPriceLabel(price)}</span>
                       )}
                     </div>
                   </td>
+                  <td className="py-2 px-4">{plan.isFullPackage ? 'Yes' : 'No'}</td>
                   <td className="py-2 px-4">
-                    {plan.isFullPackage ? "Yes" : "No"}
+                    {plan.licenseScope === 'Userlimits' ? 'User-limits' : 'Company-wide'}
                   </td>
                   <td className="py-2 px-4">
-                    {plan.licenseScope === "Userlimits"
-                      ? "User-limits"
-                      : "Company-wide"}
+                    {formatSeatsLimit(plan.licenseScope, plan.seatsPerCompanyLimit)}
                   </td>
-                  <td className="py-2 px-4">
-                    {formatSeatsLimit(
-                      plan.licenseScope,
-                      plan.seatsPerCompanyLimit
-                    )}
-                  </td>
-                  <td className="py-2 px-4">
-                    {formatCompanyShareLimit(plan.companyShareLimit)}
-                  </td>
+                  <td className="py-2 px-4">{formatCompanyShareLimit(plan.companyShareLimit)}</td>
                   <td className="py-2 px-4">
                     {price ? (
                       <div className="flex flex-col">
@@ -459,15 +401,15 @@ export default function SubscriptionPlan() {
                         )}
                       </div>
                     ) : (
-                      "—"
+                      '—'
                     )}
                   </td>
                   <td className="py-2 px-4">
                     {price
-                      ? price.paymentMode === "Installments"
+                      ? price.paymentMode === 'Installments'
                         ? price.installmentCount
                         : 1
-                      : "—"}
+                      : '—'}
                   </td>
                 </tr>
               );
@@ -496,8 +438,8 @@ export default function SubscriptionPlan() {
               Choose the right plan for your company
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Compare billing cycles and limits, then pick the plan that fits
-              your company today and can grow with you tomorrow.
+              Compare billing cycles and limits, then pick the plan that fits your company today and
+              can grow with you tomorrow.
             </p>
           </div>
 
@@ -531,24 +473,24 @@ export default function SubscriptionPlan() {
               <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-1 py-1 shadow-sm">
                 <button
                   type="button"
-                  onClick={() => setActiveBillingTab("Month")}
+                  onClick={() => setActiveBillingTab('Month')}
                   className={cn(
-                    "rounded-full px-4 py-1.5 text-sm font-medium transition",
-                    activeBillingTab === "Month"
-                      ? "bg-blue-600 text-white shadow"
-                      : "text-slate-700 hover:text-slate-900"
+                    'rounded-full px-4 py-1.5 text-sm font-medium transition',
+                    activeBillingTab === 'Month'
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-700 hover:text-slate-900',
                   )}
                 >
                   Monthly
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveBillingTab("Year")}
+                  onClick={() => setActiveBillingTab('Year')}
                   className={cn(
-                    "rounded-full px-4 py-1.5 text-sm font-medium transition",
-                    activeBillingTab === "Year"
-                      ? "bg-blue-600 text-white shadow"
-                      : "text-slate-700 hover:text-slate-900"
+                    'rounded-full px-4 py-1.5 text-sm font-medium transition',
+                    activeBillingTab === 'Year'
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-700 hover:text-slate-900',
                   )}
                 >
                   Yearly
@@ -566,8 +508,7 @@ export default function SubscriptionPlan() {
                 {visiblePlans.map((plan) => {
                   const price = plan.price ?? null;
                   const isHighlight = plan.id === highlightedId;
-                  const featureNames =
-                    plan.featuresPreview?.map((f) => f.name) ?? [];
+                  const featureNames = plan.featuresPreview?.map((f) => f.name) ?? [];
                   const maxChips = 4;
                   const visibleChips = featureNames.slice(0, maxChips);
                   const remaining = featureNames.length - visibleChips.length;
@@ -579,9 +520,9 @@ export default function SubscriptionPlan() {
                     <article
                       key={plan.id}
                       className={cn(
-                        "relative h-full rounded-2xl border border-slate-200 bg-white/95 p-[1px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg",
+                        'relative h-full rounded-2xl border border-slate-200 bg-white/95 p-[1px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg',
                         isHighlight &&
-                          "border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_18px_40px_rgba(79,70,229,0.35)]"
+                          'border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_18px_40px_rgba(79,70,229,0.35)]',
                       )}
                     >
                       <div className="flex h-full flex-col rounded-2xl bg-white p-5">
@@ -598,9 +539,7 @@ export default function SubscriptionPlan() {
                             {plan.name}
                           </h2>
                           {plan.description && (
-                            <p className="text-xs text-slate-600">
-                              {plan.description}
-                            </p>
+                            <p className="text-xs text-slate-600">{plan.description}</p>
                           )}
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {plan.isFullPackage ? (
@@ -616,9 +555,9 @@ export default function SubscriptionPlan() {
                             )}
 
                             <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                              {plan.licenseScope === "Userlimits"
-                                ? "Seat-based license"
-                                : "Company-wide license"}
+                              {plan.licenseScope === 'Userlimits'
+                                ? 'Seat-based license'
+                                : 'Company-wide license'}
                             </span>
                           </div>
                         </div>
@@ -633,11 +572,8 @@ export default function SubscriptionPlan() {
                               <div className="flex flex-wrap items-baseline gap-2">
                                 <span className="text-2xl font-semibold text-slate-900">
                                   {displayAmount !== null
-                                    ? formatCurrency(
-                                        displayAmount,
-                                        price.currency
-                                      )
-                                    : "Contact sales"}
+                                    ? formatCurrency(displayAmount, price.currency)
+                                    : 'Contact sales'}
                                 </span>
 
                                 {info?.hasDiscount && (
@@ -664,13 +600,10 @@ export default function SubscriptionPlan() {
 
                               {info?.hasDiscount && info.savings > 0 && (
                                 <p className="mt-1 text-[11px] text-emerald-700">
-                                  You save{" "}
+                                  You save{' '}
                                   <span className="font-semibold">
-                                    {formatCurrency(
-                                      info.savings,
-                                      price.currency
-                                    )}
-                                  </span>{" "}
+                                    {formatCurrency(info.savings, price.currency)}
+                                  </span>{' '}
                                   compared to the original price.
                                 </p>
                               )}
@@ -678,25 +611,17 @@ export default function SubscriptionPlan() {
                               <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-slate-600">
                                 <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
                                   <Users className="mr-1.5 h-3.5 w-3.5" />
-                                  {formatSeatsLimit(
-                                    plan.licenseScope,
-                                    plan.seatsPerCompanyLimit
-                                  )}
+                                  {formatSeatsLimit(plan.licenseScope, plan.seatsPerCompanyLimit)}
                                 </span>
                                 <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
-                                  {formatChargeUnit(
-                                    plan.licenseScope,
-                                    price.chargeUnit
-                                  )}
+                                  {formatChargeUnit(plan.licenseScope, price.chargeUnit)}
                                 </span>
-                                {typeof plan.companyShareLimit !== "undefined" && (
+                                {typeof plan.companyShareLimit !== 'undefined' && (
                                   <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1">
-                                    {formatCompanyShareLimit(
-                                      plan.companyShareLimit
-                                    )}
+                                    {formatCompanyShareLimit(plan.companyShareLimit)}
                                   </span>
                                 )}
-                                {price.paymentMode === "Installments" && (
+                                {price.paymentMode === 'Installments' && (
                                   <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
                                     Installments available
                                   </span>
@@ -724,10 +649,7 @@ export default function SubscriptionPlan() {
                             {visibleChips.length ? (
                               <ul className="space-y-1.5 text-xs text-slate-700">
                                 {visibleChips.map((name) => (
-                                  <li
-                                    key={name}
-                                    className="flex items-start gap-2"
-                                  >
+                                  <li key={name} className="flex items-start gap-2">
                                     <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
                                     <span>{name}</span>
                                   </li>
@@ -740,8 +662,7 @@ export default function SubscriptionPlan() {
                               </ul>
                             ) : (
                               <p className="text-[11px] text-slate-400">
-                                Detailed feature list will be provided during
-                                onboarding.
+                                Detailed feature list will be provided during onboarding.
                               </p>
                             )}
                           </div>
@@ -751,10 +672,10 @@ export default function SubscriptionPlan() {
                               type="button"
                               onClick={() => handleSelectPlan(plan)}
                               className={cn(
-                                "inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
+                                'inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
                                 isHighlight
-                                  ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                                  : "bg-slate-900 text-white hover:bg-slate-800"
+                                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                  : 'bg-slate-900 text-white hover:bg-slate-800',
                               )}
                             >
                               Buy now
@@ -773,20 +694,18 @@ export default function SubscriptionPlan() {
             <section className="mt-10 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-xs text-slate-700 lg:block">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-900">
-                    Compare plans
-                  </h2>
+                  <h2 className="text-sm font-semibold text-slate-900">Compare plans</h2>
                   <p className="mt-1 text-xs text-slate-500">
-                    Currently viewing{" "}
+                    Currently viewing{' '}
                     <span className="font-semibold">
-                      {activeBillingTab === "Month" ? "monthly" : "yearly"}
-                    </span>{" "}
+                      {activeBillingTab === 'Month' ? 'monthly' : 'yearly'}
+                    </span>{' '}
                     billing period.
                   </p>
                 </div>
               </div>
 
-              {activeBillingTab === "Month"
+              {activeBillingTab === 'Month'
                 ? renderCompareTable(monthlyPlansSorted)
                 : renderCompareTable(yearlyPlansSorted)}
             </section>
@@ -805,21 +724,15 @@ export default function SubscriptionPlan() {
           confirmLoading={checkoutLoading}
         >
           {!effectivePlan ? (
-            <div className="py-8 text-center text-sm text-slate-500">
-              No plan selected.
-            </div>
+            <div className="py-8 text-center text-sm text-slate-500">No plan selected.</div>
           ) : (
             <div className="mt-2 flex flex-col gap-6 md:flex-row">
               {/* LEFT: plan info */}
               <div className="flex-1 space-y-4">
                 <div>
-                  <h2 className="text-base font-semibold text-slate-900">
-                    {effectivePlan.name}
-                  </h2>
+                  <h2 className="text-base font-semibold text-slate-900">{effectivePlan.name}</h2>
                   {effectivePlan.description && (
-                    <p className="mt-1 text-sm text-slate-600">
-                      {effectivePlan.description}
-                    </p>
+                    <p className="mt-1 text-sm text-slate-600">{effectivePlan.description}</p>
                   )}
                   {checkoutLoading && (
                     <p className="mt-1 text-[11px] text-slate-400">
@@ -829,9 +742,7 @@ export default function SubscriptionPlan() {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
-                  {(checkoutDetail?.isFullPackage ??
-                    checkoutTarget?.isFullPackage ??
-                    false) ? (
+                  {checkoutDetail?.isFullPackage ?? checkoutTarget?.isFullPackage ?? false ? (
                     <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
                       <Shield className="mr-1.5 h-3.5 w-3.5" />
                       Full feature package
@@ -845,14 +756,11 @@ export default function SubscriptionPlan() {
 
                   {(() => {
                     const scope: LicenseScope | undefined =
-                      checkoutDetail?.licenseScope ??
-                      checkoutTarget?.licenseScope;
+                      checkoutDetail?.licenseScope ?? checkoutTarget?.licenseScope;
                     if (!scope) return null;
                     return (
                       <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-                        {scope === "Userlimits"
-                          ? "Seat-based license"
-                          : "Company-wide license"}
+                        {scope === 'Userlimits' ? 'Seat-based license' : 'Company-wide license'}
                       </span>
                     );
                   })()}
@@ -871,18 +779,12 @@ export default function SubscriptionPlan() {
                           <>
                             <div className="flex flex-wrap items-baseline gap-2">
                               <span className="text-xl font-semibold text-slate-900">
-                                {formatCurrency(
-                                  effective,
-                                  checkoutPrice.currency
-                                )}
+                                {formatCurrency(effective, checkoutPrice.currency)}
                               </span>
 
                               {info.hasDiscount && (
                                 <span className="text-xs font-medium text-slate-400 line-through">
-                                  {formatCurrency(
-                                    checkoutPrice.amount,
-                                    checkoutPrice.currency
-                                  )}
+                                  {formatCurrency(checkoutPrice.amount, checkoutPrice.currency)}
                                 </span>
                               )}
 
@@ -906,9 +808,7 @@ export default function SubscriptionPlan() {
                       })()}
                     </>
                   ) : (
-                    <p className="text-sm font-medium text-slate-800">
-                      Contact sales for pricing.
-                    </p>
+                    <p className="text-sm font-medium text-slate-800">Contact sales for pricing.</p>
                   )}
                 </div>
 
@@ -917,14 +817,11 @@ export default function SubscriptionPlan() {
                   <p className="font-semibold text-slate-800">Usage limits</p>
                   {(() => {
                     const scope: LicenseScope | undefined =
-                      checkoutDetail?.licenseScope ??
-                      checkoutTarget?.licenseScope;
+                      checkoutDetail?.licenseScope ?? checkoutTarget?.licenseScope;
                     const seats =
-                      checkoutDetail?.seatsPerCompanyLimit ??
-                      checkoutTarget?.seatsPerCompanyLimit;
+                      checkoutDetail?.seatsPerCompanyLimit ?? checkoutTarget?.seatsPerCompanyLimit;
                     const companies =
-                      checkoutDetail?.companyShareLimit ??
-                      checkoutTarget?.companyShareLimit;
+                      checkoutDetail?.companyShareLimit ?? checkoutTarget?.companyShareLimit;
 
                     return (
                       <>
@@ -934,13 +831,11 @@ export default function SubscriptionPlan() {
                             {formatSeatsLimit(scope, seats)}
                           </p>
                         )}
-                        {typeof companies !== "undefined" && (
+                        {typeof companies !== 'undefined' && (
                           <p>{formatCompanyShareLimit(companies)}</p>
                         )}
                         {checkoutPrice && scope && (
-                          <p>
-                            {formatChargeUnit(scope, checkoutPrice.chargeUnit)}
-                          </p>
+                          <p>{formatChargeUnit(scope, checkoutPrice.chargeUnit)}</p>
                         )}
                       </>
                     );
@@ -949,9 +844,7 @@ export default function SubscriptionPlan() {
 
                 {/* Features */}
                 <div>
-                  <p className="mb-1 text-xs font-semibold text-slate-800">
-                    Included features
-                  </p>
+                  <p className="mb-1 text-xs font-semibold text-slate-800">Included features</p>
                   {checkoutFeatures.length ? (
                     <ul className="space-y-1 text-xs text-slate-700">
                       {checkoutFeatures.map((name) => (
@@ -972,16 +865,12 @@ export default function SubscriptionPlan() {
               {/* RIGHT: Order summary */}
               <aside className="w-full md:w-64 lg:w-72">
                 <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Order summary
-                  </h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Order summary</h3>
 
                   <div className="mt-3 space-y-3 text-xs text-slate-700">
                     <div className="flex items-center justify-between">
                       <span>Selected plan</span>
-                      <span className="font-medium text-slate-900">
-                        {effectivePlan.name}
-                      </span>
+                      <span className="font-medium text-slate-900">{effectivePlan.name}</span>
                     </div>
 
                     {/* Unit price + before discount per charge */}
@@ -989,15 +878,12 @@ export default function SubscriptionPlan() {
                       <div className="flex items-center justify-between">
                         <span>
                           Unit price
-                          {isInstallments && " (per installment)"}
+                          {isInstallments && ' (per installment)'}
                         </span>
                         <span className="font-medium text-slate-900">
                           {checkoutPrice
-                            ? formatCurrency(
-                                perChargeAmount,
-                                checkoutPrice.currency
-                              )
-                            : "Contact sales"}
+                            ? formatCurrency(perChargeAmount, checkoutPrice.currency)
+                            : 'Contact sales'}
                         </span>
                       </div>
 
@@ -1009,20 +895,16 @@ export default function SubscriptionPlan() {
                           const originalContract = checkoutPrice.amount;
 
                           const originalPerCharge =
-                            checkoutPrice.paymentMode === "Installments" &&
+                            checkoutPrice.paymentMode === 'Installments' &&
                             (checkoutPrice.installmentCount ?? 0) > 0
-                              ? originalContract /
-                                (checkoutPrice.installmentCount as number)
+                              ? originalContract / (checkoutPrice.installmentCount as number)
                               : originalContract;
 
                           return (
                             <div className="flex items-center justify-between text-[11px] text-slate-500">
                               <span>Before discount</span>
                               <span className="line-through">
-                                {formatCurrency(
-                                  originalPerCharge,
-                                  checkoutPrice.currency
-                                )}
+                                {formatCurrency(originalPerCharge, checkoutPrice.currency)}
                               </span>
                             </div>
                           );
@@ -1041,24 +923,18 @@ export default function SubscriptionPlan() {
                         </span>
                         <span className="text-sm font-semibold text-slate-900">
                           {checkoutPrice
-                            ? formatCurrency(
-                                perChargeAmount,
-                                checkoutPrice.currency
-                              )
-                            : "-"}
+                            ? formatCurrency(perChargeAmount, checkoutPrice.currency)
+                            : '-'}
                         </span>
                       </div>
 
                       {checkoutPrice && (
                         <p className="mt-1 text-[11px] text-slate-500">
-                          Contract value{" "}
-                          {formatCurrency(
-                            getCheckoutAmount(checkoutPrice),
-                            checkoutPrice.currency
-                          )}{" "}
+                          Contract value{' '}
+                          {formatCurrency(getCheckoutAmount(checkoutPrice), checkoutPrice.currency)}{' '}
                           {isInstallments && checkoutPrice.installmentCount
                             ? `over ${checkoutPrice.installmentCount} installments.`
-                            : "for the selected billing period."}
+                            : 'for the selected billing period.'}
                         </p>
                       )}
 
@@ -1068,13 +944,10 @@ export default function SubscriptionPlan() {
                           if (!info.hasDiscount || info.savings <= 0) return null;
                           return (
                             <p className="mt-1 text-[11px] text-emerald-700">
-                              You save{" "}
+                              You save{' '}
                               <span className="font-semibold">
-                                {formatCurrency(
-                                  info.savings,
-                                  checkoutPrice.currency
-                                )}
-                              </span>{" "}
+                                {formatCurrency(info.savings, checkoutPrice.currency)}
+                              </span>{' '}
                               compared to the original contract value.
                             </p>
                           );
