@@ -28,7 +28,6 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company, onClick }) => {
         border border-white/40 backdrop-blur-sm
       "
           >
-            <span className="w-2 h-2 bg-white rounded-full"></span>
             OWNER
           </div>
         ) : (
@@ -40,7 +39,6 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company, onClick }) => {
         border border-white/40 backdrop-blur-sm
       "
           >
-            <span className="w-2 h-2 bg-white rounded-full"></span>
             MEMBER
           </div>
         )}

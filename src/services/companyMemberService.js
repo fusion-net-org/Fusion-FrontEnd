@@ -5,6 +5,7 @@ export const GetMemberByCompanyId = async (
   KeyWord = '',
   DateRangeFrom,
   DateRangeTo,
+  Gender,
   PageNumber = 1,
   PageSize = 10,
   SortColumn = null,
@@ -16,12 +17,14 @@ export const GetMemberByCompanyId = async (
         KeyWord,
         'DateRange.From': DateRangeFrom,
         'DateRange.To': DateRangeTo,
+        Gender,
         PageNumber,
         PageSize,
         SortColumn,
         SortDescending,
       },
     });
+
     return response.data.data;
   } catch (error) {
     console.error('Error in GetMemberByCompanyId:', error);
