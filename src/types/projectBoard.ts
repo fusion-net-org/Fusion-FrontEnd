@@ -67,3 +67,23 @@ ticketId?: string | null;
   sourceTicketId: string | null;
   sourceTicketCode: string | null;
 };
+
+
+export interface WorkflowTransitionVm {
+  id: number;
+  workflowId: string;
+  fromStatusId: string;
+  toStatusId: string;
+  type?: string | null;
+  label?: string | null;
+  rule?: string | null;
+  roles: string[];
+}
+
+export interface WorkflowBoardVm {
+  id: string;
+  name: string;
+  statusOrder: string[];
+  statusMeta: Record<string, StatusMeta>;
+  transitions: WorkflowTransitionVm[];
+}

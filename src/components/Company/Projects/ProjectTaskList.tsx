@@ -75,8 +75,8 @@ export default function ProjectTaskList({
 }) {
   // search + status filter + sort + pagination
   const [kw, setKw] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<StatusCategory | "ALL">("ALL");
+  // 🔴 Filter theo workflowStatusId (string) hoặc "ALL"
+  const [statusFilter, setStatusFilter] = useState<string | "ALL">("ALL");
 
   const [sortKey, setSortKey] = useState<
     "updatedDesc" | "dueAsc" | "dueDesc" | "priority"
@@ -102,93 +102,91 @@ export default function ProjectTaskList({
   const [tagFilter, setTagFilter] = useState<string>("ALL");
 
   // từ context
-const { sprints } = useProjectBoard();
+  const { sprints } = useProjectBoard();
 
-// ======= STATUS META TỪ WORKFLOW (statusMeta) =======
-const {
-  statusFilterOptions,
-  statusMetaById,
-} = useMemo(() => {
-  // category -> { label, order }
-  const byCategory = new Map<
-    StatusCategory,
-    { label: string; order: number }
-  >();
+  // ======= STATUS META TỪ WORKFLOW (statusMeta) =======
+  const { statusFilterOptions, statusMetaById } = useMemo(() => {
+    // statusId -> { label, category, order }
+    const byId = new Map<
+      string,
+      { label: string; category: StatusCategory; order: number }
+    >();
 
-  // statusId -> { label, category, order }
-  const byId = new Map<
-    string,
-    { label: string; category: StatusCategory; order: number }
-  >();
+    for (const sp of (sprints ?? []) as SprintVm[]) {
+      const metaObj: any = (sp as any).statusMeta ?? {};
+      const orderArr: string[] =
+        (sp as any).statusOrder && Array.isArray((sp as any).statusOrder)
+          ? (sp as any).statusOrder
+          : Object.keys(metaObj);
 
-  for (const sp of sprints ?? []) {
-    const metaObj: any = (sp as any).statusMeta ?? {};
-    const orderArr: string[] =
-      (sp as any).statusOrder && Array.isArray((sp as any).statusOrder)
-        ? (sp as any).statusOrder
-        : Object.keys(metaObj);
+      orderArr.forEach((statusId, idx) => {
+        const meta = metaObj[statusId];
+        if (!meta) return;
 
-    orderArr.forEach((statusId, idx) => {
-      const meta = metaObj[statusId];
-      if (!meta) return;
+        const cat = (meta.category ?? "TODO") as StatusCategory;
+        const order = typeof meta.order === "number" ? meta.order : idx;
+        const label: string =
+          meta.name || meta.code || prettyStatusCategory(cat);
 
-      const cat = (meta.category ?? "TODO") as StatusCategory;
-      const order =
-        typeof meta.order === "number" ? meta.order : idx;
+        const existing = byId.get(statusId);
+        if (!existing) {
+          byId.set(statusId, { label, category: cat, order });
+        } else if (order < existing.order) {
+          byId.set(statusId, { ...existing, order });
+        }
+      });
+    }
 
-      const label: string =
-        meta.name || meta.code || prettyStatusCategory(cat);
+    const statusFilterOptions: SimpleOption[] = Array.from(byId.entries())
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([statusId, info]) => ({
+        value: statusId,
+        label: info.label,
+      }));
 
-      const current = byCategory.get(cat);
-      if (!current || order < current.order) {
-        byCategory.set(cat, { label, order });
-      }
-
-      if (!byId.has(statusId)) {
-        byId.set(statusId, { label, category: cat, order });
-      }
+    const statusMetaById: Record<
+      string,
+      { label: string; category: StatusCategory; order: number }
+    > = {};
+    byId.forEach((v, k) => {
+      statusMetaById[k] = v;
     });
-  }
 
-  const statusFilterOptions = Array.from(byCategory.entries())
-    .sort((a, b) => a[1].order - b[1].order)
-    .map(([value, info]) => ({
-      value,
-      label: info.label,
-      order: info.order,
-    }));
+    return { statusFilterOptions, statusMetaById };
+  }, [sprints]);
 
-  const statusMetaById: Record<
-    string,
-    { label: string; category: StatusCategory; order: number }
-  > = {};
+  // helper: lấy label status cho 1 task theo workflow
+  const getStatusLabel = React.useCallback(
+    (t: TaskVm): string => {
+      if (t.workflowStatusId && statusMetaById[t.workflowStatusId]) {
+        return statusMetaById[t.workflowStatusId].label;
+      }
 
-  byId.forEach((v, k) => {
-    statusMetaById[k] = v;
-  });
+      if (t.statusCategory) {
+        return prettyStatusCategory(t.statusCategory);
+      }
 
-  return { statusFilterOptions, statusMetaById };
-}, [sprints]);
+      if (t.statusCode) {
+        return prettyStatusCode(t.statusCode);
+      }
 
-// helper: lấy label status cho 1 task theo workflow
-const getStatusLabel = React.useCallback(
-  (t: TaskVm): string => {
-    if (t.workflowStatusId && statusMetaById[t.workflowStatusId]) {
-      return statusMetaById[t.workflowStatusId].label;
-    }
+      return "";
+    },
+    [statusMetaById],
+  );
 
-    if (t.statusCategory) {
-      return prettyStatusCategory(t.statusCategory);
-    }
+   // helper: lấy category (TODO / IN_PROGRESS / ...) để biết DONE, v.v.
+  const getStatusCategory = React.useCallback(
+    (t: TaskVm): StatusCategory | null => {
+      // Nếu task có workflowStatusId và meta thì lấy category từ đó
+      if (t.workflowStatusId && statusMetaById[t.workflowStatusId]) {
+        return statusMetaById[t.workflowStatusId].category;
+      }
 
-    if (t.statusCode) {
-      return prettyStatusCode(t.statusCode);
-    }
-
-    return "";
-  },
-  [statusMetaById],
-);
+      return (t.statusCategory as StatusCategory | null) ?? null;
+    },
+    [statusMetaById],
+  );
 
 
   // danh sách member (cho modal tạo task + filter)
@@ -252,8 +250,23 @@ const getStatusLabel = React.useCallback(
       !k ? true : `${t.code} ${t.title}`.toLowerCase().includes(k),
     );
 
+    // 🔴 Filter theo workflowStatusId
     if (statusFilter !== "ALL") {
-      list = list.filter((t) => t.statusCategory === statusFilter);
+      list = list.filter((t) => {
+        // 1. Task đã gán workflowStatusId
+        if (t.workflowStatusId && t.workflowStatusId === statusFilter) {
+          return true;
+        }
+
+        // 2. Fallback: nếu là task cũ chưa có workflowStatusId,
+        // cho phép filter theo category nếu value tình cờ là "TODO" / "IN_PROGRESS"...
+        const cat = getStatusCategory(t);
+        if (cat && statusFilter === cat) {
+          return true;
+        }
+
+        return false;
+      });
     }
 
     if (assigneeIds.length) {
@@ -334,6 +347,7 @@ const getStatusLabel = React.useCallback(
     dueFrom,
     dueTo,
     sortKey,
+    getStatusCategory,
   ]);
 
   const { companyId, projectId } = useParams();
@@ -385,16 +399,12 @@ const getStatusLabel = React.useCallback(
         }
         primaryFilterLabel="Status"
         primaryFilterValue={statusFilter}
-       primaryFilterOptions={[
-  { value: "ALL", label: "All status" },
-  ...statusFilterOptions.map((o) => ({
-    value: o.value,
-    label: o.label,
-  })),
-]}
-
+        primaryFilterOptions={[
+          { value: "ALL", label: "All status" },
+          ...statusFilterOptions,
+        ]}
         onPrimaryFilterChange={(v) => {
-          setStatusFilter(v as StatusCategory | "ALL");
+          setStatusFilter(v as string | "ALL");
           setPageIndex(1);
         }}
         assigneeOptions={assigneeOptions}
@@ -495,7 +505,8 @@ const getStatusLabel = React.useCallback(
                               36e5,
                           ),
                       );
-                const isDone = t.statusCategory === "DONE";
+                const cat = getStatusCategory(t);
+                const isDone = cat === "DONE";
                 const ratio = Math.max(
                   0,
                   Math.min(
@@ -595,7 +606,8 @@ const getStatusLabel = React.useCallback(
                           (t.assignees?.length ?? 0) - 3,
                         ) > 0 && (
                           <div className="-ml-2 w-6 h-6 rounded-full ring-2 ring-white bg-slate-300 text-[10px] flex items-center justify-center font-semibold text-slate-700">
-                            +{Math.max(
+                            +
+                            {Math.max(
                               0,
                               (t.assignees?.length ?? 0) - 3,
                             )}
@@ -610,15 +622,12 @@ const getStatusLabel = React.useCallback(
                     </td>
 
                     {/* status */}
-                <td className="px-3 py-3 align-top">
-  <div className="text-sm">
-    {getStatusLabel(t)}
-  </div>
-  <div className="text-[11px] text-slate-500">
-    {prettyStatusCategory(t.statusCategory)}
-  </div>
-</td>
-
+                    <td className="px-3 py-3 align-top">
+                      <div className="text-sm">{getStatusLabel(t)}</div>
+                      <div className="text-[11px] text-slate-500">
+                        {prettyStatusCategory(cat)}
+                      </div>
+                    </td>
 
                     {/* progress */}
                     <td className="px-3 py-3 align-top">

@@ -34,6 +34,7 @@ import {
 } from "@/services/taskService.js";
 import { toast } from "react-toastify";
 import { getProjectMembersWithRole } from "@/services/projectMember.js";
+import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -130,15 +131,15 @@ export default function TaskDetailPage() {
       setBoardError(null);
 
       try {
-        const board: any = await fetchSprintBoard(projectId);
-        const bs: SprintVm[] = Array.isArray(board?.sprints)
-          ? (board.sprints as SprintVm[])
-          : [];
-        const ts: TaskVm[] = Array.isArray(board?.tasks)
-          ? (board.tasks as TaskVm[])
-          : [];
+       const rawBoard: any = await fetchSprintBoard(projectId);
 
-        const found = ts.find((t) => t.id === taskId) ?? null;
+// dùng mapper chung với board để bơm statusOrder + statusMeta từ workflow
+const normalized = normalizeBoardInput(rawBoard ?? {});
+const bs: SprintVm[] = normalized.sprints ?? [];
+const ts: TaskVm[] = normalized.tasks ?? [];
+
+const found = ts.find((t) => t.id === taskId) ?? null;
+
 
         if (!alive) return;
 
@@ -673,16 +674,22 @@ function TicketDetailLayout({
   /* ===== derived data ===== */
 
   const statusList =
-    (sprint.statusOrder || [])
-      .map((id) => sprint.statusMeta[id])
-      .filter(Boolean) ?? [];
+  (sprint.statusOrder || [])
+    .map((id) => sprint.statusMeta?.[id])
+    .filter(Boolean) ?? [];
 
-  const activeStatusId = model.workflowStatusId;
-  const activeMeta = sprint.statusMeta[activeStatusId];
-  const draftMeta =
-    draftStatusId && draftStatusId !== activeStatusId
-      ? sprint.statusMeta[draftStatusId]
-      : undefined;
+const activeStatusId = model.workflowStatusId;
+const activeMeta = sprint.statusMeta
+  ? sprint.statusMeta[activeStatusId]
+  : undefined;
+
+const draftMeta =
+  draftStatusId &&
+  draftStatusId !== activeStatusId &&
+  sprint.statusMeta
+    ? sprint.statusMeta[draftStatusId]
+    : undefined;
+
 
   const primaryAssignee: MemberRef | undefined =
     (model.assignees && model.assignees[0]) || undefined;
