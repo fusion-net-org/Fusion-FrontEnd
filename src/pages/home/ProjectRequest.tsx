@@ -1,7 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useMemo } from 'react';
-import { Check, CheckCircle, Eye, Inbox, Search, Send, UserPlus, X, XCircle } from 'lucide-react';
+import {
+  Check,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Inbox,
+  Search,
+  Send,
+  UserPlus,
+  X,
+  XCircle,
+} from 'lucide-react';
 import { DatePicker } from 'antd';
 import LoadingOverlay from '@/common/LoadingOverlay';
 
@@ -61,6 +73,34 @@ const ProjectRequestPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [haveProjectFilter, setHaveProjectFilter] = useState<'All' | 'Yes' | 'No'>('All');
   const [deletedFilter, setDeletedFilter] = useState<'All' | 'Yes' | 'No'>('All');
+  const [sortColumn, setSortColumn] = useState<
+    | 'StartDate'
+    | 'EndDate'
+    | 'Status'
+    | 'Project.Name'
+    | 'ExecutorCompany.Name'
+    | 'RequesterCompany.Name'
+    | null
+  >('StartDate');
+  const [sortDescending, setSortDescending] = useState(true);
+
+  const handleSort = (
+    column:
+      | 'StartDate'
+      | 'EndDate'
+      | 'Status'
+      | 'Project.Name'
+      | 'ExecutorCompany.Name'
+      | 'RequesterCompany.Name',
+  ) => {
+    if (sortColumn === column) {
+      setSortDescending((prev) => !prev);
+    } else {
+      setSortColumn(column);
+      setSortDescending(true);
+    }
+    setPageNumber(1);
+  };
 
   //handing open
   const openRejectModal = (id: string) => {
@@ -126,8 +166,8 @@ const ProjectRequestPage: React.FC = () => {
         endDateStr,
         pageParam,
         sizeParam,
-        'CreateAt',
-        false,
+        sortColumn,
+        sortDescending,
       );
 
       setData(res.items || []);
@@ -175,6 +215,8 @@ const ProjectRequestPage: React.FC = () => {
     pageNumber,
     pageSize,
     viewMode,
+    sortColumn,
+    sortDescending,
   ]);
 
   const countStatus = (status: string) => data.filter((p) => p.status === status).length;
@@ -381,12 +423,108 @@ const ProjectRequestPage: React.FC = () => {
         <table className="min-w-[1000px] w-full text-sm">
           <thead className="bg-blue-50 text-blue-800 uppercase text-left font-semibold">
             <tr className="hover:bg-blue-100">
-              <th className="px-4 py-3 font-medium text-center">Project Name</th>
-              <th className="px-4 py-3 font-medium text-center">Request Company</th>
-              <th className="px-4 py-3 font-medium text-center">Executor Company</th>
-              <th className="px-4 py-3 font-medium text-center">Status</th>
-              <th className="px-4 py-3 font-medium text-center">Start Date</th>
-              <th className="px-4 py-3 font-medium text-center">End Date</th>
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('Project.Name')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Project Name
+                  {sortColumn === 'Project.Name' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>{' '}
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('RequesterCompany.Name')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Request Company{' '}
+                  {sortColumn === 'RequesterCompany.Name' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>{' '}
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('ExecutorCompany.Name')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Executor Company{' '}
+                  {sortColumn === 'ExecutorCompany.Name' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>{' '}
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('Status')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Status
+                  {sortColumn === 'Status' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>{' '}
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('StartDate')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Start Date
+                  {sortColumn === 'StartDate' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('EndDate')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  End Date
+                  {sortColumn === 'EndDate' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>{' '}
               <th className="px-4 py-3 font-medium text-center">Have Project</th>
               <th className="px-4 py-3 font-medium text-center">Deleted</th>
               <th className="px-4 py-3 font-medium text-center">Contract</th>
