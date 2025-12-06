@@ -10,8 +10,6 @@ import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProject
 import type { ProjectCreatePayload } from '@/components/Company/ProjectCreate/CreateProjectModal';
 import { loadProjects as fetchProjects } from '@/services/projectService.js';
 
-/* Mock – replace with service */
-
 /* Small inline atoms (keep page self-contained) */
 const Chip: React.FC<React.ComponentProps<'button'> & { active?: boolean }> = ({
   active,
@@ -31,6 +29,7 @@ const Chip: React.FC<React.ComponentProps<'button'> & { active?: boolean }> = ({
 );
 
 type ViewMode = 'cards' | 'table' | 'kanban';
+
 const ViewToggle: React.FC<{ mode: ViewMode; onChange: (m: ViewMode) => void }> = ({
   mode,
   onChange,
@@ -97,19 +96,31 @@ const Pagination: React.FC<{ page: number; totalPages: number; onChange: (p: num
   );
 };
 
+type DatePreset = 'any' | 'thisWeek' | 'thisMonth' | 'last3m' | 'custom';
+
+type FiltersState = {
+  q: string;
+  types: string[];
+  datePreset: DatePreset;
+  dateFrom: string; // yyyy-MM-dd (input type="date")
+  dateTo: string;
+};
+
 export default function ProjectsPage() {
   const nav = useNavigate();
 
   const [all, setAll] = React.useState<Project[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const [filters, setFilters] = React.useState({
+  const [filters, setFilters] = React.useState<FiltersState>({
     q: '',
-    companies: [] as string[],
-    statuses: [] as string[],
-    types: [] as string[],
+    types: [],
+    datePreset: 'any',
+    dateFrom: '',
+    dateTo: '',
   });
-  const [applied, setApplied] = React.useState(filters);
+
+  const [applied, setApplied] = React.useState<FiltersState>(filters);
 
   const [sort, setSort] = React.useState<'recent' | 'start' | 'name'>('recent');
   const [mode, setMode] = React.useState<ViewMode>('cards');
@@ -122,51 +133,101 @@ export default function ProjectsPage() {
   const loadProjectsList = React.useCallback(async () => {
     try {
       setLoading(true);
-      if (!companyId) throw new Error('Missing companyId'); // tránh gọi sai route
+      if (!companyId) throw new Error('Missing companyId');
       const res = await fetchProjects({
         companyId,
         pageSize: 200, // lấy rộng để đủ filter client
       });
-      setAll(res.items); // map đúng shape Project
+      setAll(res.items);
     } catch (err) {
       console.error('[Projects] load error:', err);
-      setAll([]); // tránh crash UI
+      setAll([]);
     } finally {
       setLoading(false);
     }
   }, [companyId]);
 
-  // ✅ gọi khi page mount / companyId đổi
   React.useEffect(() => {
     loadProjectsList();
   }, [loadProjectsList]);
-  const uniq = <K extends keyof Project>(k: K) =>
-    Array.from(new Set(all.map((p) => (p[k] ?? '') as string))).filter(Boolean);
-const isProjectRequest = (p: Project) => p.isRequest === true;
 
-const isOutsourceExecutor = (p: Project) =>
-  !p.isRequest && p.ptype === 'Outsourced';
+  const isProjectRequest = (p: Project) => p.isRequest === true;
+
+  const isOutsourceExecutor = (p: Project) =>
+    !p.isRequest && p.ptype === 'Outsourced';
+
   // filter + sort
   const filtered = React.useMemo(() => {
-    const { q, companies, statuses, types } = applied;
+    const { q, types, datePreset, dateFrom, dateTo } = applied;
     const s = (v: string) => v.toLowerCase();
+
+    // map preset -> from/to
+    let from: Date | null = null;
+    let to: Date | null = null;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (datePreset === 'thisWeek') {
+      const day = startOfToday.getDay(); // 0..6
+      const diffToMonday = (day + 6) % 7; // Monday = 0
+      from = new Date(startOfToday);
+      from.setDate(startOfToday.getDate() - diffToMonday);
+      to = new Date(from);
+      to.setDate(from.getDate() + 6);
+    } else if (datePreset === 'thisMonth') {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (datePreset === 'last3m') {
+      from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (datePreset === 'custom' && dateFrom && dateTo) {
+      from = new Date(dateFrom);
+      to = new Date(dateTo);
+    }
+
+    const inDateRange = (p: Project) => {
+      if (!from && !to) return true;
+      if (!p.startDate) return false;
+
+      const sd = new Date(p.startDate);
+      if (Number.isNaN(sd.getTime())) return false;
+
+      if (from && sd < from) return false;
+      if (to) {
+        const tEnd = new Date(to);
+        tEnd.setHours(23, 59, 59, 999);
+        if (sd > tEnd) return false;
+      }
+      return true;
+    };
+
     let list = all.filter((p) => {
       const hitQ = !q || s(p.code).includes(s(q)) || s(p.name).includes(s(q));
-      const hitC = companies.length === 0 || companies.includes(p.ownerCompany);
-      const hitS = statuses.length === 0 || statuses.includes(p.status);
       const hitT = types.length === 0 || types.includes(p.ptype);
-      return hitQ && hitC && hitS && hitT;
+      const hitD = inDateRange(p);
+      return hitQ && hitT && hitD;
     });
-    if (sort === 'name') list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === 'start')
-      list = list.slice().sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
+
+    if (sort === 'name') {
+      list = list.slice().sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sort === 'start') {
+      list = list
+        .slice()
+        .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
+    } else if (sort === 'recent') {
+      list = list
+        .slice()
+        .sort((a, b) => (b.startDate ?? '').localeCompare(a.startDate ?? ''));
+    }
+
     return list;
   }, [all, applied, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   React.useEffect(() => {
     if (page > totalPages) setPage(totalPages);
-  }, [totalPages]);
+  }, [totalPages, page]);
 
   const current = React.useMemo(() => {
     if (mode === 'kanban') return filtered;
@@ -175,15 +236,9 @@ const isOutsourceExecutor = (p: Project) =>
   }, [filtered, page, mode]);
 
   const [openCreate, setOpenCreate] = React.useState(false);
-  console.log('current', current);
-  // thay createProject:
+
   const createProject = () => setOpenCreate(true);
 
-  // const openProject = (p: Project) => {
-  //   setSelectedId(p.id);
-  //   // Navigate directly to project (adjust route to your app)
-  //   nav(`/companies/${companyId}/project/${p.id}`);
-  // };
   const openProject = (p: Project) => {
     setSelectedId(p.id);
 
@@ -235,7 +290,7 @@ const isOutsourceExecutor = (p: Project) =>
         </button>
       </div>
 
-      {/* Filter card (full-width, like the original) */}
+      {/* Filter card */}
       <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 backdrop-blur-md shadow-[0_6px_24px_-12px_rgba(30,58,138,0.25)]">
         {/* Search row */}
         <div className="flex w-full items-center gap-2">
@@ -269,11 +324,12 @@ const isOutsourceExecutor = (p: Project) =>
           </button>
           <button
             onClick={() => {
-              const f = {
+              const f: FiltersState = {
                 q: '',
-                companies: [] as string[],
-                statuses: [] as string[],
-                types: [] as string[],
+                types: [],
+                datePreset: 'any',
+                dateFrom: '',
+                dateTo: '',
               };
               setFilters(f);
               setApplied(f);
@@ -285,8 +341,8 @@ const isOutsourceExecutor = (p: Project) =>
           </button>
         </div>
 
-        {/* Pills rows */}
-        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+        {/* Pills rows: Sort / Type / Date */}
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
           {/* Sort */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-medium text-slate-500">Sort:</span>
@@ -301,68 +357,17 @@ const isOutsourceExecutor = (p: Project) =>
             </Chip>
           </div>
 
-          {/* Companies */}
+          {/* Types */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-medium text-slate-500">Companies:</span>
-            <Chip
-              active={filters.companies.length === 0}
-              onClick={() => setFilters({ ...filters, companies: [] })}
-            >
-              All
-            </Chip>
-            {uniq('ownerCompany').map((v) => {
-              const active = filters.companies.includes(v);
-              return (
-                <Chip
-                  key={v}
-                  active={active}
-                  onClick={() => {
-                    const s = new Set(filters.companies);
-                    s.has(v) ? s.delete(v) : s.add(v);
-                    setFilters({ ...filters, companies: Array.from(s) });
-                  }}
-                >
-                  {v}
-                </Chip>
-              );
-            })}
-          </div>
-
-          {/* Status */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-medium text-slate-500">Status:</span>
-            <Chip
-              active={filters.statuses.length === 0}
-              onClick={() => setFilters({ ...filters, statuses: [] })}
-            >
-              All
-            </Chip>
-            {Array.from(new Set(all.map((p) => p.status))).map((v) => {
-              const active = filters.statuses.includes(v);
-              return (
-                <Chip
-                  key={v}
-                  active={active}
-                  onClick={() => {
-                    const s = new Set(filters.statuses);
-                    s.has(v) ? s.delete(v) : s.add(v);
-                    setFilters({ ...filters, statuses: Array.from(s) });
-                  }}
-                >
-                  {v}
-                </Chip>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Types in second line to breathe */}
-        <div className="mt-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-medium text-slate-500">Types:</span>
+            <span className="mr-1 text-xs font-medium text-slate-500">Type:</span>
             <Chip
               active={filters.types.length === 0}
-              onClick={() => setFilters({ ...filters, types: [] })}
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  types: [],
+                }))
+              }
             >
               All
             </Chip>
@@ -373,9 +378,11 @@ const isOutsourceExecutor = (p: Project) =>
                   key={v}
                   active={active}
                   onClick={() => {
-                    const s = new Set(filters.types);
-                    s.has(v) ? s.delete(v) : s.add(v);
-                    setFilters({ ...filters, types: Array.from(s) });
+                    setFilters((prev) => {
+                      const set = new Set(prev.types);
+                      set.has(v) ? set.delete(v) : set.add(v);
+                      return { ...prev, types: Array.from(set) };
+                    });
                   }}
                 >
                   {v}
@@ -383,10 +390,88 @@ const isOutsourceExecutor = (p: Project) =>
               );
             })}
           </div>
+
+          {/* Date filter */}
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs font-medium text-slate-500">Date:</span>
+              <Chip
+                active={filters.datePreset === 'any'}
+                onClick={() =>
+                  setFilters((prev) => ({ ...prev, datePreset: 'any', dateFrom: '', dateTo: '' }))
+                }
+              >
+                Any time
+              </Chip>
+              <Chip
+                active={filters.datePreset === 'thisWeek'}
+                onClick={() =>
+                  setFilters((prev) => ({ ...prev, datePreset: 'thisWeek' }))
+                }
+              >
+                This week
+              </Chip>
+              <Chip
+                active={filters.datePreset === 'thisMonth'}
+                onClick={() =>
+                  setFilters((prev) => ({ ...prev, datePreset: 'thisMonth' }))
+                }
+              >
+                This month
+              </Chip>
+              <Chip
+                active={filters.datePreset === 'last3m'}
+                onClick={() =>
+                  setFilters((prev) => ({ ...prev, datePreset: 'last3m' }))
+                }
+              >
+                Last 3 months
+              </Chip>
+              <Chip
+                active={filters.datePreset === 'custom'}
+                onClick={() =>
+                  setFilters((prev) => ({ ...prev, datePreset: 'custom' }))
+                }
+              >
+                Custom
+              </Chip>
+            </div>
+
+            {filters.datePreset === 'custom' && (
+              <div className="flex flex-wrap items-center gap-2 pl-1 text-xs text-slate-600">
+                <span className="font-medium">Range:</span>
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      datePreset: 'custom',
+                      dateFrom: e.target.value,
+                    }))
+                  }
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                />
+                <span className="text-slate-400">–</span>
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      datePreset: 'custom',
+                      dateTo: e.target.value,
+                    }))
+                  }
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Toolbar (like original) */}
+      {/* Toolbar */}
       <div className="mt-4 flex items-center justify-between">
         <ViewToggle mode={mode} onChange={setMode} />
         {mode !== 'kanban' && (
@@ -453,70 +538,67 @@ const isOutsourceExecutor = (p: Project) =>
                     <th className="px-4 py-2 pr-5 text-right">Action</th>
                   </tr>
                 </thead>
-             <tbody className="divide-y divide-slate-100">
-  {current.map((p) => {
-    const isReq = isProjectRequest(p);
-    const isExec = isOutsourceExecutor(p);
-    return (
-      <tr
-        key={p.id}
-        className={[
-          'hover:bg-slate-50',
-          isReq ? 'bg-amber-50/40 ring-1 ring-amber-200' : '',
-          !isReq && isExec ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : '',
-        ].join(' ')}
-      >
-        <td className="px-4">
-          <input
-            type="radio"
-            readOnly
-            checked={selectedId === p.id}
-            className="size-4 accent-blue-600"
-          />
-        </td>
+                <tbody className="divide-y divide-slate-100">
+                  {current.map((p) => {
+                    const isReq = isProjectRequest(p);
+                    const isExec = isOutsourceExecutor(p);
+                    return (
+                      <tr
+                        key={p.id}
+                        className={[
+                          'hover:bg-slate-50',
+                          isReq ? 'bg-amber-50/40 ring-1 ring-amber-200' : '',
+                          !isReq && isExec ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : '',
+                        ].join(' ')}
+                      >
+                        <td className="px-4">
+                          <input
+                            type="radio"
+                            readOnly
+                            checked={selectedId === p.id}
+                            className="size-4 accent-blue-600"
+                          />
+                        </td>
 
-        <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
-          <button onClick={() => openProject(p)}>{p.code}</button>
+                        <td className="px-4 py-2 font-semibold text-blue-600 underline underline-offset-2">
+                          <button onClick={() => openProject(p)}>{p.code}</button>
 
-          {/* Project Request – giống cũ, màu vàng */}
-          {isReq && (
-            <span className="ml-2 align-middle rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-              Project Request
-            </span>
-          )}
+                          {isReq && (
+                            <span className="ml-2 align-middle rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                              Project Request
+                            </span>
+                          )}
 
-          {/* Outsource Executor – viền giống, chỉ khác màu xanh */}
-          {!isReq && isExec && (
-            <span className="ml-2 align-middle rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-              Outsourced (Executor)
-            </span>
-          )}
-        </td>
+                          {!isReq && isExec && (
+                            <span className="ml-2 align-middle rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                              Outsourced (Executor)
+                            </span>
+                          )}
+                        </td>
 
-        <td className="px-4 py-2">{p.name}</td>
-        <td className="px-4 py-2">{p.ownerCompany}</td>
-        <td className="px-4 py-2">{p.hiredCompany || '—'}</td>
-        <td className="px-4 py-2">{p.workflow}</td>
-        <td className="px-4 py-2">{p.startDate || '—'}</td>
-        <td className="px-4 py-2">
-          <span className="text-xs">{p.status}</span>
-        </td>
-        <td className="px-4 py-2">
-          <span className="text-xs">{p.ptype}</span>
-        </td>
-        <td className="px-4 py-2 pr-5 text-right">
-          <button
-            onClick={() => openProject(p)}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
-          >
-            Manage
-          </button>
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
-
+                        <td className="px-4 py-2">{p.name}</td>
+                        <td className="px-4 py-2">{p.ownerCompany}</td>
+                        <td className="px-4 py-2">{p.hiredCompany || '—'}</td>
+                        <td className="px-4 py-2">{p.workflow}</td>
+                        <td className="px-4 py-2">{p.startDate || '—'}</td>
+                        <td className="px-4 py-2">
+                          <span className="text-xs">{p.status}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className="text-xs">{p.ptype}</span>
+                        </td>
+                        <td className="px-4 py-2 pr-5 text-right">
+                          <button
+                            onClick={() => openProject(p)}
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
+                          >
+                            Manage
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
             <Pagination page={page} totalPages={totalPages} onChange={setPage} />
@@ -571,17 +653,14 @@ const isOutsourceExecutor = (p: Project) =>
           </li>
         </ul>
       </div>
+
       <CreateProjectModal
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         onSubmit={async (payload: ProjectCreatePayload) => {
-          // TODO: call your API here
-          // await projectService.create(payload);
           console.log('CREATE PROJECT', payload);
           await loadProjectsList();
-          // demo: close + optional navigate
           setOpenCreate(false);
-          // nav(`/companies/${encodeURIComponent("YOUR_COMPANY")}/projects/${newId}/overview`);
         }}
       />
     </div>

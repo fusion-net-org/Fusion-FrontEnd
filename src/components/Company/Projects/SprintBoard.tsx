@@ -7,7 +7,7 @@ import {
   KanbanSquare, CalendarDays, CircleSlash2, TrendingUp, Search,
 } from "lucide-react";
 import {
-  DragDropContext, Droppable, Draggable, type DropResult,
+  DragDropContext, Droppable, Draggable, type DropResult,  type DragStart, 
 } from "@hello-pangea/dnd";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -256,30 +256,69 @@ function isDark(hex?: string) {
 
 /* ========= Board atoms ========= */
 function BoardColumnShell({
-  title, tone, colorHex, right, children, 
+  title,
+  tone,
+  colorHex,
+  right,
+  children,
+  highlightType,
+  labels,
 }: {
   title: string;
   tone: "amber" | "blue" | "purple" | "green";
-  colorHex?: string;                // <— màu từ API
+  colorHex?: string;
   right?: React.ReactNode;
   children?: React.ReactNode;
+  highlightType?: "success" | "optional" | "failure";
+  labels?: string[];
 }) {
   const fallback: Record<string, string> = {
-    amber: "#F59E0B", blue: "#2563EB", purple: "#7C3AED", green: "#059669",
+    amber: "#F59E0B",
+    blue: "#2563EB",
+    purple: "#7C3AED",
+    green: "#059669",
   };
+
   const accent = colorHex || fallback[tone];
-  const labelBg = hexToRgba(accent, 0.08);
-  const labelBd = hexToRgba(accent, 0.25);
+  const isHighlighted = !!highlightType;
+
+  const labelBg = hexToRgba(accent, isHighlighted ? 0.16 : 0.08);
+  const labelBd = hexToRgba(accent, isHighlighted ? 0.4 : 0.25);
   const labelTx = accent;
+
+  // 🌟 Glow màu + ring khi highlight
+  const glowClass =
+    highlightType === "success"
+      ? "ring-2 ring-emerald-300/80 shadow-[0_16px_40px_rgba(34,197,94,0.35)]"
+      : highlightType === "optional"
+      ? "ring-2 ring-sky-300/80 shadow-[0_16px_40px_rgba(56,189,248,0.35)]"
+      : highlightType === "failure"
+      ? "ring-2 ring-rose-300/80 shadow-[0_16px_40px_rgba(239,68,68,0.35)]"
+      : "";
+
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white overflow-hidden ring-1 h-full flex flex-col",
+        "rounded-2xl border bg-white overflow-hidden h-full flex flex-col transition-all duration-200",
+        // 🟩 Base shadow dày hơn – luôn có khung nổi
+        "border-slate-200 shadow-[0_10px_30px_rgba(15,23,42,0.12)]",
+        glowClass,
       )}
-      style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}
+      style={{
+        willChange: isHighlighted ? "transform, box-shadow" : undefined,
+      }}
     >
-      <div className="h-2 w-full" style={{ backgroundColor: accent }} />
-      <div className="p-4 pb-3 flex items-center justify-between">
+      {/* top stripe */}
+      <div
+        className="h-2 w-full"
+        style={{
+          backgroundColor: accent,
+          opacity: isHighlighted ? 0.95 : 0.8,
+        }}
+      />
+
+      {/* header */}
+      <div className="p-4 pb-2 flex items-center justify-between">
         <span
           className="inline-flex items-center text-[12px] font-semibold px-2 py-0.5 rounded-full border"
           style={{
@@ -292,10 +331,233 @@ function BoardColumnShell({
         </span>
         {right}
       </div>
+
+      {/* nhãn dán transition */}
+      {labels && labels.length > 0 && (
+        <div className="px-4 pb-2 flex flex-wrap gap-1">
+          {labels.map((lb, i) => {
+            const base =
+              "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium";
+            const cls =
+              highlightType === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : highlightType === "failure"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : "border-sky-200 bg-sky-50 text-sky-700";
+
+            return (
+              <span key={`${lb}-${i}`} className={cn(base, cls)}>
+                {lb}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* body */}
       <div className="px-4 pb-4 flex-1 overflow-auto">{children}</div>
     </div>
   );
 }
+
+
+
+
+
+type ColumnsMap = {
+  order: string[];
+  byId: Record<string, TaskVm[]>;
+};
+
+type SprintBoardProps = {
+  activeSprint: SprintVm | null;
+  columns: ColumnsMap;
+
+  highlightTargets: Record<string, HighlightInfo>;
+
+  flashTaskId: string | null;
+  setFlashTaskId: (id: string | null) => void;
+
+  onDragStart: (start: DragStart) => void;
+  onDragEnd: (result: DropResult) => void;
+
+  onMarkDone: (t: TaskVm) => void;
+  onSplit: (t: TaskVm) => void;
+  onMoveToNextSprint: (t: TaskVm) => void;
+  onChangeStatus: (t: TaskVm, nextStatusId: string) => void;
+  toNextStatusId: (t: TaskVm, sp: SprintVm) => string | null;
+  onOpenTicket: (taskId: string) => void;
+};
+
+
+function SprintBoard({
+  activeSprint,
+  columns,
+  highlightTargets,
+  flashTaskId,
+  setFlashTaskId,
+  onDragStart,
+  onDragEnd,
+  onMarkDone,
+  onSplit,
+  onMoveToNextSprint,
+  onChangeStatus,
+  toNextStatusId,
+  onOpenTicket,
+}: SprintBoardProps) {
+
+
+  if (!activeSprint) return null;
+
+  const COL_W =
+    "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
+  const BOARD_H = `calc(100vh - 260px)`;
+  const tones: Array<"amber" | "blue" | "purple" | "green"> = [
+    "amber",
+    "blue",
+    "purple",
+    "green",
+  ];
+
+const renderCol = (statusId: string, idx: number) => {
+  const items = columns.byId[statusId] ?? [];
+  const meta = activeSprint.statusMeta[statusId];
+  const tone = tones[idx % 4];
+  const wip = meta?.wipLimit ?? 9999;
+  const over = items.length > wip;
+
+  const highlight = highlightTargets[statusId]; // HighlightInfo | undefined
+  const targetType = highlight?.kind;           // "success" | "optional" | "failure" | undefined
+  const targetLabels = highlight?.labels ?? [];
+
+  return (
+    <div
+      key={statusId}
+      className={`shrink-0 h-full ${COL_W} relative group`}
+    >
+      <BoardColumnShell
+        title={meta?.name ?? meta?.code ?? statusId}
+        tone={tone}
+        colorHex={meta?.color}
+        highlightType={targetType}
+        labels={targetLabels}
+        right={
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-slate-500">{items.length} tasks</span>
+            {wip !== 9999 && (
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full border",
+                  over
+                    ? "text-rose-700 bg-rose-50 border-rose-200"
+                    : "text-slate-600 bg-slate-50 border-slate-200",
+                )}
+              >
+                WIP {items.length}/{wip}
+              </span>
+            )}
+          </div>
+        }
+      >
+        <Droppable droppableId={statusId} type="task">
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={cn(
+                "h-full overflow-y-auto overscroll-contain pr-1",
+                snapshot.isDraggingOver && "bg-slate-50 rounded-xl",
+              )}
+              style={{ scrollbarWidth: "thin" }}
+            >
+              <ColumnHoverCreate
+                sprint={activeSprint}
+                statusId={statusId}
+                onCreatedVM={(vm) => {
+                  setFlashTaskId(vm.id);
+                }}
+              />
+
+              <div className="space-y-4">
+                {items.map((t, index) => {
+                  const siblings = t.sourceTicketId
+                    ? items.filter(
+                        (x) =>
+                          x.id !== t.id &&
+                          x.sourceTicketId === t.sourceTicketId,
+                      ).length
+                    : 0;
+
+                  return (
+                    <Draggable
+                      key={t.id}
+                      draggableId={t.id}
+                      index={index}
+                    >
+                      {(drag, snap) => (
+                        <div
+                          ref={drag.innerRef}
+                          {...drag.draggableProps}
+                          {...drag.dragHandleProps}
+                          className={snap.isDragging ? "rotate-[0.5deg]" : ""}
+                        >
+                          <TaskCard
+                            t={t}
+                            ticketSiblingsCount={siblings}
+                            onMarkDone={onMarkDone}
+                            isNew={t.id === flashTaskId}
+                            onNext={(x) => {
+                              const nextId = toNextStatusId(x, activeSprint);
+                              if (nextId && nextId !== x.workflowStatusId) {
+                                onChangeStatus(x, nextId);
+                              }
+                            }}
+                            onSplit={onSplit}
+                            onMoveNext={onMoveToNextSprint}
+                            onOpenTicket={onOpenTicket}
+                          />
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
+              </div>
+
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </BoardColumnShell>
+    </div>
+  );
+};
+
+
+
+
+
+  return (
+    <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
+        <div
+          className="overflow-x-auto rounded-xl w-full"
+          style={{ height: BOARD_H, overflowY: "hidden" }}
+        >
+          <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
+            {columns.order.map((statusId, i) => renderCol(statusId, i))}
+          </div>
+        </div>
+      </div>
+    </DragDropContext>
+  );
+}
+
+type HighlightKind = "success" | "optional" | "failure";
+
+type HighlightInfo = {
+  kind: HighlightKind;
+  labels: string[];
+};
 
 /* ========= Page ========= */
 export default function SprintWorkspacePage() {
@@ -327,7 +589,10 @@ useEffect(() => {
   const [closePanelOpen, setClosePanelOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [snapshots, setSnapshots] = useState<{ name: string; committed: number; completed: number }[]>([]);
-
+const [lastCrossMove, setLastCrossMove] = useState<{
+  taskId: string;
+  toStatusId: string;
+} | null>(null);
   // set sprint mặc định khi có dữ liệu
   useEffect(() => {
     if (!activeSprintId && sprints.length) setActiveSprintId(sprints[0].id);
@@ -349,34 +614,45 @@ useEffect(() => {
   }
 
   // ===== Columns động theo sprint đang chọn + search =====
-  const columns = useMemo(() => {
-    if (!activeSprint) return { order: [] as string[], byId: {} as Record<string, TaskVm[]> };
-    const order = activeSprint.statusOrder;
-    const byId: Record<string, TaskVm[]> = {};
-    const match = (t: TaskVm) =>
-      !keyword ||
-      t.title?.toLowerCase().includes(keyword.toLowerCase()) ||
-      (t.code ?? "").toLowerCase().includes(keyword.toLowerCase());
+const columns = useMemo(() => {
+  if (!activeSprint) return { order: [] as string[], byId: {} as Record<string, TaskVm[]> };
+  const order = activeSprint.statusOrder;
+  const byId: Record<string, TaskVm[]> = {};
+  const match = (t: TaskVm) =>
+    !keyword ||
+    t.title?.toLowerCase().includes(keyword.toLowerCase()) ||
+    (t.code ?? "").toLowerCase().includes(keyword.toLowerCase());
 
-    for (const stId of order) byId[stId] = [];
+  for (const stId of order) byId[stId] = [];
 
-    const validSprintIds = new Set(sprints.map(s => s.id));
+  const validSprintIds = new Set(sprints.map(s => s.id));
 
-    for (const t of tasks) {
-      // Nếu task có sprintId lạ (demo) → coi như thuộc sprint đang active
-      const belongToActive =
-        (t.sprintId ?? "") === activeSprint.id ||
-        !validSprintIds.has(t.sprintId ?? "");
+  for (const t of tasks) {
+    const belongToActive =
+      (t.sprintId ?? "") === activeSprint.id ||
+      !validSprintIds.has(t.sprintId ?? "");
 
-      if (!belongToActive) continue;
-      if (!match(t)) continue;
+    if (!belongToActive) continue;
+    if (!match(t)) continue;
 
-      const stId = resolveStatusId(t, activeSprint);
-      if (!byId[stId]) byId[stId] = [];
-      byId[stId].push({ ...t, sprintId: activeSprint.id, workflowStatusId: stId });
+    const stId = resolveStatusId(t, activeSprint);
+    if (!byId[stId]) byId[stId] = [];
+    byId[stId].push({ ...t, sprintId: activeSprint.id, workflowStatusId: stId });
+  }
+
+  // ✨ ÉP card vừa move cross-column lên đầu cột đích
+  if (lastCrossMove && byId[lastCrossMove.toStatusId]) {
+    const arr = byId[lastCrossMove.toStatusId];
+    const idx = arr.findIndex((x) => x.id === lastCrossMove.taskId);
+    if (idx > 0) {
+      const [moved] = arr.splice(idx, 1);
+      arr.unshift(moved);
     }
-    return { order, byId };
-  }, [tasks, activeSprint, keyword, sprints]);
+  }
+
+  return { order, byId };
+}, [tasks, activeSprint, keyword, sprints, lastCrossMove]);
+
 
   // ===== Metrics =====
   const committedPoints = useMemo(() => {
@@ -417,6 +693,74 @@ useEffect(() => {
     () => buildWorkMixData(sprints, tasks),
     [sprints, tasks],
   );
+    // ===== Workflow transitions theo sprint (để highlight đích success) =====
+   // ===== Workflow transitions theo sprint (để highlight các đích hợp lệ khi drag) =====
+  type SprintTransition = {
+    id: string;
+    fromStatusId: string;
+    toStatusId: string;
+    type: string; // "success" | "failure" | "optional" | ...
+    label?: string | null;
+  };
+
+  // Lấy transitions từ sprint đang active
+  const activeTransitions: SprintTransition[] = useMemo(() => {
+  if (!activeSprint) return [];
+
+  const raw =
+    (activeSprint as any).transitions ??
+    (activeSprint as any).workflowTransitions ??
+    [];
+
+  return (raw as any[])
+    .map(
+      (x: any): SprintTransition => ({
+        id: String(x.id ?? `${x.fromStatusId}-${x.toStatusId}`),
+        fromStatusId:
+          x.fromStatusId ??
+          x.fromStatus ??
+          x.sourceStatusId ??
+          x.sourceId ??
+          x.from ??
+          "",
+        toStatusId:
+          x.toStatusId ??
+          x.toStatus ??
+          x.targetStatusId ??
+          x.targetId ??
+          x.to ??
+          "",
+        type: String(x.type ?? x.transitionType ?? "success").toLowerCase(),
+        label: x.label ?? null, // ⬅ lấy label "Go", "Complete", "Rework"
+      }),
+    )
+    .filter((tr) => tr.fromStatusId && tr.toStatusId);
+}, [activeSprint]);
+
+
+  // Map: fromStatusId -> list các toStatusId được phép move tới
+  // (nghiệp vụ: cho phép success + optional; nếu sau này muốn cho failure thêm vào đây)
+  const allowedTargetsByFromId = useMemo(() => {
+    const map = new Map<string, string[]>();
+
+    activeTransitions
+      .filter((tr) => tr.type === "success" || tr.type === "optional")
+      .forEach((tr) => {
+        const list = map.get(tr.fromStatusId) ?? [];
+        list.push(tr.toStatusId);
+        map.set(tr.fromStatusId, list);
+      });
+
+    return map;
+  }, [activeTransitions]);
+
+const [highlightTargets, setHighlightTargets] = useState<
+  Record<string, HighlightInfo>
+>({});
+
+
+
+
   // ===== Handlers =====
   function toNextStatusId(t: TaskVm, sp: SprintVm): string | null {
     const idx = sp.statusOrder.indexOf(resolveStatusId(t, sp));
@@ -436,17 +780,104 @@ useEffect(() => {
   function onMarkDone(t: TaskVm) {
     done((window as any).__projectId, t);
   }
+  // Khi bắt đầu drag một task => highlight allowed targets
+function onDragStart(start: DragStart) {
+  if (!activeSprint) return;
 
-  function onDragEnd(result: DropResult) {
-    const { source, destination, draggableId } = result;
-    if (!destination || !activeSprint) return;
-    const [, s1, st1] = source.droppableId.split(":");
-    const [, s2, st2] = destination.droppableId.split(":");
-    if (s1 !== s2) return;
-    if (st1 === st2 && source.index === destination.index) return;
-    const t = tasks.find((x) => x.id === draggableId);
-    if (t) reorder((window as any).__projectId, activeSprint.id, t, st2, destination.index);
+  const task = tasks.find((x) => x.id === start.draggableId);
+  if (!task) return;
+
+  const fromStatusId = resolveStatusId(task, activeSprint);
+
+  const next: Record<string, HighlightInfo> = {};
+
+  // priority: success > failure > optional
+  const priority: Record<HighlightKind, number> = {
+    success: 3,
+    failure: 2,
+    optional: 1,
+  };
+
+  activeTransitions.forEach((tr) => {
+    if (tr.fromStatusId !== fromStatusId) return;
+
+    let kind: HighlightKind;
+    if (tr.type === "success") kind = "success";
+    else if (tr.type === "failure") kind = "failure";
+    else kind = "optional";
+
+    const rawLabel = (tr.label || "").trim();
+    const label =
+      rawLabel ||
+      (kind === "success"
+        ? "Success"
+        : kind === "failure"
+        ? "Rework"
+        : "Optional");
+
+    const prev = next[tr.toStatusId];
+
+    if (!prev) {
+      next[tr.toStatusId] = { kind, labels: [label] };
+    } else {
+      const bestKind =
+        priority[kind] > priority[prev.kind] ? kind : prev.kind;
+      const labels = prev.labels.includes(label)
+        ? prev.labels
+        : [...prev.labels, label];
+
+      next[tr.toStatusId] = { kind: bestKind, labels };
+    }
+  });
+
+  setHighlightTargets(next);
+}
+
+
+
+
+function onDragEnd(result: DropResult) {
+  setHighlightTargets({});
+
+  const { source, destination, draggableId } = result;
+  if (!destination || !activeSprint) return;
+
+  const fromStatusId = source.droppableId;
+  const toStatusId = destination.droppableId;
+
+  const task = tasks.find((x) => x.id === draggableId);
+  if (!task) return;
+
+  const isSameColumn = fromStatusId === toStatusId;
+
+  if (isSameColumn) {
+    if (source.index === destination.index) return;
+
+    // cùng cột: reorder như cũ
+    reorder(
+      (window as any).__projectId,
+      activeSprint.id,
+      task,
+      toStatusId,
+      destination.index,
+    );
+    setLastCrossMove(null);
+    return;
   }
+
+  // 🚚 KHÁC CỘT: chỉ cần gọi REORDER (BE sẽ tự đổi status + notify)
+  reorder(
+    (window as any).__projectId,
+    activeSprint.id,
+    { ...task, workflowStatusId: toStatusId, sprintId: activeSprint.id },
+    toStatusId,
+    0, // top
+  );
+
+  setLastCrossMove({ taskId: task.id, toStatusId });
+}
+
+
 
   // Close sprint (demo)
   function closeSprint() {
@@ -561,7 +992,7 @@ useEffect(() => {
     const hasData = sprint && data.length > 0;
     const totalScope = hasData ? data[data.length - 1].scope : 0;
     const totalCompleted = hasData ? data[data.length - 1].completed : 0;
-
+console.log(hasData)
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
@@ -691,108 +1122,157 @@ useEffect(() => {
 
 
   /* ===== Board ===== */
-  function Board() {
-    if (!activeSprint) return null;
+  //  function Board() {
+  //   if (!activeSprint) return null;
 
-    const COL_W = "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
-    const BOARD_H = `calc(100vh - 260px)`;
-    const tones: Array<"amber" | "blue" | "purple" | "green"> = ["amber", "blue", "purple", "green"];
+  //   const COL_W =
+  //     "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
+  //   const BOARD_H = `calc(100vh - 260px)`;
+  //   const tones: Array<"amber" | "blue" | "purple" | "green"> = [
+  //     "amber",
+  //     "blue",
+  //     "purple",
+  //     "green",
+  //   ];
 
-    const renderCol = (statusId: string, idx: number) => {
-      const items = columns.byId[statusId] ?? [];
-      const meta = activeSprint.statusMeta[statusId];
-      const tone = tones[idx % 4];
-      const wip = meta?.wipLimit ?? 9999;
-      const over = items.length > wip;
+  //   const renderCol = (statusId: string, idx: number) => {
+  //     const items = columns.byId[statusId] ?? [];
+  //     const meta = activeSprint.statusMeta[statusId];
+  //     const tone = tones[idx % 4];
+  //     const wip = meta?.wipLimit ?? 9999;
+  //     const over = items.length > wip;
 
-      return (
-        <div key={statusId} className={`shrink-0 h-full ${COL_W}  relative group`}>
-          <BoardColumnShell
-            title={meta?.name ?? meta?.code ?? statusId}
-            tone={tone}
-            colorHex={meta?.color}   // <— dùng màu API
-            right={
-              <div className="flex items-center gap-2 text-[12px]">
-                <span className="text-slate-500">{items.length} tasks</span>
-                {wip !== 9999 && (
-                  <span
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full border",
-                      over ? "text-rose-700 bg-rose-50 border-rose-200" : "text-slate-600 bg-slate-50 border-slate-200"
-                    )}
-                  >
-                    WIP {items.length}/{wip}
-                  </span>
-                )}
-              </div>
-            }
-          >
-           
-            <Droppable droppableId={`col:${activeSprint.id}:${statusId}`} type="task">
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={cn("h-full overflow-y-auto overscroll-contain pr-1", snapshot.isDraggingOver && "bg-slate-50 rounded-xl")}
-                  style={{ scrollbarWidth: "thin" }}
-                >
-                  <ColumnHoverCreate
-  sprint={activeSprint}
-  statusId={statusId}
-  onCreatedVM={(vm) => {
-    setFlashTaskId(vm.id);   
-  }}
-/>
+  //     const isSource = dragSourceStatusId === statusId;
+  //     const isTarget = successTargetStatusIds.includes(statusId);
 
-                  <div className="space-y-4">
-                    {items.map((t, index) => {
-                      const siblings = t.sourceTicketId
-                        ? items.filter(x => x.id !== t.id && x.sourceTicketId === t.sourceTicketId).length
-                        : 0;
-                      return (
-                        <Draggable key={t.id} draggableId={t.id} index={index}>
-                          {(drag, snap) => (
-                            <div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps} className={snap.isDragging ? "rotate-[0.5deg]" : ""}>
-                              <TaskCard
-                                t={t}
-                                ticketSiblingsCount={siblings}
-                                onMarkDone={onMarkDone}
-                                isNew={t.id === flashTaskId}
-                                onNext={(x) => {
-                                  const nextId = toNextStatusId(x, activeSprint);
-                                  if (nextId && nextId !== x.workflowStatusId) onChangeStatus(x, nextId);
-                                }}
-                                onSplit={onSplit}
-                                onMoveNext={onMoveToNextSprint}
-                                onOpenTicket={handleOpenTicket}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })}
-                  </div>
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </BoardColumnShell>
-        </div>
-      );
-    };
+  //     return (
+  //       <div
+  //         key={statusId}
+  //         className={`shrink-0 h-full ${COL_W} relative group`}
+  //       >
+  //         <BoardColumnShell
+  //           title={meta?.name ?? meta?.code ?? statusId}
+  //           tone={tone}
+  //           colorHex={meta?.color}
+  //           isSource={isSource}
+  //           isTarget={isTarget}
+  //           right={
+  //             <div className="flex items-center gap-2 text-[12px]">
+  //               <span className="text-slate-500">{items.length} tasks</span>
+  //               {wip !== 9999 && (
+  //                 <span
+  //                   className={cn(
+  //                     "text-[10px] px-1.5 py-0.5 rounded-full border",
+  //                     over
+  //                       ? "text-rose-700 bg-rose-50 border-rose-200"
+  //                       : "text-slate-600 bg-slate-50 border-slate-200",
+  //                   )}
+  //                 >
+  //                   WIP {items.length}/{wip}
+  //                 </span>
+  //               )}
+  //             </div>
+  //           }
+  //         >
+  //           <Droppable
+  //             droppableId={`col:${activeSprint.id}:${statusId}`}
+  //             type="task"
+  //           >
+  //             {(provided, snapshot) => (
+  //               <div
+  //                 ref={provided.innerRef}
+  //                 {...provided.droppableProps}
+  //                 className={cn(
+  //                   "h-full overflow-y-auto overscroll-contain pr-1",
+  //                   snapshot.isDraggingOver &&
+  //                     "bg-slate-50 rounded-xl",
+  //                 )}
+  //                 style={{ scrollbarWidth: "thin" }}
+  //               >
+  //                 <ColumnHoverCreate
+  //                   sprint={activeSprint}
+  //                   statusId={statusId}
+  //                   onCreatedVM={(vm) => {
+  //                     setFlashTaskId(vm.id);
+  //                   }}
+  //                 />
 
-    return (
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
-          <div className="overflow-x-auto rounded-xl w-full" style={{ height: BOARD_H, overflowY: "hidden" }}>
-            <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
-              {columns.order.map((statusId, i) => renderCol(statusId, i))}
-            </div>
-          </div>
-        </div>
-      </DragDropContext>
-    );
-  }
+  //                 <div className="space-y-4">
+  //                   {items.map((t, index) => {
+  //                     const siblings = t.sourceTicketId
+  //                       ? items.filter(
+  //                           (x) =>
+  //                             x.id !== t.id &&
+  //                             x.sourceTicketId === t.sourceTicketId,
+  //                         ).length
+  //                       : 0;
+  //                     return (
+  //                       <Draggable
+  //                         key={t.id}
+  //                         draggableId={t.id}
+  //                         index={index}
+  //                       >
+  //                         {(drag, snap) => (
+  //                           <div
+  //                             ref={drag.innerRef}
+  //                             {...drag.draggableProps}
+  //                             {...drag.dragHandleProps}
+  //                             className={snap.isDragging ? "rotate-[0.5deg]" : ""}
+  //                           >
+  //                             <TaskCard
+  //                               t={t}
+  //                               ticketSiblingsCount={siblings}
+  //                               onMarkDone={onMarkDone}
+  //                               isNew={t.id === flashTaskId}
+  //                               onNext={(x) => {
+  //                                 const nextId = toNextStatusId(
+  //                                   x,
+  //                                   activeSprint,
+  //                                 );
+  //                                 if (
+  //                                   nextId &&
+  //                                   nextId !== x.workflowStatusId
+  //                                 )
+  //                                   onChangeStatus(x, nextId);
+  //                               }}
+  //                               onSplit={onSplit}
+  //                               onMoveNext={onMoveToNextSprint}
+  //                               onOpenTicket={handleOpenTicket}
+  //                             />
+  //                           </div>
+  //                         )}
+  //                       </Draggable>
+  //                     );
+  //                   })}
+  //                 </div>
+  //                 {provided.placeholder}
+  //               </div>
+  //             )}
+  //           </Droppable>
+  //         </BoardColumnShell>
+  //       </div>
+  //     );
+  //   };
+
+  //   return (
+  //     <DragDropContext
+  //       onDragStart={onDragStart}
+  //       onDragEnd={onDragEnd}
+  //     >
+  //       <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
+  //         <div
+  //           className="overflow-x-auto rounded-xl w-full"
+  //           style={{ height: BOARD_H, overflowY: "hidden" }}
+  //         >
+  //           <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
+  //             {columns.order.map((statusId, i) => renderCol(statusId, i))}
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </DragDropContext>
+  //   );
+  // }
+
 
   /* ===== Roadmap (nhẹ) ===== */
   function Roadmap() {
@@ -812,7 +1292,6 @@ useEffect(() => {
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="text-[15px] font-semibold">Roadmap by Sprint</div>
-          <div className="text-xs text-slate-500">độ đậm = tổng story points</div>
         </div>
 
         <div className="grid" style={{ gridTemplateColumns: `220px repeat(${sprintIds.length}, minmax(120px,1fr))` }}>
@@ -850,17 +1329,40 @@ useEffect(() => {
       {SprintTabs}
       {SummaryAndChart}
 
-      {view === "Board" && (
-        <>
-          <div className="flex items-center justify-between mt-2">
-            <div className="text-slate-600 text-sm">Sprint – {activeSprint?.name ?? "..."}</div>
-            <button onClick={() => setClosePanelOpen(true)} className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1">
-              <CircleSlash2 className="w-4 h-4" /> Close sprint
-            </button>
-          </div>
-          <Board />
-        </>
-      )}
+ {view === "Board" && (
+  <>
+    <div className="flex items-center justify-between mt-2">
+      <div className="text-slate-600 text-sm">
+      </div>
+      <button
+        onClick={() => setClosePanelOpen(true)}
+        className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1"
+      >
+        <CircleSlash2 className="w-4 h-4" /> Close sprint
+      </button>
+    </div>
+
+    <SprintBoard
+      activeSprint={activeSprint}
+      columns={columns}
+      highlightTargets={highlightTargets}
+      flashTaskId={flashTaskId}
+      setFlashTaskId={setFlashTaskId}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onMarkDone={onMarkDone}
+      onSplit={onSplit}
+      onMoveToNextSprint={onMoveToNextSprint}
+      onChangeStatus={onChangeStatus}
+      toNextStatusId={toNextStatusId}
+      onOpenTicket={handleOpenTicket}
+    />
+  </>
+)}
+
+
+
+
 
            {view === "Analytics" && (
         <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">

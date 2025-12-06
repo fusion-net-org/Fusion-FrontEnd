@@ -2,15 +2,27 @@ import { axiosInstance } from "@/apiConfig";
 
 /** GET /api/projects/{projectId}/sprint-board */
 export async function fetchSprintBoard(projectId) {
-    const { data } = await axiosInstance.get(`/projects/${projectId}/sprint-board`);
-    const payload = data?.data ?? data ?? {};
-    const sprints = Array.isArray(payload.sprints)
-        ? payload.sprints
-        : (payload.sprint ? [payload.sprint] : []);
-    return {
-        sprints,
-        tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
-    };
+  const { data } = await axiosInstance.get(
+    `/projects/${projectId}/sprint-board`
+  );
+
+  const payload = (data && data.data) || data || {};
+
+  let sprints;
+  if (Array.isArray(payload.sprints)) {
+    sprints = payload.sprints;
+  } else if (payload.sprint) {
+    sprints = [payload.sprint];
+  } else {
+    sprints = [];
+  }
+
+  return {
+    // 👈 QUAN TRỌNG: trả workflow về cho normalizeBoardInput dùng
+    workflow: payload.workflow || null,
+    sprints,
+    tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
+  };
 }
 
 /** POST /api/projects/{projectId}/sprint-board/{sprintId}/tasks/{taskId}/move

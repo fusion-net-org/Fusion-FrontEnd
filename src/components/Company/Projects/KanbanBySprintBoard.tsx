@@ -404,9 +404,9 @@ export default function KanbanBySprintBoard({
   const [bumpedOrder, setBumpedOrder] = useState<Record<string, number>>({});
   const bumpSeqRef = React.useRef(0);
   const [kw, setKw] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusCategory | "ALL">(
-    filterCategory ?? "ALL",
-  );
+ const [statusFilter, setStatusFilter] = useState<string | "ALL">(
+  filterCategory ?? "ALL",
+);
 
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueFrom, setDueFrom] = useState<string | null>(null);
@@ -728,7 +728,14 @@ export default function KanbanBySprintBoard({
       }
 
       // ===== status filter: lấy category từ workflow giống TaskList =====
-      if (statusFilter !== "ALL") {
+    if (statusFilter !== "ALL") {
+      let matched = false;
+
+      // 1) Nếu filter là workflowStatusId
+      if (t.workflowStatusId && t.workflowStatusId === statusFilter) {
+        matched = true;
+      } else {
+        // 2) Fallback: nếu filter là category (TODO / IN_PROGRESS / DONE...)
         let cat = t.statusCategory as StatusCategory | null;
 
         if (t.workflowStatusId && t.sprintId) {
@@ -739,10 +746,13 @@ export default function KanbanBySprintBoard({
           }
         }
 
-        if (cat !== statusFilter) {
-          return false;
+        if (cat && cat === statusFilter) {
+          matched = true;
         }
       }
+
+      if (!matched) return false;
+    }
 
       if (assigneeIds.length) {
         const has = (t.assignees ?? []).some((m) =>
@@ -796,31 +806,34 @@ export default function KanbanBySprintBoard({
   );
 
   // Status dropdown trong filter bar (ghép tất cả category từ workflow)
-  const statusFilterOptions: SimpleOption[] = React.useMemo(() => {
-    type Info = { label: string; order: number };
+const statusFilterOptions: SimpleOption[] = React.useMemo(() => {
+  const byId = new Map<string, { label: string; order: number }>();
 
-    const byCategory = new Map<string, Info>();
+  Object.values(workflowMetaBySprint).forEach((list) => {
+    list.forEach((st, idx) => {
+      const id = st.id;
+      if (!id) return;
 
-    Object.values(workflowMetaBySprint).forEach((list) => {
-      list.forEach((st, idx) => {
-        const cat = (st.category ?? "TODO") as StatusCategory;
-        const order = typeof st.order === "number" ? st.order : idx;
-        const label = st.name || st.code || prettyStatusCategory(cat);
+      const order = typeof st.order === "number" ? st.order : idx;
+      const label =
+        st.name || st.code || prettyStatusCategory(st.category);
 
-        const current = byCategory.get(cat);
-        if (!current || order < current.order) {
-          byCategory.set(cat, { label, order });
-        }
-      });
+      const existing = byId.get(id);
+      if (!existing || order < existing.order) {
+        byId.set(id, { label, order });
+      }
     });
+  });
 
-    return Array.from(byCategory.entries())
-      .sort((a, b) => a[1].order - b[1].order)
-      .map(([value, info]) => ({
-        value,          // "TODO" | "IN_PROGRESS" | ...
-        label: info.label, // tên theo workflow: "Open", "Doing", ...
-      }));
-  }, [workflowMetaBySprint]);
+  return Array.from(byId.entries())
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([id, info]) => ({
+      value: id,        // chính là workflowStatusId
+      label: info.label,
+    }));
+}, [workflowMetaBySprint]);
+
+
 
 
   // All tasks trên board – đã có sẵn:
@@ -1535,13 +1548,14 @@ export default function KanbanBySprintBoard({
 
           primaryFilterLabel="Status"
           primaryFilterValue={statusFilter}
-          primaryFilterOptions={[
-            { value: "ALL", label: "All status" },
-            ...statusFilterOptions,
-          ]}
-          onPrimaryFilterChange={(v) =>
-            setStatusFilter(v as StatusCategory | "ALL")
-          }
+        primaryFilterOptions={[
+  { value: "ALL", label: "All status" },
+  ...statusFilterOptions,
+]}
+onPrimaryFilterChange={(v) =>
+  setStatusFilter(v as string | "ALL")
+}
+
 
           assigneeOptions={assigneeOptions}
           assigneeValues={assigneeIds}
@@ -1692,7 +1706,7 @@ export default function KanbanBySprintBoard({
         />
 
         {/* BOARD */}
-       {/* BOARD */}
+      
 <div className="relative w-full min-w-0 max-w-[100vw] mt-3">
   <div
     className={cn(
