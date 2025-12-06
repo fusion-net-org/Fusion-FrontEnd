@@ -71,6 +71,8 @@ import ProjectRequestListAdminPage from './pages/admin/projectRequest/ProjectReq
 import ProjectRequestDetailAdminPage from './pages/admin/projectRequest/ProjectRequestDetailAdminPage';
 import TicketListAdminPage from './pages/admin/ticketManagement/TicketListAdminPage';
 import TicketDetailAdminPage from './pages/admin/ticketManagement/TicketDetailAdminPage';
+import ContractListAdminPage from './pages/admin/contractManagement/ContractListAdminPage';
+import ContractDetailAdminPage from './pages/admin/contractManagement/ContractDetailAdminPage';
 
 function App() {
   useFCMListener((notif: any) => {
@@ -145,6 +147,9 @@ function App() {
           <Route path="/admin/tickets/list" element={<TicketListAdminPage />} />
           <Route path="/admin/tickets/detail/:id" element={<TicketDetailAdminPage />} />
           <Route path="/admin/tickets/detail" element={<TicketDetailAdminPage />} />
+          <Route path="/admin/contracts/list" element={<ContractListAdminPage />} />
+          <Route path="/admin/contracts/detail/:id" element={<ContractDetailAdminPage />} />
+          <Route path="/admin/contracts/detail" element={<ContractDetailAdminPage />} />
         </Route>
         {/* route company layout */}
         <Route
