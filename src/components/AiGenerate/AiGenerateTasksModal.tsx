@@ -12,13 +12,13 @@ import {
 
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import type { AiTaskGenerateRequest } from "@/types/aiTaskGenerate";
-import {
-  generateAndSaveAiTasks,
-} from "@/services/AITaskService.js";
+import { generateAndSaveAiTasks } from "@/services/AITaskService.js";
 
-const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
+
+// Giới hạn tổng số task AI cho 1 lần gen (quantity × số sprint)
+const MAX_AI_TASKS_PER_CALL = 50;
 
 type Props = {
   open: boolean;
@@ -39,12 +39,13 @@ type Props = {
       order: number;
     }[]
   >;
-  // onGenerated: thêm meta chứa sprint mặc định
-  onGenerated?: (tasks: any[], meta: { defaultSprintId: string }) => void;
-    onGeneratingChange?: (isGenerating: boolean) => void;
-
+  // meta giữ lại defaultSprintId (cũ) + thêm selectedSprintIds (mới)
+  onGenerated?: (
+    tasks: TaskVm[],
+    meta: { defaultSprintId: string; selectedSprintIds?: string[] },
+  ) => void;
+  onGeneratingChange?: (isGenerating: boolean) => void;
 };
-
 
 export default function AiGenerateTasksModal({
   open,
@@ -60,8 +61,9 @@ export default function AiGenerateTasksModal({
 }: Props) {
   if (!open) return null;
 
-  const [selectedSprintId, setSelectedSprintId] = useState<string>(
-    sprints[0]?.id ?? "",
+  // Multi-sprint: chọn nhiều sprint
+  const [selectedSprintIds, setSelectedSprintIds] = useState<string[]>(
+    sprints[0]?.id ? [sprints[0].id] : [],
   );
 
   const [goal, setGoal] = useState("");
@@ -119,19 +121,24 @@ export default function AiGenerateTasksModal({
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  const selectedSprint = useMemo(
-    () => sprints.find((x) => x.id === selectedSprintId) ?? sprints[0],
-    [sprints, selectedSprintId],
+  const selectedSprints = useMemo(
+    () => sprints.filter((sp) => selectedSprintIds.includes(sp.id)),
+    [sprints, selectedSprintIds],
   );
 
+  // Sprint chính để show workflow / capacity
+  const primarySprint = useMemo(
+    () => selectedSprints[0] ?? sprints[0],
+    [selectedSprints, sprints],
+  );
+
+  // Task thuộc các sprint đang chọn
   const sprintTasks = useMemo(
     () =>
       existingTasks.filter(
-        (t) =>
-          t.sprintId === selectedSprint?.id ||
-          t.sprintId === selectedSprintId,
+        (t) => t.sprintId && selectedSprintIds.includes(t.sprintId),
       ),
-    [existingTasks, selectedSprint, selectedSprintId],
+    [existingTasks, selectedSprintIds],
   );
 
   const sprintStats = useMemo(() => {
@@ -160,10 +167,13 @@ export default function AiGenerateTasksModal({
     setDuplicateStrategy((prev) => ({ ...prev, [k]: !prev[k] }));
   };
 
-  const canSubmit = goal.trim().length > 0 && !!selectedSprint?.id;
+  const canSubmit =
+    goal.trim().length > 0 &&
+    (selectedSprints.length > 0 || sprints.length > 0);
+
   const boardSprintContext = useMemo(
     () =>
-      sprints.map((sp) => ({
+      (selectedSprints.length > 0 ? selectedSprints : sprints).map((sp) => ({
         id: sp.id,
         name: sp.name,
         start: sp.start ?? null,
@@ -172,14 +182,20 @@ export default function AiGenerateTasksModal({
         capacityHours: sp.capacityHours ?? null,
         committedPoints: (sp as any).committedPoints ?? null,
       })),
-    [sprints],
+    [selectedSprints, sprints],
   );
 
   const boardTasksContext = useMemo(() => {
     if (!existingTasks || existingTasks.length === 0) return [];
 
-    // giới hạn cho prompt khỏi quá dài
-    const slice = existingTasks.slice(0, 80);
+    const targetIds =
+      selectedSprintIds.length > 0
+        ? new Set(selectedSprintIds)
+        : new Set(sprints.map((sp) => sp.id));
+
+    const slice = existingTasks
+      .filter((t) => t.sprintId && targetIds.has(t.sprintId))
+      .slice(0, 80);
 
     return slice.map((t) => {
       const sprintName =
@@ -203,14 +219,22 @@ export default function AiGenerateTasksModal({
           null,
       };
     });
-  }, [existingTasks, sprints]);
+  }, [existingTasks, sprints, selectedSprintIds]);
 
   const buildRequest = (): AiTaskGenerateRequest | null => {
-    if (!selectedSprint) return null;
+    const targetSprints =
+      selectedSprints.length > 0
+        ? selectedSprints
+        : sprints.length > 0
+        ? [sprints[0]]
+        : [];
 
-    const wf = workflowMetaBySprint[selectedSprint.id] ?? [];
+    if (targetSprints.length === 0) return null;
 
-    // teamContext: dùng members đã chọn, nếu không chọn thì dùng toàn bộ
+    const mainSprint = targetSprints[0];
+
+    const wf = workflowMetaBySprint[mainSprint.id] ?? [];
+
     const selectedMembers = members.filter((m) =>
       selectedMemberIds.includes(m.id),
     );
@@ -235,12 +259,15 @@ export default function AiGenerateTasksModal({
       projectName,
 
       sprint: {
-        id: selectedSprint.id,
-        name: selectedSprint.name,
-        start: selectedSprint.start ?? null,
-        end: selectedSprint.end ?? null,
-        capacityHours: selectedSprint.capacityHours ?? null,
+        id: mainSprint.id,
+        name: mainSprint.name,
+        start: mainSprint.start ?? null,
+        end: mainSprint.end ?? null,
+        capacityHours: mainSprint.capacityHours ?? null,
       },
+
+      // nếu BE có thêm field targetSprintIds thì truyền luôn,
+      // nếu không sẽ bị bỏ qua, không sao.
 
       workflow: {
         statuses: wf.map((x, idx) => ({
@@ -255,7 +282,6 @@ export default function AiGenerateTasksModal({
           wf.find((x) => !x.isDone)?.id ?? wf[0]?.id ?? undefined,
       },
 
-      // 👇 NEW: toàn bộ board (tất cả sprint + tất cả task)
       boardContext:
         boardSprintContext.length || boardTasksContext.length
           ? {
@@ -313,46 +339,72 @@ export default function AiGenerateTasksModal({
     return req;
   };
 
-
-const handleSubmit = async () => {
-  const req = buildRequest();
-  if (!req) return;
-
-  setSubmitting(true);
-  setErrorText(null);
-  onGeneratingChange?.(true); // 👈 bật overlay ở parent
-
-  try {
-    console.log("[AI TASK GENERATE] request DTO = ", req);
-
-    // Gọi BE generate + save
-    const res = await generateAndSaveAiTasks(req);
-
-    // BE đang trả: List<ProjectTaskResponse> → TS là array
-    const tasks = Array.isArray(res)
-      ? res
-      : Array.isArray((res as any)?.items)
-      ? (res as any).items
-      : [];
-
-    if (onGenerated && selectedSprint?.id) {
-      onGenerated(tasks, { defaultSprintId: selectedSprint.id });
+  const handleSubmit = async () => {
+    const req = buildRequest();
+    if (!req) {
+      setErrorText("Please select at least one target sprint.");
+      return;
     }
 
-    onClose();
-  } catch (err: any) {
-    console.error("[AI TASK GENERATE] failed", err);
-    setErrorText(
-      err?.message ||
-        "Failed to generate & save tasks with AI. Please try again.",
-    );
-  } finally {
-    setSubmitting(false);
-    onGeneratingChange?.(false); // 👈 tắt overlay
-  }
-};
+    const sprintCountForLimit =
+      selectedSprints.length > 0 ? selectedSprints.length : 1;
+    const totalRequested = quantity * sprintCountForLimit;
 
+    if (
+      MAX_AI_TASKS_PER_CALL > 0 &&
+      totalRequested > MAX_AI_TASKS_PER_CALL
+    ) {
+      setErrorText(
+        `You are requesting ${totalRequested} tasks (${quantity} × ${sprintCountForLimit} sprints). ` +
+          `The system limit is ${MAX_AI_TASKS_PER_CALL} tasks per generation. ` +
+          "Please reduce the quantity or deselect some sprints.",
+      );
+      return;
+    }
 
+    setSubmitting(true);
+    setErrorText(null);
+    onGeneratingChange?.(true);
+
+    try {
+      console.log("[AI TASK GENERATE] request DTO = ", req);
+
+      const res = await generateAndSaveAiTasks(req);
+
+      const tasks: TaskVm[] = Array.isArray(res)
+        ? res
+        : Array.isArray((res as any)?.items)
+        ? (res as any).items
+        : [];
+
+      if (onGenerated) {
+        const ids =
+          selectedSprints.length > 0
+            ? selectedSprints.map((sp) => sp.id)
+            : sprints[0]
+            ? [sprints[0].id]
+            : [];
+
+        const defaultSprintId = ids[0] ?? "";
+
+        onGenerated(tasks, {
+          defaultSprintId,
+          selectedSprintIds: ids.length > 0 ? ids : undefined,
+        });
+      }
+
+      onClose();
+    } catch (err: any) {
+      console.error("[AI TASK GENERATE] failed", err);
+      setErrorText(
+        err?.message ||
+          "Failed to generate & save tasks with AI. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+      onGeneratingChange?.(false);
+    }
+  };
 
   const outputFieldLabels: Record<keyof typeof outputConfig, string> = {
     includeTitle: "Title",
@@ -427,28 +479,56 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
+              {/* Multi-select sprint */}
               <div className="mb-2">
                 <label className="mb-1 block text-[11px] text-slate-500">
-                  Sprint
+                  Target sprints
                 </label>
-                <select
-                  value={selectedSprint?.id ?? ""}
-                  onChange={(e) => setSelectedSprintId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {sprints.map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedSprint && (
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    {selectedSprint.start?.slice(0, 10)} →{" "}
-                    {selectedSprint.end?.slice(0, 10)} · Capacity:{" "}
-                    {selectedSprint.capacityHours ?? "—"}h
-                  </p>
-                )}
+                <div className="max-h-32 space-y-1 overflow-auto rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                  {sprints.map((sp) => {
+                    const checked = selectedSprintIds.includes(sp.id);
+                    return (
+                      <label
+                        key={sp.id}
+                        className="flex items-center justify-between gap-2 cursor-pointer rounded-md px-1 py-[2px] text-[11px] text-slate-700 hover:bg-slate-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-slate-300"
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedSprintIds((prev) =>
+                                prev.includes(sp.id)
+                                  ? prev.filter((x) => x !== sp.id)
+                                  : [...prev, sp.id],
+                              )
+                            }
+                          />
+                          <span className="font-medium">{sp.name}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500">
+                          {sp.start?.slice(0, 10)} → {sp.end?.slice(0, 10)}
+                        </span>
+                      </label>
+                    );
+                  })}
+
+                  {sprints.length === 0 && (
+                    <p className="text-[11px] text-slate-400">
+                      This project has no sprints yet.
+                    </p>
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  AI will generate approximately{" "}
+                  <span className="font-semibold">{quantity}</span> tasks per
+                  selected sprint.
+                </p>
+                <p className="mt-0.5 text-[10px] text-slate-500">
+                  {selectedSprints.length} sprint(s) selected ·{" "}
+                  {sprintStats.total} tasks currently in those sprints.
+                </p>
               </div>
 
               {/* Sprint stats */}
@@ -474,7 +554,7 @@ const handleSubmit = async () => {
               </div>
             </section>
 
-            {/* Workflow summary */}
+            {/* Workflow summary (primary sprint) */}
             <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
               <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-700">
                 <ListChecks className="h-3.5 w-3.5 text-blue-500" />
@@ -486,7 +566,7 @@ const handleSubmit = async () => {
                 done.
               </p>
               <div className="flex flex-wrap gap-1">
-                {(workflowMetaBySprint[selectedSprint?.id ?? ""] ?? []).map(
+                {(workflowMetaBySprint[primarySprint?.id ?? ""] ?? []).map(
                   (st) => (
                     <span
                       key={st.id}
@@ -675,7 +755,7 @@ const handleSubmit = async () => {
                     Task size / granularity
                   </div>
                   <div className="space-y-1">
-                    {[  
+                    {[
                       ["Epic", "Epic-level (fewer but larger items)"],
                       ["Task", "Task-level (recommended)"],
                       ["SubTask", "Sub-task level (very detailed)"],
@@ -996,8 +1076,9 @@ const handleSubmit = async () => {
             <div className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-slate-400" />
               <span>
-                AI will generate a draft list of tasks. You can review and edit
-                them before adding them to the board.
+                AI will generate tasks and add them directly into the selected
+                sprint(s). You can edit or delete them later using the normal
+                task workflow.
               </span>
             </div>
             {errorText && (
