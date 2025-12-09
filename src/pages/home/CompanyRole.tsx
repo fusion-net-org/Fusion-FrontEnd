@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, Edit, Trash, UserPlus, Ban, Inbox } from 'lucide-react';
+import { Search, Edit, Trash, UserPlus, Ban, Inbox, ChevronDown, ChevronUp } from 'lucide-react';
 import { DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import { Paging } from '@/components/Paging/Paging';
@@ -37,6 +37,9 @@ const CompanyRole: React.FC = () => {
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
   const [selectedRole, setSelectedRole] = useState<IRole | null>(null);
+  const [sortColumn, setSortColumn] = useState<string>('CreatedAt');
+  const [sortDescending, setSortDescending] = useState<boolean>(true);
+
   console.log('Selected Role:', selectedRole);
   const fetchRoles = async () => {
     if (!companyId) return;
@@ -56,6 +59,8 @@ const CompanyRole: React.FC = () => {
         createdTo,
         page,
         pageSize,
+        sortColumn,
+        sortDescending,
       );
 
       setRoles(data.items);
@@ -66,10 +71,28 @@ const CompanyRole: React.FC = () => {
       setLoading(false);
     }
   };
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDescending((prev) => !prev);
+    } else {
+      setSortColumn(column);
+      setSortDescending(true);
+    }
+    setPage(1);
+  };
 
   useEffect(() => {
     fetchRoles();
-  }, [companyId, debouncedSearch, statusFilter, dateRange, page, pageSize]);
+  }, [
+    companyId,
+    debouncedSearch,
+    statusFilter,
+    dateRange,
+    page,
+    pageSize,
+    sortColumn,
+    sortDescending,
+  ]);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -186,10 +209,58 @@ const CompanyRole: React.FC = () => {
         <table className="w-full text-sm text-gray-700">
           <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
             <tr>
-              <th className="px-6 py-3 text-center">Role Name</th>
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('RoleName')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Role Name
+                  {sortColumn === 'RoleName' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>
               <th className="px-6 py-3 text-center">Description</th>
-              <th className="px-6 py-3 text-center">Status</th>
-              <th className="px-6 py-3 text-center">Created Date</th>
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('Status')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Status
+                  {sortColumn === 'Status' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>{' '}
+              <th
+                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
+                onClick={() => handleSort('CreatedAt')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  Created Date
+                  {sortColumn === 'CreatedAt' ? (
+                    sortDescending ? (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-blue-700" />
+                    )
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-blue-700" />
+                  )}
+                </div>
+              </th>
               <th className="px-6 py-3 text-center">Actions</th>
             </tr>
           </thead>

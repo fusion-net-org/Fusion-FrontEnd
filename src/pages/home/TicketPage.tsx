@@ -1,7 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Eye, UserPlus, Send, Inbox } from 'lucide-react';
+import {
+  CheckCircle,
+  XCircle,
+  Eye,
+  UserPlus,
+  Send,
+  Inbox,
+  ChevronsUpDown,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
 import { DatePicker } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { IProject, ITicketResponse, ITicketResponseData } from '@/interfaces/Ticket/Ticket';
@@ -33,6 +43,19 @@ const TicketPage: React.FC = () => {
   const [rejectTicketId, setRejectTicketId] = useState<string | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<string | null>('CreatedAt');
+  const [sortDescending, setSortDescending] = useState<boolean | null>(true);
+
+  const handleSort = (column: string) => {
+    setSortColumn(column);
+
+    setSortDescending((prev) => {
+      if (sortColumn !== column) return false;
+      return !prev;
+    });
+
+    setPagination((prev) => ({ ...prev, pageNumber: 1 }));
+  };
 
   const handleAcceptTicket = async (ticketId: string) => {
     try {
@@ -147,8 +170,8 @@ const TicketPage: React.FC = () => {
         isDeletedParam, // IsDeleted
         pagination.pageNumber,
         pagination.pageSize,
-        null, // SortColumn
-        null, // SortDescending
+        sortColumn,
+        sortDescending,
       );
       console.log('Fetched Tickets:', res.data);
       setTicketData(res.data);
@@ -180,6 +203,8 @@ const TicketPage: React.FC = () => {
     filterStatus,
     filterDeleted,
     dateRange,
+    sortColumn,
+    sortDescending,
   ]);
 
   return (
@@ -345,12 +370,104 @@ const TicketPage: React.FC = () => {
           <table className="min-w-[1000px] w-full text-sm">
             <thead className="bg-blue-50 text-blue-800 uppercase text-left font-semibold">
               <tr className="hover:bg-blue-100">
-                <th className="px-4 py-3 font-medium text-center">Ticket Name</th>
-                <th className="px-4 py-3 font-medium text-center">Project Name</th>
-                <th className="px-4 py-3 font-medium text-center">Create Date</th>
-                <th className="px-4 py-3 font-medium text-center">Priority</th>
-                <th className="px-4 py-3 font-medium text-center">Status</th>
-                <th className="px-4 py-3 font-medium text-center">Budget (VND)</th>
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('TicketName')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Ticket Name
+                    {sortColumn !== 'TicketName' && (
+                      <ChevronDown size={16} className="text-gray-400" />
+                    )}
+                    {sortColumn === 'TicketName' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'TicketName' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>{' '}
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('Project.Name')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Project Name
+                    {sortColumn !== 'Project.Name' && (
+                      <ChevronDown size={16} className="text-gray-400" />
+                    )}
+                    {sortColumn === 'Project.Name' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'Project.Name' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>{' '}
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('CreatedAt')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Create Date
+                    {sortColumn !== 'CreatedAt' && (
+                      <ChevronDown size={16} className="text-gray-400" />
+                    )}
+                    {sortColumn === 'CreatedAt' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'CreatedAt' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>{' '}
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('Priority')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Priority
+                    {sortColumn !== 'Priority' && (
+                      <ChevronDown size={16} className="text-gray-400" />
+                    )}
+                    {sortColumn === 'Priority' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'Priority' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>{' '}
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Status
+                    {sortColumn !== 'status' && <ChevronDown size={16} className="text-gray-400" />}
+                    {sortColumn === 'status' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'status' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>{' '}
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('Budget')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Budget (VND)
+                    {sortColumn !== 'Budget' && <ChevronDown size={16} className="text-gray-400" />}
+                    {sortColumn === 'Budget' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'Budget' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>
                 <th className="px-4 py-3 font-medium text-center">Deleted</th>
                 {viewMode === 'AsExecutor' && (
                   <th className="px-4 py-3 font-medium text-center">Action</th>
