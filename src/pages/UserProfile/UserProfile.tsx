@@ -60,10 +60,10 @@ const UserProfile = () => {
   const menuItems = [
     { id: 'profile', label: 'My profile', icon: UserIcon },
     { id: 'password', label: 'Change password', icon: Lock },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'billing', label: 'Billing', icon: CreditCard },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    // { id: 'notifications', label: 'Notifications', icon: Bell },
+    // { id: 'security', label: 'Security', icon: Shield },
+    // { id: 'billing', label: 'Billing', icon: CreditCard },
+    // { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   const handleEdit = () => {
@@ -502,7 +502,7 @@ const UserProfile = () => {
             </div>
           )}
 
-          {['notifications', 'security', 'billing', 'settings'].includes(activeTab) && (
+          {/* {['notifications', 'security', 'billing', 'settings'].includes(activeTab) && (
             <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
               <div className="text-center py-12">
                 <Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -510,7 +510,7 @@ const UserProfile = () => {
                 <p className="text-gray-600">The content of this tab will be updated soon</p>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>
