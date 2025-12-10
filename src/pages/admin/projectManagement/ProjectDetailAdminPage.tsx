@@ -18,6 +18,8 @@ import {
   Empty,
   Breadcrumb,
   Collapse,
+  Modal,
+  Descriptions,
 } from 'antd';
 import {
   UserOutlined,
@@ -32,6 +34,7 @@ import {
   HomeOutlined,
 } from '@ant-design/icons';
 import { getProjectById } from '@/services/projectService.js';
+import { getTaskById } from '@/services/taskService.js';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -54,6 +57,36 @@ interface Sprint {
   taskCount: number;
   totalPoint: number;
   tasks: Task[];
+}
+
+interface WorkflowItem {
+  id: string;
+  statusName: string;
+  statusCode: string;
+  category: string;
+  assignUserId: string;
+  assignUserName: string;
+}
+
+interface TaskComment {
+  id: string;
+  body: string;
+  authorName: string;
+  authorAvatar: string;
+  createAt: string;
+  attachments?: {
+    fileName: string;
+    url: string;
+    contentType: string;
+    size: number;
+  }[];
+}
+
+interface TaskAttachment {
+  fileName: string;
+  url: string;
+  contentType: string;
+  size: number;
 }
 
 interface ProjectDetail {
@@ -96,6 +129,11 @@ const ProjectDetailAdminPage: React.FC = () => {
   const id = paramId || localStorage.getItem('projectDetailId');
   const { Panel } = Collapse;
   const { Text } = Typography;
+
+  //Task
+  const [openTaskModal, setOpenTaskModal] = useState(false);
+  const [taskDetail, setTaskDetail] = useState<any>(null);
+  const [loadingTask, setLoadingTask] = useState(false);
 
   const fetchProject = async () => {
     try {
@@ -143,6 +181,22 @@ const ProjectDetailAdminPage: React.FC = () => {
     navigate(`/admin/companies/detail/${cId}`);
   };
 
+  // Task detail
+  const handleTaskClick = async (taskId: string) => {
+    setLoadingTask(true);
+    setOpenTaskModal(true);
+    try {
+      const res = await getTaskById(taskId);
+      if (res?.succeeded) {
+        setTaskDetail(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingTask(false);
+    }
+  };
+
   // No project
   if (!project) {
     return (
@@ -157,118 +211,119 @@ const ProjectDetailAdminPage: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
-      {/* Header Section */}
-      <div
-        style={{ background: '#fff', padding: '24px', borderRadius: '8px', marginBottom: '24px' }}
-      >
-        <Breadcrumb style={{ marginBottom: '16px' }}>
-          <Breadcrumb.Item>
-            <HomeOutlined />
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <a onClick={() => navigate('/admin/projects/list')}>Projects</a>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>{project.name}</Breadcrumb.Item>
-        </Breadcrumb>
+    <>
+      <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
+        {/* Header Section */}
+        <div
+          style={{ background: '#fff', padding: '24px', borderRadius: '8px', marginBottom: '24px' }}
+        >
+          <Breadcrumb style={{ marginBottom: '16px' }}>
+            <Breadcrumb.Item>
+              <HomeOutlined />
+            </Breadcrumb.Item>
+            <Breadcrumb.Item>
+              <a onClick={() => navigate('/admin/projects/list')}>Projects</a>
+            </Breadcrumb.Item>
+            <Breadcrumb.Item>{project.name}</Breadcrumb.Item>
+          </Breadcrumb>
 
-        <Space align="center" style={{ width: '100%', justifyContent: 'flex-start' }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <ProjectOutlined /> {project.name}
-          </Title>
-          <Tag color="blue" style={{ fontSize: '14px' }}>
-            {project.projectType}
-          </Tag>
-        </Space>
+          <Space align="center" style={{ width: '100%', justifyContent: 'flex-start' }}>
+            <Title level={2} style={{ margin: 0 }}>
+              <ProjectOutlined /> {project.name}
+            </Title>
+            <Tag color="blue" style={{ fontSize: '14px' }}>
+              {project.projectType}
+            </Tag>
+          </Space>
 
-        <Paragraph type="secondary" style={{ marginTop: '8px', marginBottom: 0 }}>
+          {/* <Paragraph type="secondary" style={{ marginTop: '8px', marginBottom: 0 }}>
           Project ID: {project.id}
-        </Paragraph>
-      </div>
+        </Paragraph> */}
+        </div>
 
-      {/* Statistics Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false}>
-            <Statistic
-              title="Project Progress"
-              value={project.progress}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: project.progress >= 70 ? '#3f8600' : '#1890ff' }}
-            />
-            <Progress
-              percent={project.progress}
-              status={project.progress === 100 ? 'success' : 'active'}
-              strokeColor={{
-                '0%': '#108ee9',
-                '100%': '#87d068',
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false}>
-            <Statistic
-              title="Total Sprints"
-              value={project.sprintCount}
-              prefix={<RocketOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false}>
-            <Statistic
-              title="Total Tasks"
-              value={project.totalTask}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false}>
-            <Statistic
-              title="Total Points"
-              value={project.totalPoint}
-              prefix={<TrophyOutlined />}
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+        {/* Statistics Cards */}
+        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false}>
+              <Statistic
+                title="Project Progress"
+                value={project.progress}
+                suffix="%"
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: project.progress >= 70 ? '#3f8600' : '#1890ff' }}
+              />
+              <Progress
+                percent={project.progress}
+                status={project.progress === 100 ? 'success' : 'active'}
+                strokeColor={{
+                  '0%': '#108ee9',
+                  '100%': '#87d068',
+                }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false}>
+              <Statistic
+                title="Total Sprints"
+                value={project.sprintCount}
+                prefix={<RocketOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false}>
+              <Statistic
+                title="Total Tasks"
+                value={project.totalTask}
+                prefix={<ClockCircleOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false}>
+              <Statistic
+                title="Total Points"
+                value={project.totalPoint}
+                prefix={<TrophyOutlined />}
+                valueStyle={{ color: '#faad14' }}
+              />
+            </Card>
+          </Col>
+        </Row>
 
-      {/* Main Content */}
-      <Row gutter={[16, 16]}>
-        {/* Left Column */}
-        <Col xs={24} lg={8}>
-          {/* Owner & Workflow Info */}
-          <Card
-            title={
-              <>
-                <UserOutlined /> Owner Information
-              </>
-            }
-            bordered={false}
-            style={{ marginBottom: '16px' }}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div>
-                <Text type="secondary">Project Owner</Text>
-                <div
-                  style={{ marginTop: '8px' }}
-                  className="cursor-pointer"
-                  onClick={() => handleMemberClick(project.ownerId)}
-                >
-                  <Space>
-                    <Avatar icon={<UserOutlined />} />
-                    <Text strong>{project.ownerName}</Text>
-                  </Space>
+        {/* Main Content */}
+        <Row gutter={[16, 16]}>
+          {/* Left Column */}
+          <Col xs={24} lg={8}>
+            {/* Owner & Workflow Info */}
+            <Card
+              title={
+                <>
+                  <UserOutlined /> Owner Information
+                </>
+              }
+              bordered={false}
+              style={{ marginBottom: '16px' }}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div>
+                  <Text type="secondary">Project Owner</Text>
+                  <div
+                    style={{ marginTop: '8px' }}
+                    className="cursor-pointer"
+                    onClick={() => handleMemberClick(project.ownerId)}
+                  >
+                    <Space>
+                      <Avatar icon={<UserOutlined />} />
+                      <Text strong>{project.ownerName}</Text>
+                    </Space>
+                  </div>
                 </div>
-              </div>
-              <Divider style={{ margin: '12px 0' }} />
-              <div>
+                <Divider style={{ margin: '12px 0' }} />
+                {/* <div>
                 <Text type="secondary">Owner ID</Text>
                 <Paragraph
                   copyable
@@ -278,29 +333,34 @@ const ProjectDetailAdminPage: React.FC = () => {
                 >
                   {project.ownerId}
                 </Paragraph>
-              </div>
-            </Space>
-          </Card>
+              </div> */}
+              </Space>
+            </Card>
 
-          {/* Company Info */}
-          <Card
-            title={
-              <>
-                <ApartmentOutlined /> Company Information
-              </>
-            }
-            bordered={false}
-            style={{ marginBottom: '16px' }}
-          >
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <div>
-                <Text type="secondary">Company request</Text>
-                <div style={{ marginTop: '8px' }}>
-                  <Text strong style={{ fontSize: '16px' }}>
-                    {project.companyRequestName}
-                  </Text>
-                </div>
-                <Paragraph
+            {/* Company Info */}
+            <Card
+              title={
+                <>
+                  <ApartmentOutlined /> Company Information
+                </>
+              }
+              bordered={false}
+              style={{ marginBottom: '16px' }}
+            >
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <div>
+                  <Text type="secondary">Company request</Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Text
+                      strong
+                      style={{ fontSize: '16px' }}
+                      className="cursor-pointer hover:underline"
+                      onClick={() => handleCompanyClick(project.companyRequestId)}
+                    >
+                      {project.companyRequestName}
+                    </Text>
+                  </div>
+                  {/* <Paragraph
                   type="secondary"
                   copyable
                   style={{ marginTop: '4px', marginBottom: 0, fontSize: '12px' }}
@@ -308,17 +368,22 @@ const ProjectDetailAdminPage: React.FC = () => {
                   onClick={() => handleCompanyClick(project.companyRequestId)}
                 >
                   ID: {project.companyRequestId}
-                </Paragraph>
-              </div>
-              <Divider style={{ margin: '8px 0' }} />
-              <div>
-                <Text type="secondary">Company excutor</Text>
-                <div style={{ marginTop: '8px' }}>
-                  <Text strong style={{ fontSize: '16px' }}>
-                    {project.companyExecutorName}
-                  </Text>
+                </Paragraph> */}
                 </div>
-                <Paragraph
+                <Divider style={{ margin: '8px 0' }} />
+                <div>
+                  <Text type="secondary">Company excutor</Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Text
+                      strong
+                      style={{ fontSize: '16px' }}
+                      className="cursor-pointer hover:underline"
+                      onClick={() => handleCompanyClick(project.companyExecutorId)}
+                    >
+                      {project.companyExecutorName}
+                    </Text>
+                  </div>
+                  {/* <Paragraph
                   type="secondary"
                   copyable
                   style={{ marginTop: '4px', marginBottom: 0, fontSize: '12px' }}
@@ -326,244 +391,156 @@ const ProjectDetailAdminPage: React.FC = () => {
                   onClick={() => handleCompanyClick(project.companyExecutorId)}
                 >
                   ID: {project.companyExecutorId}
-                </Paragraph>
-              </div>
-            </Space>
-          </Card>
-
-          {/* Workflow Info */}
-          <Card
-            title={
-              <>
-                <ProjectOutlined /> Workflow
-              </>
-            }
-            bordered={false}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div>
-                <Text type="secondary">Workflow Name</Text>
-                <div style={{ marginTop: '8px' }}>
-                  <Text strong style={{ fontSize: '16px' }}>
-                    {project.workflowName}
-                  </Text>
+                </Paragraph> */}
                 </div>
-              </div>
-              <Divider style={{ margin: '12px 0' }} />
-              <div>
+              </Space>
+            </Card>
+
+            {/* Workflow Info */}
+            <Card
+              title={
+                <>
+                  <ProjectOutlined /> Workflow
+                </>
+              }
+              bordered={false}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div>
+                  <Text type="secondary">Workflow Name</Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Text strong style={{ fontSize: '16px' }}>
+                      {project.workflowName}
+                    </Text>
+                  </div>
+                </div>
+                <Divider style={{ margin: '12px 0' }} />
+                {/* <div>
                 <Text type="secondary">Workflow ID</Text>
                 <Paragraph copyable style={{ marginTop: '4px', marginBottom: 0 }}>
                   {project.workflowId}
                 </Paragraph>
-              </div>
-            </Space>
-          </Card>
-        </Col>
-
-        {/* Right Column */}
-        <Col xs={24} lg={16}>
-          {/* Members Section */}
-          <Card
-            title={
-              <Space>
-                <TeamOutlined />
-                <span>Project Members</span>
-                <Badge count={project.members.length} style={{ backgroundColor: '#52c41a' }} />
+              </div> */}
               </Space>
-            }
-            bordered={false}
-            style={{ marginBottom: '16px' }}
-          >
-            {project.members.length === 0 ? (
-              <Empty description="No members assigned" />
-            ) : (
-              <List
-                grid={{
-                  gutter: 16,
-                  xs: 1,
-                  sm: 2,
-                  md: 3,
-                  lg: 3,
-                  xl: 4,
-                }}
-                dataSource={project.members}
-                pagination={{
-                  pageSize: 12,
-                  showSizeChanger: false,
-                  showQuickJumper: true,
-                }}
-                renderItem={(member) => (
-                  <List.Item>
-                    <Card
-                      hoverable
-                      style={{ textAlign: 'center', cursor: 'pointer' }}
-                      onClick={() => handleMemberClick(member.memberId)}
-                    >
-                      <Avatar
-                        size={64}
-                        src={member.avatar}
-                        icon={!member.avatar && <UserOutlined />}
-                        style={{ marginBottom: '12px' }}
-                      />
-                      <div>
-                        <Text strong style={{ display: 'block', fontSize: '14px' }}>
-                          {member.memberName}
-                        </Text>
-                        {/* <Text
+            </Card>
+          </Col>
+
+          {/* Right Column */}
+          <Col xs={24} lg={16}>
+            {/* Members Section */}
+            <Card
+              title={
+                <Space>
+                  <TeamOutlined />
+                  <span>Project Members</span>
+                  <Badge count={project.members.length} style={{ backgroundColor: '#52c41a' }} />
+                </Space>
+              }
+              bordered={false}
+              style={{ marginBottom: '16px' }}
+            >
+              {project.members.length === 0 ? (
+                <Empty description="No members assigned" />
+              ) : (
+                <List
+                  grid={{
+                    gutter: 16,
+                    xs: 1,
+                    sm: 2,
+                    md: 3,
+                    lg: 3,
+                    xl: 4,
+                  }}
+                  dataSource={project.members}
+                  pagination={{
+                    pageSize: 12,
+                    showSizeChanger: false,
+                    showQuickJumper: true,
+                  }}
+                  renderItem={(member) => (
+                    <List.Item>
+                      <Card
+                        hoverable
+                        style={{ textAlign: 'center', cursor: 'pointer' }}
+                        onClick={() => handleMemberClick(member.memberId)}
+                      >
+                        <Avatar
+                          size={64}
+                          src={member.avatar}
+                          icon={!member.avatar && <UserOutlined />}
+                          style={{ marginBottom: '12px' }}
+                        />
+                        <div>
+                          <Text strong style={{ display: 'block', fontSize: '14px' }}>
+                            {member.memberName}
+                          </Text>
+                          {/* <Text
                           type="secondary"
                           style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}
                           ellipsis={{ tooltip: member.memberId }}
                         >
                           {member.memberId.substring(0, 8)}...
                         </Text> */}
-                      </div>
-                      <Tag color="blue" style={{ marginTop: '8px' }}>
-                        Member
-                      </Tag>
-                    </Card>
-                  </List.Item>
-                )}
-              />
-            )}
-          </Card>
+                        </div>
+                        <Tag color="blue" style={{ marginTop: '8px' }}>
+                          Member
+                        </Tag>
+                      </Card>
+                    </List.Item>
+                  )}
+                />
+              )}
+            </Card>
 
-          {/* Sprints Section */}
-          <Card
-            title={
-              <Space>
-                <RocketOutlined />
-                <span>Sprints</span>
-                <Badge count={project.sprints.length} />
-              </Space>
-            }
-            bordered={false}
-          >
-            {project.sprints.length === 0 ? (
-              <Empty description="No sprints available" />
-            ) : project.sprints.length <= 3 ? (
-              // ≤ 3 sprints
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                {project.sprints.map((sprint) => (
-                  <Card
-                    key={sprint.id}
-                    type="inner"
-                    title={
-                      <Space>
-                        <Badge status="processing" />
-                        <Text strong>{sprint.name}</Text>
-                      </Space>
-                    }
-                    extra={
-                      <Space>
-                        <Tag color="purple" icon={<ClockCircleOutlined />}>
-                          {sprint.taskCount} Tasks
-                        </Tag>
-                        <Tag color="gold" icon={<TrophyOutlined />}>
-                          {sprint.totalPoint} Points
-                        </Tag>
-                      </Space>
-                    }
-                    style={{
-                      borderLeft: '4px solid #1890ff',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                    }}
-                  >
-                    {sprint.tasks.length > 0 ? (
-                      <List
-                        itemLayout="horizontal"
-                        dataSource={sprint.tasks}
-                        renderItem={(task) => (
-                          <List.Item
-                            style={{
-                              padding: '12px 0',
-                              borderBottom: '1px solid #f0f0f0',
-                            }}
-                          >
-                            <List.Item.Meta
-                              avatar={
-                                <Avatar style={{ backgroundColor: '#1890ff' }} size="small">
-                                  {task.point}
-                                </Avatar>
-                              }
-                              title={
-                                <Space>
-                                  <Text strong>{task.title}</Text>
-                                  <Tag color={getStatusColor(task.status)}>{task.status}</Tag>
-                                </Space>
-                              }
-                              description={
-                                <Space>
-                                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                                    Task ID: {task.id}
-                                  </Text>
-                                  <Divider type="vertical" />
-                                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                                    <TrophyOutlined /> {task.point} points
-                                  </Text>
-                                </Space>
-                              }
-                            />
-                          </List.Item>
-                        )}
-                      />
-                    ) : (
-                      <Empty
-                        description="No tasks in this sprint"
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      />
-                    )}
-                  </Card>
-                ))}
-              </Space>
-            ) : (
-              //> 3 sprints
-              <Collapse
-                accordion
-                bordered={false}
-                style={{
-                  background: 'transparent',
-                }}
-                expandIconPosition="end"
-              >
-                {project.sprints.map((sprint) => (
-                  <Panel
-                    key={sprint.id}
-                    style={{
-                      background: '#fff',
-                      borderRadius: 8,
-                      marginBottom: 12,
-                      overflow: 'hidden',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                    }}
-                    header={
-                      <Space size="middle" wrap>
-                        <Badge status="processing" />
-                        <Text strong>{sprint.name}</Text>
-                        <Tag color="purple" icon={<ClockCircleOutlined />}>
-                          {sprint.taskCount} Tasks
-                        </Tag>
-                        <Tag color="gold" icon={<TrophyOutlined />}>
-                          {sprint.totalPoint} Points
-                        </Tag>
-                      </Space>
-                    }
-                  >
-                    {sprint.tasks.length > 0 ? (
-                      <div
-                        style={{
-                          maxHeight: 350,
-                          overflowY: 'auto',
-                          paddingRight: 8,
-                        }}
-                      >
+            {/* Sprints Section */}
+            <Card
+              title={
+                <Space>
+                  <RocketOutlined />
+                  <span>Sprints</span>
+                  <Badge count={project.sprints.length} />
+                </Space>
+              }
+              bordered={false}
+            >
+              {project.sprints.length === 0 ? (
+                <Empty description="No sprints available" />
+              ) : project.sprints.length <= 3 ? (
+                // ≤ 3 sprints
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  {project.sprints.map((sprint) => (
+                    <Card
+                      key={sprint.id}
+                      type="inner"
+                      title={
+                        <Space>
+                          <Badge status="processing" />
+                          <Text strong>{sprint.name}</Text>
+                        </Space>
+                      }
+                      extra={
+                        <Space>
+                          <Tag color="purple" icon={<ClockCircleOutlined />}>
+                            {sprint.taskCount} Tasks
+                          </Tag>
+                          <Tag color="gold" icon={<TrophyOutlined />}>
+                            {sprint.totalPoint} Points
+                          </Tag>
+                        </Space>
+                      }
+                      style={{
+                        borderLeft: '4px solid #1890ff',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                      }}
+                    >
+                      {sprint.tasks.length > 0 ? (
                         <List
                           itemLayout="horizontal"
                           dataSource={sprint.tasks}
-                          pagination={{ pageSize: 5, size: 'small' }}
                           renderItem={(task) => (
                             <List.Item
                               style={{
-                                padding: '10px 0',
+                                padding: '12px 0',
                                 borderBottom: '1px solid #f0f0f0',
                               }}
                             >
@@ -575,15 +552,21 @@ const ProjectDetailAdminPage: React.FC = () => {
                                 }
                                 title={
                                   <Space>
-                                    <Text strong>{task.title}</Text>
+                                    <Text
+                                      strong
+                                      style={{ fontSize: '12px', cursor: 'pointer' }}
+                                      className="hover:underline"
+                                      onClick={() => handleTaskClick(task.id)}
+                                    >
+                                      {task.title}
+                                    </Text>
                                     <Tag color={getStatusColor(task.status)}>{task.status}</Tag>
                                   </Space>
                                 }
                                 description={
                                   <Space>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                                      Task ID: {task.id}
-                                    </Text>
+                                    <Text type="secondary">Task Code: {task.id}</Text>
+
                                     <Divider type="vertical" />
                                     <Text type="secondary" style={{ fontSize: '12px' }}>
                                       <TrophyOutlined /> {task.point} points
@@ -594,22 +577,269 @@ const ProjectDetailAdminPage: React.FC = () => {
                             </List.Item>
                           )}
                         />
-                      </div>
-                    ) : (
-                      <Empty
-                        description="No tasks in this sprint"
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ margin: '20px 0' }}
-                      />
-                    )}
-                  </Panel>
-                ))}
-              </Collapse>
+                      ) : (
+                        <Empty
+                          description="No tasks in this sprint"
+                          image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                      )}
+                    </Card>
+                  ))}
+                </Space>
+              ) : (
+                //> 3 sprints
+                <Collapse
+                  accordion
+                  bordered={false}
+                  style={{
+                    background: 'transparent',
+                  }}
+                  expandIconPosition="end"
+                >
+                  {project.sprints.map((sprint) => (
+                    <Panel
+                      key={sprint.id}
+                      style={{
+                        background: '#fff',
+                        borderRadius: 8,
+                        marginBottom: 12,
+                        overflow: 'hidden',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                      }}
+                      header={
+                        <Space size="middle" wrap>
+                          <Badge status="processing" />
+                          <Text strong>{sprint.name}</Text>
+                          <Tag color="purple" icon={<ClockCircleOutlined />}>
+                            {sprint.taskCount} Tasks
+                          </Tag>
+                          <Tag color="gold" icon={<TrophyOutlined />}>
+                            {sprint.totalPoint} Points
+                          </Tag>
+                        </Space>
+                      }
+                    >
+                      {sprint.tasks.length > 0 ? (
+                        <div
+                          style={{
+                            maxHeight: 350,
+                            overflowY: 'auto',
+                            paddingRight: 8,
+                          }}
+                        >
+                          <List
+                            itemLayout="horizontal"
+                            dataSource={sprint.tasks}
+                            pagination={{ pageSize: 5, size: 'small' }}
+                            renderItem={(task) => (
+                              <List.Item
+                                style={{
+                                  padding: '10px 0',
+                                  borderBottom: '1px solid #f0f0f0',
+                                }}
+                              >
+                                <List.Item.Meta
+                                  avatar={
+                                    <Avatar style={{ backgroundColor: '#1890ff' }} size="small">
+                                      {task.point}
+                                    </Avatar>
+                                  }
+                                  title={
+                                    <Space>
+                                      <Text
+                                        strong
+                                        style={{ fontSize: '12px', cursor: 'pointer' }}
+                                        className="hover:underline"
+                                        onClick={() => handleTaskClick(task.id)}
+                                      >
+                                        {task.title}
+                                      </Text>
+                                      <Tag color={getStatusColor(task.status)}>{task.status}</Tag>
+                                    </Space>
+                                  }
+                                  description={
+                                    <Space>
+                                      <Text type="secondary">Task ID: {task.id}</Text>
+
+                                      <Divider type="vertical" />
+                                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                                        <TrophyOutlined /> {task.point} points
+                                      </Text>
+                                    </Space>
+                                  }
+                                />
+                              </List.Item>
+                            )}
+                          />
+                        </div>
+                      ) : (
+                        <Empty
+                          description="No tasks in this sprint"
+                          image={Empty.PRESENTED_IMAGE_SIMPLE}
+                          style={{ margin: '20px 0' }}
+                        />
+                      )}
+                    </Panel>
+                  ))}
+                </Collapse>
+              )}
+            </Card>
+          </Col>
+        </Row>
+      </div>
+      <Modal
+        title={`Task Detail`}
+        open={openTaskModal}
+        onCancel={() => setOpenTaskModal(false)}
+        footer={null}
+        width={900}
+      >
+        {loadingTask ? (
+          <Spin tip="Loading task details..." />
+        ) : !taskDetail ? (
+          <Empty description="No task data" />
+        ) : (
+          <>
+            {/* BASIC INFO */}
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="ID">{taskDetail.id}</Descriptions.Item>
+              <Descriptions.Item label="Code">{taskDetail.code}</Descriptions.Item>
+
+              <Descriptions.Item label="Title" span={2}>
+                {taskDetail.title}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Description" span={2}>
+                {taskDetail.description || <i>No description</i>}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Type">{taskDetail.type}</Descriptions.Item>
+              <Descriptions.Item label="Priority">{taskDetail.priority}</Descriptions.Item>
+
+              <Descriptions.Item label="Severity">{taskDetail.severity}</Descriptions.Item>
+              <Descriptions.Item label="Point">{taskDetail.point}</Descriptions.Item>
+
+              <Descriptions.Item label="Estimate Hours">
+                {taskDetail.estimateHours}
+              </Descriptions.Item>
+              <Descriptions.Item label="Remaining Hours">
+                {taskDetail.remainingHours}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Due Date">
+                {taskDetail.dueDate ? new Date(taskDetail.dueDate).toLocaleString() : 'N/A'}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Current Status">{taskDetail.status}</Descriptions.Item>
+            </Descriptions>
+
+            <Divider />
+
+            {/* ASSIGNEES */}
+            <Title level={5}>Assignees</Title>
+            {(taskDetail.assigneeIds ?? []).length > 0 ? (
+              <List<string>
+                dataSource={taskDetail.assigneeIds ?? []}
+                renderItem={(uid) => <List.Item>User ID: {uid}</List.Item>}
+              />
+            ) : (
+              <Empty description="No assignees" />
             )}
-          </Card>
-        </Col>
-      </Row>
-    </div>
+
+            <Divider />
+
+            {/* WORKFLOW */}
+            <Title level={5}>Workflow</Title>
+            {(taskDetail.workflowAssignments?.items?.length ?? 0) > 0 ? (
+              <List
+                bordered
+                dataSource={taskDetail.workflowAssignments?.items ?? []}
+                renderItem={(w: WorkflowItem) => (
+                  <List.Item>
+                    <Space direction="vertical">
+                      <Text strong>{w.statusName}</Text>
+                      <Text>Code: {w.statusCode}</Text>
+                      <Text>Category: {w.category}</Text>
+                      <Text>Assigned To: {w.assignUserName}</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty description="No workflow steps" />
+            )}
+
+            <Divider />
+
+            {/* COMMENTS */}
+            <Title level={5}>Comments</Title>
+            {(taskDetail.comments?.length ?? 0) > 0 ? (
+              <List<TaskComment>
+                dataSource={taskDetail.comments}
+                renderItem={(c) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      avatar={<Avatar src={c.authorAvatar} />}
+                      title={<Text strong>{c.authorName}</Text>}
+                      description={
+                        <div>
+                          <Text>{c.body}</Text>
+                          <div style={{ fontSize: 12, color: '#888' }}>
+                            {new Date(c.createAt).toLocaleString()}
+                          </div>
+
+                          {c.attachments?.length ? (
+                            <div style={{ marginTop: 8 }}>
+                              <Text strong>Attachments:</Text>
+                              <List
+                                size="small"
+                                dataSource={c.attachments}
+                                renderItem={(a) => (
+                                  <List.Item>
+                                    <a href={a.url} target="_blank">
+                                      {a.fileName}
+                                    </a>
+                                  </List.Item>
+                                )}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty description="No comments" />
+            )}
+
+            <Divider />
+
+            {/* TASK ATTACHMENTS */}
+            <Title level={5}>Task Attachments</Title>
+            {(taskDetail.attachments?.length ?? 0) > 0 ? (
+              <List<TaskAttachment>
+                dataSource={taskDetail.attachments}
+                renderItem={(a) => (
+                  <List.Item>
+                    <Space>
+                      <a href={a.url} target="_blank">
+                        {a.fileName}
+                      </a>
+                      <Text type="secondary">({a.contentType})</Text>
+                      <Text type="secondary">{(a.size / 1024).toFixed(1)} KB</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty description="No attachments" />
+            )}
+          </>
+        )}
+      </Modal>
+    </>
   );
 };
 

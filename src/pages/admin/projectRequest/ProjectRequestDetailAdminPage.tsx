@@ -12,6 +12,10 @@ import {
   Empty,
   Breadcrumb,
   Divider,
+  Avatar,
+  Table,
+  Modal,
+  List,
 } from 'antd';
 import {
   HomeOutlined,
@@ -20,36 +24,11 @@ import {
   UserOutlined,
   FileTextOutlined,
   CalendarOutlined,
-  CheckCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { GetProjectRequestById } from '@/services/projectRequest.js';
+import { getProjectRequestIdByAdmin } from '@/services/projectRequest.js';
 
 const { Title, Text, Paragraph } = Typography;
-
-interface ProjectRequestDetail {
-  id: string;
-  requesterCompanyId: string;
-  requesterCompanyName: string;
-  requesterCompanyLogoUrl: string;
-  executorCompanyId: string;
-  executorCompanyName: string;
-  executorCompanyLogoUrl: string;
-  contractId: string | null;
-  createdBy: string;
-  createdName: string;
-  code: string;
-  projectName: string;
-  description: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  createAt: string;
-  updateAt: string;
-  isDeleted: boolean;
-  isHaveProject: boolean;
-  convertedProjectId: string;
-}
 
 const statusColor = {
   Pending: 'warning',
@@ -59,79 +38,80 @@ const statusColor = {
   InProgress: 'processing',
 };
 
+interface TicketRecord {
+  submittedBy: string;
+  submittedByName: string;
+  ticketComments: string;
+}
+
 const ProjectRequestDetailAdminPage: React.FC = () => {
   const { id: paramId } = useParams();
   const nav = useNavigate();
   const id = paramId || localStorage.getItem('projectRequestId');
 
   const [loading, setLoading] = useState(true);
-  const [item, setItem] = useState<ProjectRequestDetail | null>(null);
+  const [item, setItem] = useState<any>(null);
 
-  const fetchDetail = async () => {
-    setLoading(true);
-    try {
-      const res = await GetProjectRequestById(id);
-      if (res?.succeeded) setItem(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
+  // MODAL COMMENTS
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [selectedComments, setSelectedComments] = useState<any[]>([]);
+
+  const openCommentModal = (comments: any) => {
+    const safeComments = Array.isArray(comments) ? comments : [];
+    setSelectedComments(safeComments);
+    setCommentModalOpen(true);
   };
 
   useEffect(() => {
+    const fetchDetail = async () => {
+      setLoading(true);
+      const res = await getProjectRequestIdByAdmin(id);
+      if (res?.succeeded) setItem(res.data);
+      setLoading(false);
+    };
     fetchDetail();
   }, [id]);
 
-  if (loading) {
+  const handleMemberClick = (uId: string) => {
+    localStorage.setItem('userDetailEnabled', 'true');
+    localStorage.setItem('userDetailId', uId);
+    nav(`/admin/users/detail/${uId}`);
+  };
+
+  const handleCompanyClick = (cId: string) => {
+    localStorage.setItem('companyDetailEnabled', 'true');
+    localStorage.setItem('companyDetailId', cId);
+    nav(`/admin/companies/detail/${cId}`);
+  };
+
+  if (loading)
     return (
-      <div
-        style={{
-          minHeight: '60vh',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
+      <div style={{ minHeight: '60vh' }} className="flex items-center justify-center">
         <Spin size="large" tip="Loading project request..." />
       </div>
     );
-  }
 
-  if (!item) {
+  if (!item)
     return (
       <div style={{ padding: 24 }}>
-        <Empty description="Project Request not found" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+        <Empty description="Project Request not found">
           <Button type="primary" onClick={() => nav('/admin/project-request/list')}>
             Back to List
           </Button>
         </Empty>
       </div>
     );
-  }
-
-  // Click detail
-  const handleMemberClick = (uId: any) => {
-    localStorage.setItem('userDetailEnabled', 'true');
-    localStorage.setItem('userDetailId', uId);
-    nav(`/admin/users/detail/${uId}`);
-  };
-
-  const handleCompanyClick = (cId: any) => {
-    localStorage.setItem('companyDetailEnabled', 'true');
-    localStorage.setItem('companyDetailId', cId);
-    nav(`/admin/companies/detail/${cId}`);
-  };
 
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
-      {/* Breadcrumb */}
+      {/* BREADCRUMB */}
       <div style={{ background: '#fff', padding: 24, borderRadius: 8, marginBottom: 24 }}>
         <Breadcrumb style={{ marginBottom: 16 }}>
           <Breadcrumb.Item>
             <HomeOutlined />
           </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <a onClick={() => nav('/admin/project-request/list')}>Project Requests</a>
+          <Breadcrumb.Item onClick={() => nav('/admin/project-request/list')}>
+            Project Requests
           </Breadcrumb.Item>
           <Breadcrumb.Item>{item.projectName}</Breadcrumb.Item>
         </Breadcrumb>
@@ -140,20 +120,14 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
           <Title level={2} style={{ margin: 0 }}>
             <FileTextOutlined /> {item.projectName}
           </Title>
-          <Tag color="blue" style={{ fontSize: 14 }}>
-            {item.code}
-          </Tag>
+          <Tag color="blue">{item.code}</Tag>
         </Space>
-
-        <Paragraph type="secondary" style={{ marginTop: 8 }}>
-          Request ID: {item.id}
-        </Paragraph>
       </div>
 
       <Row gutter={[16, 16]}>
-        {/* LEFT COLUMN */}
+        {/* LEFT */}
         <Col xs={24} lg={8}>
-          {/* Status */}
+          {/* STATUS CARD */}
           <Card
             title={
               <>
@@ -161,7 +135,6 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
               </>
             }
             bordered={false}
-            style={{ marginBottom: 16 }}
           >
             <Tag
               color={statusColor[item.status as keyof typeof statusColor] || 'default'}
@@ -170,17 +143,18 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
               {item.status}
             </Tag>
 
-            <Divider />
+            <Divider style={{ margin: '12px 0' }} />
 
             <Text type="secondary">Created At</Text>
-            <Paragraph style={{ marginTop: 4 }}>{item.createAt}</Paragraph>
+            <Paragraph>{item.createAt}</Paragraph>
 
             <Text type="secondary">Updated At</Text>
-            <Paragraph style={{ marginTop: 4 }}>{item.updateAt}</Paragraph>
+            <Paragraph>{item.updateAt}</Paragraph>
           </Card>
 
-          {/* Creator */}
+          {/* CREATOR */}
           <Card
+            style={{ marginTop: 16 }}
             title={
               <>
                 <UserOutlined /> Created By
@@ -188,128 +162,190 @@ const ProjectRequestDetailAdminPage: React.FC = () => {
             }
             bordered={false}
           >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text strong>{item.createdName}</Text>
-              <Paragraph copyable onClick={() => handleMemberClick(item.createdBy)}>
-                ID: <span className="cursor-pointer hover:underline">{item.createdBy}</span>
-              </Paragraph>
-            </Space>
+            <div className="cursor-pointer" onClick={() => handleMemberClick(item.createdBy)}>
+              <Space>
+                <Avatar icon={<UserOutlined />} />
+                <Text strong>{item.createdName}</Text>
+              </Space>
+            </div>
+          </Card>
+
+          {/* COMPANY INFO */}
+          <Card
+            title={
+              <Space>
+                <ApartmentOutlined /> Company Information
+              </Space>
+            }
+            bordered={false}
+            style={{ marginTop: 16 }}
+          >
+            <div className="space-y-3">
+              <div>
+                <Text type="secondary">Requester Company</Text>
+                <Paragraph
+                  strong
+                  className="cursor-pointer hover:underline"
+                  onClick={() => handleCompanyClick(item.requesterCompanyId)}
+                >
+                  {item.requesterCompanyName}
+                </Paragraph>
+              </div>
+
+              <div>
+                <Text type="secondary">Executor Company</Text>
+                <Paragraph
+                  strong
+                  className="cursor-pointer hover:underline"
+                  onClick={() => handleCompanyClick(item.executorCompanyId)}
+                >
+                  {item.executorCompanyName}
+                </Paragraph>
+              </div>
+            </div>
           </Card>
         </Col>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT */}
         <Col xs={24} lg={16}>
-          {/* Company Info */}
+          {/* PROJECT REQUEST DETAILS */}
           <Card
             title={
               <Space>
-                <ApartmentOutlined />
-                <span>Company Information</span>
+                <FileTextOutlined /> Project Request Details
               </Space>
             }
             bordered={false}
-            style={{ marginBottom: 16 }}
           >
+            <Text type="secondary">Project Name</Text>
+            <Paragraph strong>{item.projectName}</Paragraph>
+
+            <Text type="secondary">Description</Text>
+            <Paragraph>{item.description}</Paragraph>
+
+            <Divider style={{ margin: '12px 0' }} />
+
             <Row gutter={16}>
               <Col span={12}>
-                <Text type="secondary">Requester Company</Text>
-                <div style={{ marginTop: 8 }}>
-                  <Text strong style={{ fontSize: 16 }}>
-                    {item.requesterCompanyName}
-                  </Text>
-                </div>
-                <Paragraph
-                  type="secondary"
-                  copyable
-                  onClick={() => handleCompanyClick(item.requesterCompanyId)}
-                >
-                  ID:{' '}
-                  <span className="cursor-pointer hover:underline">{item.requesterCompanyId}</span>
+                <Text type="secondary">Start Date</Text>
+                <Paragraph>
+                  <CalendarOutlined /> {item.startDate}
                 </Paragraph>
               </Col>
 
               <Col span={12}>
-                <Text type="secondary">Executor Company</Text>
-                <div style={{ marginTop: 8 }}>
-                  <Text strong style={{ fontSize: 16 }}>
-                    {item.executorCompanyName}
-                  </Text>
-                </div>
-                <Paragraph
-                  type="secondary"
-                  copyable
-                  onClick={() => handleCompanyClick(item.executorCompanyId)}
-                >
-                  ID:{' '}
-                  <span className="cursor-pointer hover:underline">{item.executorCompanyId}</span>
+                <Text type="secondary">End Date</Text>
+                <Paragraph>
+                  <CalendarOutlined /> {item.endDate}
                 </Paragraph>
               </Col>
             </Row>
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            <Text type="secondary">Converted to Project?</Text>
+            <Paragraph>
+              {item.isHaveProject ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>}
+            </Paragraph>
           </Card>
 
-          {/* Project Request Details */}
+          {/* TICKETS */}
           <Card
+            style={{ marginTop: 16 }}
             title={
               <Space>
-                <FileTextOutlined />
-                <span>Project Request Details</span>
+                <FileTextOutlined /> Related Tickets
               </Space>
             }
             bordered={false}
           >
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <div>
-                <Text type="secondary">Project Name</Text>
-                <Paragraph strong style={{ marginTop: 4 }}>
-                  {item.projectName}
-                </Paragraph>
-              </div>
+            {item.tickets?.length ? (
+              <>
+                <Table<TicketRecord>
+                  rowKey="id"
+                  pagination={false}
+                  dataSource={item.tickets}
+                  columns={[
+                    { title: 'Ticket Name', dataIndex: 'ticketName' },
+                    { title: 'Priority', dataIndex: 'priority' },
+                    {
+                      title: 'Status',
+                      dataIndex: 'status',
+                      render: (v) => <Tag color="blue">{v}</Tag>,
+                    },
+                    {
+                      title: 'Submitted By',
+                      dataIndex: 'submittedByName',
+                      render: (_, r) => (
+                        <span
+                          className="cursor-pointer hover:underline"
+                          onClick={() => handleMemberClick(r.submittedBy)}
+                        >
+                          {r.submittedByName}
+                        </span>
+                      ),
+                    },
+                    { title: 'Resolved At', dataIndex: 'resolvedAt' },
 
-              <div>
-                <Text type="secondary">Description</Text>
-                <Paragraph style={{ marginTop: 4 }}>{item.description}</Paragraph>
-              </div>
+                    // COMMENT COLUMN
+                    {
+                      title: 'Comments',
+                      dataIndex: 'ticketComments',
+                      render: (_, record) => (
+                        <span
+                          className="cursor-pointer text-blue-500 hover:underline"
+                          onClick={() => openCommentModal(record.ticketComments)}
+                        >
+                          View (
+                          {Array.isArray(record.ticketComments) ? record.ticketComments.length : 0})
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
 
-              <Divider />
+                {/* MODAL SHOW COMMENTS */}
+                <Modal
+                  title="Ticket Comments"
+                  open={commentModalOpen}
+                  onCancel={() => setCommentModalOpen(false)}
+                  footer={null}
+                  width={700}
+                >
+                  {selectedComments.length ? (
+                    <List
+                      dataSource={selectedComments}
+                      renderItem={(c: any) => (
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: 12,
+                            padding: '12px 0',
+                            borderBottom: '1px solid #f0f0f0',
+                          }}
+                        >
+                          <Avatar src={c.authorUserAvatar} />
 
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Text type="secondary">Start Date</Text>
-                  <Paragraph style={{ marginTop: 4 }}>
-                    <CalendarOutlined /> {item.startDate}
-                  </Paragraph>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">End Date</Text>
-                  <Paragraph style={{ marginTop: 4 }}>
-                    <CalendarOutlined /> {item.endDate}
-                  </Paragraph>
-                </Col>
-              </Row>
-
-              <Divider />
-
-              <div>
-                <Text type="secondary">Converted to Project?</Text>
-                <Paragraph strong style={{ marginTop: 4 }}>
-                  {item.isHaveProject ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>}
-                </Paragraph>
-
-                {item.isHaveProject && (
-                  <Paragraph copyable onClick={() => handleCompanyClick(item.convertedProjectId)}>
-                    Converted Project ID:{' '}
-                    <span className="cursor-pointer hover:underline">
-                      {item.convertedProjectId}
-                    </span>
-                  </Paragraph>
-                )}
-              </div>
-            </Space>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600 }}>{c.authorUserName}</div>
+                            <div style={{ margin: '4px 0' }}>{c.body}</div>
+                            <div style={{ color: '#999', fontSize: 12 }}>{c.createAt}</div>
+                          </div>
+                        </div>
+                      )}
+                    />
+                  ) : (
+                    <Empty description="No comments" />
+                  )}
+                </Modal>
+              </>
+            ) : (
+              <Empty description="No tickets found" />
+            )}
           </Card>
         </Col>
       </Row>
 
-      {/* Back Button */}
       <div style={{ marginTop: 20 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => nav('/admin/project-request/list')}>
           Back to List

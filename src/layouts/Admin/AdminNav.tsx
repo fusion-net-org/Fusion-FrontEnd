@@ -13,6 +13,7 @@ import {
   Layers,
   FilePlus,
   TicketCheck,
+  FileSignature,
 } from 'lucide-react';
 import logo_fusion from '@/assets/logo_fusion.png';
 
@@ -35,6 +36,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
   const [projectDetailEnabled, setProjectDetailEnabled] = useState(false);
   const [projectRequestDetailEnabled, setProjectRequestDetailEnabled] = useState(false);
   const [ticketDetailEnabled, setTicketDetailEnabled] = useState(false);
+  const [contractDetailEnabled, setContractDetailEnabled] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
         localStorage.getItem('projectRequestDetailEnabled') === 'true',
       );
       setTicketDetailEnabled(localStorage.getItem('ticketDetailEnabled') === 'true');
+      setContractDetailEnabled(localStorage.getItem('contractDetailEnabled') === 'true');
     };
 
     updateStates();
@@ -115,6 +118,15 @@ export default function AdminNav({ collapsed }: AdminNavProps) {
       children: [
         { to: '/admin/tickets/list', label: 'Ticket list' },
         { to: '/admin/tickets/detail', label: 'Ticket detail', enabled: ticketDetailEnabled },
+      ],
+    },
+    {
+      to: '/admin/contracts',
+      label: 'Contract management',
+      icon: FileSignature,
+      children: [
+        { to: '/admin/contracts/list', label: 'Contract list' },
+        { to: '/admin/contracts/detail', label: 'Contract detail', enabled: contractDetailEnabled },
       ],
     },
     {
