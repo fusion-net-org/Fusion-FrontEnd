@@ -64,7 +64,7 @@ import TicketDetailPage from './components/ProjectSideCompanyRequest/TicketDetai
 import TaskDetailPage from './pages/project/TaskDetailPage';
 import InvitationPage from './components/Member/Invitations';
 import CompanyProtectedRoute from './components/CompanyProtectedRoute/CompanyProtectedRoute';
-import UserProfile from './pages/userProfile/UserProfile';
+import UserProfile from './pages/UserProfile/UserProfile';
 import ProjectOverviewPage from './pages/admin/projectManagement/ProjectOverviewPage';
 import TicketPage from './pages/home/TicketPage';
 import ProjectRequestListAdminPage from './pages/admin/projectRequest/ProjectRequestListAdminPage';
