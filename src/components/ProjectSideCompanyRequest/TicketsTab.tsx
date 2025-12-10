@@ -9,7 +9,7 @@ import { useDebounce } from '@/hook/Debounce';
 import CreateTicketPopup from './CreateTicket';
 import { Paging } from '@/components/Paging/Paging';
 import { useParams, useNavigate } from 'react-router-dom';
-import { GetProjectByProjectId } from '@/services/ProjectService.js';
+import { GetProjectByProjectId } from '@/services/projectService.js';
 import type { IProject } from '@/interfaces/ProjectMember/projectMember';
 const { RangePicker } = DatePicker;
 const { Option } = Select;

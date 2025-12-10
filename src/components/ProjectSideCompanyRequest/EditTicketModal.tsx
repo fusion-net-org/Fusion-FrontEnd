@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Form, Input, Select, Switch, InputNumber } from 'antd';
 import type { ITicket } from '@/interfaces/Ticket/Ticket';
 import { UpdateTicket } from '@/services/TicketService.js';
-import { GetWorkflowStatusByProjectId } from '@/services/WorkflowStatusService.js';
+import { GetWorkflowStatusByProjectId } from '@/services/workflowstatusService.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 

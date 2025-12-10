@@ -9,7 +9,15 @@ import type { User } from '@/interfaces/User/User';
 import { getCompanyById } from '@/services/companyService.js';
 import logo_fusion from '@/assets/logo_fusion.png';
 
-type PresetIcon = 'grid' | 'doc' | 'layers' | 'users' | 'shield' | 'settings' | 'partners' | 'workflow';
+type PresetIcon =
+  | 'grid'
+  | 'doc'
+  | 'layers'
+  | 'users'
+  | 'shield'
+  | 'settings'
+  | 'partners'
+  | 'workflow';
 
 type SubItem = {
   name: string;
@@ -72,12 +80,7 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
       />
 
       {/* flow lines */}
-      <path
-        d="M10 6.25h3"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
+      <path d="M10 6.25h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <path
         d="M12.5 8.5v3.5c0 .8.6 1.5 1.4 1.5H14"
         stroke="currentColor"
@@ -86,14 +89,8 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
       />
 
       {/* arrow heads */}
-      <path
-        d="M13.6 5.4 15 6.25l-1.4.85"
-        fill="currentColor"
-      />
-      <path
-        d="M13.2 12.4 14.6 13.5l-1.4.9"
-        fill="currentColor"
-      />
+      <path d="M13.6 5.4 15 6.25l-1.4.85" fill="currentColor" />
+      <path d="M13.2 12.4 14.6 13.5l-1.4.9" fill="currentColor" />
     </svg>
   ),
   doc: (
@@ -186,6 +183,7 @@ const defaultItems: Item[] = [
     icon: 'partners',
   },
   { key: 'members', label: 'Members', to: '/company/:companyId/members', icon: 'users' },
+  { key: 'roles', label: 'Roles', to: '/company/:companyId/roles', icon: 'users' },
   {
     key: 'member-detail',
     label: 'Member Detail',
@@ -198,7 +196,7 @@ const defaultItems: Item[] = [
     to: '/company/:companyId/subscription',
     icon: 'doc',
   },
-   {
+  {
     key: 'workflow',
     label: 'Workflows',
     to: '/companies/:companyId/workflows',
@@ -281,15 +279,13 @@ const CompanyNavbar: React.FC<CompanyNavbarProps> = ({
     visibleItems = items.filter((i) => i.key === 'member-detail');
   } else if (isProjectRequestDetailPage) {
     visibleItems = items.filter((i) => i.key === 'project-request-detail');
-  } else if (isOwner) {
+  } else {
     visibleItems = items.filter(
       (i) =>
         i.key !== 'partner-detail' &&
         i.key !== 'member-detail' &&
         i.key !== 'project-request-detail',
     );
-  } else {
-    visibleItems = items.filter((i) => i.key === 'company-detail');
   }
 
   const resolvePath = (template?: string) => {

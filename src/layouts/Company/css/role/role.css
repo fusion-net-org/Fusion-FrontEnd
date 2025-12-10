@@ -11,7 +11,7 @@
 .btnGhost{background:#fff;border-color:var(--cmp-gray-200);color:var(--cmp-gray-800)}
 .btnGhost:hover{background:var(--cmp-gray-100)}
 .btnDanger{background:#feecec;color:#b91c1c;border-color:#fca5a5}
-.group{border:1px solid var(--cmp-gray-200);border-radius:12px;padding:12px;background:#fff}
+.group{border:1px solid var(--cmp-gray-200);border-radius:12px;background:#fff}
 .groupTitle{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--cmp-gray-800);font-size:14px;margin-bottom:10px}
 .block{background:var(--cmp-brand-50);border:1px solid var(--cmp-brand-100);border-radius:12px;padding:10px 12px}
 .item{display:flex;align-items:center;gap:10px;padding:8px 2px;font-size:14px;color:var(--cmp-gray-700)}
