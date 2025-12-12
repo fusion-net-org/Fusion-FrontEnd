@@ -1,8 +1,16 @@
 import React from 'react';
 import { Building2, Calendar, Workflow, ArrowRight } from 'lucide-react';
 
-export type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
+export type ProjectStatus =
+  | 'Planned'
+  | 'InProgress'
+  | 'OnHold'
+  | 'Completed'
+  | 'Active'
+  | 'Closed';
+
 export type ProjectType = 'Internal' | 'Outsourced';
+
 export type Project = {
   id: string;
   code: string;
@@ -16,12 +24,14 @@ export type Project = {
   status: ProjectStatus;
   ptype: ProjectType;
   isRequest?: boolean;
+  isClosed?: boolean;
 };
 
 const StatusDot = ({ color }: { color: string }) => (
   <span className="inline-block size-2 rounded-full mr-1.5" style={{ backgroundColor: color }} />
 );
-const StatusBadge: React.FC<{ status: ProjectStatus }> = ({ status }) => {
+
+const StatusBadge: React.FC<{ status: ProjectStatus; dim?: boolean }> = ({ status, dim }) => {
   const map: Record<ProjectStatus, { color: string; cls: string; text: string }> = {
     Planned: {
       color: '#f59e0b',
@@ -43,26 +53,44 @@ const StatusBadge: React.FC<{ status: ProjectStatus }> = ({ status }) => {
       cls: 'bg-green-50 text-green-700 border-green-100',
       text: 'Completed',
     },
+
+    // ✅ thêm để không lỗi union type
+    Active: {
+      color: '#3b82f6',
+      cls: 'bg-blue-50 text-blue-700 border-blue-100',
+      text: 'Active',
+    },
+    Closed: {
+      color: '#64748b',
+      cls: 'bg-slate-50 text-slate-700 border-slate-200',
+      text: 'Closed',
+    },
   };
+
   const v = map[status];
+  const dimCls = dim ? 'opacity-70 grayscale' : '';
+
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${v.cls}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${v.cls} ${dimCls}`}>
       <StatusDot color={v.color} /> {v.text}
     </span>
   );
 };
 
-const TypeBadge: React.FC<{ type: ProjectType }> = ({ type }) => (
-  <span
-    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${
-      type === 'Internal'
-        ? 'bg-blue-50 text-blue-700 border-blue-100'
-        : 'bg-slate-50 text-slate-700 border-slate-200'
-    }`}
-  >
-    {type}
-  </span>
-);
+const TypeBadge: React.FC<{ type: ProjectType; dim?: boolean }> = ({ type, dim }) => {
+  const base =
+    type === 'Internal'
+      ? 'bg-blue-50 text-blue-700 border-blue-100'
+      : 'bg-slate-50 text-slate-700 border-slate-200';
+
+  const dimCls = dim ? 'opacity-70 grayscale' : '';
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${base} ${dimCls}`}>
+      {type}
+    </span>
+  );
+};
 
 export default function ProjectCard({
   data,
@@ -77,9 +105,10 @@ export default function ProjectCard({
 }) {
   const open = () => onOpen?.(data);
 
-  const req = !!data.isRequest; // project request
-  const exec = !req && data.ptype === 'Outsourced'; // outsource executor
-
+  const req = !!data.isRequest;
+  const exec = !req && data.ptype === 'Outsourced';
+  const closed = !!data.isClosed;
+console.log(data)
   const cardBase =
     'group relative flex cursor-pointer flex-col rounded-2xl p-5 border transition backdrop-blur-sm';
 
@@ -89,7 +118,12 @@ export default function ProjectCard({
     ? 'border-blue-300 bg-blue-50/85 shadow-[0_1px_1px_rgba(30,64,175,0.10),0_10px_22px_-12px_rgba(37,99,235,0.40)] hover:shadow-[0_2px_6px_rgba(30,64,175,0.12),0_24px_32px_-12px_rgba(37,99,235,0.48)]'
     : 'border-slate-200 bg-white/90 shadow-[0_1px_1px_rgba(17,24,39,0.06),0_10px_22px_-12px_rgba(30,64,175,0.30)] hover:shadow-[0_2px_6px_rgba(17,24,39,0.08),0_24px_32px_-12px_rgba(30,64,175,0.38)]';
 
-  const bgImage = req
+  const closedVariant =
+    'border-slate-200 bg-slate-100/90 text-slate-500 shadow-[0_1px_1px_rgba(15,23,42,0.06),0_10px_22px_-14px_rgba(15,23,42,0.18)] hover:shadow-[0_2px_6px_rgba(15,23,42,0.08),0_24px_32px_-14px_rgba(15,23,42,0.22)]';
+
+  const bgImage = closed
+    ? 'radial-gradient(1200px 140px at 50% -50px, rgba(148,163,184,.20), transparent 60%)'
+    : req
     ? 'radial-gradient(1200px 140px at 50% -50px, rgba(245,158,11,.16), transparent 60%)'
     : exec
     ? 'radial-gradient(1200px 140px at 50% -50px, rgba(37,99,235,.16), transparent 60%)'
@@ -99,34 +133,40 @@ export default function ProjectCard({
     <div
       role="button"
       onClick={open}
-      className={[cardBase, cardVariant].join(' ')}
+      className={[
+        cardBase,
+        closed ? closedVariant : cardVariant,
+        selected ? 'ring-2 ring-blue-600' : '',
+      ].join(' ')}
       style={{ backgroundImage: bgImage }}
     >
-      {/* dải màu bên trái cho Request + Executor */}
       {(req || exec) && (
         <div
           aria-hidden
           className={`pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-2xl ${
             req ? 'bg-amber-500/80' : 'bg-blue-500/80'
-          }`}
+          } ${closed ? 'opacity-40' : ''}`}
         />
       )}
 
       <div className="flex items-start justify-between">
-        <div className="text-[11px] font-semibold tracking-wide text-blue-600">
+        <div className={`text-[11px] font-semibold tracking-wide ${closed ? 'text-slate-600' : 'text-blue-600'}`}>
           {data.code}
         </div>
+
         <div className="flex items-center gap-1.5">
+          {closed && (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+              Closed
+            </span>
+          )}
+
           {(req || exec) && (
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-medium text-white ${
                 req ? 'bg-amber-500/95' : 'bg-blue-600/95'
-              }`}
-              title={
-                req
-                  ? 'This project is requested to your company'
-                  : 'Executor of the project'
-              }
+              } ${closed ? 'opacity-60' : ''}`}
+              title={req ? 'This project is requested to your company' : 'Executor of the project'}
             >
               {req ? 'Request' : 'Execute'}
             </span>
@@ -140,11 +180,11 @@ export default function ProjectCard({
         </div>
       </div>
 
-      <div className="mt-1 text-base font-semibold text-slate-800">
+      <div className={['mt-1 text-base font-semibold', closed ? 'text-slate-700 line-through' : 'text-slate-800'].join(' ')}>
         {data.name}
       </div>
 
-      <div className="mt-3 space-y-1.5 text-xs text-slate-600">
+      <div className={['mt-3 space-y-1.5 text-xs', closed ? 'text-slate-500' : 'text-slate-600'].join(' ')}>
         <div className="flex items-center gap-2">
           <Building2 className="size-4 text-slate-400" />
           <span>{data.ownerCompany}</span>
@@ -155,10 +195,12 @@ export default function ProjectCard({
             </>
           )}
         </div>
+
         <div className="flex items-center gap-2">
           <Workflow className="size-4 text-slate-400" />
           <span>{data.workflow}</span>
         </div>
+
         {data.startDate && (
           <div className="flex items-center gap-2">
             <Calendar className="size-4 text-slate-400" />
@@ -171,14 +213,15 @@ export default function ProjectCard({
       </div>
 
       <div className="mt-3 flex items-center gap-2">
-        <StatusBadge status={data.status} />
-        <TypeBadge type={data.ptype} />
+        <StatusBadge status={data.status} dim={closed} />
+        <TypeBadge type={data.ptype} dim={closed} />
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        <p className="line-clamp-2 text-sm text-slate-600">
+        <p className={['line-clamp-2 text-sm', closed ? 'text-slate-500' : 'text-slate-600'].join(' ')}>
           {data.description || '—'}
         </p>
+
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -186,7 +229,7 @@ export default function ProjectCard({
           }}
           className={[
             'ml-3 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white shadow-sm',
-            req ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700',
+            closed ? 'bg-slate-600 hover:bg-slate-700' : req ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700',
           ].join(' ')}
         >
           Open <ArrowRight className="size-4" />

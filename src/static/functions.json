@@ -1,9 +1,36 @@
 [
-  { "id": 1,  "functionCode": "REGISTER",            "functionName": "Register",            "pageCode": "AUTH",    "sortOrder": 1 },
-  { "id": 2,  "functionCode": "LOGIN",               "functionName": "Login",               "pageCode": "AUTH",    "sortOrder": 2 },
-  { "id": 10, "functionCode": "CREATE_COMPANY",      "functionName": "Create company",      "pageCode": "COMPANY", "sortOrder": 1 },
-  { "id": 14, "functionCode": "CREATE_ROLE",         "functionName": "Create role",         "pageCode": "ROLE",    "sortOrder": 5 },
-  { "id": 15, "functionCode": "ASSIGN_PERMISSION",   "functionName": "Assign permission",   "pageCode": "ROLE",    "sortOrder": 6 },
-  { "id": 34, "functionCode": "CREATE_PROJECT",      "functionName": "Create project",      "pageCode": "PROJECT", "sortOrder": 1 },
-  { "id": 42, "functionCode": "MANAGE_TASK",         "functionName": "Manage task",         "pageCode": "TASK",    "sortOrder": 2 }
+  { "id": 1,  "functionCode": "REGISTER",               "functionName": "Register",                     "pageCode": "AUTH",    "sortOrder": 1 },
+  { "id": 2,  "functionCode": "LOGIN",                  "functionName": "Login",                        "pageCode": "AUTH",    "sortOrder": 2 },
+
+  { "id": 10, "functionCode": "CREATE_COMPANY",         "functionName": "Create company",               "pageCode": "COMPANY", "sortOrder": 1 },
+  { "id": 43, "functionCode": "VIEW_COMPANY_DETAIL",    "functionName": "View company detail",          "pageCode": "COMPANY", "sortOrder": 2 },
+  { "id": 44, "functionCode": "EDIT_COMPANY_OVERVIEW",  "functionName": "Edit company overview",        "pageCode": "COMPANY", "sortOrder": 3 },
+  { "id": 45, "functionCode": "EDIT_COMPANY_IMAGES",    "functionName": "Edit company images",          "pageCode": "COMPANY", "sortOrder": 4 },
+  { "id": 46, "functionCode": "EDIT_COMPANY_CONTACT",   "functionName": "Edit contact information",     "pageCode": "COMPANY", "sortOrder": 5 },
+  { "id": 47, "functionCode": "EDIT_COMPANY_PROJECT_INFO","functionName": "Edit projects information",  "pageCode": "COMPANY", "sortOrder": 6 },
+  { "id": 48, "functionCode": "INACTIVE_COMPANY",       "functionName": "Inactive company",             "pageCode": "COMPANY", "sortOrder": 7 },
+  { "id": 49, "functionCode": "REACTIVATE_COMPANY",     "functionName": "Reactivate company",           "pageCode": "COMPANY", "sortOrder": 8 },
+
+  { "id": 34, "functionCode": "CREATE_PROJECT",         "functionName": "Create project",               "pageCode": "PROJECT", "sortOrder": 1 },
+  { "id": 50, "functionCode": "VIEW_PROJECT_LIST",      "functionName": "View project list",            "pageCode": "PROJECT", "sortOrder": 2 },
+  { "id": 51, "functionCode": "VIEW_PROJECT_DETAIL",    "functionName": "Open project detail",          "pageCode": "PROJECT", "sortOrder": 3 },
+  { "id": 52, "functionCode": "SEARCH_FILTER_PROJECT",  "functionName": "Search & filter projects",     "pageCode": "PROJECT", "sortOrder": 4 },
+  { "id": 53, "functionCode": "SWITCH_PROJECT_VIEW_MODE","functionName": "Switch Cards/Table/Kanban",  "pageCode": "PROJECT", "sortOrder": 5 },
+  { "id": 54, "functionCode": "UPDATE_PROJECT",         "functionName": "Edit project",                 "pageCode": "PROJECT", "sortOrder": 6 },
+  { "id": 55, "functionCode": "DELETE_OR_ARCHIVE_PROJECT","functionName": "Delete or archive project", "pageCode": "PROJECT", "sortOrder": 7 },
+  { "id": 56, "functionCode": "CHANGE_PROJECT_STATUS",  "functionName": "Change project status",        "pageCode": "PROJECT", "sortOrder": 8 },
+
+  { "id": 57, "functionCode": "VIEW_TASK_BOARD",        "functionName": "View task board",              "pageCode": "TASK",    "sortOrder": 1 },
+  { "id": 42, "functionCode": "MANAGE_TASK",            "functionName": "Manage task",                  "pageCode": "TASK",    "sortOrder": 2 },
+  { "id": 58, "functionCode": "CREATE_TASK",            "functionName": "Create task",                  "pageCode": "TASK",    "sortOrder": 3 },
+  { "id": 59, "functionCode": "UPDATE_TASK",            "functionName": "Edit task",                    "pageCode": "TASK",    "sortOrder": 4 },
+  { "id": 60, "functionCode": "COMMENT_TASK",           "functionName": "Comment on task",              "pageCode": "TASK",    "sortOrder": 5 },
+  { "id": 61, "functionCode": "CHANGE_TASK_STATUS",     "functionName": "Change task status",           "pageCode": "TASK",    "sortOrder": 6 },
+
+  { "id": 62, "functionCode": "VIEW_ROLE_LIST",         "functionName": "View role list",               "pageCode": "ROLE",    "sortOrder": 1 },
+  { "id": 63, "functionCode": "VIEW_ROLE_DETAIL",       "functionName": "View role detail",             "pageCode": "ROLE",    "sortOrder": 2 },
+  { "id": 64, "functionCode": "UPDATE_ROLE",            "functionName": "Edit role",                    "pageCode": "ROLE",    "sortOrder": 3 },
+  { "id": 65, "functionCode": "DELETE_ROLE",            "functionName": "Delete role",                  "pageCode": "ROLE",    "sortOrder": 4 },
+  { "id": 14, "functionCode": "CREATE_ROLE",            "functionName": "Create role",                  "pageCode": "ROLE",    "sortOrder": 5 },
+  { "id": 15, "functionCode": "ASSIGN_PERMISSION",      "functionName": "Assign permission",            "pageCode": "ROLE",    "sortOrder": 6 }
 ]

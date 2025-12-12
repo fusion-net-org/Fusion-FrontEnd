@@ -88,6 +88,7 @@ const mapItemToProject = (r, currentCompanyId) => {
     startDate: toDateStr(r.startDate),
     endDate: toDateStr(r.endDate),
     status: normStatus(r.status),
+    isClosed: r.isClosed,
     ptype,
     isRequest: !!isRequest,
   };
@@ -187,7 +188,6 @@ export async function loadProjects({
     : Array.isArray(payload)
     ? payload
     : [];
-
   return {
     items: items.map((r) => mapItemToProject(r, companyId)),
     totalCount: payload.totalCount ?? items.length,
@@ -419,3 +419,20 @@ export async function deleteProject(projectId) {
   const res = await axiosInstance.delete(`/projects/${projectId}`);
   return res.data;
 }
+export async function closeProject(projectId) {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  const { data } = await axiosInstance.post(`/projects/${projectId}/close`);
+  return data?.data ?? data;
+}
+
+export async function reopenProject(projectId) {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  const { data } = await axiosInstance.post(`/projects/${projectId}/reopen`);
+  return data?.data ?? data;
+}
+export const checkProjectAccess = async (projectId) => {
+  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+
+  const { data } = await axiosInstance.get(`/projects/${projectId}/access`);
+  return data?.data ?? data;
+};

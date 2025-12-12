@@ -26,6 +26,7 @@ import ProjectTaskList from "@/components/Company/Projects/ProjectTaskList";
 import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
 
 import type { StatusCategory, SprintVm, TaskVm } from "@/types/projectBoard";
+import { checkProjectAccess } from "@/services/projectService.js";
 
 import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
@@ -446,22 +447,87 @@ function Inner() {
 
 /* ========== Page: load từ BE ========== */
 export default function ProjectBoardPage() {
-  const { projectId = "project-1" } = useParams<{ projectId: string }>();
+  const { projectId = "project-1", companyId } = useParams<{ projectId: string; companyId?: string }>();
   (window as any).__projectId = projectId;
 
-  const [init, setInit] =
-    React.useState<{ sprints: SprintVm[]; tasks: TaskVm[] } | null>(null);
+  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[] } | null>(null);
 
   React.useEffect(() => {
     let dead = false;
 
+    // ✅ Lấy returnUrl từ query: ?return=/some/path
+    const qs = new URLSearchParams(window.location.search);
+    const rawReturn = qs.get("return");
+
+    // ✅ Chỉ cho phép internal path để tránh open-redirect
+    const returnUrl =
+      rawReturn && rawReturn.startsWith("/")
+        ? rawReturn
+        : companyId
+          ? `/companies/${companyId}/project`
+          : `/`;
+
+    // ✅ URL detail (owner/creator sẽ vào đây nếu bị chặn board)
+    const detailUrl =
+      companyId
+        ? `/companies/${companyId}/project/${projectId}/closue`
+        : returnUrl;
+
+    // ✅ toast an toàn (nếu bạn đang dùng react-hot-toast/sonner thì toast đã có sẵn)
+    const toastError = (msg: string) => {
+      const t: any = (globalThis as any).toast || (window as any).toast;
+      if (t?.error) t.error(msg);
+      else console.warn("[toast missing]", msg);
+    };
+
+    const go = (url: string) => {
+      // ✅ không dùng navigate
+      window.location.replace(url);
+    };
+
+    const kickOutWithToast = (msg: string) => {
+      toastError(msg);
+      // cho toast kịp hiện 1 chút rồi mới redirect
+      setTimeout(() => go(returnUrl), 600);
+    };
+
     (async () => {
       try {
+        // 1) CHECK ACCESS + OPEN/CLOSED trước
+        const access: any = await checkProjectAccess(projectId);
+
+        // ✅ đoán field owner/creator linh hoạt
+        const isCreator = !!(
+          access?.isCreator ??
+          access?.isOwner ??
+          access?.isProjectOwner ??
+          access?.isCreatedByMe ??
+          access?.isProjectCreator
+        );
+
+        const isClosed = !!access?.isClosed;
+        const notMember = access?.isMember === false || access?.canAccess === false;
+
+        // 2) Nếu project đóng
+        if (isClosed) {
+          if (isCreator) return go(detailUrl);
+          return kickOutWithToast("Project đã đóng.");
+        }
+
+        // 3) Nếu không thuộc project / không có quyền
+        if (notMember) {
+          if (isCreator) return go(detailUrl);
+          return kickOutWithToast("You not in project.");
+        }
+
+        // 4) Project ok => mới fetch board
         const res = await fetchSprintBoard(projectId);
         const normalized = normalizeBoardInput(res ?? {});
         if (!dead) setInit(normalized);
       } catch (err) {
-        console.error("Failed to load sprint board", err);
+        console.error("Failed to check access/load sprint board", err);
+        // nếu check fail (401/403/404) => coi như không vào được
+        kickOutWithToast("You can't access this project.");
         if (!dead) setInit({ sprints: [], tasks: [] });
       }
     })();
@@ -469,7 +535,7 @@ export default function ProjectBoardPage() {
     return () => {
       dead = true;
     };
-  }, [projectId]);
+  }, [projectId, companyId]);
 
   if (!init) {
     return <div className="p-8 text-sm text-gray-600">Loading board…</div>;
@@ -481,3 +547,6 @@ export default function ProjectBoardPage() {
     </ProjectBoardProvider>
   );
 }
+
+
+

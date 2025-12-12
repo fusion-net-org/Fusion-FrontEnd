@@ -21,6 +21,7 @@ import ConfirmModal from "@/common/ConfirmModal.js";
 import functionsMeta from "@/static/functions.json";
 import { Can } from "@/permission/PermissionProvider";
 import { toast } from "react-toastify";
+import { useParams } from "react-router-dom";
 
 // ---- helper: group function theo page_code -> PermissionGroup[] ----
 type FnMeta = {
@@ -63,9 +64,7 @@ function toGroups(functions: FnMeta[], grantedSet?: Set<number>): PGroup[] {
 }
 
 export default function AccessRolePage() {
-  // TODO: thay bằng nguồn thật của companyId (redux / route / context)
-  const companyId =
-    (window as any).__companyId || "c06a1493-546c-46c3-9bbd-06f2df7eba0e";
+ const { companyId = "" } = useParams();
 
   const [roles, setRoles] = useState<RoleOption[]>([]);
   // metadata functions lấy từ file JSON

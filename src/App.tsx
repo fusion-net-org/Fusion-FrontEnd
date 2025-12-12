@@ -75,6 +75,7 @@ import ContractListAdminPage from './pages/admin/contractManagement/ContractList
 import ContractDetailAdminPage from './pages/admin/contractManagement/ContractDetailAdminPage';
 
 import CompanyRole from './pages/home/CompanyRole';
+import ProjectClosureReportPage from './pages/project/ProjectClosureReportPage';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -173,6 +174,7 @@ function App() {
             path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
           />
+          <Route path="/companies/:companyId/project/:projectId/closue" element={<ProjectClosureReportPage />} />
           <Route
             path="/companies/:companyId/project/:projectId/tickets/:ticketId"
             element={<TicketDetailPage />}
