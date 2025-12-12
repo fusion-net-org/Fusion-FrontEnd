@@ -72,3 +72,12 @@ export const updateContract = async (contractId, data) => {
     throw new Error(error.response?.data?.message || 'Error updating contract!');
   }
 };
+
+export const getAllContractByAdmin = async () => {
+  try {
+    const res = await axiosInstance.get(`/contract`);
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error get contract list!');
+  }
+};

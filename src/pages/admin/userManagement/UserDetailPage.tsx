@@ -406,12 +406,12 @@ const UserDetailPage = () => {
                     >
                       {renderValue(user.googleSub)}
                     </Descriptions.Item>
-                    <Descriptions.Item
+                    {/* <Descriptions.Item
                       label={<span style={{ color: '#8c8c8c', fontSize: 13 }}>User ID</span>}
                       contentStyle={{ fontSize: 14, fontWeight: 500 }}
                     >
                       {user.id}
-                    </Descriptions.Item>
+                    </Descriptions.Item> */}
                   </Descriptions>
                 </Card>
               </Col>

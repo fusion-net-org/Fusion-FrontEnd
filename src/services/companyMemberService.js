@@ -197,3 +197,19 @@ export const RemoveUserRolesFromCompany = async (companyId, payload) => {
     throw new Error(error.response?.data?.message || 'Failed to Remove Role member');
   }
 };
+
+export const getMembersOfCompanyByAdmin = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        query.append(key, value);
+      }
+    });
+
+    const { data } = await axiosInstance.get(`/companymember/admin/paged?${query.toString()}`);
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};

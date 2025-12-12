@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
-import { Input, Select, Button, Modal, Descriptions } from 'antd';
+import { Input, Select, Button, Modal, Descriptions, Tag } from 'antd';
 import { toast } from 'react-toastify';
 import { GetAllProjectRequestByAdmin } from '@/services/projectRequest.js';
 
@@ -44,20 +44,27 @@ type PagedResult = {
   pageSize: number;
 };
 
-type SortKey = 'Id' | 'code' | 'projectName';
+type SortKey = 'code' | 'name';
 
 const SORT_OPTIONS = [
-  { key: 'Id', label: 'Id' },
   { key: 'code', label: 'Request Code' },
-  { key: 'projectName', label: 'Project Name' },
+  { key: 'name', label: 'Project Name' },
 ];
+
+const STATUS_COLOR: Record<string, string> = {
+  // Status
+  Pending: 'gold',
+  Accepted: 'blue',
+  Rejected: 'red',
+  Finished: 'green',
+};
 
 export default function ProjectRequestListAdminPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
 
   const q = params.get('q') ?? '';
-  const sort = (params.get('sort') as SortKey) || 'Id';
+  const sort = (params.get('sort') as SortKey) || 'code';
   const dirDesc = (params.get('dir') || 'desc') !== 'asc';
   const status = params.get('status') ?? '';
   const pageNumber = Math.max(1, parseInt(params.get('page') || '1', 10));
@@ -85,7 +92,7 @@ export default function ProjectRequestListAdminPage() {
   const resetFilters = () => {
     patchParams({
       q: '',
-      sort: 'Id',
+      sort: 'code',
       dir: 'desc',
       page: 1,
       pageSize,
@@ -246,9 +253,9 @@ export default function ProjectRequestListAdminPage() {
                       <td className="px-6 py-4 text-sm text-gray-600">{p.executorCompanyName}</td>
 
                       <td className="px-6 py-4">
-                        <span className="px-2 py-1 text-xs rounded-lg bg-blue-100 text-blue-700">
+                        <Tag color={STATUS_COLOR[p.status] || 'default'} style={{ fontSize: 13 }}>
                           {p.status}
-                        </span>
+                        </Tag>
                       </td>
 
                       <td className="px-6 py-4 text-center">
