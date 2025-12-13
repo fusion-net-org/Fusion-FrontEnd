@@ -514,11 +514,6 @@ export default function ProjectBoardPage() {
           return kickOutWithToast("Project đã đóng.");
         }
 
-        // 3) Nếu không thuộc project / không có quyền
-        if (notMember) {
-          if (isCreator) return go(detailUrl);
-          return kickOutWithToast("You not in project.");
-        }
 
         // 4) Project ok => mới fetch board
         const res = await fetchSprintBoard(projectId);
