@@ -1,11 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import PermissionGroup from "../../components/Company/AccessRole/PermissionGroup";
 import RoleForm from "../../components/Company/AccessRole/RoleForm";
-import type {
-  AccessRoleFormModel,
-  PermissionGroup as PGroup,
-  RoleOption,
-} from "@/types/role";
+import type { AccessRoleFormModel, PermissionGroup as PGroup, RoleOption } from "@/types/role";
 import {
   getRoles,
   getRolePermissionIds,
@@ -13,17 +9,14 @@ import {
   deleteRole,
   getRole,
 } from "../../services/roleService.js";
-import "@/layouts/Company/css/role/role.css";
 import RoleUpsertModal from "@/components/Company/AccessRole/RoleUpsertModal.js";
 import ConfirmModal from "@/common/ConfirmModal.js";
-
-// ---- dùng metadata chức năng từ file JSON (không gọi API) ----
+import "@/layouts/Company/css/role/role.css";
 import functionsMeta from "@/static/functions.json";
 import { Can } from "@/permission/PermissionProvider";
 import { toast } from "react-toastify";
 import { useParams } from "react-router-dom";
 
-// ---- helper: group function theo page_code -> PermissionGroup[] ----
 type FnMeta = {
   id: number;
   functionCode: string;
@@ -64,39 +57,44 @@ function toGroups(functions: FnMeta[], grantedSet?: Set<number>): PGroup[] {
 }
 
 export default function AccessRolePage() {
- const { companyId = "" } = useParams();
+  const { companyId = "" } = useParams();
 
   const [roles, setRoles] = useState<RoleOption[]>([]);
-  // metadata functions lấy từ file JSON
-  const [functions] = useState<FnMeta[]>(
-    (functionsMeta as unknown as FnMeta[]) ?? []
-  );
+  const [functions] = useState<FnMeta[]>((functionsMeta as unknown as FnMeta[]) ?? []);
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
+
   const [model, setModel] = useState<AccessRoleFormModel>({
     roleName: "",
     roleLevelId: "",
     groups: [],
   });
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
+
   const [editInitial, setEditInitial] = useState<
-    | {
-        id: number;
-        name: string;
-        description?: string | null;
-      }
+    | { id: number; name: string; description?: string | null }
     | undefined
   >(undefined);
+
   const [deleting, setDeleting] = useState(false);
+  const selectedRole = useMemo(
+    () => roles.find((r: any) => String(r.id) === String(selectedRoleId)),
+    [roles, selectedRoleId]
+  );
+
+  const isOwnerSelected =
+    ((selectedRole?.name ?? "").trim().toLowerCase() === "owner");
+
+
 
   async function openEditModal() {
     if (!selectedRoleId) return;
 
-    // mở ngay với dữ liệu sẵn có (từ dropdown roles) để không chờ API
     const r = roles.find((r) => r.id === selectedRoleId);
     setEditInitial({
       id: Number(selectedRoleId),
@@ -115,14 +113,8 @@ export default function AccessRolePage() {
         });
       }
     } catch (e) {
-      // không đóng modal, chỉ log
       console.warn("getRole failed → using cached role list", e);
     }
-  }
-
-  function openDeleteModal() {
-    if (!selectedRoleId) return;
-    setOpenDelete(true);
   }
 
   async function confirmDelete() {
@@ -131,11 +123,11 @@ export default function AccessRolePage() {
     try {
       await deleteRole(companyId, Number(selectedRoleId));
       setOpenDelete(false);
-      await reloadRolesAndSelect(); // sẽ tự chọn role đầu tiên còn lại
-      toast.success('Role deleted');
+      await reloadRolesAndSelect();
+      toast.success("Role deleted");
     } catch (e) {
       console.error(e);
-      toast.error('Delete failed');
+      toast.error("Delete failed");
     } finally {
       setDeleting(false);
     }
@@ -153,12 +145,10 @@ export default function AccessRolePage() {
 
     setRoles(roleOpts);
 
-    // Chỉ set role được chọn; useEffect bên dưới sẽ tự load permission ids + tick
     const newId = selectId ?? roleOpts[0]?.id ?? "";
     setSelectedRoleId(newId);
   }
 
-  // ---- load roles lần đầu (functions đã có từ JSON) ----
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -180,7 +170,6 @@ export default function AccessRolePage() {
         const firstRoleId = roleOpts[0]?.id ?? "";
         setSelectedRoleId(firstRoleId);
 
-        // render group lần đầu (chưa tick gì)
         setModel((m) => ({
           ...m,
           roleLevelId: firstRoleId,
@@ -190,24 +179,22 @@ export default function AccessRolePage() {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
   }, [companyId, functions]);
 
-  // ---- khi đổi role -> load granted ids & tick ----
   useEffect(() => {
     if (!selectedRoleId) return;
     let alive = true;
+
     (async () => {
       setLoading(true);
       try {
-        const ids = await getRolePermissionIds(
-          companyId,
-          Number(selectedRoleId)
-        );
+        const ids = await getRolePermissionIds(companyId, Number(selectedRoleId));
         if (!alive) return;
-        // nếu DB trả null/undefined → Set rỗng → không tick cái nào
+
         const granted = new Set<number>((ids ?? []).map(Number));
         setModel((prev) => ({
           ...prev,
@@ -218,22 +205,18 @@ export default function AccessRolePage() {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
   }, [selectedRoleId, companyId, functions]);
 
-  // ---- handlers ----
   const onPatch = (patch: Partial<AccessRoleFormModel>) => {
-    // RoleForm có thể patch roleLevelId (ở đây là roleId)
     if (patch.roleLevelId && patch.roleLevelId !== selectedRoleId) {
       setSelectedRoleId(String(patch.roleLevelId));
     }
     if (patch.roleName !== undefined) {
-      setModel((prev) => ({
-        ...prev,
-        roleName: patch.roleName ?? prev.roleName,
-      }));
+      setModel((prev) => ({ ...prev, roleName: patch.roleName ?? prev.roleName }));
     }
   };
 
@@ -242,13 +225,10 @@ export default function AccessRolePage() {
       ...prev,
       groups: prev.groups.map((g) => {
         if (g.id !== groupId) return g;
-        if (!itemId)
-          return { ...g, items: g.items.map((i) => ({ ...i, checked: !!value })) };
+        if (!itemId) return { ...g, items: g.items.map((i) => ({ ...i, checked: !!value })) };
         return {
           ...g,
-          items: g.items.map((i) =>
-            i.id === itemId ? { ...i, checked: !!value } : i
-          ),
+          items: g.items.map((i) => (i.id === itemId ? { ...i, checked: !!value } : i)),
         };
       }),
     }));
@@ -256,21 +236,23 @@ export default function AccessRolePage() {
 
   const onSave = async () => {
     if (!selectedRoleId) return;
-    const functionIds = model.groups
-      .flatMap((g) => g.items.filter((i) => i.checked).map((i) => Number(i.id)));
+    if (!selectedRoleId || isOwnerSelected) return; 
+
+    const functionIds = model.groups.flatMap((g) =>
+      g.items.filter((i) => i.checked).map((i) => Number(i.id))
+    );
 
     setSaving(true);
     try {
       await saveRolePermissions(companyId, Number(selectedRoleId), functionIds);
 
-      // sau khi save -> reload quyền để đồng bộ
       const ids = await getRolePermissionIds(companyId, Number(selectedRoleId));
       const granted = new Set<number>((ids ?? []).map(Number));
       setModel((prev) => ({ ...prev, groups: toGroups(functions, granted) }));
       toast.success("Saved!");
     } catch (e) {
       console.error(e);
-      toast.success("Save failed");
+      toast.error("Save failed");
     } finally {
       setSaving(false);
     }
@@ -282,55 +264,52 @@ export default function AccessRolePage() {
   );
 
   return (
-    <>
-     
-<Can code="REGISTER">
-  <h1
-        style={{
-          fontSize: 24,
-          lineHeight: "1.25",
-          fontWeight: 800,
-          color: "var(--cmp-gray-800)",
-          marginBottom: 16,
-        }}
-      >
-        Access Role
-      </h1>
-</Can>
+    <div className="w-full">
+      <Can code="WORKFLOW_DELETE">
+        <h1 className="text-[24px] leading-[1.25] font-extrabold text-[#1f2937] mb-4">
+          Access Role
+        </h1>
+      </Can>
+
       <RoleForm
         model={model}
         roleLevels={roles}
         onChange={onPatch}
         onAddNew={() => setOpenCreate(true)}
         onEdit={openEditModal}
-        onDelete={function openDeleteModalWrapper() {
+        onDelete={() => {
           if (!selectedRoleId) return;
           setOpenDelete(true);
         }}
+        locked={isOwnerSelected}    
       />
 
       <div
-        className="card"
-        style={{ marginTop: 18, opacity: loading ? 0.6 : 1 }}
+        className="mt-[18px] border border-[#e5e7eb] bg-white rounded-2xl shadow-[0_1px_2px_rgba(17,24,39,0.06)]"
+        style={{ opacity: loading ? 0.6 : 1 }}
       >
-        <div className="cardHeader">Grant Access for {currentRoleName}</div>
-        <div className="cardBody grid">
+        <div className="px-[18px] pt-4 pb-3 font-bold text-[#1757b1] text-[14px]">
+          Grant Access for {currentRoleName}
+        </div>
+
+        <div className="px-[18px] pb-[18px] grid grid-cols-1 lg:grid-cols-2 gap-[18px]">
           {model.groups.map((group) => (
-            <PermissionGroup key={group.id} group={group} onToggle={onToggle} />
+            <PermissionGroup key={group.id} group={group} onToggle={onToggle} disabled={isOwnerSelected} />
           ))}
         </div>
       </div>
 
-     
-      <button
-        className="btn btnPrimary"
-        disabled={saving || loading}
-        onClick={onSave}
-      >
-        {saving ? "Saving..." : "Save"}
-      </button>
+      <div className="mt-4 flex justify-end">
+        <button
+          className="h-10 px-[14px] rounded-full font-semibold bg-[#2e8bff] text-white hover:bg-[#1e6fde]
+                     disabled:opacity-60 disabled:cursor-not-allowed"
+          disabled={saving || loading || isOwnerSelected} 
+          onClick={onSave}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
 
-      {/* Create */}
       <RoleUpsertModal
         mode="create"
         isOpen={openCreate}
@@ -344,7 +323,6 @@ export default function AccessRolePage() {
         }}
       />
 
-      {/* Edit */}
       <RoleUpsertModal
         mode="edit"
         isOpen={openEdit}
@@ -359,17 +337,14 @@ export default function AccessRolePage() {
         }}
       />
 
-      {/* Delete confirm */}
       <ConfirmModal
         isOpen={openDelete}
         title="Delete role?"
-        message={`This will remove the role "${
-          roles.find((r) => r.id === selectedRoleId)?.name ?? ""
-        }". You cannot undo this.`}
+        message={`This will remove the role "${roles.find((r) => r.id === selectedRoleId)?.name ?? ""}". You cannot undo this.`}
         busy={deleting}
         onCancel={() => setOpenDelete(false)}
         onConfirm={confirmDelete}
       />
-    </>
+    </div>
   );
 }

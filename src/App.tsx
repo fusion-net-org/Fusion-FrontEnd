@@ -74,6 +74,8 @@ import TicketDetailAdminPage from './pages/admin/ticketManagement/TicketDetailAd
 import ContractListAdminPage from './pages/admin/contractManagement/ContractListAdminPage';
 import ContractDetailAdminPage from './pages/admin/contractManagement/ContractDetailAdminPage';
 
+import RequirePerm from "@/permission/RequirePerm";
+
 import CompanyRole from './pages/home/CompanyRole';
 import ProjectClosureReportPage from './pages/project/ProjectClosureReportPage';
 function App() {
@@ -173,6 +175,7 @@ function App() {
           <Route
             path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
+            
           />
           <Route path="/companies/:companyId/project/:projectId/closue" element={<ProjectClosureReportPage />} />
           <Route
@@ -180,7 +183,7 @@ function App() {
             element={<TicketDetailPage />}
           />
 
-          <Route path="/company/:companyId/project-request" element={<ProjectRequest />} />
+          <Route path="/company/:companyId/project-request" element={<ProjectRequest /> } />
           <Route
             path="/company/:companyId/project-request/:id"
             element={<ProjectRequestDetail />}

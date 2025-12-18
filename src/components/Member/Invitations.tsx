@@ -25,6 +25,9 @@ import {
 import type { CompanyMemberItem, CompanyMemberPagedResponse } from '@/interfaces/Company/member';
 import { useDebounce } from '@/hook/Debounce';
 import { Paging } from '../Paging/Paging';
+import { getAllCompanies } from '@/services/companyService.js';
+import { useDispatch } from 'react-redux';
+import { setUserCompanies } from '@/redux/userSlice';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -57,6 +60,9 @@ const InvitationPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(8);
   const [totalItems, setTotalItems] = useState(0);
+
+  // Check join company
+  const dispatch = useDispatch();
 
   const fetchMembers = async (page: number = 1, size: number = pageSize) => {
     try {
@@ -93,6 +99,16 @@ const InvitationPage: React.FC = () => {
       setLoading(true);
       await AcceptJoinMemberById(memberId);
       fetchMembers(pageNumber);
+      try {
+        const companiesRes = await getAllCompanies();
+        if (companiesRes.succeeded) {
+          dispatch(setUserCompanies(companiesRes.data.items));
+        } else {
+          dispatch(setUserCompanies([]));
+        }
+      } catch {
+        dispatch(setUserCompanies([]));
+      }
     } catch (error) {
       console.error(error);
     } finally {
