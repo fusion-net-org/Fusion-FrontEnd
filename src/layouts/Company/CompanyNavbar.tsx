@@ -105,6 +105,7 @@ const defaultItems: Item[] = [
   { key: "members", label: "Members", to: "/company/:companyId/members", icon: "users", perm: "MEMBER_LIST_VIEW" },
   { key: "roles", label: "Roles", to: "/company/:companyId/roles", icon: "users", perm: "ROLE_LIST_VIEW" },
   { key: "workflow", label: "Workflows", to: "/companies/:companyId/workflows", icon: "workflow", perm: "WORKFLOW_LIST_VIEW" },
+  { key: 'subscription', label: 'Subscription', to: '/company/:companyId/subscription', icon: 'doc', },
 ];
 
 const isPresetIcon = (value: unknown): value is PresetIcon =>

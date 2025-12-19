@@ -1,35 +1,27 @@
+// src/permission/RequirePerm.tsx
 import React from "react";
-import { Navigate, useLocation } from "react-router-dom";
 import { usePermissions } from "@/permission/PermissionProvider";
+import NoPermission from "@/pages/notfound/NoPermission"; // đổi path theo project bạn
 
 type Props = {
-  code?: string;         
-  any?: string[];        
-  all?: string[];      
+  code?: string;
+  anyOf?: string[];
+  allOf?: string[];
   children: React.ReactNode;
-  redirectTo?: string;   
 };
 
-export default function RequirePerm({
-  code,
-  any,
-  all,
-  children,
-  redirectTo = "/403",
-}: Props) {
+export default function RequirePerm({ code, anyOf, allOf, children }: Props) {
   const { loading, can, canAny, canAll } = usePermissions();
-  const loc = useLocation();
 
-  if (loading) return null; // hoặc skeleton
+  if (loading) return null; // hoặc spinner
 
   const ok =
-    (code ? can(code) : true) &&
-    (any ? canAny(any) : true) &&
-    (all ? canAll(all) : true);
+    code ? can(code) :
+    anyOf ? canAny(anyOf) :
+    allOf ? canAll(allOf) :
+    true;
 
-  if (!ok) {
-    return <Navigate to={redirectTo} replace state={{ from: loc.pathname }} />;
-  }
+  if (!ok) return <NoPermission />;
 
   return <>{children}</>;
 }

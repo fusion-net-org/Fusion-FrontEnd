@@ -163,8 +163,22 @@ function App() {
             </CompanyProtectedRoute>
           }
         >
-          <Route path="/companies/:companyId/access-role" element={<AccessRolePage />} />
-          <Route path="/company/:companyId" element={<CompanyDetail />} />
+ <Route
+    path="/companies/:companyId/access-role"
+    element={
+      <RequirePerm anyOf={["ROLE_LIST_VIEW", "MEMBER_LIST_VIEW"]}>
+        <AccessRolePage />
+      </RequirePerm>
+    }
+  />          
+  <Route
+    path="/company/:companyId"
+    element={
+      <RequirePerm code="COMPANY_DETAIL_VIEW">
+        <CompanyDetail />
+      </RequirePerm>
+    }
+  />
           <Route path="/company/:companyId/partners" element={<Partners />} />
           <Route path="/company/:companyId/partners/:id" element={<PartnerDetails />} />
           <Route path="/company/:companyId/members" element={<CompanyMember />} />
