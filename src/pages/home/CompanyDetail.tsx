@@ -32,6 +32,7 @@ import LoadingOverlay from '@/common/LoadingOverlay';
 import type { CompanyRole } from '@/interfaces/Company/company';
 import Chart from 'react-apexcharts';
 import { Card } from 'antd';
+import { Can } from '@/permission/PermissionProvider';
 
 const CompanyDetails: React.FC = () => {
   const [company, setCompany] = useState<CompanyRequest>();

@@ -28,6 +28,7 @@ import WorkflowDesigner from '@/components/Workflow/WorkflowDesigner';
 import { getWorkflowPreviews, postWorkflowWithDesigner } from '@/services/workflowService.js';
 import type { WorkflowPreviewVm, DesignerDto } from '@/types/workflow';
 import { toast } from 'react-toastify';
+import { Can } from '@/permission/PermissionProvider';
 /* ========= Types ========= */
 export type Id = string;
 type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
@@ -1068,7 +1069,7 @@ export default function CreateProjectModal({
                     )}
                   </div>
                 )}
-
+<Can code="WORKFLOW_CREATE">
                 {/* New Mode */}
                 <label className="mt-3 flex items-center gap-2">
                   <input
@@ -1080,7 +1081,7 @@ export default function CreateProjectModal({
                   />
                   <span className="text-slate-800">Create new workflow</span>
                 </label>
-
+</Can>
                 {form.workflowMode === 'new' && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">

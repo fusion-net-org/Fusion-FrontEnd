@@ -44,6 +44,7 @@ import WorkflowMini from "@/components/Workflow/WorkflowMini";
 import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
 import { getWorkflowPreviews } from "@/services/workflowService.js";
 import type { WorkflowPreviewVm } from "@/types/workflow";
+import { Can } from "@/permission/PermissionProvider";
 
 // ===== Local types =====
 
@@ -849,7 +850,7 @@ const handleReopenProject = async () => {
                     <h1 className="flex-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                       {project.name}
                     </h1>
-
+                    <Can code="PROJECT_UPDATE">
                     <button
                       type="button"
                       onClick={handleStartEditBasic}
@@ -858,6 +859,7 @@ const handleReopenProject = async () => {
                       <Edit3 className="size-3.5" />
                       Edit
                     </button>
+                    </Can>
                   </div>
 
                   {project.description && (

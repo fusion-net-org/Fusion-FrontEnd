@@ -30,6 +30,7 @@ import { createProject } from '@/services/projectService.js';
 import { RestoreProjectRequest } from '@/services/projectRequest.js';
 import DeleteProjectRequestModal from '@/components/ProjectRequest/DeleteProjectRequestModal';
 import { getContractById } from '@/services/contractService.js';
+import { Can } from '@/permission/PermissionProvider';
 export default function ProjectRequestDetail() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -198,6 +199,7 @@ export default function ProjectRequestDetail() {
                   </h3>
 
                   {viewMode === 'AsRequester' && projectRequest?.status === 'Pending' && (
+                    <Can code='PRQ_UPDATE'>
                     <button
                       onClick={() => setEditModalOpen(true)}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full shadow-md transition"
@@ -205,6 +207,7 @@ export default function ProjectRequestDetail() {
                       <Layers className="w-4 h-4" />
                       Edit Request
                     </button>
+                    </Can>
                   )}
                 </div>
 
@@ -300,6 +303,7 @@ export default function ProjectRequestDetail() {
 
                   {/* Attachment */}
                   {contract.attachment && (
+                    <Can code='CONTRACT_VIEW'>
                     <button
                       onClick={() => window.open(contract.attachment, '_blank')}
                       className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow transition"
@@ -307,6 +311,7 @@ export default function ProjectRequestDetail() {
                       <ClipboardList className="w-4 h-4" />
                       View Contract Attachment
                     </button>
+                    </Can>
                   )}
                 </div>
               )}
@@ -361,6 +366,7 @@ export default function ProjectRequestDetail() {
                 {/* Accept / Decline */}
                 {viewMode === 'AsExecutor' && projectRequest?.status === 'Pending' && (
                   <>
+                  <Can code='PRQ_ACCEPT'>
                     <ActionButton
                       color="green"
                       label="Accept Invitation"
@@ -368,6 +374,8 @@ export default function ProjectRequestDetail() {
                       onClick={handleAccept}
                       disabled={isDeleted}
                     />
+                  </Can>
+                  <Can code='PRQ_REJECT'>
                     <ActionButton
                       color="red"
                       label="Reject Inviation"
@@ -375,6 +383,8 @@ export default function ProjectRequestDetail() {
                       onClick={openRejectModal}
                       disabled={isDeleted}
                     />
+                  </Can>
+
                   </>
                 )}
 
@@ -407,6 +417,7 @@ export default function ProjectRequestDetail() {
 
                 {/* Navigate / Create Project */}
                 {projectRequest?.status === 'Accepted' && !projectRequest?.isHaveProject && (
+                  <Can code='PROJECT_CREATE'>
                   <ActionButton
                     color="green"
                     label="Create New Project Now"
@@ -414,6 +425,7 @@ export default function ProjectRequestDetail() {
                     onClick={() => setProjectCreateModalOpen(true)}
                     disabled={isDeleted || viewMode === 'AsRequester'}
                   />
+                  </Can>
                 )}
               </div>
             </div>
