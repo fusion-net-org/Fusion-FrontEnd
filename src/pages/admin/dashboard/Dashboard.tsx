@@ -34,6 +34,9 @@ import { getAllTransactionForAdmin, getTransactionById } from '@/services/transa
 import { Modal } from 'antd';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import PlanPurchaseRatioChart from '@/pages/admin/subcriptionManagement/Chart/PlanPurchaseRatioChart';
+import type { SubscriptionPlanPurchaseStatItem } from '@/interfaces/Transaction/TransactionPayment';
+import { getPlanPurchaseRatioForAdmin } from '@/services/transactionService.js';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, RadialLinearScale);
 
@@ -94,6 +97,11 @@ const Dashboard = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [loadingPurchaseRatio, setLoadingPurchaseRatio] = useState(false);
+  const [purchaseRatioData, setPurchaseRatioData] = useState<
+    SubscriptionPlanPurchaseStatItem[] | null
+  >(null);
+
   const fetchData = async () => {
     try {
       const totalsRes = await getTotalsDashboard();
@@ -122,6 +130,21 @@ const Dashboard = () => {
       console.error('Dashboard API error:', error);
     }
   };
+
+  const loadPlanPurchaseRatio = async () => {
+    setLoadingPurchaseRatio(true);
+    try {
+      const res = await getPlanPurchaseRatioForAdmin(3);
+      setPurchaseRatioData(res ?? []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingPurchaseRatio(false);
+    }
+  };
+  useEffect(() => {
+    loadPlanPurchaseRatio();
+  }, []);
 
   const handleTransactionClick = async (transaction: Transaction) => {
     try {
@@ -449,7 +472,7 @@ const Dashboard = () => {
             </div>
 
             {/* Subscription Plan Ratio */}
-            <div className="rounded-2xl bg-white/80 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
+            {/* <div className="rounded-2xl bg-white/80 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-base font-semibold text-slate-900">
@@ -473,6 +496,23 @@ const Dashboard = () => {
                     <span>There are no successful plan transactions yet.</span>
                   </div>
                 )}
+              </div>
+            </div> */}
+            <div className="rounded-2xl bg-white/90 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Subscription plan</h2>
+                  <p className="text-xs text-slate-500">
+                    Percentage of successful transactions by subscription plan.
+                  </p>
+                </div>
+                <button className="inline-flex items-center rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-2 h-[300px]">
+                <PlanPurchaseRatioChart data={purchaseRatioData} loading={loadingPurchaseRatio} />
               </div>
             </div>
           </div>
