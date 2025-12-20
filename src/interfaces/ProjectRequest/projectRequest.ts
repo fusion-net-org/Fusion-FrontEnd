@@ -18,6 +18,8 @@ export interface IProjectRequset {
   updateAt: string;
   isDeleted: boolean;
   isHaveProject: boolean;
+  isClosed: boolean;
+  closedBy: string;
   convertedProjectId: string;
   contractId: string;
 }
