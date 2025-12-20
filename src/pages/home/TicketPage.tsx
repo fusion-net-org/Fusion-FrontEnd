@@ -11,6 +11,7 @@ import {
   ChevronsUpDown,
   ChevronUp,
   ChevronDown,
+  Briefcase,
 } from 'lucide-react';
 import { DatePicker } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -308,11 +309,17 @@ const TicketPage: React.FC = () => {
                 <option value="">All Projects</option>
 
                 {/* Dynamic Project Options */}
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                {projects.length === 0 ? (
+                  <option value="" disabled>
+                    None
                   </option>
-                ))}
+                ) : (
+                  projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} outsrc
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 

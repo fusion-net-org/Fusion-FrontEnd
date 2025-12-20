@@ -26,6 +26,8 @@ export interface Project {
 export interface ProjectDetailResponse {
   id: string;
   companyId: string | null;
+  closedBy: string;
+  isClosed: boolean;
   isHired: boolean;
   companyRequestId: string | null;
   projectRequestId: string | null;
@@ -51,7 +53,6 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-
 // ========= Overview
 
 // 1. Project Growth & Completion
@@ -71,7 +72,6 @@ export interface ProjectGrowthOverview {
   newProjectsLast30Days: number;
   growth: ProjectGrowthPoint[];
 }
-
 
 // ===== 2. Execution overview (tasks & sprints) =====
 

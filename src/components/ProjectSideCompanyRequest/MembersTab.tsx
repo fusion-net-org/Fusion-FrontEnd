@@ -39,7 +39,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
         pagination.pageNumber,
         pagination.pageSize,
       );
-
+      console.log('member ', res.data.items);
       if (res?.succeeded) {
         setMembers(res.data.items || []);
         setPagination((prev) => ({
@@ -104,6 +104,15 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
           </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200 table-fixed">
+            <colgroup>
+              <col className="w-10" />
+              <col className="w-40" />
+              <col className="w-64" />
+              <col className="w-32" />
+              <col className="w-28" />
+              <col className="w-36" />
+              <col className="w-32" />
+            </colgroup>
             <thead className="bg-indigo-50">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-10">#</th>
@@ -119,9 +128,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">
                   Gender
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">
-                  Role
-                </th>
+
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-32">
                   Joined Date
                 </th>
@@ -153,7 +160,6 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
                         {m.gender || '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-gray-700">Member</td>
                     <td className="px-6 py-3 text-gray-600">
                       {new Date(m.joinedAt).toLocaleDateString('vi-VN')}
                     </td>
@@ -172,7 +178,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ projectId }) => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="text-center py-4 text-gray-500">
+                  <td colSpan={7} className="text-center py-4 text-gray-500">
                     No members found
                   </td>
                 </tr>
