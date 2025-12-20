@@ -8,6 +8,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   Line,
+  Bar,
+  ComposedChart,
 } from 'recharts';
 
 import { MoreVertical, Plus } from 'lucide-react';
@@ -314,7 +316,7 @@ const Dashboard = () => {
                 <div className="relative mt-4 h-1.5 w-full rounded-full bg-slate-100">
                   <div
                     className={`h-1.5 rounded-full bg-gradient-to-r ${kpi.color}`}
-                    style={{ width: '70%' }}
+                    style={{ width: '50%' }}
                   />
                 </div>
               </div>
@@ -323,7 +325,7 @@ const Dashboard = () => {
 
           {/* Charts row */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Revenue Area Chart (new style, white card) */}
+            {/* Revenue Area Chart */}
             <div className="rounded-2xl bg-white/90 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -354,10 +356,10 @@ const Dashboard = () => {
               </div>
 
               <div className="mt-2 h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart
                     data={revenueChartData}
-                    margin={{ top: 20, right: 0, left: 0, bottom: 0 }}
+                    margin={{ top: 20, right: 5, left: 5, bottom: 20 }}
                   >
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -367,17 +369,40 @@ const Dashboard = () => {
                     </defs>
 
                     <CartesianGrid stroke="#e5e7eb" vertical={false} strokeDasharray="3 3" />
+
                     <XAxis
                       dataKey="month"
+                      interval={0}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
+                      padding={{ left: 1, right: 1 }}
+                      tick={{
+                        fontSize: 12,
+                        fill: '#6b7280',
+                        fontWeight: 500,
+                      }}
                     />
+
                     <YAxis
+                      yAxisId="left"
+                      orientation="left"
                       axisLine={false}
                       tickLine={false}
+                      allowDecimals={false}
+                      domain={[0, 'auto']}
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                     />
+
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      axisLine={false}
+                      tickLine={false}
+                      domain={[0, 'auto']}
+                      tickFormatter={(v) => `${(v / 1_000_000).toFixed(1)}M`}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'white',
@@ -390,28 +415,27 @@ const Dashboard = () => {
                       itemStyle={{ color: '#4b5563', fontSize: 11 }}
                     />
 
-                    {/* New User line */}
-                    <Line
-                      type="monotone"
+                    {/* New User */}
+                    <Bar
+                      yAxisId="left"
                       dataKey="User"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
+                      barSize={20}
+                      fill="#3b82f6"
+                      radius={[6, 6, 0, 0]}
                     />
 
-                    {/* New Company line */}
-                    <Line
-                      type="monotone"
+                    {/* New Company */}
+                    <Bar
+                      yAxisId="left"
                       dataKey="Company"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
+                      barSize={20}
+                      fill="#10b981"
+                      radius={[6, 6, 0, 0]}
                     />
 
-                    {/* Revenue area */}
+                    {/* Revenue */}
                     <Area
+                      yAxisId="right"
                       type="monotone"
                       dataKey="Revenue"
                       stroke="#6366f1"
@@ -419,7 +443,7 @@ const Dashboard = () => {
                       fill="url(#colorRevenue)"
                       activeDot={{ r: 4 }}
                     />
-                  </AreaChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
