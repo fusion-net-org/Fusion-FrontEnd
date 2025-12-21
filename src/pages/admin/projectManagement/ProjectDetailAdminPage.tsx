@@ -34,7 +34,7 @@ import {
   HomeOutlined,
 } from '@ant-design/icons';
 import { getProjectById } from '@/services/projectService.js';
-import { getTaskById } from '@/services/taskService.js';
+import { getTaskDetailByIdAdmin } from '@/services/taskService.js';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -117,6 +117,7 @@ const getStatusColor = (status: string): string => {
     todo: 'default',
     pending: 'warning',
     blocked: 'error',
+    start: 'processing',
   };
   return statusMap[status.toLowerCase()] || 'default';
 };
@@ -186,7 +187,7 @@ const ProjectDetailAdminPage: React.FC = () => {
     setLoadingTask(true);
     setOpenTaskModal(true);
     try {
-      const res = await getTaskById(taskId);
+      const res = await getTaskDetailByIdAdmin(taskId);
       if (res?.succeeded) {
         setTaskDetail(res.data);
       }

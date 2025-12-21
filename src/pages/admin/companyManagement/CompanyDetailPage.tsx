@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import { getCompanyById, getProjectsOfCompanyByAdmin } from '@/services/companyService.js';
 import { getMembersOfCompanyByAdmin } from '@/services/companyMemberService.js';
 import { GetAllPartnersOfCompany } from '@/services/partnerService.js';
+import { getRoleCompanyByAdmin } from '@/services/companyRoleService.js';
 import { useDebounce } from '@/hook/Debounce';
 
 const { TabPane } = Tabs;
@@ -439,6 +440,121 @@ const PartnerListTab = ({ companyId }: { companyId: string }) => {
   );
 };
 
+/* --------------------------- ROLE LIST TAB --------------------------- */
+const RoleListTab = ({ companyId }: { companyId: string }) => {
+  const [loading, setLoading] = useState(false);
+  const [roles, setRoles] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+
+  const debouncedSearch = useDebounce(search, 500);
+
+  const fetchRoles = async () => {
+    setLoading(true);
+    try {
+      const res = await getRoleCompanyByAdmin({
+        CompanyId: companyId,
+        Keyword: debouncedSearch,
+        PageNumber: page,
+        PageSize: pageSize,
+      });
+      console.log(res.data.items);
+      if (res) {
+        setRoles(res.data.items || []);
+        setTotal(res.data.totalCount || 0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoles();
+  }, [page, pageSize, debouncedSearch]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3 mb-3">
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+
+          <input
+            placeholder="Search by role name..."
+            className="
+              pl-9 pr-3 py-2
+              border border-gray-300
+              rounded-md
+              w-[250px]
+              text-sm
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+              focus:border-blue-500
+              transition-all
+            "
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+          />
+        </div>
+      </div>
+
+      <Table
+        bordered
+        loading={loading}
+        dataSource={roles}
+        rowKey="id"
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          onChange: (p, ps) => {
+            setPage(p);
+            setPageSize(ps);
+          },
+        }}
+        columns={[
+          {
+            title: 'Role Name',
+            dataIndex: 'roleName',
+            key: 'roleName',
+          },
+          {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (v) => (v ? v : <span className="text-gray-400 italic">Not provided</span>),
+          },
+          {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (v) => (v === 'Active' ? <Tag color="green">Active</Tag> : <Tag>{v}</Tag>),
+          },
+          {
+            title: 'Created At',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (v) =>
+              v && v !== '0001-01-01T00:00:00' ? (
+                new Date(v).toLocaleString()
+              ) : (
+                <span className="text-gray-400 italic">N/A</span>
+              ),
+          },
+        ]}
+      />
+    </div>
+  );
+};
+
 /* --------------------------- MAIN PAGE --------------------------- */
 
 export default function CompanyDetailPage() {
@@ -562,18 +678,17 @@ export default function CompanyDetailPage() {
               </div>
             </div>
           </TabPane>
-
-          {/* ---------------- Project list (API + filter) ---------------- */}
           <TabPane tab="Project list" key="2">
             <ProjectListTab companyId={company.id} />
           </TabPane>
-
-          {/* ---------------- Member list ---------------- */}
           <TabPane tab="Member list" key="3">
             <MemberListTab companyId={company.id} />
           </TabPane>
           <TabPane tab="Partner list" key="4">
             <PartnerListTab companyId={company.id} />
+          </TabPane>
+          <TabPane tab="Role list" key="5">
+            <RoleListTab companyId={company.id} />
           </TabPane>
         </Tabs>
       </Card>

@@ -73,3 +73,19 @@ export const DeleteRole = async (roleId, reason) => {
     throw new Error(error.response?.data?.message || 'Fail!');
   }
 };
+
+export const getRoleCompanyByAdmin = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        query.append(key, value);
+      }
+    });
+
+    const { data } = await axiosInstance.get(`/roles/paged?${query.toString()}`);
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};

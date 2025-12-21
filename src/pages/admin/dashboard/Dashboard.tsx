@@ -8,6 +8,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   Line,
+  Bar,
+  ComposedChart,
 } from 'recharts';
 
 import { MoreVertical, Plus } from 'lucide-react';
@@ -32,6 +34,9 @@ import { getAllTransactionForAdmin, getTransactionById } from '@/services/transa
 import { Modal } from 'antd';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import PlanPurchaseRatioChart from '@/pages/admin/subcriptionManagement/Chart/PlanPurchaseRatioChart';
+import type { SubscriptionPlanPurchaseStatItem } from '@/interfaces/Transaction/TransactionPayment';
+import { getPlanPurchaseRatioForAdmin } from '@/services/transactionService.js';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, RadialLinearScale);
 
@@ -92,6 +97,11 @@ const Dashboard = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [loadingPurchaseRatio, setLoadingPurchaseRatio] = useState(false);
+  const [purchaseRatioData, setPurchaseRatioData] = useState<
+    SubscriptionPlanPurchaseStatItem[] | null
+  >(null);
+
   const fetchData = async () => {
     try {
       const totalsRes = await getTotalsDashboard();
@@ -120,6 +130,21 @@ const Dashboard = () => {
       console.error('Dashboard API error:', error);
     }
   };
+
+  const loadPlanPurchaseRatio = async () => {
+    setLoadingPurchaseRatio(true);
+    try {
+      const res = await getPlanPurchaseRatioForAdmin(3);
+      setPurchaseRatioData(res ?? []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingPurchaseRatio(false);
+    }
+  };
+  useEffect(() => {
+    loadPlanPurchaseRatio();
+  }, []);
 
   const handleTransactionClick = async (transaction: Transaction) => {
     try {
@@ -314,7 +339,7 @@ const Dashboard = () => {
                 <div className="relative mt-4 h-1.5 w-full rounded-full bg-slate-100">
                   <div
                     className={`h-1.5 rounded-full bg-gradient-to-r ${kpi.color}`}
-                    style={{ width: '70%' }}
+                    style={{ width: '50%' }}
                   />
                 </div>
               </div>
@@ -323,7 +348,7 @@ const Dashboard = () => {
 
           {/* Charts row */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Revenue Area Chart (new style, white card) */}
+            {/* Revenue Area Chart */}
             <div className="rounded-2xl bg-white/90 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -354,10 +379,10 @@ const Dashboard = () => {
               </div>
 
               <div className="mt-2 h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart
                     data={revenueChartData}
-                    margin={{ top: 20, right: 0, left: 0, bottom: 0 }}
+                    margin={{ top: 20, right: 5, left: 5, bottom: 20 }}
                   >
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -367,17 +392,40 @@ const Dashboard = () => {
                     </defs>
 
                     <CartesianGrid stroke="#e5e7eb" vertical={false} strokeDasharray="3 3" />
+
                     <XAxis
                       dataKey="month"
+                      interval={0}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
+                      padding={{ left: 1, right: 1 }}
+                      tick={{
+                        fontSize: 12,
+                        fill: '#6b7280',
+                        fontWeight: 500,
+                      }}
                     />
+
                     <YAxis
+                      yAxisId="left"
+                      orientation="left"
                       axisLine={false}
                       tickLine={false}
+                      allowDecimals={false}
+                      domain={[0, 'auto']}
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                     />
+
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      axisLine={false}
+                      tickLine={false}
+                      domain={[0, 'auto']}
+                      tickFormatter={(v) => `${(v / 1_000_000).toFixed(1)}M`}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'white',
@@ -390,28 +438,27 @@ const Dashboard = () => {
                       itemStyle={{ color: '#4b5563', fontSize: 11 }}
                     />
 
-                    {/* New User line */}
-                    <Line
-                      type="monotone"
+                    {/* New User */}
+                    <Bar
+                      yAxisId="left"
                       dataKey="User"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
+                      barSize={20}
+                      fill="#3b82f6"
+                      radius={[6, 6, 0, 0]}
                     />
 
-                    {/* New Company line */}
-                    <Line
-                      type="monotone"
+                    {/* New Company */}
+                    <Bar
+                      yAxisId="left"
                       dataKey="Company"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
+                      barSize={20}
+                      fill="#10b981"
+                      radius={[6, 6, 0, 0]}
                     />
 
-                    {/* Revenue area */}
+                    {/* Revenue */}
                     <Area
+                      yAxisId="right"
                       type="monotone"
                       dataKey="Revenue"
                       stroke="#6366f1"
@@ -419,13 +466,13 @@ const Dashboard = () => {
                       fill="url(#colorRevenue)"
                       activeDot={{ r: 4 }}
                     />
-                  </AreaChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Subscription Plan Ratio */}
-            <div className="rounded-2xl bg-white/80 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
+            {/* <div className="rounded-2xl bg-white/80 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-base font-semibold text-slate-900">
@@ -449,6 +496,23 @@ const Dashboard = () => {
                     <span>There are no successful plan transactions yet.</span>
                   </div>
                 )}
+              </div>
+            </div> */}
+            <div className="rounded-2xl bg-white/90 p-6 shadow-sm ring-1 ring-slate-100 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Subscription plan</h2>
+                  <p className="text-xs text-slate-500">
+                    Percentage of successful transactions by subscription plan.
+                  </p>
+                </div>
+                <button className="inline-flex items-center rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-2 h-[300px]">
+                <PlanPurchaseRatioChart data={purchaseRatioData} loading={loadingPurchaseRatio} />
               </div>
             </div>
           </div>
