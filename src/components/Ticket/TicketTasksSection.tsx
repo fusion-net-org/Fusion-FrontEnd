@@ -6,6 +6,7 @@ import { Layers, Plus, Trash2, Clock } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTicketTasks, createTicketTask, deleteTask } from '@/services/taskService.js';
 import { toast } from 'react-toastify';
+import { Can } from '@/permission/PermissionProvider';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -258,6 +259,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
           }
         >
           <span>
+            <Can code='TICKET_TASK_CREATE'>
             <Button
               type="primary"
               icon={<Plus size={14} />}
@@ -267,6 +269,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
             >
               Add task
             </Button>
+            </Can>
           </span>
         </Tooltip>
       </div>
@@ -334,12 +337,14 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Can code='TICKET_TASK_DELETE'>
                     <Button
                       type="text"
                       danger
                       icon={<Trash2 size={14} />}
                       onClick={() => handleDelete(t.id)}
                     />
+                    </Can>
                   </div>
                 </div>
               );

@@ -300,6 +300,7 @@ export default function AccessRolePage() {
       </div>
 
       <div className="mt-4 flex justify-end">
+        <Can code='ROLE_PERMISSION_EDIT'>
         <button
           className="h-10 px-[14px] rounded-full font-semibold bg-[#2e8bff] text-white hover:bg-[#1e6fde]
                      disabled:opacity-60 disabled:cursor-not-allowed"
@@ -308,6 +309,7 @@ export default function AccessRolePage() {
         >
           {saving ? "Saving..." : "Save"}
         </button>
+        </Can>
       </div>
 
       <RoleUpsertModal

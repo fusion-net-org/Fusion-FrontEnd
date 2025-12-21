@@ -14,6 +14,7 @@ import {
 import { Modal } from "antd";
 import { createDraftTask, deleteDraftTaskApi } from "@/services/taskService.js";
 import { toast } from "react-toastify";
+import { Can } from "@/permission/PermissionProvider";
 
 const { confirm } = Modal;
 
@@ -273,6 +274,7 @@ const QuickDraftPool: React.FC<Props> = ({
 
             {/* Add button row */}
             <div className="mb-3 flex items-center justify-between gap-3">
+              <Can code="BACKLOG_CREATE">
               <button
                 type="button"
                 onClick={() => setAddingDraft(true)}
@@ -281,6 +283,7 @@ const QuickDraftPool: React.FC<Props> = ({
                 <Plus className="w-3 h-3" />
                 Add backlog item
               </button>
+              </Can>
               <span className="text-[11px] text-slate-400">
                 Total:{" "}
                 <span className="font-medium text-slate-700">
@@ -570,7 +573,7 @@ const QuickDraftPool: React.FC<Props> = ({
                                       <span>Ticket</span>
                                     </button>
                                   )}
-
+<Can code='BACKLOG_DELETE'>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveDraft(d.id)}
@@ -580,6 +583,7 @@ const QuickDraftPool: React.FC<Props> = ({
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>
+                                </Can>
                               </div>
                             </div>
                           </div>

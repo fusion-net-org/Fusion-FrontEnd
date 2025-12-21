@@ -64,6 +64,7 @@ import { toast } from 'react-toastify';
 import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
 import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
+import { Can } from '@/permission/PermissionProvider';
 
 const { confirm } = Modal;
 
@@ -355,6 +356,7 @@ const TicketDetailPage: React.FC = () => {
           <div className="flex flex-wrap gap-2 items-start lg:items-center">
             {/* Edit button (Requester) */}
             {ticket.status === 'Pending' && !ticket.isDeleted && viewMode === 'AsRequester' && (
+              <Can code='TICKET_UPDATE'>
               <Button
                 type="primary"
                 icon={<Edit size={16} />}
@@ -363,6 +365,7 @@ const TicketDetailPage: React.FC = () => {
               >
                 Edit
               </Button>
+              </Can>
             )}
 
             {/* Accept / Reject buttons (Executor) */}
@@ -399,6 +402,7 @@ const TicketDetailPage: React.FC = () => {
                 Restore
               </Button>
             ) : (
+              <Can code='TICKET_DELETE'>
               <Button
                 danger
                 icon={<Trash2 size={16} />}
@@ -407,6 +411,7 @@ const TicketDetailPage: React.FC = () => {
               >
                 Delete
               </Button>
+              </Can>
             )}
           </div>
         </div>

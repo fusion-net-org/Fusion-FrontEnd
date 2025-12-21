@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import type { AccessRoleFormModel, RoleOption } from "../../../types/role";
 import { Label, Select, BtnPrimary, BtnGhost, BtnDanger } from "./FormControls";
+import { Can } from "@/permission/PermissionProvider";
 
 export default function RoleForm({
   model,
@@ -37,14 +38,19 @@ export default function RoleForm({
 
         {/* Actions luôn nằm bên phải */}
         <div className="flex w-full flex-wrap justify-end gap-2 md:w-auto">
+          <Can code='ROLE_CREATE'>
           <BtnPrimary onClick={onAddNew}>Add new</BtnPrimary>
+          </Can>
+           <Can code='ROLE_UPDATE'>
            <BtnGhost onClick={onEdit} disabled={locked} title={locked ? "Owner role is locked" : undefined}>
             Edit
           </BtnGhost>
-
+</Can>
+<Can code='ROLE_DELETE'>
           <BtnDanger onClick={onDelete} disabled={locked} title={locked ? "Owner role cannot be deleted" : undefined}>
             Delete
           </BtnDanger>
+          </Can>
         </div>
       </div>
 

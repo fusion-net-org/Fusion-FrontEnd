@@ -36,6 +36,7 @@ import {
   materializeDraftTask,
 } from "@/services/taskService.js";
 import TaskFilterBar, { type SimpleOption } from "./TaskFilterBar";
+import { Can } from "@/permission/PermissionProvider";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -1566,7 +1567,7 @@ const deleteConfirmModal =
                 </span>
                 Draft pool
               </button>
-
+<Can code='SPRINT_CREATE'>
               <button
                 type="button"
                 onClick={openCreateSprintModal}
@@ -1580,8 +1581,9 @@ const deleteConfirmModal =
                 <Plus className="w-3 h-3" />
                 New sprint
               </button>
-
+</Can>
               {updateMode && (
+                <Can code='SPRINT_AI_GENERATE'>
                 <button
                   type="button"
                   onClick={() => setAiOpen(true)}
@@ -1592,6 +1594,7 @@ const deleteConfirmModal =
                   </span>
                   Generate tasks
                 </button>
+                </Can>
               )}
 
               {updateMode && (

@@ -11,6 +11,7 @@ import { Paging } from '@/components/Paging/Paging';
 import { useParams, useNavigate } from 'react-router-dom';
 import { GetProjectByProjectId } from '@/services/projectService.js';
 import type { IProject } from '@/interfaces/ProjectMember/projectMember';
+import { Can } from '@/permission/PermissionProvider';
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
@@ -177,6 +178,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ isClose, projectId, onTicketCre
             </div>
 
             {/* Create Ticket Button */}
+            <Can code='TICKET_CREATE'>
             <button
               onClick={() => {
                 if (!isClose) setShowCreatePopup(true);
@@ -194,6 +196,7 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ isClose, projectId, onTicketCre
               <MessageSquare className="w-4 h-4" />
               Create Ticket
             </button>
+            </Can>
           </div>
         </div>
       </div>
