@@ -114,11 +114,21 @@ export const patchTaskStatusById = async (taskId, statusId, { flashColorHex } = 
   }
 };
 
-export const putReorderTask = async (projectId, sprintId, { taskId, toStatusId, toIndex }, { flashColorHex } = {}) => {
+export const putReorderTask = async (
+  projectId,
+  sprintId,
+  { taskId, toStatusId, toIndex },
+  { flashColorHex } = {},
+) => {
   try {
-    const res = await axiosInstance.put(`/projects/${projectId}/sprints/${sprintId}/tasks/reorder`, {
-      taskId, toStatusId, toIndex,
-    });
+    const res = await axiosInstance.put(
+      `/projects/${projectId}/sprints/${sprintId}/tasks/reorder`,
+      {
+        taskId,
+        toStatusId,
+        toIndex,
+      },
+    );
     const dto = res?.data?.data ?? res?.data;
     flashTaskCard(taskId, { colorHex: flashColorHex });
     return dto;
@@ -249,61 +259,39 @@ export const getTaskChecklist = async (taskId) => {
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in getTaskChecklist:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error fetching checklist items',
-    );
+    throw new Error(error?.response?.data?.message || 'Error fetching checklist items');
   }
 };
 
 export const createTaskChecklistItem = async (taskId, label) => {
   try {
     const payload = { label };
-    const res = await axiosInstance.post(
-      `/tasks/${taskId}/checklist`,
-      payload,
-    );
+    const res = await axiosInstance.post(`/tasks/${taskId}/checklist`, payload);
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in createTaskChecklistItem:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error creating checklist item',
-    );
+    throw new Error(error?.response?.data?.message || 'Error creating checklist item');
   }
 };
 
-export const updateTaskChecklistItem = async (
-  taskId,
-  { id, label, done, orderIndex },
-) => {
+export const updateTaskChecklistItem = async (taskId, { id, label, done, orderIndex }) => {
   try {
     const payload = {
       label,
       isDone: done,
       orderIndex,
     };
-    const res = await axiosInstance.put(
-      `/tasks/${taskId}/checklist/${id}`,
-      payload,
-    );
+    const res = await axiosInstance.put(`/tasks/${taskId}/checklist/${id}`, payload);
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in updateTaskChecklistItem:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error updating checklist item',
-    );
+    throw new Error(error?.response?.data?.message || 'Error updating checklist item');
   }
 };
 
-export const toggleTaskChecklistItemDone = async (
-  taskId,
-  checklistId,
-  isDone,
-) => {
+export const toggleTaskChecklistItemDone = async (taskId, checklistId, isDone) => {
   try {
-    const payload =
-      typeof isDone === 'boolean'
-        ? { isDone }
-        : {}; // null => toggle server-side
+    const payload = typeof isDone === 'boolean' ? { isDone } : {}; // null => toggle server-side
 
     const res = await axiosInstance.patch(
       `/tasks/${taskId}/checklist/${checklistId}/done`,
@@ -312,23 +300,17 @@ export const toggleTaskChecklistItemDone = async (
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in toggleTaskChecklistItemDone:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error toggling checklist item',
-    );
+    throw new Error(error?.response?.data?.message || 'Error toggling checklist item');
   }
 };
 
 export const deleteTaskChecklistItem = async (taskId, checklistId) => {
   try {
-    const res = await axiosInstance.delete(
-      `/tasks/${taskId}/checklist/${checklistId}`,
-    );
+    const res = await axiosInstance.delete(`/tasks/${taskId}/checklist/${checklistId}`);
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in deleteTaskChecklistItem:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error deleting checklist item',
-    );
+    throw new Error(error?.response?.data?.message || 'Error deleting checklist item');
   }
 };
 /* =========================
@@ -357,11 +339,9 @@ export const uploadTaskAttachments = async (taskId, files, description) => {
     });
     if (description) formData.append('description', description);
 
-    const res = await axiosInstance.post(
-      `/tasks/${taskId}/attachments`,
-      formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
-    );
+    const res = await axiosInstance.post(`/tasks/${taskId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in uploadTaskAttachments:', error);
@@ -371,9 +351,7 @@ export const uploadTaskAttachments = async (taskId, files, description) => {
 
 export const deleteTaskAttachment = async (taskId, attachmentId) => {
   try {
-    const res = await axiosInstance.delete(
-      `/tasks/${taskId}/attachments/${attachmentId}`,
-    );
+    const res = await axiosInstance.delete(`/tasks/${taskId}/attachments/${attachmentId}`);
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in deleteTaskAttachment:', error);
@@ -387,7 +365,7 @@ export async function createTaskComment(taskId, body, files) {
     const form = new FormData();
 
     if (body && body.trim().length > 0) {
-      form.append("body", body.trim());
+      form.append('body', body.trim());
     }
 
     if (files && files.length) {
@@ -395,32 +373,25 @@ export async function createTaskComment(taskId, body, files) {
       for (const f of arr) {
         if (f) {
           // tên "files" phải trùng với [FromForm] List<IFormFile> files
-          form.append("files", f);
+          form.append('files', f);
         }
       }
     }
 
-    const { data } = await axiosInstance.post(
-      `/tasks/${taskId}/comments`,
-      form,
-      {
-        // *** QUAN TRỌNG: ép gửi multipart/form-data ***
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    const { data } = await axiosInstance.post(`/tasks/${taskId}/comments`, form, {
+      // *** QUAN TRỌNG: ép gửi multipart/form-data ***
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
     // response chuẩn của BE: { succeeded, message, data }
     return data?.data ?? data;
   } catch (error) {
-    console.error("[TaskDetail] create comment failed", error);
-    throw new Error(
-      error.response?.data?.message || "Error creating comment!"
-    );
+    console.error('[TaskDetail] create comment failed', error);
+    throw new Error(error.response?.data?.message || 'Error creating comment!');
   }
 }
-
 
 /** GET /api/tasks/{taskId}/comments */
 export async function getTaskComments(taskId) {
@@ -433,10 +404,8 @@ export async function getTaskComments(taskId) {
     if (Array.isArray(data.comments)) return data.comments;
     return [];
   } catch (error) {
-    console.error("Error in getTaskComments:", error);
-    throw new Error(
-      error?.response?.data?.message || "Error fetching comments"
-    );
+    console.error('Error in getTaskComments:', error);
+    throw new Error(error?.response?.data?.message || 'Error fetching comments');
   }
 }
 export const getMyTasks = async ({
@@ -472,11 +441,9 @@ export const getMyTasks = async ({
 
     // Controller: [HttpGet("tasks/user")]
     const response = await axiosInstance.get('/tasks/user', { params });
-    return response.data;               // ResponseModel<PagedResult<TaskResponse>>
+    return response.data; // ResponseModel<PagedResult<TaskResponse>>
   } catch (error) {
-    throw new Error(
-      error?.response?.data?.message || 'Error fetching my tasks'
-    );
+    throw new Error(error?.response?.data?.message || 'Error fetching my tasks');
   }
 };
 /* =========================
@@ -516,24 +483,18 @@ export const getDraftTasks = async (
 
     if (search) params.Search = search;
     if (Array.isArray(type) && type.length > 0) params.Type = type.join(',');
-    if (Array.isArray(priority) && priority.length > 0)
-      params.Priority = priority.join(',');
+    if (Array.isArray(priority) && priority.length > 0) params.Priority = priority.join(',');
     if (createdFrom) params.CreatedFrom = createdFrom;
     if (createdTo) params.CreatedTo = createdTo;
 
     // BE: [HttpGet("projects/{projectId}/draft-tasks")]
-    const res = await axiosInstance.get(
-      `/projects/${projectId}/draft-tasks`,
-      { params },
-    );
+    const res = await axiosInstance.get(`/projects/${projectId}/draft-tasks`, { params });
 
     return res?.data?.data ?? res?.data;
   } catch (error) {
     // cho log dễ debug
     console.error('Error in getDraftTasks:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error fetching draft tasks',
-    );
+    throw new Error(error?.response?.data?.message || 'Error fetching draft tasks');
   }
 };
 
@@ -576,18 +537,13 @@ export const createDraftTask = async (
       // isBacklog: true,
     };
 
-    const res = await axiosInstance.post(
-      `/projects/${projectId}/draft-tasks`,
-      payload,
-    );
+    const res = await axiosInstance.post(`/projects/${projectId}/draft-tasks`, payload);
 
     // response: ResponseModel<ProjectTaskResponse>
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in createDraftTask:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error creating draft task',
-    );
+    throw new Error(error?.response?.data?.message || 'Error creating draft task');
   }
 };
 
@@ -598,16 +554,7 @@ export const createDraftTask = async (
  */
 export const updateDraftTask = async (
   draftTaskId,
-  {
-    title,
-    type,
-    priority,
-    severity,
-    estimateHours,
-    dueDate,
-    parentTaskId,
-    sourceTaskId,
-  } = {},
+  { title, type, priority, severity, estimateHours, dueDate, parentTaskId, sourceTaskId } = {},
 ) => {
   try {
     if (!draftTaskId) {
@@ -629,17 +576,12 @@ export const updateDraftTask = async (
       // isBacklog: true,
     };
 
-    const res = await axiosInstance.put(
-      `/draft-tasks/${draftTaskId}`,
-      payload,
-    );
+    const res = await axiosInstance.put(`/draft-tasks/${draftTaskId}`, payload);
 
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in updateDraftTask:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error updating draft task',
-    );
+    throw new Error(error?.response?.data?.message || 'Error updating draft task');
   }
 };
 
@@ -653,17 +595,13 @@ export const deleteDraftTaskApi = async (draftTaskId) => {
       throw new Error('draftTaskId is required to delete draft task');
     }
 
-    const res = await axiosInstance.delete(
-      `/draft-tasks/${draftTaskId}`,
-    );
+    const res = await axiosInstance.delete(`/draft-tasks/${draftTaskId}`);
 
     // ResponseModel<bool>
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in deleteDraftTaskApi:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error deleting draft task',
-    );
+    throw new Error(error?.response?.data?.message || 'Error deleting draft task');
   }
 };
 
@@ -699,34 +637,21 @@ export const materializeDraftTask = async (
       workflowStatusId,
       statusCode,
       orderInSprint,
-      ...(Array.isArray(assigneeIds) && assigneeIds.length
-        ? { assigneeIds }
-        : {}),
+      ...(Array.isArray(assigneeIds) && assigneeIds.length ? { assigneeIds } : {}),
     };
 
-    const res = await axiosInstance.post(
-      `/draft-tasks/${draftTaskId}/materialize`,
-      payload,
-    );
+    const res = await axiosInstance.post(`/draft-tasks/${draftTaskId}/materialize`, payload);
 
     // ResponseModel<ProjectTaskResponse> – trả về task thật đã được gán sprint
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in materializeDraftTask:', error);
-    throw new Error(
-      error?.response?.data?.message ||
-        'Error converting draft to real task',
-    );
+    throw new Error(error?.response?.data?.message || 'Error converting draft to real task');
   }
 };
 export const getTicketTasks = async (
   ticketId,
-  {
-    pageNumber = 1,
-    pageSize = 50,
-    sortColumn = 'CreateAt',
-    sortDescending = false,
-  } = {},
+  { pageNumber = 1, pageSize = 50, sortColumn = 'CreateAt', sortDescending = false } = {},
 ) => {
   try {
     if (!ticketId) {
@@ -748,9 +673,7 @@ export const getTicketTasks = async (
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in getTicketTasks:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error fetching ticket tasks',
-    );
+    throw new Error(error?.response?.data?.message || 'Error fetching ticket tasks');
   }
 };
 
@@ -779,8 +702,8 @@ export const createTicketTask = async (
     }
 
     const payload = {
-      projectId,            // BE có thể tự lấy từ ticket, nhưng cho vào cho chắc
-      sprintId: null,       // backlog
+      projectId, // BE có thể tự lấy từ ticket, nhưng cho vào cho chắc
+      sprintId: null, // backlog
       title: title?.trim() || '',
       type,
       priority,
@@ -789,17 +712,22 @@ export const createTicketTask = async (
       dueDate,
     };
 
-    const res = await axiosInstance.post(
-      `/tickets/${ticketId}/tasks`,
-      payload,
-    );
+    const res = await axiosInstance.post(`/tickets/${ticketId}/tasks`, payload);
 
     // ResponseModel<ProjectTaskResponse>
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in createTicketTask:', error);
-    throw new Error(
-      error?.response?.data?.message || 'Error creating ticket task',
-    );
+    throw new Error(error?.response?.data?.message || 'Error creating ticket task');
+  }
+};
+
+export const getTaskDetailByIdAdmin = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/tasks/admin/${id}`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || 'Error!';
+    throw new Error(message);
   }
 };
