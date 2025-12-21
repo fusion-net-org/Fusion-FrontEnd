@@ -166,9 +166,9 @@ function App() {
  <Route
     path="/companies/:companyId/access-role"
     element={
-      // <RequirePerm anyOf={["ROLE_LIST_VIEW", "MEMBER_LIST_VIEW"]}>
+       <RequirePerm code="ROLE_LIST_VIEW">
         <AccessRolePage />
-      // </RequirePerm>
+       </RequirePerm>
     }
   />          
   <Route
