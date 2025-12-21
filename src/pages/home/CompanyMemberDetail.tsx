@@ -53,6 +53,7 @@ import { Paging } from '@/components/Paging/Paging';
 import AddRoleModal from '@/components/Company/AccessRole/AddRoleCompanyMemberModal';
 import RemoveRoleModal from '@/components/Company/AccessRole/RemoveRoleModal';
 import type { IRoleDto } from '@/interfaces/Role/Role';
+import { Can } from '@/permission/PermissionProvider';
 
 export default function CompanyMemberDetail() {
   const navigate = useNavigate();
@@ -312,24 +313,30 @@ export default function CompanyMemberDetail() {
                   {/* <button className="flex-1 py-2 rounded-lg border bg-gray-300 border-gray-300 hover:bg-gray-100 transition flex items-center justify-center gap-2 text-sm font-medium">
                     <MessageSquare size={16} /> Message
                   </button> */}
+                  <Can code='MEMBER_REMOVE'>
                   <button
                     onClick={() => setIsDeleteOpen(true)}
                     className="flex-1 py-2 rounded-lg border border-red-300 bg-red-500 text-white hover:bg-red-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
                   >
                     <Trash size={16} /> Remove Member
                   </button>
+                  </Can>
+                  <Can code='MEMBER_REMOVE_ROLE'>
                   <button
                     onClick={() => setIsRemoveRoleOpen(true)}
                     className="flex-1 py-2 rounded-lg border border-red-300 bg-red-500 text-white hover:bg-red-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
                   >
                     <Trash size={16} /> Remove Role
                   </button>
+                  </Can>
+                  <Can code='MEMBER_ASSIGN_ROLE'>
                   <button
                     onClick={() => setIsAddRoleOpen(true)}
                     className="flex-1 py-2 rounded-lg border border-green-300 bg-green-500 text-white hover:bg-green-600 hover:shadow-md transition flex items-center justify-center gap-2 text-sm font-medium"
                   >
                     <UserPlus size={16} /> Add Role
                   </button>
+                  </Can>
                 </div>
 
                 <div className="flex justify-around w-full py-4 mt-3 border-t border-gray-100">

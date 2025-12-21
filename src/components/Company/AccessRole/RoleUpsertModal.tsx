@@ -71,7 +71,7 @@ export default function RoleUpsertModal({ mode, isOpen, companyId, roles, initia
   const footer = (
     <>
       <button className="btn btnGhost" onClick={onClose}>Cancel</button>
-      <button className="btn btnPrimary" disabled={!canSave} onClick={onSave}>{saving ? "Saving..." : "Save"}</button>
+      <button className="btn btnPrimary h-11 px-5 rounded-full font-semibold text-sm text-white bg-[#2e8bff] shadow-[0_8px_18px_-10px_rgba(46,139,255,0.7)] hover:bg-[#1e6fde] active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0 " disabled={!canSave} onClick={onSave}>{saving ? "Saving..." : "Save"}</button>
     </>
   );
 

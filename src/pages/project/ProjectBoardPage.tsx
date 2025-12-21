@@ -39,6 +39,7 @@ import {
   deleteTask,
   materializeDraftTask,
 } from "@/services/taskService.js";
+import { Can } from "@/permission/PermissionProvider";
 
 const isGuid = (s?: string | null) =>
   !!s &&
@@ -317,6 +318,7 @@ function Inner() {
 
           <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
             {hasProjectRequest && (
+              <Can code='PROJECT_TICKET_LIST_REQUESTER'>
               <button
                 type="button"
                 onClick={() => setOpenTicketPopup(true)}
@@ -325,6 +327,7 @@ function Inner() {
                 <TicketIcon className="size-4" />
                 <span>Tickets</span>
               </button>
+              </Can>
             )}
 
             {workflowId && (

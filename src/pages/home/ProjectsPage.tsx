@@ -9,6 +9,7 @@ import KanbanColumn from '@/components/Company/Projects/KanbanColumn';
 import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProjectModal';
 import type { ProjectCreatePayload } from '@/components/Company/ProjectCreate/CreateProjectModal';
 import { loadProjects as fetchProjects } from '@/services/projectService.js';
+import { Can } from '@/permission/PermissionProvider';
 
 /* Small inline atoms (keep page self-contained) */
 const Chip: React.FC<React.ComponentProps<'button'> & { active?: boolean }> = ({
@@ -266,12 +267,14 @@ export default function ProjectsPage() {
             <div className="text-sm text-slate-500">Browse, filter, and jump back into your work.</div>
           </div>
         </div>
+        <Can code="PROJECT_CREATE">
         <button
           onClick={createProject}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:brightness-105"
         >
           <Plus className="size-4" /> Create Project
         </button>
+        </Can>
       </div>
 
       {/* Filter card */}
@@ -406,9 +409,11 @@ export default function ProjectsPage() {
             <div className="font-semibold text-slate-800">No projects found</div>
             <div className="text-sm text-slate-500">Try adjusting filters or create a new project.</div>
             <div className="mt-4">
+              <Can code="PROJECT_CREATE">
               <button onClick={createProject} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
                 Create Project
               </button>
+              </Can>
             </div>
           </div>
         ) : mode === 'cards' ? (

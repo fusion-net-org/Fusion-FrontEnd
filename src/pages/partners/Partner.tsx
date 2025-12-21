@@ -31,6 +31,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { debounce } from 'lodash';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import { Paging } from '@/components/Paging/Paging';
+import { Can } from '@/permission/PermissionProvider';
 
 const Partners: React.FC = () => {
   const { RangePicker } = DatePicker;
@@ -347,12 +348,14 @@ const Partners: React.FC = () => {
                 Connect businesses to open project rights and share personnel
               </p>
             </div>
+            <Can code="PARTNER_INVITE_SEND" >
             <button
               onClick={() => setIsInviteOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
             >
               <UserPlus className="w-4 h-4" /> Invite Partner
             </button>
+            </Can>
           </div>
         </div>
 
@@ -581,6 +584,7 @@ const Partners: React.FC = () => {
                       {p.status?.toLowerCase() === 'pending' &&
                       userIdFromLogin !== p.requesterId ? (
                         <div className="flex justify-center gap-2">
+                          <Can code="PARTNER_INVITE_ACCEPT">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -590,6 +594,8 @@ const Partners: React.FC = () => {
                           >
                             <Check className="w-4 h-4" /> Accept
                           </button>
+                          </Can>
+                          <Can code="PARTNER_INVITE_REJECT">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -599,6 +605,7 @@ const Partners: React.FC = () => {
                           >
                             <X className="w-4 h-4" /> Reject
                           </button>
+                          </Can>
                         </div>
                       ) : p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive' ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 border border-red-200 rounded-full text-sm text-red-600">

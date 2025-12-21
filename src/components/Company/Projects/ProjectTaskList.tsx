@@ -11,6 +11,7 @@ import { useProjectBoard } from "@/context/ProjectBoardContext";
 import { useNavigate, useParams } from "react-router-dom";
 import type { SimpleOption } from "./TaskFilterBar";
 import TaskFilterBar from "./TaskFilterBar";
+import { Can } from "@/permission/PermissionProvider";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -695,7 +696,7 @@ export default function ProjectTaskList({
                             Done
                           </button>
                         )}
-
+<Can code='TASK_SPLIT'>
                         <button
                           className="px-2 py-1 rounded-lg border text-xs hover:bg-violet-50 border-violet-300 text-violet-700"
                           onClick={() => onSplit?.(t)}
@@ -703,6 +704,7 @@ export default function ProjectTaskList({
                           <SplitSquareHorizontal className="w-3 h-3 inline mr-1" />
                           Split
                         </button>
+                        </Can>
                         <button
                           className="px-2 py-1 rounded-lg border text-xs hover:bg-slate-50 border-slate-300 text-slate-600"
                           onClick={() => onMoveNext?.(t)}

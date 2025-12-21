@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom"; // 👈 THÊM
 import type { TaskVm, MemberRef } from "@/types/projectBoard";
+import { Can } from "@/permission/PermissionProvider";
 
 /** ==== Local helpers ==== */
 type TaskType = "Feature" | "Bug" | "Chore";
@@ -509,13 +510,14 @@ export default function TaskCard({
                 <Check className="w-3 h-3" /> Mark done
               </button>
             )}
-
+<Can code='TASK_SPLIT'>
             <button
               className="text-[11px] px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
               onClick={() => onSplit(t)}
             >
               <SplitSquareHorizontal className="w-3 h-3" /> Split
             </button>
+            </Can>
             <button
               className="text-[11px] px-2 py-1 rounded-lg border hover:bg-slate-50 border-slate-300 text-slate-600 flex items-center gap-1"
               onClick={() => onMoveNext(t)}

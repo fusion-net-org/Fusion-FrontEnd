@@ -5,6 +5,7 @@ import { deleteWorkflow, getWorkflowPreviews } from "@/services/workflowService.
 import type { WorkflowPreviewVm } from "@/types/workflow";
 import WorkflowMini from "@/components/Workflow/WorkflowMini";
 import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
+import { Can } from "@/permission/PermissionProvider";
 
 export default function WorkflowListPage() {
   const { companyId = "" } = useParams();
@@ -98,12 +99,16 @@ export default function WorkflowListPage() {
             placeholder="Search workflows…"
             className="border rounded-lg px-3 py-2 text-sm w-[260px]"
           />
+          <Can code="WORKFLOW_CREATE">
+
           <button
             onClick={goCreate}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700"
           >
             <Plus size={16} /> New workflow
           </button>
+          </Can>
+
         </div>
       </div>
 
@@ -127,6 +132,7 @@ export default function WorkflowListPage() {
               <div className="px-3 py-2 flex items-center justify-between border-b">
                 <div className="font-medium truncate">{w.name || "Workflow"}</div>
                 <div className="flex items-center gap-1">
+                  <Can code="WORKFLOW_UPDATE">
                   <button
                     onClick={() => goEdit(w)}
                     className="p-1 rounded hover:bg-gray-100"
@@ -134,6 +140,10 @@ export default function WorkflowListPage() {
                   >
                     <Pencil size={16} />
                   </button>
+                  </Can>
+
+                  <Can code="WORKFLOW_DELETE">
+
                   <button
                     onClick={() => onDeleteClick(w)}
                     className="p-1 rounded hover:bg-gray-100 text-red-600"
@@ -141,6 +151,8 @@ export default function WorkflowListPage() {
                   >
                     <Trash2 size={16} />
                   </button>
+                  </Can>
+
                 </div>
               </div>
 

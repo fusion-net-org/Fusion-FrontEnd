@@ -35,6 +35,7 @@ import type {
 import { useParams } from 'react-router-dom';
 import debounce from 'lodash/debounce';
 import { useNavigate } from 'react-router-dom';
+import { Can } from '@/permission/PermissionProvider';
 
 const { RangePicker } = DatePicker;
 interface ContractNextData {
@@ -259,12 +260,14 @@ const ProjectRequestPage: React.FC = () => {
               Manage requests for inter-company collaborations
             </p>
           </div>
+          <Can code="PRQ_CREATE">
           <button
             onClick={handleNewClick}
             className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
           >
             <UserPlus className="w-4 h-4" /> New Request
           </button>
+           </Can>
         </div>
       </div>
 

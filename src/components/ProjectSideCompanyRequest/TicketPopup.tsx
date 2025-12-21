@@ -12,6 +12,7 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 import { useNavigate, useParams } from 'react-router-dom';
 import RejectTicketModal from '../Ticket/RejectTicketModal';
+import { Can } from '@/permission/PermissionProvider';
 
 interface PopupTicketDetailProps {
   visible: boolean;
@@ -179,6 +180,7 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
         if (record.status === 'Pending') {
           return (
             <div className="flex justify-center items-center gap-3">
+              <Can code='TICKET_ACCEPT'>
               <button
                 disabled={actionLoading}
                 onClick={(e) => {
@@ -189,7 +191,8 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
               >
                 <Check size={16} strokeWidth={2.5} /> Accept
               </button>
-
+</Can>
+<Can code='TICKET_REJECT'>
               <button
                 disabled={actionLoading}
                 onClick={(e) => {
@@ -201,6 +204,7 @@ const TicketPopup: React.FC<PopupTicketDetailProps> = ({ visible, projectId, onC
               >
                 <X size={16} strokeWidth={2.5} /> Reject
               </button>
+              </Can>
             </div>
           );
         }

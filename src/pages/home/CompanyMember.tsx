@@ -15,6 +15,7 @@ import { DatePicker } from 'antd';
 import { Dayjs } from 'dayjs';
 import InviteMember from '@/components/Member/InviteMember';
 import { Paging } from '@/components/Paging/Paging';
+import { Can } from '@/permission/PermissionProvider';
 const CompanyMember: React.FC = () => {
   //#region state
   const navigate = useNavigate();
@@ -256,12 +257,14 @@ const CompanyMember: React.FC = () => {
               <h1 className="text-2xl font-bold">Members</h1>
               <p className="text-blue-100 text-sm">Manage and monitor company members</p>
             </div>
+            <Can code='MEMBER_INVITE'>
             <button
               onClick={() => setIsInviteOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
             >
               <UserPlus className="w-4 h-4" /> Invite Member
             </button>
+            </Can>
           </div>
         </div>
         {/* STATUS SUMMARY */}

@@ -35,6 +35,7 @@ import {
 import { toast } from "react-toastify";
 import { getProjectMembersWithRole } from "@/services/projectMember.js";
 import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
+import { Can, usePermissions } from "@/permission/PermissionProvider";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -238,6 +239,20 @@ function TicketDetailLayout({
   const [newComment, setNewComment] = useState("");
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+//permission
+ const { can, loading: permLoading } = usePermissions();
+
+const PERM = {
+  DETAIL_EDIT: "TASK_DETAIL_UPDATE",      // edit detail fields (priority/type/points/severity/dates/desc/checklist...)
+  ASSIGN_EDIT: "TASK_ASSIGN_MEMBER",      // assignee + workflow owners
+  SPRINT_EDIT: "TASK_CHANGE_SPRINT",      // sprint
+} as const;
+
+const canEditDetail = !permLoading && can(PERM.DETAIL_EDIT);
+const canEditAssign = !permLoading && can(PERM.ASSIGN_EDIT);
+const canEditSprint = !permLoading && can(PERM.SPRINT_EDIT);
+
+//
   // NEW: map workflow theo group (không còn roleAssignments)
   const [workflowAssignmentMap, setWorkflowAssignmentMap] =
     useState<WorkflowAssignmentMap>({});
@@ -1440,7 +1455,11 @@ const draftMeta =
               Description
             </div>
             <textarea
-              className="w-full min-h-[140px] resize-y rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+              className={cn(
+    "w-full min-h-[140px] resize-y rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400",
+    !canEditDetail && "bg-slate-50 text-slate-400 cursor-not-allowed"
+  )}
+  readOnly={!canEditDetail}
               placeholder="Describe the goal, scope and context of this ticket..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -1453,6 +1472,7 @@ const draftMeta =
               <div className="text-sm font-medium text-slate-900">
                 Checklist
               </div>
+              <Can code='TASK_CHECKLIST_ADD'>
               <button
                 type="button"
                 onClick={startAddChecklistItem}
@@ -1461,6 +1481,7 @@ const draftMeta =
                 <Plus className="w-3 h-3" />
                 Add item
               </button>
+              </Can>
             </div>
             <div className="text-xs text-slate-500 mb-2">
               {checklistDone}/{checklistTotal} items completed
@@ -1551,12 +1572,14 @@ const draftMeta =
                           >
                             <ChevronDown className="w-4 h-4" />
                           </button>
+                          <Can code='TASK_CHECKLIST_DELETE'>
                           <button
                             type="button"
                             onClick={() => handleDeleteChecklist(item.id)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
+                          </Can>
                         </>
                       )}
                     </div>
@@ -1584,7 +1607,7 @@ const draftMeta =
               className="hidden"
               onChange={handleFileInputChange}
             />
-
+<Can code='TASK_ADD_ATTACHMENT'>
             <div
               className={cn(
                 "border border-dashed rounded-xl p-4 text-center text-sm text-slate-500 transition-colors",
@@ -1611,7 +1634,7 @@ const draftMeta =
                 </div>
               )}
             </div>
-
+</Can>
             {attachments.length > 0 && (
               <div className="mt-3 space-y-2">
                 {attachments.map((a) => (
@@ -1656,6 +1679,7 @@ const draftMeta =
                       >
                         Open
                       </button>
+                      <Can code='TASK_DELETE_ATTACHMENT'>
                       <button
                         type="button"
                         onClick={() => handleDeleteAttachmentClick(a.id)}
@@ -1664,6 +1688,7 @@ const draftMeta =
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                      </Can>
                     </div>
                   </div>
                 ))}
@@ -1866,29 +1891,30 @@ const draftMeta =
             <Field label="Assignee">
               <div className="space-y-1">
                 <UserAssignDropdown
-                  users={projectMembers}
-                  value={primaryAssignee?.id ?? null}
-                  onChange={(id) => {
-                    if (!id) {
-                      updateField("assignees", [] as any);
-                      return;
-                    }
-                    const u = projectMembers.find((m) => m.id === id);
-                    if (!u) return;
+  users={projectMembers}
+  value={primaryAssignee?.id ?? null}
+  disabled={!canEditAssign}   
+  onChange={(id) => {
+    if (!canEditAssign) return; 
+    if (!id) {
+      updateField("assignees", [] as any);
+      return;
+    }
+    const u = projectMembers.find((m) => m.id === id);
+    if (!u) return;
 
-                    const mem: MemberRef = {
-                      id: u.id,
-                      name: u.name,
-                      avatarUrl: u.avatarUrl ?? undefined,
-                      email: u.email ?? undefined,
-                    } as any;
+    const mem: MemberRef = {
+      id: u.id,
+      name: u.name,
+      avatarUrl: u.avatarUrl ?? undefined,
+      email: u.email ?? undefined,
+    } as any;
 
-                    updateField("assignees", [mem] as any);
-                  }}
-                  placeholder={
-                    loadingMembers ? "Loading members…" : "Unassigned"
-                  }
-                />
+    updateField("assignees", [mem] as any);
+  }}
+  placeholder={loadingMembers ? "Loading members…" : "Unassigned"}
+/>
+
                 {startWorkflowGroups.length > 0 && (
                   <div className="text-[10px] text-slate-400">
                     Main assignee is used for start workflow
@@ -1940,21 +1966,20 @@ const draftMeta =
                           </div>
 
                           <div className="w-[180px] shrink-0 text-right">
-                            <UserAssignDropdown
-                              users={projectMembers}
-                              value={assignedId}
-                              onChange={(val) => {
-                                setWorkflowAssignmentMap((prev) => ({
-                                  ...prev,
-                                  [group.key]: val,
-                                }));
-                              }}
-                              placeholder={
-                                loadingMembers
-                                  ? "Loading members…"
-                                  : "Unassigned"
-                              }
-                            />
+                           <UserAssignDropdown
+  users={projectMembers}
+  value={assignedId}
+  disabled={!canEditAssign}  
+  onChange={(val) => {
+    if (!canEditAssign) return; 
+    setWorkflowAssignmentMap((prev) => ({
+      ...prev,
+      [group.key]: val,
+    }));
+  }}
+  placeholder={loadingMembers ? "Loading members…" : "Unassigned"}
+/>
+
                           </div>
                         </div>
                       </div>
@@ -1966,7 +1991,7 @@ const draftMeta =
 
             {/* Priority */}
             <Field label="Priority">
-              <select
+              <select  disabled={!canEditDetail} 
                 className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
                 value={model.priority}
                 onChange={(e) =>
@@ -1982,7 +2007,7 @@ const draftMeta =
 
             {/* Type */}
             <Field label="Type">
-              <select
+              <select  disabled={!canEditDetail} 
                 className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
                 value={model.type}
                 onChange={(e) => updateField("type", e.target.value as any)}
@@ -1999,7 +2024,7 @@ const draftMeta =
             {/* Story points & estimate */}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Story points">
-                <input
+                <input  disabled={!canEditDetail} 
                   type="number"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={model.storyPoints ?? 0}
@@ -2012,7 +2037,7 @@ const draftMeta =
                 />
               </Field>
               <Field label="Estimate (h)">
-                <input
+                <input  disabled={!canEditDetail} 
                   type="number"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={model.estimateHours ?? 0}
@@ -2029,7 +2054,7 @@ const draftMeta =
             {/* Remaining & severity */}
             <div className="grid grid-cols-2 gap-3 mt-2">
               <Field label="Remaining (h)">
-                <input
+                <input  disabled={!canEditDetail} 
                   type="number"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={model.remainingHours ?? 0}
@@ -2042,7 +2067,7 @@ const draftMeta =
                 />
               </Field>
               <Field label="Severity">
-                <select
+                <select  disabled={!canEditDetail} 
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
                   value={(model.severity as any) ?? "Medium"}
                   onChange={(e) =>
@@ -2063,7 +2088,7 @@ const draftMeta =
             {/* Dates */}
             <div className="mt-3 grid grid-cols-2 gap-3">
               <Field label="Start date">
-                <input
+                <input disabled={!canEditDetail} 
                   type="date"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={toInputDate(model.openedAt as any)}
@@ -2076,7 +2101,7 @@ const draftMeta =
                 />
               </Field>
               <Field label="Due date">
-                <input
+                <input disabled={!canEditDetail} 
                   type="date"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   value={toInputDate(model.dueDate as any)}
@@ -2092,7 +2117,7 @@ const draftMeta =
 
             {/* Sprint */}
             <Field label="Sprint" className="mt-3">
-              <select
+              <select disabled={!canEditSprint}
                 className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
                 value={model.sprintId ?? ""}
                 onChange={(e) =>
@@ -2192,14 +2217,17 @@ function UserAssignDropdown({
   value,
   onChange,
   placeholder = "Unassigned",
+  disabled = false,
 }: {
   users: ProjectMemberOption[];
   value: string | null;
   onChange: (id: string | null) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const wrapRef = useRef<HTMLDivElement | null>(null);
 
   const selected = useMemo(
     () => users.find((u) => u.id === value) || null,
@@ -2216,14 +2244,41 @@ function UserAssignDropdown({
     });
   }, [users, search]);
 
+  // nếu bị disabled thì đóng dropdown luôn
+  useEffect(() => {
+    if (disabled && open) setOpen(false);
+  }, [disabled, open]);
+
+  // click outside để đóng
+  useEffect(() => {
+    if (!open) return;
+
+    function onDocMouseDown(e: MouseEvent) {
+      const el = wrapRef.current;
+      if (!el) return;
+      if (!el.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((o) => !o);
+        }}
         className={cn(
           "h-9 w-full rounded-xl border border-slate-300 px-3 text-sm bg-white flex items-center justify-between gap-2",
-          "hover:border-blue-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+          "focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400",
+          !disabled && "hover:border-blue-400 hover:bg-slate-50",
+          disabled && "bg-slate-50 text-slate-400 cursor-not-allowed opacity-70"
         )}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -2238,6 +2293,7 @@ function UserAssignDropdown({
               (selected?.name?.[0] || "?").toUpperCase()
             )}
           </div>
+
           <div className="flex-1 min-w-0 text-left">
             <div className="text-xs font-medium text-slate-800 truncate">
               {selected?.name || placeholder}
@@ -2247,10 +2303,16 @@ function UserAssignDropdown({
             </div>
           </div>
         </div>
-        <ChevronDownIcon className="w-4 h-4 text-slate-400 shrink-0" />
+
+        <ChevronDownIcon
+          className={cn(
+            "w-4 h-4 shrink-0",
+            disabled ? "text-slate-300" : "text-slate-400"
+          )}
+        />
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div className="absolute z-20 mt-1 w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
           <div className="p-2 border-b border-slate-100">
             <input
@@ -2258,14 +2320,17 @@ function UserAssignDropdown({
               placeholder="Search member by name, email, role…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              autoFocus
             />
           </div>
+
           <div className="max-h-64 overflow-y-auto p-1">
             <button
               type="button"
               onClick={() => {
                 onChange(null);
                 setOpen(false);
+                setSearch("");
               }}
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-left text-xs",
@@ -2311,13 +2376,12 @@ function UserAssignDropdown({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      (u.name[0] || "?").toUpperCase()
+                      (u.name?.[0] || "?").toUpperCase()
                     )}
                   </div>
+
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">
-                      {u.name}
-                    </div>
+                    <div className="text-xs font-medium truncate">{u.name}</div>
                     <div className="text-[10px] text-slate-500 truncate">
                       {u.roleName || u.email || "Member"}
                     </div>
@@ -2337,6 +2401,7 @@ function UserAssignDropdown({
     </div>
   );
 }
+
 
 function mapAttachmentDto(x: any, idx: number = 0): AttachmentItem {
   return {

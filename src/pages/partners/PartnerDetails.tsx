@@ -47,6 +47,7 @@ import Card from '@mui/material/Card';
 import { toast } from 'react-toastify';
 import ContractModal from '@/components/ProjectRequest/ContractModal';
 import { useNavigate } from 'react-router-dom';
+import { Can } from '@/permission/PermissionProvider';
 
 const cls = (...v: Array<string | false | undefined>) => v.filter(Boolean).join(' ');
 interface ContractNextData {
@@ -354,6 +355,7 @@ const PartnerDetails: React.FC = () => {
               <div className="absolute top-25 right-10 flex gap-3 mt-5">
                 {partnerV2?.status?.toLowerCase() === 'pending' && (
                   <>
+                  <Can code="PARTNER_INVITE_ACCEPT">
                     <button
                       className="px-4 py-2 text-sm rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center justify-center"
                       onClick={() => handleAccept(partnerV2.id!)}
@@ -361,6 +363,8 @@ const PartnerDetails: React.FC = () => {
                     >
                       {loadingAccept ? 'Accepting...' : 'Accept'}
                     </button>
+                  </Can>
+                  <Can code="PARTNER_INVITE_REJECT">
                     <button
                       className="px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-md flex items-center justify-center"
                       onClick={() => handleReject(partnerV2.id!)}
@@ -368,6 +372,7 @@ const PartnerDetails: React.FC = () => {
                     >
                       {loadingReject ? 'Rejecting...' : 'Cancel'}
                     </button>
+</Can>
                   </>
                 )}
 
@@ -387,6 +392,7 @@ const PartnerDetails: React.FC = () => {
               <button className="rounded-full border border-white/70 bg-white/80 px-4 py-1.5 text-sm font-medium text-gray-700 backdrop-blur hover:bg-white hover:shadow transition">
                 Message
               </button>
+              <Can code="PARTNER_UNFRIEND">
               <button
                 className={`
                 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all duration-200
@@ -409,6 +415,7 @@ const PartnerDetails: React.FC = () => {
                 {partnerV2?.status?.toLowerCase() === 'pending' && 'Wait for response'}
                 {partnerV2?.status?.toLowerCase() === 'inactive' && 'Deleted'}
               </button>
+              </Can>
             </div>
           </div>
           {/* Stats */}

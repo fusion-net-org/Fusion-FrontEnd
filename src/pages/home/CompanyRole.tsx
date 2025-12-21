@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, Edit, Trash, UserPlus, Ban, Inbox, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Edit, Trash, UserPlus, Inbox, ChevronDown, ChevronUp, Crown } from 'lucide-react';
 import { DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import { Paging } from '@/components/Paging/Paging';
@@ -12,6 +12,7 @@ import LoadingOverlay from '@/common/LoadingOverlay.js';
 import CreateRoleModal from '@/components/Company/Roles/CreateRoleModal';
 import EditRoleModal from '@/components/Company/Roles/EditRoleModal';
 import DeleteRoleModal from '@/components/Company/Roles/DeleteRoleModal';
+import { Can } from '@/permission/PermissionProvider';
 
 const { RangePicker } = DatePicker;
 
@@ -26,7 +27,7 @@ const CompanyRole: React.FC = () => {
 
   const [roles, setRoles] = useState<any[]>([]);
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 500); // debounce 500ms
+  const debouncedSearch = useDebounce(search, 500);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [dateRange, setDateRange] = useState<[any, any]>([null, null]);
   const [page, setPage] = useState(1);
@@ -40,7 +41,8 @@ const CompanyRole: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<string>('CreatedAt');
   const [sortDescending, setSortDescending] = useState<boolean>(true);
 
-  console.log('Selected Role:', selectedRole);
+  const isOwnerRole = (r: any) => (r?.roleName || '').trim().toLowerCase() === 'owner';
+
   const fetchRoles = async () => {
     if (!companyId) return;
 
@@ -48,7 +50,6 @@ const CompanyRole: React.FC = () => {
       setLoading(true);
 
       const createdFrom = dateRange[0] ? dayjs(dateRange[0]).startOf('day').toISOString() : null;
-
       const createdTo = dateRange[1] ? dayjs(dateRange[1]).endOf('day').toISOString() : null;
 
       const data = await GetRolesPaged(
@@ -63,7 +64,14 @@ const CompanyRole: React.FC = () => {
         sortDescending,
       );
 
-      setRoles(data.items);
+      // ✅ (Optional) đẩy Owner xuống cuối
+      const items = (data.items || []).slice().sort((a: any, b: any) => {
+        const ao = isOwnerRole(a) ? 1 : 0;
+        const bo = isOwnerRole(b) ? 1 : 0;
+        return ao - bo;
+      });
+
+      setRoles(items);
       setTotalCount(data.totalCount);
     } catch (error) {
       console.error('Failed to fetch roles:', error);
@@ -71,10 +79,10 @@ const CompanyRole: React.FC = () => {
       setLoading(false);
     }
   };
+
   const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDescending((prev) => !prev);
-    } else {
+    if (sortColumn === column) setSortDescending((prev) => !prev);
+    else {
       setSortColumn(column);
       setSortDescending(true);
     }
@@ -83,16 +91,7 @@ const CompanyRole: React.FC = () => {
 
   useEffect(() => {
     fetchRoles();
-  }, [
-    companyId,
-    debouncedSearch,
-    statusFilter,
-    dateRange,
-    page,
-    pageSize,
-    sortColumn,
-    sortDescending,
-  ]);
+  }, [companyId, debouncedSearch, statusFilter, dateRange, page, pageSize, sortColumn, sortDescending]);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -100,11 +99,7 @@ const CompanyRole: React.FC = () => {
       Inactive: 'bg-red-100 text-red-700',
     };
     return (
-      <span
-        className={`px-3 py-1 rounded-full text-xs font-medium ${
-          styles[status] || 'bg-gray-100 text-gray-700'
-        }`}
-      >
+      <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
         {status}
       </span>
     );
@@ -112,16 +107,6 @@ const CompanyRole: React.FC = () => {
 
   const activeCount = roles.filter((r) => r.status === 'Active').length;
   const inactiveCount = roles.filter((r) => r.status === 'Inactive').length;
-
-  const handleEdit = (role: any) => {
-    console.log('Edit role:', role);
-    // TODO: navigate to edit form
-  };
-
-  const handleDelete = (role: any) => {
-    console.log('Delete role:', role);
-    // TODO: call API to delete
-  };
 
   return (
     <div className="px-5 py-5 font-inter min-h-screen relative">
@@ -134,12 +119,14 @@ const CompanyRole: React.FC = () => {
             <h1 className="text-2xl font-bold">Company Roles</h1>
             <p className="text-blue-100 text-sm">Manage and monitor company roles</p>
           </div>
+          <Can code='ROLE_CREATE'>
           <button
             className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
             onClick={() => setOpenCreate(true)}
           >
             <UserPlus className="w-4 h-4" /> Create Role
           </button>
+          </Can>
         </div>
       </div>
 
@@ -184,7 +171,6 @@ const CompanyRole: React.FC = () => {
             />
           </div>
 
-          {/* Status */}
           <div className="flex flex-col">
             <label className="font-semibold text-sm text-gray-600 mb-1">Status</label>
             <select
@@ -209,56 +195,23 @@ const CompanyRole: React.FC = () => {
         <table className="w-full text-sm text-gray-700">
           <thead className="bg-blue-50 text-blue-800 uppercase text-xs font-semibold">
             <tr>
-              <th
-                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
-                onClick={() => handleSort('RoleName')}
-              >
+              <th className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition" onClick={() => handleSort('RoleName')}>
                 <div className="flex items-center justify-center gap-1">
                   Role Name
-                  {sortColumn === 'RoleName' ? (
-                    sortDescending ? (
-                      <ChevronDown className="w-4 h-4 text-blue-700" />
-                    ) : (
-                      <ChevronUp className="w-4 h-4 text-blue-700" />
-                    )
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-blue-700" />
-                  )}
+                  {sortColumn === 'RoleName' ? (sortDescending ? <ChevronDown className="w-4 h-4 text-blue-700" /> : <ChevronUp className="w-4 h-4 text-blue-700" />) : <ChevronDown className="w-4 h-4 text-blue-700" />}
                 </div>
               </th>
               <th className="px-6 py-3 text-center">Description</th>
-              <th
-                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
-                onClick={() => handleSort('Status')}
-              >
+              <th className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition" onClick={() => handleSort('Status')}>
                 <div className="flex items-center justify-center gap-1">
                   Status
-                  {sortColumn === 'Status' ? (
-                    sortDescending ? (
-                      <ChevronDown className="w-4 h-4 text-blue-700" />
-                    ) : (
-                      <ChevronUp className="w-4 h-4 text-blue-700" />
-                    )
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-blue-700" />
-                  )}
+                  {sortColumn === 'Status' ? (sortDescending ? <ChevronDown className="w-4 h-4 text-blue-700" /> : <ChevronUp className="w-4 h-4 text-blue-700" />) : <ChevronDown className="w-4 h-4 text-blue-700" />}
                 </div>
-              </th>{' '}
-              <th
-                className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition"
-                onClick={() => handleSort('CreatedAt')}
-              >
+              </th>
+              <th className="px-6 py-3 text-center cursor-pointer select-none hover:bg-blue-100 transition" onClick={() => handleSort('CreatedAt')}>
                 <div className="flex items-center justify-center gap-1">
                   Created Date
-                  {sortColumn === 'CreatedAt' ? (
-                    sortDescending ? (
-                      <ChevronDown className="w-4 h-4 text-blue-700" />
-                    ) : (
-                      <ChevronUp className="w-4 h-4 text-blue-700" />
-                    )
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-blue-700" />
-                  )}
+                  {sortColumn === 'CreatedAt' ? (sortDescending ? <ChevronDown className="w-4 h-4 text-blue-700" /> : <ChevronUp className="w-4 h-4 text-blue-700" />) : <ChevronDown className="w-4 h-4 text-blue-700" />}
                 </div>
               </th>
               <th className="px-6 py-3 text-center">Actions</th>
@@ -275,58 +228,77 @@ const CompanyRole: React.FC = () => {
                       {search ? `No roles found for "${search}".` : 'No roles available.'}
                     </p>
                     <p className="text-gray-400 text-xs">
-                      {search
-                        ? 'Try a different keyword or adjust your filters.'
-                        : 'Please adjust your filters or try again later.'}
+                      {search ? 'Try a different keyword or adjust your filters.' : 'Please adjust your filters or try again later.'}
                     </p>
                   </div>
                 </td>
               </tr>
             ) : (
-              roles.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b text-center border-gray-100 hover:bg-blue-50/60 transition-all duration-150"
-                >
-                  <td className="px-6 py-4 font-medium">{r.roleName}</td>
-                  <td className="px-6 py-4">{r.description}</td>
-                  <td className="px-6 py-4">{getStatusBadge(r.status)}</td>
-                  <td className="px-6 py-4 font-medium">
-                    {dayjs(r.createdAt).format('DD/MM/YYYY')}
-                  </td>
-                  <td className="px-6 py-4 flex items-center justify-center gap-3">
-                    {/* EDIT BUTTON */}
-                    <Edit
-                      className={`w-5 h-5 transition transform
-                ${
-                  r.status === 'Inactive'
-                    ? 'text-gray-300 cursor-not-allowed'
-                    : 'text-blue-500 hover:text-blue-700 hover:scale-110 cursor-pointer'
-                }`}
-                      onClick={() => {
-                        if (r.status === 'Inactive') return;
-                        setSelectedRole(r);
-                        setOpenEdit(true);
-                      }}
-                    />
+              roles.map((r) => {
+                const owner = isOwnerRole(r);
+                const disabledAction = owner || r.status === 'Inactive';
 
-                    {/* DELETE BUTTON */}
-                    <Trash
-                      className={`w-5 h-5 transition transform
-                  ${
-                    r.status === 'Inactive'
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-red-500 hover:text-red-700 hover:scale-110 cursor-pointer'
-                  }`}
-                      onClick={() => {
-                        if (r.status === 'Inactive') return;
-                        setSelectedRole(r);
-                        setOpenDelete(true);
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))
+                return (
+                  <tr
+                    key={r.id}
+                    className="border-b text-center border-gray-100 hover:bg-blue-50/60 transition-all duration-150"
+                  >
+                    <td className="px-6 py-4 font-medium">
+                      <div className="inline-flex items-center justify-center gap-2">
+                        <span>{r.roleName}</span>
+
+                        {owner && (
+                          <>
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700"
+                              title="System role - cannot edit/delete"
+                            >
+                              <Crown className="w-3.5 h-3.5" />
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4">{r.description}</td>
+                    <td className="px-6 py-4">{getStatusBadge(r.status)}</td>
+                    <td className="px-6 py-4 font-medium">{dayjs(r.createdAt).format('DD/MM/YYYY')}</td>
+
+                    <td className="px-6 py-4 flex items-center justify-center gap-3">
+                      {/* EDIT */}
+                      <Can code='ROLE_UPDATE'>
+                    <Edit
+  className={`w-5 h-5 transition transform ${
+    disabledAction
+      ? 'text-gray-300 cursor-not-allowed'
+      : 'text-blue-500 hover:text-blue-700 hover:scale-110 cursor-pointer'
+  }`}
+  onClick={() => {
+    if (disabledAction) return;
+    setSelectedRole(r);
+    setOpenEdit(true);
+  }}
+/>
+</Can>
+<Can code='ROLE_DELETE'>
+                      {/* DELETE */}
+                     <Trash
+  className={`w-5 h-5 transition transform ${
+    disabledAction
+      ? 'text-gray-300 cursor-not-allowed'
+      : 'text-red-500 hover:text-red-700 hover:scale-110 cursor-pointer'
+  }`}
+  onClick={() => {
+    if (disabledAction) return;
+    setSelectedRole(r);
+    setOpenDelete(true);
+  }}
+/>
+</Can>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -345,25 +317,12 @@ const CompanyRole: React.FC = () => {
           }}
         />
       </div>
-      <CreateRoleModal
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
-        companyId={companyId!}
-        onSuccess={() => fetchRoles()}
-      />
-      <EditRoleModal
-        open={openEdit}
-        onClose={() => setOpenEdit(false)}
-        roleId={selectedRole?.id}
-        onSuccess={() => fetchRoles()}
-      />
 
-      <DeleteRoleModal
-        open={openDelete}
-        onClose={() => setOpenDelete(false)}
-        role={selectedRole}
-        onSuccess={() => fetchRoles()}
-      />
+      <CreateRoleModal open={openCreate} onClose={() => setOpenCreate(false)} companyId={companyId!} onSuccess={() => fetchRoles()} />
+
+      <EditRoleModal open={openEdit} onClose={() => setOpenEdit(false)} roleId={selectedRole?.id} onSuccess={() => fetchRoles()} />
+
+      <DeleteRoleModal open={openDelete} onClose={() => setOpenDelete(false)} role={selectedRole} onSuccess={() => fetchRoles()} />
     </div>
   );
 };
