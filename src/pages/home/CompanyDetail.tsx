@@ -139,6 +139,7 @@ const CompanyDetails: React.FC = () => {
                 Inactive Company
               </button>
             ) : (
+              <Can code='MEMBER_INVITE'>
               <button
                 onClick={() => setOpenInviteModal(true)}
                 className="mt-[35px] flex items-center gap-2 px-4 py-2 text-sm bg-green-500 text-white hover:bg-green-600 shadow-md rounded-lg transition-all duration-200"
@@ -146,6 +147,7 @@ const CompanyDetails: React.FC = () => {
                 <Handshake className="w-4 h-4" />
                 Invite Partnership
               </button>
+              </Can>
             )}
           </div>
         </div>

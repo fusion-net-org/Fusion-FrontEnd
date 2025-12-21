@@ -17,6 +17,7 @@ import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import {  useNavigate, useParams } from "react-router-dom";
+import { Can } from "@/permission/PermissionProvider";
 
 type Id = string;
 
@@ -470,6 +471,7 @@ const renderCol = (statusId: string, idx: number) => {
               )}
               style={{ scrollbarWidth: "thin" }}
             >
+              <Can code='TASK_CREATE'>
               <ColumnHoverCreate
                 sprint={activeSprint}
                 statusId={statusId}
@@ -477,7 +479,7 @@ const renderCol = (statusId: string, idx: number) => {
                   setFlashTaskId(vm.id);
                 }}
               />
-
+</Can>
               <div className="space-y-4">
                 {items.map((t, index) => {
                   const siblings = t.sourceTicketId

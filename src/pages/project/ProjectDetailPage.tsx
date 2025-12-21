@@ -1301,6 +1301,7 @@ const handleReopenProject = async () => {
 
                       <td className="px-4 py-2.5 text-right text-xs">
                         {canKickMember(m.userId) ? (
+                          <Can code='PROJECT_KICK_MEMBER'>
                           <button
                             type="button"
                             onClick={() => setConfirmState({ kind: "kickMember", member: m })}
@@ -1309,6 +1310,7 @@ const handleReopenProject = async () => {
                             <Trash2 className="size-3.5" />
                             Kick
                           </button>
+                          </Can>
                         ) : null}
                       </td>
                     </tr>
@@ -1317,7 +1319,7 @@ const handleReopenProject = async () => {
               </tbody>
             </table>
           </div>
-
+<Can code='PROJECT_INVITE_MEMBER'>
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -1373,6 +1375,7 @@ const handleReopenProject = async () => {
               </div>
             )}
           </div>
+          </Can>
         </div>
       )}
 

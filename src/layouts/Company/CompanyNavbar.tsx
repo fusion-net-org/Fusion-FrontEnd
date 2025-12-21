@@ -97,14 +97,14 @@ const Preset: Record<PresetIcon, React.ReactNode> = {
 
 const defaultItems: Item[] = [
   { key: "company-detail", label: "Company Detail", to: "/company/:companyId", icon: "settings"},
-  { key: "access-role", label: "Access Role", to: "/companies/:companyId/access-role", icon: "grid"},
-  { key: "projects", label: "Projects", to: "/companies/:companyId/project", icon: "layers" , children: [{ name: "All project", to: "/companies/:companyId/project" }] },
-  { key: "project-request", label: "Project Request", to: "/company/:companyId/project-request", icon: "layers"},
-  { key: "ticket", label: "Ticket", to: "/company/:companyId/ticket", icon: "layers"},
-  { key: "partners", label: "Partners", to: "/company/:companyId/partners", icon: "partners"},
-  { key: "members", label: "Members", to: "/company/:companyId/members", icon: "users"},
-  { key: "roles", label: "Roles", to: "/company/:companyId/roles", icon: "users" },
-  { key: "workflow", label: "Workflows", to: "/companies/:companyId/workflows"},
+  { key: "access-role", label: "Access Role", to: "/companies/:companyId/access-role", icon: "grid", perm: "ROLE_LIST_VIEW" },
+  { key: "projects", label: "Projects", to: "/companies/:companyId/project", icon: "layers", children: [{ name: "All project", to: "/companies/:companyId/project" }] },
+  { key: "project-request", label: "Project Request", to: "/company/:companyId/project-request", icon: "layers", perm: "PRQ_LIST_VIEW" },
+  { key: "ticket", label: "Ticket", to: "/company/:companyId/ticket", icon: "layers", perm: "TICKET_LIST_VIEW" },
+  { key: "partners", label: "Partners", to: "/company/:companyId/partners", icon: "partners", perm: "PARTNER_LIST_VIEW" },
+  { key: "members", label: "Members", to: "/company/:companyId/members", icon: "users", perm: "MEMBER_LIST_VIEW" },
+  { key: "roles", label: "Roles", to: "/company/:companyId/roles", icon: "users", perm: "ROLE_LIST_VIEW" },
+  { key: "workflow", label: "Workflows", to: "/companies/:companyId/workflows", icon: "workflow", perm: "WORKFLOW_LIST_VIEW" },
   { key: 'subscription', label: 'Subscription', to: '/company/:companyId/subscription', icon: 'doc', },
 ];
 

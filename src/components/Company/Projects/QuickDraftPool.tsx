@@ -14,7 +14,7 @@ import {
 import { Modal } from "antd";
 import { createDraftTask, deleteDraftTaskApi } from "@/services/taskService.js";
 import { toast } from "react-toastify";
-import { Can } from "@/permission/PermissionProvider";
+import { Can, usePermissions } from "@/permission/PermissionProvider";
 
 const { confirm } = Modal;
 
@@ -213,7 +213,10 @@ const QuickDraftPool: React.FC<Props> = ({
   };
 
   const overlayActive = open && !draggingFromPool;
+  const { can, loading: permLoading } = usePermissions();
+  const canUpdateTask = !permLoading && can("MOVE_BACKLOG_TO_SPRINT");
 
+const dragDisabled = !canUpdateTask;
   return (
     <>
       {/* Dimmed background */}
@@ -496,6 +499,7 @@ const QuickDraftPool: React.FC<Props> = ({
                         key={d.id}
                         draggableId={d.id}
                         index={index}
+                        isDragDisabled={dragDisabled}
                       >
                         {(drag, snap) => (
                           <div

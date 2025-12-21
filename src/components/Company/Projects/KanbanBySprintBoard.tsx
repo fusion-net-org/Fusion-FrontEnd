@@ -36,7 +36,7 @@ import {
   materializeDraftTask,
 } from "@/services/taskService.js";
 import TaskFilterBar, { type SimpleOption } from "./TaskFilterBar";
-import { Can } from "@/permission/PermissionProvider";
+import { Can, usePermissions } from "@/permission/PermissionProvider";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -375,6 +375,8 @@ export default function KanbanBySprintBoard({
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
   const [tagFilter, setTagFilter] = useState<string>("ALL");
+const { can, loading: permLoading } = usePermissions();
+const canMoveSprint = !permLoading && can("TASK_MOVE_SPRINT");
 
   const hasAnyFilterActive =
     kw.trim() !== "" ||
@@ -1203,7 +1205,11 @@ export default function KanbanBySprintBoard({
     const fromSprintId = getSprintIdFromDroppable(source.droppableId);
     const toSprintId = getSprintIdFromDroppable(destination.droppableId);
     if (!fromSprintId || !toSprintId) return;
-
+const isCrossSprint = fromSprintId !== toSprintId;
+if (isCrossSprint && !canMoveSprint) {
+  toast.error("You don't have permission to move tasks across sprints.");
+  return; // không update state => task tự snap về chỗ cũ
+}
     const fromSprint = sprints.find((sp) => sp.id === fromSprintId);
     if (fromSprint) {
       const { tasks: visibleTasks } = getSprintTasks(fromSprint);
@@ -1759,6 +1765,7 @@ const deleteConfirmModal =
                             </div>
 
                             {/* QUICK CREATE – khi updateMode thì chỉ tạo draft local */}
+                            <Can code='TASK_CREATE'>
                             <ColumnHoverCreate
                               sprint={s}
                               statusId={
@@ -1781,7 +1788,7 @@ const deleteConfirmModal =
                                 }
                               }}
                             />
-
+</Can>
                             <div className="space-y-4">
                               {tasks.map((task, idx, arr) => {
                                 const sibs = task.sourceTicketId
@@ -1833,6 +1840,7 @@ const deleteConfirmModal =
                                       >
                                         <div className="relative">
                                           {updateMode && (
+                                            <Can code='TASK_DELETE'>
                                             <button
                                               type="button"
                                               onClick={() =>
@@ -1842,6 +1850,7 @@ const deleteConfirmModal =
                                             >
                                               <Trash2 className="h-3 w-3" />
                                             </button>
+                                            </Can>
                                           )}
 
                                           <TaskCard
