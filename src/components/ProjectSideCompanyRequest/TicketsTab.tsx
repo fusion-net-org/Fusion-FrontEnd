@@ -15,11 +15,12 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 interface TicketsTabProps {
+  isClose: boolean;
   projectId: string;
   onTicketCreated?: () => void;
 }
 
-const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) => {
+const TicketsTab: React.FC<TicketsTabProps> = ({ isClose, projectId, onTicketCreated }) => {
   const navigate = useNavigate();
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const { companyId } = useParams();
@@ -30,7 +31,6 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<IProject[]>([]);
   const debouncedSearch = useDebounce(ticketSearch, 500);
-
   const [pagination, setPagination] = useState({
     pageNumber: 1,
     pageSize: 10,
@@ -178,10 +178,21 @@ const TicketsTab: React.FC<TicketsTabProps> = ({ projectId, onTicketCreated }) =
 
             {/* Create Ticket Button */}
             <button
-              onClick={() => setShowCreatePopup(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-full shadow-md transition"
+              onClick={() => {
+                if (!isClose) setShowCreatePopup(true);
+              }}
+              disabled={isClose}
+              title={isClose ? 'Project close cannot create ticket' : 'Create Ticket'}
+              className={`flex items-center gap-2 px-4 py-2 text-sm rounded-full shadow-md transition
+              ${
+                isClose
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
+              }
+            `}
             >
-              <MessageSquare className="w-4 h-4" /> Create Ticket
+              <MessageSquare className="w-4 h-4" />
+              Create Ticket
             </button>
           </div>
         </div>

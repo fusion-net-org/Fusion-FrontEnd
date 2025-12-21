@@ -169,7 +169,7 @@ const ProjectRequestPage: React.FC = () => {
         sortColumn,
         sortDescending,
       );
-
+      console.log('project reqeust,', res.items);
       setData(res.items || []);
       setTotalCount(res.totalCount || 0);
       setPageNumber(pageParam);
@@ -527,6 +527,7 @@ const ProjectRequestPage: React.FC = () => {
               </th>{' '}
               <th className="px-4 py-3 font-medium text-center">Have Project</th>
               <th className="px-4 py-3 font-medium text-center">Deleted</th>
+              <th className="px-4 py-3 font-medium text-center">IsClosed</th>
               <th className="px-4 py-3 font-medium text-center">Contract</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
               {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
@@ -582,6 +583,14 @@ const ProjectRequestPage: React.FC = () => {
                     {/*  isDeleted */}
                     <td className="px-4 py-3 text-center">
                       {item.isDeleted ? (
+                        <span className="text-red-600 font-medium">Yes</span>
+                      ) : (
+                        <span className="text-green-600 font-medium">No</span>
+                      )}
+                    </td>
+                    {/*  IsClosed */}
+                    <td className="px-4 py-3 text-center">
+                      {item.isClosed ? (
                         <span className="text-red-600 font-medium">Yes</span>
                       ) : (
                         <span className="text-green-600 font-medium">No</span>

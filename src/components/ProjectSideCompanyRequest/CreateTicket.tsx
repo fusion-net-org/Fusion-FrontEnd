@@ -56,6 +56,11 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
   };
 
   const handleCreate = async () => {
+    if (!selectedProjectId) {
+      toast.warning('Please Choose Project');
+      return;
+    }
+
     if (!ticketName.trim()) {
       toast.warning('Ticket name is required!');
       return;
@@ -121,29 +126,33 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
       >
         <div className="flex flex-col gap-4">
           {/* Project dropdown only if projects exist */}
-          {projects.length > 0 && (
-            <div className="flex flex-col w-full">
-              <label className="font-semibold mb-1">Project</label>
-              <Select
-                value={selectedProjectId}
-                onChange={(value) => {
-                  setSelectedProjectId(value);
-                  const selected = projects.find((p) => p.id === value);
-                  setCompanyRequestName(selected?.companyRequestName || '');
-                  setCompanyExecutorName(selected?.companyExecutorName || '');
-                }}
-                allowClear
-                className="w-full"
-                placeholder="Select project (optional)"
-              >
-                {projects.map((p) => (
-                  <Option key={p.id} value={p.id}>
-                    {p.name}
-                  </Option>
-                ))}
-              </Select>
-            </div>
-          )}
+          <div className="flex flex-col w-full">
+            <label className="font-semibold mb-1">Project</label>
+            <Select
+              value={selectedProjectId || undefined}
+              onChange={(value) => {
+                setSelectedProjectId(value);
+                const selected = projects.find((p) => p.id === value);
+                setCompanyRequestName(selected?.companyRequestName || '');
+                setCompanyExecutorName(selected?.companyExecutorName || '');
+              }}
+              className="w-full"
+              placeholder="Select project"
+              disabled={projects.length === 0}
+            >
+              {projects.map((p) => (
+                <Option key={p.id} value={p.id}>
+                  {p.name}
+                </Option>
+              ))}
+            </Select>
+            {projects.length === 0 && (
+              <span className="text-sm text-gray-700 mt-1">
+                No project available. Please create or join a project first.
+              </span>
+            )}
+          </div>
+
           {selectedProjectId && (
             <div className="flex gap-3 mt-2">
               <div className="flex flex-col w-1/2">

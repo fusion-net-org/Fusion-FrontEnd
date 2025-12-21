@@ -62,19 +62,33 @@ const MemberCharts: React.FC<MemberChartsProps> = ({ projectId }) => {
       {/* Chart 2: Gender Distribution → Pie Chart */}
       <Card title="Gender Distribution" className="shadow-inner border rounded-2xl">
         <Chart
-          type="donut"
-          series={chartsData.genderDistribution.map((item: any) => item.count)}
+          type="bar"
+          series={[
+            {
+              name: 'Members',
+              data: chartsData.genderDistribution.map((item: any) => item.count),
+            },
+          ]}
           options={{
-            labels: chartsData.genderDistribution.map((item: any) => item.gender),
+            chart: { toolbar: { show: true } },
+            plotOptions: {
+              bar: {
+                horizontal: false,
+                columnWidth: '50%',
+              },
+            },
+            xaxis: {
+              categories: chartsData.genderDistribution.map((item: any) => item.gender),
+            },
             colors: COLORS,
-            legend: { position: 'bottom' },
+            dataLabels: { enabled: true },
             tooltip: { y: { formatter: (val: number) => `${val} members` } },
           }}
           height={250}
         />
       </Card>
 
-      {/* Chart 3: Status Distribution → Horizontal Bar */}
+      {/* Chart 3: Status Distribution → Column Chart */}
       <Card title="Status Distribution" className="shadow-inner border rounded-2xl">
         <Chart
           type="bar"
@@ -85,9 +99,16 @@ const MemberCharts: React.FC<MemberChartsProps> = ({ projectId }) => {
             },
           ]}
           options={{
-            chart: { stacked: false, toolbar: { show: true } },
-            plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
-            xaxis: { categories: chartsData.statusDistribution.map((item: any) => item.status) },
+            chart: { toolbar: { show: true } },
+            plotOptions: {
+              bar: {
+                horizontal: false,
+                columnWidth: '50%',
+              },
+            },
+            xaxis: {
+              categories: chartsData.statusDistribution.map((item: any) => item.status),
+            },
             colors: ['#10b981'],
             dataLabels: { enabled: true },
             tooltip: { y: { formatter: (val: number) => `${val} members` } },
