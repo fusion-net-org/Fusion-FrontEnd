@@ -455,6 +455,7 @@ const RoleListTab = ({ companyId }: { companyId: string }) => {
     setLoading(true);
     try {
       const res = await getRoleCompanyByAdmin({
+        CompanyId: companyId,
         Keyword: debouncedSearch,
         PageNumber: page,
         PageSize: pageSize,
