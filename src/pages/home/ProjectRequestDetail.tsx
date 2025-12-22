@@ -199,14 +199,14 @@ export default function ProjectRequestDetail() {
                   </h3>
 
                   {viewMode === 'AsRequester' && projectRequest?.status === 'Pending' && (
-                    <Can code='PRQ_UPDATE'>
-                    <button
-                      onClick={() => setEditModalOpen(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full shadow-md transition"
-                    >
-                      <Layers className="w-4 h-4" />
-                      Edit Request
-                    </button>
+                    <Can code="PRQ_UPDATE">
+                      <button
+                        onClick={() => setEditModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full shadow-md transition"
+                      >
+                        <Layers className="w-4 h-4" />
+                        Edit Request
+                      </button>
                     </Can>
                   )}
                 </div>
@@ -303,14 +303,14 @@ export default function ProjectRequestDetail() {
 
                   {/* Attachment */}
                   {contract.attachment && (
-                    <Can code='CONTRACT_VIEW'>
-                    <button
-                      onClick={() => window.open(contract.attachment, '_blank')}
-                      className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow transition"
-                    >
-                      <ClipboardList className="w-4 h-4" />
-                      View Contract Attachment
-                    </button>
+                    <Can code="CONTRACT_VIEW">
+                      <button
+                        onClick={() => window.open(contract.attachment, '_blank')}
+                        className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow transition"
+                      >
+                        <ClipboardList className="w-4 h-4" />
+                        View Contract Attachment
+                      </button>
                     </Can>
                   )}
                 </div>
@@ -344,6 +344,7 @@ export default function ProjectRequestDetail() {
               <div className="flex justify-end gap-4">
                 {/* Delete / Restore */}
                 {(viewMode === 'AsRequester' || viewMode === 'AsExecutor') &&
+                  projectRequest?.status === 'Pending' &&
                   projectRequest &&
                   (!projectRequest.isDeleted ? (
                     <ActionButton
@@ -366,25 +367,24 @@ export default function ProjectRequestDetail() {
                 {/* Accept / Decline */}
                 {viewMode === 'AsExecutor' && projectRequest?.status === 'Pending' && (
                   <>
-                  <Can code='PRQ_ACCEPT'>
-                    <ActionButton
-                      color="green"
-                      label="Accept Invitation"
-                      icon={<CheckCircle2 />}
-                      onClick={handleAccept}
-                      disabled={isDeleted}
-                    />
-                  </Can>
-                  <Can code='PRQ_REJECT'>
-                    <ActionButton
-                      color="red"
-                      label="Reject Inviation"
-                      icon={<XCircle />}
-                      onClick={openRejectModal}
-                      disabled={isDeleted}
-                    />
-                  </Can>
-
+                    <Can code="PRQ_ACCEPT">
+                      <ActionButton
+                        color="green"
+                        label="Accept Invitation"
+                        icon={<CheckCircle2 />}
+                        onClick={handleAccept}
+                        disabled={isDeleted}
+                      />
+                    </Can>
+                    <Can code="PRQ_REJECT">
+                      <ActionButton
+                        color="red"
+                        label="Reject Inviation"
+                        icon={<XCircle />}
+                        onClick={openRejectModal}
+                        disabled={isDeleted}
+                      />
+                    </Can>
                   </>
                 )}
 
@@ -417,14 +417,14 @@ export default function ProjectRequestDetail() {
 
                 {/* Navigate / Create Project */}
                 {projectRequest?.status === 'Accepted' && !projectRequest?.isHaveProject && (
-                  <Can code='PROJECT_CREATE'>
-                  <ActionButton
-                    color="green"
-                    label="Create New Project Now"
-                    icon={<CheckCircle2 />}
-                    onClick={() => setProjectCreateModalOpen(true)}
-                    disabled={isDeleted || viewMode === 'AsRequester'}
-                  />
+                  <Can code="PROJECT_CREATE">
+                    <ActionButton
+                      color="green"
+                      label="Create New Project Now"
+                      icon={<CheckCircle2 />}
+                      onClick={() => setProjectCreateModalOpen(true)}
+                      disabled={isDeleted || viewMode === 'AsRequester'}
+                    />
                   </Can>
                 )}
               </div>
