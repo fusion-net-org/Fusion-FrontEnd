@@ -324,6 +324,15 @@ export const GetProjectByCompanyRequest = async (id) => {
   }
 };
 
+export const GetProjectProcess = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/projects/${id}/progress`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
 export const getAllProjectByAdmin = async ({
   CompanyName = '',
   PageNumber = 1,
@@ -420,18 +429,18 @@ export async function deleteProject(projectId) {
   return res.data;
 }
 export async function closeProject(projectId) {
-  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
   const { data } = await axiosInstance.post(`/projects/${projectId}/close`);
   return data?.data ?? data;
 }
 
 export async function reopenProject(projectId) {
-  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
   const { data } = await axiosInstance.post(`/projects/${projectId}/reopen`);
   return data?.data ?? data;
 }
 export const checkProjectAccess = async (projectId) => {
-  if (!isGuid(projectId)) throw new Error("Invalid projectId");
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
 
   const { data } = await axiosInstance.get(`/projects/${projectId}/access`);
   return data?.data ?? data;
