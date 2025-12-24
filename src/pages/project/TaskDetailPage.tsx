@@ -36,6 +36,7 @@ import { toast } from "react-toastify";
 import { getProjectMembersWithRole } from "@/services/projectMember.js";
 import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 import { Can, usePermissions } from "@/permission/PermissionProvider";
+import TaskAuditLogList from "@/components/Company/Task/TaskAuditLogList";
 
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
@@ -473,28 +474,7 @@ const canEditSprint = !permLoading && can(PERM.SPRINT_EDIT);
               setComments(mapped);
             } else {
               // fallback hệ thống đơn giản
-              setComments([
-                {
-                  id: "c1",
-                  author: task.assignees?.[0]?.name || "System",
-                  createdAt: task.createdAt,
-                  message: `Ticket created with status "${
-                    (task as any).StatusName || task.statusCode
-                  }"`,
-                  attachments: [],
-                  isSystem: true,
-                },
-                {
-                  id: "c2",
-                  author: task.assignees?.[0]?.name || "System",
-                  createdAt: task.updatedAt,
-                  message: `Last updated – status "${
-                    (task as any).StatusName || task.statusCode
-                  }"`,
-                  attachments: [],
-                  isSystem: true,
-                },
-              ]);
+            setComments([]);
             }
           }
         } catch (err) {
@@ -1874,6 +1854,9 @@ const draftMeta =
                 </div>
               )}
             </div>
+            <div className="mt-4">
+  <TaskAuditLogList taskId={model.id} compact />
+</div>
           </div>
         </div>
 

@@ -68,8 +68,8 @@ function Inner() {
 
   const viewTabs: { id: "Kanban" | "Sprint" | "List"; label: string; icon: JSX.Element }[] =
     [
-      { id: "Kanban", label: "Kanban", icon: <LayoutGrid className="size-3.5" /> },
-      { id: "Sprint", label: "Sprint", icon: <Flag className="size-3.5" /> },
+      { id: "Kanban", label: "Board", icon: <LayoutGrid className="size-3.5" /> },
+      { id: "Sprint", label: "Sprint Insights", icon: <Flag className="size-3.5" /> },
       { id: "List", label: "List", icon: <ListChecks className="size-3.5" /> },
     ];
 

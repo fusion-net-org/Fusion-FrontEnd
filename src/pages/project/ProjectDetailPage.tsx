@@ -45,6 +45,7 @@ import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
 import { getWorkflowPreviews } from "@/services/workflowService.js";
 import type { WorkflowPreviewVm } from "@/types/workflow";
 import { Can } from "@/permission/PermissionProvider";
+import ProjectActivityTimeline from "@/components/Company/Projects/ProjectActivityTimeline";
 
 // ===== Local types =====
 
@@ -978,7 +979,7 @@ const handleReopenProject = async () => {
 
           {/* RIGHT: actions */}
           <div className="mt-1 flex flex-row gap-2 sm:flex-col xl:mt-0 xl:ml-6 relative">
-            <button
+            {/* <button
               type="button"
               onClick={handleOpenBoard}
               disabled={!companyId || !projectId}
@@ -986,12 +987,12 @@ const handleReopenProject = async () => {
             >
               <Activity className="size-4" />
               Open board
-            </button>
+            </button> */}
 
             <button
               type="button"
               onClick={() => setActionsOpen((x) => !x)}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
             >
               <MoreHorizontal className="size-4" />
               Project actions
@@ -1379,14 +1380,11 @@ const handleReopenProject = async () => {
         </div>
       )}
 
-      {activeTab === "activity" && (
-        <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 text-sm text-slate-600">
-          <p className="text-xs text-slate-500 mb-2">
-            Activity timeline will be wired to audit logs / ticket events later.
-          </p>
-          <p className="text-xs text-slate-500">No activity data yet.</p>
-        </div>
-      )}
+   {activeTab === "activity" && (
+  <div className="mt-5">
+    <ProjectActivityTimeline projectId={project.id} />
+  </div>
+)}
 
       {/* Workflow Preview Modal */}
       {workflowPreviewOpen && project.workflowId && (
