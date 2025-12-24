@@ -164,6 +164,7 @@ function useFuseKanbanStyles() {
   }, []);
 }
 
+
 /* === helpers === */
 
 const flattenSprintTasks = (
@@ -594,12 +595,83 @@ const canMoveSprint = !permLoading && can("TASK_MOVE_SPRINT");
     setCreateError(null);
     setCreateSprintOpen(true);
   };
+  const [optimisticAiBySprint, setOptimisticAiBySprint] = React.useState<
+    Record<string, TaskVm[]>
+  >({});
+  const aiTimersRef = React.useRef<number[]>([]);
 
+  React.useEffect(() => {
+    return () => {
+      aiTimersRef.current.forEach((id) => window.clearTimeout(id));
+      aiTimersRef.current = [];
+    };
+  }, []);
+
+  const viewSprints = React.useMemo(() => {
+    if (!Object.keys(optimisticAiBySprint).length) return sprints;
+
+    return sprints.map((sp) => {
+      const extra = optimisticAiBySprint[sp.id] ?? [];
+      if (!extra.length) return sp;
+
+      const cols: Record<string, TaskVm[]> = { ...(sp.columns ?? {}) };
+
+      for (const t of extra) {
+        const stId =
+          t.workflowStatusId ??
+          sp.statusOrder?.[0] ??
+          Object.keys(cols)[0];
+
+        if (!stId) continue;
+
+        const arr = Array.isArray(cols[stId]) ? [...cols[stId]] : [];
+        if (!arr.some((x) => x.id === t.id)) arr.unshift(t);
+        cols[stId] = arr;
+      }
+
+      return { ...sp, columns: cols };
+    });
+  }, [sprints, optimisticAiBySprint]);
   const closeCreateSprintModal = () => {
     if (creatingSprint) return;
     setCreateSprintOpen(false);
     setCreateError(null);
   };
+const enqueueAiTasks = React.useCallback(
+  (tasks: TaskVm[], sprintOrder?: string[]) => {
+    const list = (tasks ?? []).filter((t) => t?.id && t?.sprintId);
+
+    if (sprintOrder?.length) {
+      const idxMap = new Map(sprintOrder.map((id, i) => [id, i]));
+      list.sort((a, b) => (idxMap.get(a.sprintId!) ?? 9999) - (idxMap.get(b.sprintId!) ?? 9999));
+    }
+
+    aiTimersRef.current.forEach((id) => window.clearTimeout(id));
+    aiTimersRef.current = [];
+
+    const STEP_MS = 450; 
+
+    list.forEach((t, i) => {
+      const timerId = window.setTimeout(() => {
+        // add optimistic
+        setOptimisticAiBySprint((prev) => {
+          const sid = t.sprintId!;
+          const curr = prev[sid] ?? [];
+          if (curr.some((x) => x.id === t.id)) return prev;
+          return { ...prev, [sid]: [t, ...curr] };
+        });
+
+        // highlight AI + pop like new task
+        setAiNewIds((prev) => ({ ...prev, [t.id]: true }));
+        setFlashTaskId(t.id);
+        bumpTask(t.id);
+      }, i * STEP_MS);
+
+      aiTimersRef.current.push(timerId);
+    });
+  },
+  [bumpTask],
+);
 
   const handleSubmitCreateSprint = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
@@ -990,18 +1062,33 @@ const canMoveSprint = !permLoading && can("TASK_MOVE_SPRINT");
 
   /* ====== Helper: lấy tasks của 1 sprint ====== */
 
- const getSprintTasks = React.useCallback(
+const getSprintTasks = React.useCallback(
   (s: SprintVm): { allTasks: TaskVm[]; tasks: TaskVm[] } => {
-    const allTasks =
+    const baseAll =
       updateMode && draftTasksBySprint
         ? draftTasksBySprint[s.id] ?? []
         : flattenSprintTasks(s, "ALL");
 
-    let tasks = allTasks;
-    if (!updateMode) {
-      tasks = allTasks.filter(matchesFilters);
-    }
+    // ✅ thêm optimistic tasks vào đầu list (unique theo id)
+    const optimistic = optimisticAiBySprint[s.id] ?? [];
+    const mergedAll = (() => {
+      if (!optimistic.length) return baseAll;
+      const seen = new Set<string>();
+      const out: TaskVm[] = [];
+      for (const t of [...optimistic, ...baseAll]) {
+        if (!t?.id) continue;
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
+        out.push(t);
+      }
+      return out;
+    })();
 
+    let tasks = mergedAll;
+    if (!updateMode) tasks = mergedAll.filter(matchesFilters);
+
+    // ... giữ nguyên phần decorated sort của bạn
+    // (bumpTask sẽ đẩy lên trên + giữ thứ tự ổn)
     if (tasks.length) {
       const decorated = tasks.map((t, idx) => {
         const isDraft =
@@ -1018,27 +1105,20 @@ const canMoveSprint = !permLoading && can("TASK_MOVE_SPRINT");
         };
       });
 
-      // Quy tắc sort:
-      // 1) Trong updateMode: mọi task draft (vừa add vào board) phải nằm trên cùng
-      // 2) Sau đó mới tới bump (task vừa được drag / được “bumpTask” gọi)
-      // 3) Cuối cùng là giữ nguyên thứ tự cũ (idx)
       decorated.sort((a, b) => {
-        if (a.isDraft !== b.isDraft) {
-          return a.isDraft ? -1 : 1; // draft lên trước
-        }
-        if (a.bump !== b.bump) {
-          return b.bump - a.bump; // bump lớn hơn lên trên
-        }
-        return a.idx - b.idx; // ổn định thứ tự
+        if (a.isDraft !== b.isDraft) return a.isDraft ? -1 : 1;
+        if (a.bump !== b.bump) return b.bump - a.bump;
+        return a.idx - b.idx;
       });
 
       tasks = decorated.map((d) => d.t);
     }
 
-    return { allTasks, tasks };
+    return { allTasks: mergedAll, tasks };
   },
-  [updateMode, draftTasksBySprint, matchesFilters, bumpedOrder],
+  [updateMode, draftTasksBySprint, matchesFilters, bumpedOrder, optimisticAiBySprint],
 );
+
 
 
   /* ====== Drag handlers ====== */
@@ -1337,19 +1417,17 @@ if (isCrossSprint && !canMoveSprint) {
       return next;
     });
 
-    // Thoát update mode & clear mọi staging,
-    // tránh để Save changes tạo lại mấy task AI này lần nữa
     resetStaging();
     setUpdateMode(false);
+  enqueueAiTasks(generatedTasks, meta.selectedSprintIds);
 
-    // Reload board để lấy state chuẩn từ DB (bao gồm các task AI vừa lưu)
-    if (onReloadBoard) {
-      try {
-        await onReloadBoard();
-      } catch (err) {
-        console.error("[Kanban] reload board after AI failed", err);
-      }
-    }
+const STEP_MS = 450;
+const totalMs = Math.max(0, generatedTasks.length - 1) * STEP_MS + 600;
+
+window.setTimeout(async () => {
+  if (onReloadBoard) await onReloadBoard();
+  setOptimisticAiBySprint({}); 
+}, totalMs);
   };
 
 

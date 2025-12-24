@@ -12,7 +12,7 @@ import {
 
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import type { AiTaskGenerateRequest } from "@/types/aiTaskGenerate";
-import { generateAndSaveAiTasks } from "@/services/AITaskService.js";
+import { generateAndSaveAiTasksBySprint } from "@/services/AITaskService.js";
 
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
@@ -171,55 +171,47 @@ export default function AiGenerateTasksModal({
     goal.trim().length > 0 &&
     (selectedSprints.length > 0 || sprints.length > 0);
 
-  const boardSprintContext = useMemo(
-    () =>
-      (selectedSprints.length > 0 ? selectedSprints : sprints).map((sp) => ({
-        id: sp.id,
-        name: sp.name,
-        start: sp.start ?? null,
-        end: sp.end ?? null,
-        state: (sp as any).state ?? null,
-        capacityHours: sp.capacityHours ?? null,
-        committedPoints: (sp as any).committedPoints ?? null,
-      })),
-    [selectedSprints, sprints],
-  );
+ const boardSprintContext = useMemo(
+  () =>
+    sprints.map((sp) => ({
+      id: sp.id,
+      name: sp.name,
+      start: sp.start ?? null,
+      end: sp.end ?? null,
+      state: (sp as any).state ?? null,
+      capacityHours: sp.capacityHours ?? null,
+      committedPoints: (sp as any).committedPoints ?? null,
+    })),
+  [sprints],
+);
 
-  const boardTasksContext = useMemo(() => {
-    if (!existingTasks || existingTasks.length === 0) return [];
+const boardTasksContext = useMemo(() => {
+  if (!existingTasks || existingTasks.length === 0) return [];
 
-    const targetIds =
-      selectedSprintIds.length > 0
-        ? new Set(selectedSprintIds)
-        : new Set(sprints.map((sp) => sp.id));
+  // sample tối đa 120 task toàn board
+  const slice = existingTasks.slice(0, 120);
 
-    const slice = existingTasks
-      .filter((t) => t.sprintId && targetIds.has(t.sprintId))
-      .slice(0, 80);
+  return slice.map((t) => {
+    const sprintName =
+      sprints.find((sp) => sp.id === t.sprintId)?.name ?? undefined;
 
-    return slice.map((t) => {
-      const sprintName =
-        sprints.find((sp) => sp.id === t.sprintId)?.name ?? undefined;
+    return {
+      id: t.id,
+      code: (t as any).code ?? null,
+      title: t.title,
+      type: t.type,
+      priority: t.priority,
+      severity: t.severity ?? null,
+      sprintId: t.sprintId ?? null,
+      sprintName: sprintName ?? null,
+      statusCode: (t as any).statusCode ?? null,
+      statusCategory: t.statusCategory ?? null,
+      estimateHours: (t as any).estimateHours ?? null,
+      storyPoints: (t as any).storyPoints ?? (t as any).point ?? null,
+    };
+  });
+}, [existingTasks, sprints]);
 
-      return {
-        id: t.id,
-        code: (t as any).code ?? null,
-        title: t.title,
-        type: t.type,
-        priority: t.priority,
-        severity: t.severity ?? null,
-        sprintId: t.sprintId ?? null,
-        sprintName: sprintName ?? null,
-        statusCode: (t as any).statusCode ?? null,
-        statusCategory: t.statusCategory ?? null,
-        estimateHours: (t as any).estimateHours ?? null,
-        storyPoints:
-          (t as any).storyPoints ??
-          (t as any).point ??
-          null,
-      };
-    });
-  }, [existingTasks, sprints, selectedSprintIds]);
 
   const buildRequest = (): AiTaskGenerateRequest | null => {
     const targetSprints =
@@ -253,7 +245,12 @@ export default function AiGenerateTasksModal({
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-
+const ids =
+  selectedSprints.length > 0
+    ? selectedSprints.map((sp) => sp.id)
+    : sprints[0]
+    ? [sprints[0].id]
+    : [];
     const req: AiTaskGenerateRequest = {
       projectId,
       projectName,
@@ -265,6 +262,7 @@ export default function AiGenerateTasksModal({
         end: mainSprint.end ?? null,
         capacityHours: mainSprint.capacityHours ?? null,
       },
+  targetSprintIds: ids,
 
       // nếu BE có thêm field targetSprintIds thì truyền luôn,
       // nếu không sẽ bị bỏ qua, không sao.
@@ -369,31 +367,22 @@ export default function AiGenerateTasksModal({
     try {
       console.log("[AI TASK GENERATE] request DTO = ", req);
 
-      const res = await generateAndSaveAiTasks(req);
+const res = await generateAndSaveAiTasksBySprint(req);
 
-      const tasks: TaskVm[] = Array.isArray(res)
-        ? res
-        : Array.isArray((res as any)?.items)
-        ? (res as any).items
-        : [];
+const flat: TaskVm[] = Array.isArray(res?.sprints)
+  ? res.sprints.flatMap((x: { tasks?: TaskVm[] | null }) => x.tasks ?? [])
+  : [];
 
-      if (onGenerated) {
-        const ids =
-          selectedSprints.length > 0
-            ? selectedSprints.map((sp) => sp.id)
-            : sprints[0]
-            ? [sprints[0].id]
-            : [];
+const tasks: TaskVm[] = flat;
 
-        const defaultSprintId = ids[0] ?? "";
+// ✅ THÊM DÒNG NÀY (đẩy task về board)
+onGenerated?.(tasks, {
+  defaultSprintId: primarySprint?.id ?? (selectedSprints[0]?.id ?? ""),
+  selectedSprintIds,
+});
 
-        onGenerated(tasks, {
-          defaultSprintId,
-          selectedSprintIds: ids.length > 0 ? ids : undefined,
-        });
-      }
+onClose();
 
-      onClose();
     } catch (err: any) {
       console.error("[AI TASK GENERATE] failed", err);
       setErrorText(
