@@ -31,7 +31,7 @@ import { getSprintByProjectId } from '@/services/sprintService.js';
 import type { ISprintResponse } from '@/interfaces/Sprint/sprint';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { closeProject, reopenProject } from '@/services/projectService.js';
+import { closeProject, reopenProject, GetProjectProcess } from '@/services/projectService.js';
 import CloseProjectModal from '@/components/ProjectSideCompanyRequest/CloseProjectModal';
 import ReopenProjectModal from '@/components/ProjectSideCompanyRequest/ReopenProjectModal';
 
@@ -51,6 +51,7 @@ type TicketExcelRow = {
 const ProjectCompanyRequest = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
+  const [progress, setProgress] = useState<number>();
   const [sprints, setSprints] = useState<ISprintResponse>();
   const [projectMembers, setProjectMembers] = useState<IProjectMemberV2>();
   const [projectTickets, setProjectTickets] = useState<{ items: ITicket[]; totalCount: number }>({
@@ -114,7 +115,15 @@ const ProjectCompanyRequest = () => {
         toast.error('Failed to fetch project');
       }
     };
-
+    const fetchProgressProject = async () => {
+      try {
+        const res = await GetProjectProcess(projectId);
+        console.log('Progress', res.data.progressPercent);
+        setProgress(res.data.progressPercent);
+      } catch (error) {
+        console.log(error);
+      }
+    };
     const fetchMembersCount = async () => {
       try {
         const res = await getProjectMemberByProjectId(projectId, '', '', '', 1, 1000);
@@ -160,6 +169,7 @@ const ProjectCompanyRequest = () => {
     };
 
     fetchProject();
+    fetchProgressProject();
     fetchSprints();
     fetchMembersCount();
     fetchTicketsCount();
@@ -452,10 +462,10 @@ const ProjectCompanyRequest = () => {
           <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden shadow-sm">
             <div
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 ease-in-out"
-              style={{ width: `${96}%` }}
+              style={{ width: `${progress}%` }}
             ></div>
             <span className="absolute right-3 top-1/2 transform -translate-y-1/2 font-semibold text-gray-900">
-              96%
+              {progress}
             </span>
           </div>
 
