@@ -43,7 +43,7 @@
   { "id": 71, "functionCode": "TASK_CHECKLIST_DELETE", "functionName": "Delete checklist item from task", "pageCode": "TASK", "sortOrder": 12 },
 
   { "id": 108, "functionCode": "TASK_DETAIL_UPDATE", "functionName": "Detail task update", "pageCode": "TASK", "sortOrder": 13 },
-  { "id": 106, "functionCode": "TASK_ADD_ATTACHMENT", "functionName": "Update attachment", "pageCode": "TASK", "sortOrder": 14 },
+  { "id": 106, "functionCode": "TASK_ADD_ATTACHMENT", "functionName": "Add attachment", "pageCode": "TASK", "sortOrder": 14 },
   { "id": 107, "functionCode": "TASK_DELETE_ATTACHMENT", "functionName": "Delete attachment", "pageCode": "TASK", "sortOrder": 15 },
   { "id": 100, "functionCode": "TASK_SPLIT", "functionName": "Split task", "pageCode": "TASK", "sortOrder": 16 },
   { "id": 101, "functionCode": "TASK_CHANGE_SPRINT", "functionName": "Change sprint task", "pageCode": "TASK", "sortOrder": 17 },

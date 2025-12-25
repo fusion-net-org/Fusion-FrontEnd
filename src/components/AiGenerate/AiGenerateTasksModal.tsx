@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   X,
   Target,
@@ -8,11 +8,12 @@ import {
   ListChecks,
   Settings2,
   ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import type { AiTaskGenerateRequest } from "@/types/aiTaskGenerate";
-import { generateAndSaveAiTasksBySprint } from "@/services/AITaskService.js";
+import { generateAndSaveAiTasksBySprint} from "@/services/AITaskService.js";
 
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
@@ -99,6 +100,7 @@ export default function AiGenerateTasksModal({
   const [acceptanceHint, setAcceptanceHint] = useState(
     "Each task should include bullet-point acceptance criteria that are clear and testable.",
   );
+
 
   const [outputConfig, setOutputConfig] = useState({
     includeTitle: true,
@@ -872,7 +874,7 @@ onClose();
             </section>
 
             {/* Team & assignment */}
-            <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            {/* <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <div className="mb-2 flex items-center gap-2">
                 <Users className="h-4 w-4 text-blue-500" />
                 <div>
@@ -976,11 +978,11 @@ onClose();
                   </div>
                 </div>
               </div>
-            </section>
+            </section> */}
 
             {/* Requirements & output format */}
             <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2 flex items-ceznter gap-2">
                 <ShieldCheck className="h-4 w-4 text-blue-500" />
                 <div>
                   <h3 className="text-xs font-semibold text-slate-900">
@@ -1059,17 +1061,11 @@ onClose();
           </div>
         </div>
 
+
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
           <div className="flex flex-col items-start gap-1 text-[11px] text-slate-500">
-            <div className="flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
-              <span>
-                AI will generate tasks and add them directly into the selected
-                sprint(s). You can edit or delete them later using the normal
-                task workflow.
-              </span>
-            </div>
+          
             {errorText && (
               <span className="text-[11px] text-red-500">{errorText}</span>
             )}

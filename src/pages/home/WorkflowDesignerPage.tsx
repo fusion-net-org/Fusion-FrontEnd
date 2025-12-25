@@ -8,9 +8,38 @@ import { toast } from "react-toastify";
 
 const makeInitialDto = (name = "New Workflow"): DesignerDto => {
   const uid = () => (typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2));
-  const s1 = { id: uid(), name: "Start", isStart: true,  isEnd: false, x: 200, y: 350, roles: ["Reporter"],  color: "#10b981" };
-  const s2 = { id: uid(), name: "Work",  isStart: false, isEnd: false, x: 520, y: 350, roles: ["Developer"], color: "#4f46e5" };
-  const s3 = { id: uid(), name: "Done",  isStart: false, isEnd: true,  x: 840, y: 350, roles: ["Reviewer","QA"], color: "#111827" };
+  const s1 = {
+    id: uid(),
+    name: "To Do",
+    isStart: true,
+    isEnd: false,
+    x: 200,
+    y: 350,
+    roles: ["Developer"],
+    color: "#6b7280",
+  };
+
+  const s2 = {
+    id: uid(),
+    name: "In Review",
+    isStart: false,
+    isEnd: false,
+    x: 520,
+    y: 350,
+    roles: ["Reviewer"],
+    color: "#4f46e5",
+  };
+
+  const s3 = {
+    id: uid(),
+    name: "Done",
+    isStart: false,
+    isEnd: true,
+    x: 840,
+    y: 350,
+    roles: ["QA"],
+    color: "#16a34a",
+  };
   return {
     workflow: { id: uid(), name },
     statuses: [s1, s2, s3],
@@ -20,6 +49,16 @@ const makeInitialDto = (name = "New Workflow"): DesignerDto => {
       { fromStatusId: s3.id, toStatusId: s2.id, type: "failure", label: "Rework" },
     ],
   };
+};
+const validateWorkflow = (p: DesignerDto) => {
+  const statuses = p.statuses ?? [];
+  const starts = statuses.filter((s) => !!s.isStart);
+  const ends = statuses.filter((s) => !!s.isEnd);
+
+   if (starts.length !== 1) return "A workflow must have exactly one Start status.";
+  if (ends.length !== 1) return "A workflow must have exactly one End status.";
+  if (starts[0].id === ends[0].id) return "Start and End cannot be the same status.";
+  return null;
 };
 
 export default function WorkflowDesignerPage() {
@@ -42,22 +81,29 @@ export default function WorkflowDesignerPage() {
 
   const title = isEdit ? "Edit workflow" : "Create workflow";
 
-  const onSave = async (payload: DesignerDto) => {
-    let wfId = workflowId;
-    if (!isEdit) {
-      const created = await postWorkflowWithDesigner(companyId, payload);
-      wfId = typeof created === "string" ? created : (created as any)?.id;
-      if (!wfId) throw new Error("Cannot get workflowId from POST response");
-    }
-    await putWorkflowDesigner(companyId, wfId!, {
-      ...payload,
-      workflow: { id: wfId!, name: payload.workflow.name },
-    });
-    // điều hướng về list hoặc trang chi tiết
-    // nav(`/companies/${companyId}/workflows/${wfId}`);
-    toast("Workflow saved successfully!");
-    nav(-1);
-  };
+ const onSave = async (payload: DesignerDto) => {
+  const err = validateWorkflow(payload);
+  if (err) {
+    toast.error(err);
+    return;
+  }
+
+  let wfId = workflowId;
+  if (!isEdit) {
+    const created = await postWorkflowWithDesigner(companyId, payload);
+    wfId = typeof created === "string" ? created : (created as any)?.id;
+    if (!wfId) throw new Error("Cannot get workflowId from POST response");
+  }
+
+  await putWorkflowDesigner(companyId, wfId!, {
+    ...payload,
+    workflow: { id: wfId!, name: payload.workflow.name },
+  });
+
+  toast("Workflow saved successfully!");
+  nav(-1);
+};
+
 
   if (loading) return <div className="h-[80vh] grid place-items-center text-gray-500">Loading...</div>;
 
