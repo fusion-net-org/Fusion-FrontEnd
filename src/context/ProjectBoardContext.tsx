@@ -289,8 +289,7 @@ export function ProjectBoardProvider({
       const ticketId: string | null =
         api.sourceTicketId ??
         api.ticketId ??
-        api.sourceTaskId ??
-        existing?.sourceTicketId ??
+        
         null;
 
       const ticketCode: string | null =
