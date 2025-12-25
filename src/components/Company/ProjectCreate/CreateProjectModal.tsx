@@ -207,35 +207,37 @@ const makeInitialDto = (name = 'New Workflow'): DesignerDto => {
     typeof crypto !== 'undefined' && (crypto as any).randomUUID
       ? (crypto as any).randomUUID()
       : Math.random().toString(36).slice(2);
-  const s1 = {
+   const s1 = {
     id: uid(),
-    name: 'Start',
+    name: "To Do",
     isStart: true,
     isEnd: false,
     x: 200,
     y: 350,
-    roles: ['Reporter'],
-    color: '#10b981',
+    roles: ["Developer"],
+    color: "#6b7280",
   };
+
   const s2 = {
     id: uid(),
-    name: 'Work',
+    name: "In Review",
     isStart: false,
     isEnd: false,
     x: 520,
     y: 350,
-    roles: ['Developer'],
-    color: '#4f46e5',
+    roles: ["Reviewer"],
+    color: "#4f46e5",
   };
+
   const s3 = {
     id: uid(),
-    name: 'Done',
+    name: "Done",
     isStart: false,
     isEnd: true,
     x: 840,
     y: 350,
-    roles: ['Reviewer', 'QA'],
-    color: '#111827',
+    roles: ["QA"],
+    color: "#16a34a",
   };
   return {
     workflow: { id: uid(), name },

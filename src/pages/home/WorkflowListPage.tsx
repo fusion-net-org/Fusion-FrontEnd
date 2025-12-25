@@ -193,12 +193,14 @@ export default function WorkflowListPage() {
                 >
                   <Eye size={16} /> Preview
                 </button>
+                <Can code="WORKFLOW_UPDATE">
                 <button
                   onClick={() => goEdit(w)}
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-sm hover:bg-black"
                 >
                   <Pencil size={16} /> Edit
                 </button>
+                </Can>
               </div>
             </div>
           ))}
