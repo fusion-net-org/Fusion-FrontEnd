@@ -50,16 +50,6 @@ const makeInitialDto = (name = "New Workflow"): DesignerDto => {
     ],
   };
 };
-const validateWorkflow = (p: DesignerDto) => {
-  const statuses = p.statuses ?? [];
-  const starts = statuses.filter((s) => !!s.isStart);
-  const ends = statuses.filter((s) => !!s.isEnd);
-
-   if (starts.length !== 1) return "A workflow must have exactly one Start status.";
-  if (ends.length !== 1) return "A workflow must have exactly one End status.";
-  if (starts[0].id === ends[0].id) return "Start and End cannot be the same status.";
-  return null;
-};
 
 export default function WorkflowDesignerPage() {
   const { companyId = "", workflowId } = useParams();
@@ -81,29 +71,22 @@ export default function WorkflowDesignerPage() {
 
   const title = isEdit ? "Edit workflow" : "Create workflow";
 
- const onSave = async (payload: DesignerDto) => {
-  const err = validateWorkflow(payload);
-  if (err) {
-    toast.error(err);
-    return;
-  }
-
-  let wfId = workflowId;
-  if (!isEdit) {
-    const created = await postWorkflowWithDesigner(companyId, payload);
-    wfId = typeof created === "string" ? created : (created as any)?.id;
-    if (!wfId) throw new Error("Cannot get workflowId from POST response");
-  }
-
-  await putWorkflowDesigner(companyId, wfId!, {
-    ...payload,
-    workflow: { id: wfId!, name: payload.workflow.name },
-  });
-
-  toast("Workflow saved successfully!");
-  nav(-1);
-};
-
+  const onSave = async (payload: DesignerDto) => {
+    let wfId = workflowId;
+    if (!isEdit) {
+      const created = await postWorkflowWithDesigner(companyId, payload);
+      wfId = typeof created === "string" ? created : (created as any)?.id;
+      if (!wfId) throw new Error("Cannot get workflowId from POST response");
+    }
+    await putWorkflowDesigner(companyId, wfId!, {
+      ...payload,
+      workflow: { id: wfId!, name: payload.workflow.name },
+    });
+    // điều hướng về list hoặc trang chi tiết
+    // nav(`/companies/${companyId}/workflows/${wfId}`);
+    toast("Workflow saved successfully!");
+    nav(-1);
+  };
 
   if (loading) return <div className="h-[80vh] grid place-items-center text-gray-500">Loading...</div>;
 
