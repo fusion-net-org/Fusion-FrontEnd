@@ -1138,7 +1138,7 @@ const draftMeta =
         statusCode: model.statusCode,
         parentTaskId: model.parentTaskId,
         sourceTaskId:
-          (model as any).sourceTaskId ?? model.sourceTicketId ?? null,
+          (model as any).sourceTaskId  ?? null,
         description,
       };
 
