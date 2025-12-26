@@ -295,6 +295,14 @@ function Inner() {
       `${t.code} ${t.title}`.toLowerCase().includes(k),
     );
   }, [tasks, query]);
+const SLA_TOOLTIP = `SLA policies:
+Bug - Urgent: 24h | High: 48h | Medium: 72h
+Feature - Urgent: 72h | High: 120h | Medium: 168h | Low: 336h
+Chore - Low: 336h
+
+Note:
+- If task has Due date -> use Due date countdown (not SLA).
+- If no Due date -> SLA = target hours from openedAt.`;
 
   return (
     <div className="w-full min-h-screen bg-50 overflow-x-hidden">
@@ -374,12 +382,14 @@ function Inner() {
                 <span className="hidden sm:inline">Detail</span>
               </button>
             )}
+           
+
           </div>
         </div>
       </div>
 
       {/* TAB BAR */}
-      <div className="border-b border-slate-200 bg-white/90">
+      <div className="border-b border-slate-200 bg-white/90 flex justify-between">
         <nav className="flex gap-6 px-8 text-sm font-medium">
           {viewTabs.map((tab) => (
             <button
@@ -397,6 +407,45 @@ function Inner() {
             </button>
           ))}
         </nav>
+        <div className="self-center">
+          {/* SLA tooltip icon (small) */}
+<span className="relative inline-flex group">
+ <button
+  type="button"
+  className="inline-flex items-center justify-center w-5 h-5 rounded-full
+             border border-slate-300 bg-slate-100 text-slate-700 text-[11px] font-extrabold leading-none
+             hover:bg-slate-200 hover:border-slate-400 hover:text-slate-800 transition
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+  aria-label="SLA policies"
+>
+  !
+</button>
+
+  {/* tooltip box */}
+  <div
+    className="
+      pointer-events-none absolute right-0 top-7 z-50
+      w-[330px] rounded-xl border border-slate-200 bg-white text-slate-800
+      shadow-[0_18px_45px_rgba(15,23,42,0.18)]
+      p-3 text-[11px] leading-5
+      opacity-0 translate-y-1
+      group-hover:opacity-100 group-hover:translate-y-0
+      transition duration-150
+    "
+  >
+    <div className="font-semibold text-[12px] mb-1">SLA policies</div>
+
+    <div className="space-y-1">
+      <div><span className="font-semibold">Bug</span> — Urgent: 24h · High: 48h · Medium: 72h</div>
+      <div><span className="font-semibold">Feature</span> — Urgent: 72h · High: 120h · Medium: 168h · Low: 336h</div>
+      <div><span className="font-semibold">Chore</span> — Low: 336h</div>
+    </div>
+
+  
+  </div>
+</span>
+
+        </div>
       </div>
 
       {/* WRAPPER */}
@@ -458,11 +507,9 @@ export default function ProjectBoardPage() {
   React.useEffect(() => {
     let dead = false;
 
-    // ✅ Lấy returnUrl từ query: ?return=/some/path
     const qs = new URLSearchParams(window.location.search);
     const rawReturn = qs.get("return");
 
-    // ✅ Chỉ cho phép internal path để tránh open-redirect
     const returnUrl =
       rawReturn && rawReturn.startsWith("/")
         ? rawReturn
@@ -470,13 +517,11 @@ export default function ProjectBoardPage() {
           ? `/companies/${companyId}/project`
           : `/`;
 
-    // ✅ URL detail (owner/creator sẽ vào đây nếu bị chặn board)
     const detailUrl =
       companyId
         ? `/companies/${companyId}/project/${projectId}/closue`
         : returnUrl;
 
-    // ✅ toast an toàn (nếu bạn đang dùng react-hot-toast/sonner thì toast đã có sẵn)
     const toastError = (msg: string) => {
       const t: any = (globalThis as any).toast || (window as any).toast;
       if (t?.error) t.error(msg);
@@ -484,7 +529,6 @@ export default function ProjectBoardPage() {
     };
 
     const go = (url: string) => {
-      // ✅ không dùng navigate
       window.location.replace(url);
     };
 
@@ -499,7 +543,6 @@ export default function ProjectBoardPage() {
         // 1) CHECK ACCESS + OPEN/CLOSED trước
         const access: any = await checkProjectAccess(projectId);
 
-        // ✅ đoán field owner/creator linh hoạt
         const isCreator = !!(
           access?.isCreator ??
           access?.isOwner ??

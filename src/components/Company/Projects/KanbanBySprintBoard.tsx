@@ -218,23 +218,43 @@ const BoardColumn = ({
   subtitle,
   right,
   children,
+  isCurrent,
+  badge,
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
   children?: React.ReactNode;
+  isCurrent?: boolean;
+  badge?: React.ReactNode;
 }) => (
   <div
     className={cn(
-      "rounded-2xl border border-gray-200 bg-white overflow-hidden ring-1 ring-blue-200 h-full flex flex-col group",
+      "rounded-2xl border overflow-hidden h-full flex flex-col group transition-all duration-200",
+      isCurrent
+        ? "border-emerald-200 ring-2 ring-emerald-300 shadow-[0_18px_50px_rgba(16,185,129,0.25)]"
+        : "border-gray-200 ring-1 ring-blue-200",
     )}
     style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)", background: "#f8f8f8" }}
   >
-    <div className="h-2 w-full" style={{ backgroundColor: brand }} />
+    <div
+      className="h-2 w-full"
+      style={{
+        backgroundColor: isCurrent ? "#10B981" : brand,
+        opacity: isCurrent ? 0.95 : 1,
+      }}
+    />
 
     <div className="p-4 pb-3 flex items-center justify-between">
-      <div className="flex flex-col gap-0.5">
-        <span className="fuse-pill fuse-pill--sheen">{title}</span>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className={cn("fuse-pill fuse-pill--sheen", isCurrent && "bg-emerald-500")}>
+            {title}
+          </span>
+
+          {badge}
+        </div>
+
         {subtitle && (
           <span className="text-[11px] text-slate-600 font-medium">{subtitle}</span>
         )}
@@ -245,6 +265,7 @@ const BoardColumn = ({
     <div className="px-4 pb-4 flex-1 overflow-auto">{children}</div>
   </div>
 );
+
 
 type Props = {
   sprints: SprintVm[];
@@ -361,6 +382,53 @@ export default function KanbanBySprintBoard({
   onDropDraftToSprint,
 }: Props) {
   useFuseKanbanStyles();
+  // ===== Realtime + Current sprint marker =====
+  const [now, setNow] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const toMs = (iso?: string | null) => {
+    if (!iso) return Number.NaN;
+    const ms = new Date(iso).getTime();
+    return Number.isNaN(ms) ? Number.NaN : ms;
+  };
+
+  const isInRange = (n: Date, start?: string | null, end?: string | null) => {
+    const s = toMs(start);
+    const e = toMs(end);
+    const x = n.getTime();
+    if (Number.isNaN(s) || Number.isNaN(e)) return false;
+    return x >= s && x <= e;
+  };
+
+  const currentSprintId = React.useMemo(() => {
+    if (!sprints.length) return "";
+
+    const running = sprints.find((sp) =>
+      isInRange(now, (sp as any).start ?? sp.start, (sp as any).end ?? sp.end),
+    );
+    if (running) return running.id;
+
+    const upcoming = sprints
+      .filter((sp) => {
+        const sMs = toMs((sp as any).start ?? sp.start);
+        return !Number.isNaN(sMs) && sMs > now.getTime();
+      })
+      .sort((a, b) => toMs((a as any).start ?? a.start) - toMs((b as any).start ?? b.start))[0];
+    if (upcoming) return upcoming.id;
+
+    const past = sprints
+      .filter((sp) => {
+        const eMs = toMs((sp as any).end ?? sp.end);
+        return !Number.isNaN(eMs) && eMs < now.getTime();
+      })
+      .sort((a, b) => toMs((b as any).end ?? b.end) - toMs((a as any).end ?? a.end))[0];
+
+    return past?.id ?? sprints[0].id;
+  }, [sprints, now]);
 
   const [flashTaskId, setFlashTaskId] = useState<string | null>(null);
   const [bumpedOrder, setBumpedOrder] = useState<Record<string, number>>({});
@@ -1069,7 +1137,6 @@ const getSprintTasks = React.useCallback(
         ? draftTasksBySprint[s.id] ?? []
         : flattenSprintTasks(s, "ALL");
 
-    // ✅ thêm optimistic tasks vào đầu list (unique theo id)
     const optimistic = optimisticAiBySprint[s.id] ?? [];
     const mergedAll = (() => {
       if (!optimistic.length) return baseAll;
@@ -1754,33 +1821,41 @@ const deleteConfirmModal =
           >
             <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5">
               {sprints.map((s) => {
-                const { allTasks, tasks } = getSprintTasks(s);
-                const stats = computeSprintStatsFromTasks(allTasks);
-                const dateLabel =
-                  (s as any).start && (s as any).end
-                    ? `${formatSprintDate((s as any).start)} - ${formatSprintDate(
-                        (s as any).end,
-                      )}`
-                    : (s as any).start
-                    ? formatSprintDate((s as any).start)
-                    : "";
+                 const { allTasks, tasks } = getSprintTasks(s);
+  const stats = computeSprintStatsFromTasks(allTasks);
 
-                return (
-                  <div key={s.id} className={`shrink-0 h-full ${COL_W} relative`}>
-                    <BoardColumn
-                      title={s.name}
-                      subtitle={dateLabel}
-                      right={
-                        <div className="flex items-center gap-2 text-[12px]">
-                          <span className="text-gray-600">
-                            {stats.total} tasks
-                          </span>
-                          <span className="font-semibold text-green-700">
-                            {stats.pct}%
-                          </span>
-                        </div>
-                      }
-                    >
+  const startIso = (s as any).start ?? s.start;
+  const endIso = (s as any).end ?? s.end;
+
+  const isCurrent = !!currentSprintId && s.id === currentSprintId;
+
+  const dateLabel =
+    startIso && endIso
+      ? `${formatSprintDate(startIso)} - ${formatSprintDate(endIso)}`
+      : startIso
+      ? formatSprintDate(startIso)
+      : "";
+
+  return (
+    <div key={s.id} className={`shrink-0 h-full ${COL_W} relative`}>
+      <BoardColumn
+        title={s.name}
+        subtitle={dateLabel}
+        isCurrent={isCurrent}
+        badge={
+          isCurrent ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700">
+              Current
+            </span>
+          ) : null
+        }
+        right={
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-gray-600">{stats.total} tasks</span>
+            <span className="font-semibold text-green-700">{stats.pct}%</span>
+          </div>
+        }
+      >
                       <Droppable
                         droppableId={`spr:${s.id}`}
                         type="task"
@@ -1819,7 +1894,6 @@ const deleteConfirmModal =
         isNew={t.id === flashTaskId}
         statusColorHex={meta?.color}
         statusLabel={meta?.name ?? meta?.code ?? ""}
-        // ✅ thêm dòng này
         isAiNew={!!aiNewIds[t.id]}
       />
     </div>,
