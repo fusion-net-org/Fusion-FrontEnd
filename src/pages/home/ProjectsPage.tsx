@@ -240,7 +240,6 @@ export default function ProjectsPage() {
     else nav(`/companies/${companyId}/project/${p.id}`);
   };
 
-  // ✅ Kanban chỉ 2 cột Active / Closed
   const kanbanGroups = React.useMemo(() => {
     return {
       Active: filtered.filter((p) => !p.isClosed),
@@ -259,12 +258,9 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md">
-            ✓
-          </div>
+       
           <div>
             <div className="text-xl font-semibold text-slate-800">Projects</div>
-            <div className="text-sm text-slate-500">Browse, filter, and jump back into your work.</div>
           </div>
         </div>
         <Can code="PROJECT_CREATE">
@@ -534,7 +530,6 @@ export default function ProjectsPage() {
             <Pagination page={page} totalPages={totalPages} onChange={setPage} />
           </div>
         ) : (
-          // ✅ Kanban chỉ Active / Closed
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <KanbanColumn
               title="Active"

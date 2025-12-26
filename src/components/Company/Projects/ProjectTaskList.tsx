@@ -687,15 +687,7 @@ export default function ProjectTaskList({
                     {/* actions */}
                     <td className="px-3 py-3 align-top whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        {!isDone && (
-                          <button
-                            className="px-2 py-1 rounded-lg border text-xs hover:bg-emerald-50 border-emerald-300 text-emerald-700"
-                            onClick={() => onMarkDone?.(t)}
-                          >
-                            <Check className="w-3 h-3 inline mr-1" />
-                            Done
-                          </button>
-                        )}
+                        
 <Can code='TASK_SPLIT'>
                         <button
                           className="px-2 py-1 rounded-lg border text-xs hover:bg-violet-50 border-violet-300 text-violet-700"

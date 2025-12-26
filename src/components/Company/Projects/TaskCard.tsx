@@ -502,14 +502,7 @@ export default function TaskCard({
           </span>
         ) : (
           <>
-            {!isDone && (
-              <button
-                className="text-[11px] px-2 py-1 rounded-lg border hover:bg-emerald-50 border-emerald-300 text-emerald-700 flex items-center gap-1"
-                onClick={() => onMarkDone(t)}
-              >
-                <Check className="w-3 h-3" /> Mark done
-              </button>
-            )}
+           
 <Can code='TASK_SPLIT'>
             <button
               className="text-[11px] px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
@@ -518,12 +511,14 @@ export default function TaskCard({
               <SplitSquareHorizontal className="w-3 h-3" /> Split
             </button>
             </Can>
+            <Can code="TASK_MOVE_SPRINT">
             <button
               className="text-[11px] px-2 py-1 rounded-lg border hover:bg-slate-50 border-slate-300 text-slate-600 flex items-center gap-1"
               onClick={() => onMoveNext(t)}
             >
               <MoveDown className="w-3 h-3" /> Move next
             </button>
+            </Can>
           </>
         )}
       </div>
