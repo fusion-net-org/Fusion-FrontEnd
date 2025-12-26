@@ -219,14 +219,45 @@ export function WorkflowDesignerNew( { companyId, workflowId }: { companyId: str
     setDto(prev => ({ ...prev, transitions: [...prev.transitions, t] }));
   }, [edgeMode, showLabels]);
 
-  const handleEditStatus = useCallback((id: string, patch: Partial<StatusVm>) => {
-    setDto(prev => {
-      let nextStatuses = prev.statuses.map(s => s.id === id ? { ...s, ...patch } : s);
-      if (patch.isStart === true) nextStatuses = nextStatuses.map(s => s.id !== id ? { ...s, isStart: false } : s);
+ const handleEditStatus = useCallback(
+  (id: string, patch: Partial<StatusVm>) => {
+    setDto((prev) => {
+      // apply patch
+      let nextStatuses = prev.statuses.map((s) =>
+        s.id === id ? { ...s, ...patch } : s
+      );
+
+      if (patch.isStart === true) {
+        nextStatuses = nextStatuses.map((s) => {
+          if (s.id === id) return { ...s, isStart: true, isEnd: false };
+          return { ...s, isStart: false };
+        });
+      }
+
+      if (patch.isEnd === true) {
+        nextStatuses = nextStatuses.map((s) => {
+          if (s.id === id) return { ...s, isEnd: true, isStart: false };
+          return { ...s, isEnd: false };
+        });
+      }
+
+      setNodes((ns) =>
+        ns.map((n) => {
+          const st = nextStatuses.find((x) => x.id === n.id);
+          if (!st) return n;
+          return {
+            ...n,
+            data: { ...(n.data as StatusNodeData), status: st },
+          };
+        })
+      );
+
       return { ...prev, statuses: nextStatuses };
     });
-    setNodes(ns => ns.map(n => n.id === id ? ({ ...n, data: { ...n.data, status: { ...n.data.status, ...patch } } }) : n));
-  }, []);
+  },
+  [setNodes]
+);
+
 
   const onNodeDragStop = useCallback((_: any, node: Node) => {
     setDto(prev => ({ ...prev, statuses: prev.statuses.map(s => s.id === node.id ? { ...s, x: Math.round(node.position.x), y: Math.round(node.position.y) } : s) }));

@@ -35,6 +35,7 @@ import type {
   TransitionVm,
   TransitionType,
 } from "@/types/workflow";
+import { toast } from "react-toastify";
 
 const uid = () =>
   typeof crypto !== "undefined" && (crypto as any).randomUUID
@@ -51,6 +52,20 @@ const EDGE_LABEL: Record<TransitionType, string> = {
   success: "Success",
   failure: "Fail",
   optional: "Optional",
+};
+const validateDesigner = (p: DesignerDto) => {
+  const name = (p.workflow?.name ?? "").trim();
+  if (!name) return "Workflow name is required.";
+
+  const statuses = p.statuses ?? [];
+  const starts = statuses.filter((s) => !!s.isStart);
+  const ends = statuses.filter((s) => !!s.isEnd);
+
+  if (starts.length !== 1) return "A workflow must have exactly one Start status.";
+  if (ends.length !== 1) return "A workflow must have exactly one End status.";
+  if (starts[0].id === ends[0].id) return "Start and End cannot be the same status.";
+
+  return null;
 };
 
 const hexToRgba = (hex?: string | null, alpha = 0.18) => {
@@ -502,7 +517,9 @@ export default function WorkflowDesigner({
   // selection
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+const [saveAttempted, setSaveAttempted] = useState(false);
 
+const validationError = useMemo(() => validateDesigner(dto), [dto]);
   const selectedEdge = useMemo(
     () => edges.find((e): e is Edge<EdgeData> => e.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId]
@@ -592,34 +609,45 @@ export default function WorkflowDesigner({
     [edgeMode, showLabels]
   );
 
-  const handleEditStatus = useCallback((id: string, patch: Partial<StatusVm>) => {
+const handleEditStatus = useCallback(
+  (id: string, patch: Partial<StatusVm>) => {
     setDto((prev) => {
+      // apply patch
       let nextStatuses = prev.statuses.map((s) =>
         s.id === id ? { ...s, ...patch } : s
       );
-      // chỉ cho 1 start duy nhất
+
       if (patch.isStart === true) {
-        nextStatuses = nextStatuses.map((s) =>
-          s.id !== id ? { ...s, isStart: false } : s
-        );
+        nextStatuses = nextStatuses.map((s) => {
+          if (s.id === id) return { ...s, isStart: true, isEnd: false };
+          return { ...s, isStart: false };
+        });
       }
+
+      if (patch.isEnd === true) {
+        nextStatuses = nextStatuses.map((s) => {
+          if (s.id === id) return { ...s, isEnd: true, isStart: false };
+          return { ...s, isEnd: false };
+        });
+      }
+
+      setNodes((ns) =>
+        ns.map((n) => {
+          const st = nextStatuses.find((x) => x.id === n.id);
+          if (!st) return n;
+          return {
+            ...n,
+            data: { ...(n.data as StatusNodeData), status: st },
+          };
+        })
+      );
+
       return { ...prev, statuses: nextStatuses };
     });
+  },
+  [setNodes]
+);
 
-    setNodes((ns) =>
-      ns.map((n) =>
-        n.id === id
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                status: { ...(n.data as StatusNodeData).status, ...patch },
-              },
-            }
-          : n
-      )
-    );
-  }, []);
 
   const onNodeDragStop = useCallback((_: any, node: Node) => {
     setDto((prev) => ({
@@ -782,34 +810,45 @@ export default function WorkflowDesigner({
   );
 
   // build payload & save
-  const handleSave = async () => {
-    if (externalSaving) return; // parent điều khiển
-    setSaving(true);
-    try {
-      const payload: DesignerDto = {
-        ...dto,
-        transitions: edges.map((e) => ({
-          fromStatusId: String(e.source),
-          toStatusId: String(e.target),
-          type: (e.data?.type as TransitionType) || "optional",
-          label: typeof e.label === "string" ? e.label : e.data?.label,
-          rule: e.data?.rule,
-          roleNames: e.data?.roleNames ?? [],
-        })),
-        statuses: nodes.map((n) => {
-          const s = dto.statuses.find((x) => x.id === n.id)!;
-          return {
-            ...s,
-            x: Math.round(n.position.x),
-            y: Math.round(n.position.y),
-          };
-        }),
-      };
-      await onSave(payload);
-    } finally {
-      setSaving(false);
-    }
-  };
+ const handleSave = async () => {
+  if (externalSaving) return;
+
+  setSaveAttempted(true);
+
+  const err = validateDesigner(dto);
+  if (err) {
+    toast.error(err);
+    return;
+  }
+
+  setSaving(true);
+  try {
+    const payload: DesignerDto = {
+      ...dto,
+      transitions: edges.map((e) => ({
+        fromStatusId: String(e.source),
+        toStatusId: String(e.target),
+        type: (e.data?.type as TransitionType) || "optional",
+        label: typeof e.label === "string" ? e.label : e.data?.label,
+        rule: e.data?.rule,
+        roleNames: e.data?.roleNames ?? [],
+      })),
+      statuses: nodes.map((n) => {
+        const s = dto.statuses.find((x) => x.id === n.id)!;
+        return { ...s, x: Math.round(n.position.x), y: Math.round(n.position.y) };
+      }),
+    };
+
+    await onSave(payload);
+  } catch (e: any) {
+    console.error("WorkflowDesigner save failed:", e);
+    toast.error(e?.response?.data?.message || e?.message || "Save workflow failed");
+  } finally {
+    setSaving(false);
+  }
+};
+
+
 
   const resetLocal = () => setDto(initialDto);
 
@@ -846,6 +885,8 @@ export default function WorkflowDesigner({
   return (
     <div className="h-[calc(100vh-40px)] w-full flex overflow-hidden">
       <div className="flex-1 relative">
+      
+
         <div className="absolute z-50 left-4 top-3 flex flex-wrap gap-2 items-center bg-white/90 backdrop-blur rounded-xl border shadow px-3 py-2">
           <div className="text-sm text-gray-600">{title}</div>
           <input
