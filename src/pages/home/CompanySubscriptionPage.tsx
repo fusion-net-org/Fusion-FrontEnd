@@ -1,8 +1,16 @@
 // src/pages/home/CompanySubscriptionsPage.tsx
 import React from "react";
 import { useParams } from "react-router-dom";
-import { Search, Layers, Eye, RefreshCcw, X, AlertTriangle } from "lucide-react";
-import { Spin } from "antd";
+import {
+  Search,
+  Layers,
+  Eye,
+  RefreshCcw,
+  X,
+  AlertTriangle,
+  Info,
+} from "lucide-react";
+import { Spin, Popover } from "antd";
 
 import {
   getCompanySubscriptionsByCompany,
@@ -39,9 +47,11 @@ function statusTagClass(status: CompanySubscriptionStatus | string) {
   return "bg-slate-50 text-slate-700 border-slate-200";
 }
 
-const Chip: React.FC<
-  React.ComponentProps<"button"> & { active?: boolean }
-> = ({ active, className = "", ...rest }) => (
+const Chip: React.FC<React.ComponentProps<"button"> & { active?: boolean }> = ({
+  active,
+  className = "",
+  ...rest
+}) => (
   <button
     {...rest}
     className={[
@@ -57,8 +67,133 @@ const Chip: React.FC<
 type SortPreset = "newest" | "oldest" | "expiredSoon" | "status";
 
 function isAutoMonthly(sub: { expiredAt?: string | null }) {
-  return !sub.expiredAt; // gói free auto-month
+  // Auto-month: thường expiredAt null
+  return !sub.expiredAt;
 }
+
+/* =================== Popover helpers (FIX feature name + usesLeft) =================== */
+
+function pickEntitlements(detail: any): any[] {
+  if (!detail) return [];
+  const candidates = [
+    detail.entitlements,
+    detail.Entitlements,
+    detail.entitlementSnapshots,
+    detail.EntitlementSnapshots,
+    detail.features,
+    detail.Features,
+    detail.items,
+    detail.Items,
+  ];
+  const arr = candidates.find((x) => Array.isArray(x));
+  return Array.isArray(arr) ? arr : [];
+}
+
+function pickNumber(...vals: any[]): number | null {
+  for (const v of vals) {
+    if (v === null || v === undefined || v === "") continue;
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+  return null;
+}
+
+function pickText(...vals: any[]): string | null {
+  for (const v of vals) {
+    if (typeof v !== "string") continue;
+    const s = v.trim();
+    if (s) return s;
+  }
+  return null;
+}
+
+function getEntitlementFields(e: any) {
+  const featureId =
+    e?.featureId ??
+    e?.FeatureId ??
+    e?.featureID ??
+    e?.FeatureID ??
+    e?.id ??
+    e?.Id ??
+    null;
+
+  // ✅ FIX mất tên: ưu tiên text không rỗng, fallback qua code/name, cuối cùng featureId
+  const name =
+    pickText(
+      e?.featureName,
+      e?.FeatureName,
+      e?.name,
+      e?.Name,
+      e?.featureCode,
+      e?.FeatureCode,
+      e?.code,
+      e?.Code,
+      e?.feature?.name,
+      e?.feature?.Name,
+      e?.feature?.code,
+      e?.feature?.Code,
+      e?.Feature?.name,
+      e?.Feature?.Name,
+      e?.Feature?.code,
+      e?.Feature?.Code
+    ) ?? (featureId ? String(featureId).slice(0, 8) : "Feature");
+
+  //  remaining/usesLeft: ưu tiên từ detail (đang có 999)
+  const usesLeft = pickNumber(
+    e?.usesLeft,
+    e?.UsesLeft,
+    e?.usesLeftThisMonth,
+    e?.UsesLeftThisMonth,
+    e?.remainingUses,
+    e?.RemainingUses,
+    e?.remainingInMonth,
+    e?.RemainingInMonth,
+    e?.monthlyRemaining,
+    e?.MonthlyRemaining,
+    e?.remainingThisMonth,
+    e?.RemainingThisMonth,
+    e?.remaining,
+    e?.Remaining,
+    e?.left,
+    e?.Left
+  );
+
+  // fallback: used / limit nếu API không có usesLeft
+  const used =
+    pickNumber(
+      e?.used,
+      e?.Used,
+      e?.usedCount,
+      e?.UsedCount,
+      e?.consumed,
+      e?.Consumed,
+      e?.monthlyUsed,
+      e?.MonthlyUsed
+    ) ?? 0;
+
+  const limit = pickNumber(
+    e?.limit,
+    e?.Limit,
+    e?.total,
+    e?.Total,
+    e?.quota,
+    e?.Quota,
+    e?.max,
+    e?.Max,
+    e?.monthlyLimit,
+    e?.MonthlyLimit
+  );
+
+  // nếu không có usesLeft mà có limit -> tính remaining
+  const derivedRemaining =
+    usesLeft !== null ? usesLeft : limit == null ? null : Math.max(0, limit - used);
+
+  const unlimited = limit == null && usesLeft == null;
+
+  return { name, usesLeft, used, limit, derivedRemaining, unlimited };
+}
+
+/* ================================================================ */
 
 export default function CompanySubscriptionsPage() {
   const { companyId: routeCompanyId } = useParams<{ companyId: string }>();
@@ -74,6 +209,7 @@ export default function CompanySubscriptionsPage() {
     q: string;
     statuses: CompanySubscriptionStatus[];
   }>({ q: "", statuses: [] });
+
   const [applied, setApplied] = React.useState(filters);
   const [sort, setSort] = React.useState<SortPreset>("newest");
   const [loading, setLoading] = React.useState(false);
@@ -84,12 +220,17 @@ export default function CompanySubscriptionsPage() {
   const [detail, setDetail] =
     React.useState<CompanySubscriptionDetailResponse | null>(null);
 
-  // ===== USAGE NOTE BANNER STATE =====
+  // ===== USAGE NOTE BANNER =====
   const [usageNoteVisible, setUsageNoteVisible] = React.useState(true);
+
+  // ===== CACHE DETAIL for tooltip & modal reuse =====
+  const [detailCache, setDetailCache] = React.useState<
+    Record<string, CompanySubscriptionDetailResponse>
+  >({});
+  const [tipLoadingMap, setTipLoadingMap] = React.useState<Record<string, boolean>>({});
 
   const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
 
-  // summary nhỏ giống Partner page
   const summary = React.useMemo(() => {
     const active = items.filter((x) =>
       (x.status || "").toLowerCase().includes("active")
@@ -103,6 +244,7 @@ export default function CompanySubscriptionsPage() {
     const cancelled = items.filter((x) =>
       (x.status || "").toLowerCase().includes("cancel")
     ).length;
+
     return {
       active,
       pending,
@@ -114,21 +256,27 @@ export default function CompanySubscriptionsPage() {
 
   const fetchData = React.useCallback(async () => {
     if (!companyId) return;
+
     setLoading(true);
     try {
+      const sortColumn =
+        sort === "status"
+          ? "status"
+          : sort === "expiredSoon"
+            ? "expiredAt"
+            : "createdAt";
+
+      const sortDescending =
+        sort === "newest" ? true : false; // oldest/expiredSoon/status => ASC
+
       const params = {
         keyword: applied.q || undefined,
-        status:
-          applied.statuses.length === 1 ? applied.statuses[0] : undefined,
+        // nếu nhiều status -> tuỳ BE, hiện tại chỉ truyền khi chọn đúng 1
+        status: applied.statuses.length === 1 ? applied.statuses[0] : undefined,
         pageNumber: page,
         pageSize,
-        sortColumn:
-          sort === "status"
-            ? "status"
-            : sort === "expiredSoon"
-            ? "expiredAt"
-            : "createdAt",
-        sortDescending: sort === "newest", // newest desc, oldest asc
+        sortColumn,
+        sortDescending,
       } as any;
 
       const res: CompanySubscriptionPagedResult | null =
@@ -144,7 +292,7 @@ export default function CompanySubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, applied, page, pageSize, sort]);
+  }, [companyId, applied, page, sort]);
 
   React.useEffect(() => {
     fetchData();
@@ -162,14 +310,23 @@ export default function CompanySubscriptionsPage() {
     setPage(1);
   };
 
-  // ===== OPEN DETAIL (CALL API + SHOW MODAL) =====
+  // ===== OPEN DETAIL MODAL =====
   const openDetail = async (s: CompanySubscriptionListResponse) => {
     setDetailOpen(true);
     setDetailLoading(true);
     setDetail(null);
+
+    const cached = detailCache[s.id];
+    if (cached) {
+      setDetail(cached);
+      setDetailLoading(false);
+      return;
+    }
+
     try {
       const res = await getCompanySubscriptionDetail(s.id);
       setDetail(res);
+      if (res) setDetailCache((prev) => ({ ...prev, [s.id]: res }));
     } catch (e) {
       console.error("[CompanySubscriptions] load detail error:", e);
     } finally {
@@ -181,6 +338,126 @@ export default function CompanySubscriptionsPage() {
     setDetailOpen(false);
     setDetail(null);
   };
+
+  // ===== TOOLTIP lazy-load detail =====
+  const ensureDetailForTip = React.useCallback(
+    async (id: string) => {
+      if (!id) return;
+      if (detailCache[id]) return;
+      if (tipLoadingMap[id]) return;
+
+      setTipLoadingMap((prev) => ({ ...prev, [id]: true }));
+      try {
+        const res = await getCompanySubscriptionDetail(id);
+        if (res) setDetailCache((prev) => ({ ...prev, [id]: res }));
+      } catch (e) {
+        console.error("[CompanySubscriptions] tip load detail error:", e);
+      } finally {
+        setTipLoadingMap((prev) => ({ ...prev, [id]: false }));
+      }
+    },
+    [detailCache, tipLoadingMap]
+  );
+
+  const renderUsagePopover = React.useCallback(
+    (id: string) => {
+      const d: any = detailCache[id];
+      const isLoading = !!tipLoadingMap[id] && !d;
+
+      if (isLoading) {
+        return (
+          <div className="min-w-[320px] py-2">
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <Spin size="small" /> Loading features...
+            </div>
+          </div>
+        );
+      }
+
+      if (!d) {
+        return (
+          <div className="min-w-[320px] py-2 text-xs text-slate-600">
+            Hover to load feature usage.
+          </div>
+        );
+      }
+
+      const ents = pickEntitlements(d);
+      if (!ents || ents.length === 0) {
+        return (
+          <div className="min-w-[320px] py-2 text-xs text-slate-500">
+            No feature usage data.
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-w-[360px] space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Features remaining
+          </div>
+
+          <div className="max-h-[260px] space-y-1 overflow-auto pr-1">
+            {ents.map((e: any, idx: number) => {
+              const { name, usesLeft, used, limit, derivedRemaining, unlimited } =
+                getEntitlementFields(e);
+
+              //  ưu tiên , fallback derivedRemaining, unlimited => ∞
+              const remainingValue =
+                unlimited ? null : usesLeft != null ? usesLeft : derivedRemaining;
+
+              const remainText = unlimited
+                ? "∞"
+                : remainingValue === null
+                  ? "—"
+                  : remainingValue.toLocaleString("vi-VN");
+
+              const isShowingRemaining = unlimited || remainingValue !== null;
+              const isZero = !unlimited && remainingValue === 0;
+              const numberClass = isZero
+                ? "text-rose-600"
+                : isShowingRemaining
+                  ? "text-emerald-600"
+                  : "text-slate-800";
+
+              // fallback text kiểu used/limit (nếu không có remaining)
+              const fallbackUsageText =
+                limit == null ? `${used}/∞` : `${used}/${limit}`;
+
+              const rightText =
+                unlimited || remainingValue !== null ? remainText : fallbackUsageText;
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-medium text-slate-800">
+                      {name}
+                    </div>
+                  </div>
+
+                  {/* 0 -> đỏ */}
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold">
+                    <span className={numberClass}>{rightText}</span>
+                    {(unlimited || remainingValue !== null) && (
+                      <span className="ml-1 font-medium text-slate-400"></span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-[11px] text-slate-500">
+            Note: remaining is read from subscription detail.
+          </div>
+        </div>
+      );
+    },
+    [detailCache, tipLoadingMap]
+  );
 
   return (
     <>
@@ -298,16 +575,10 @@ export default function CompanySubscriptionsPage() {
               <span className="mr-1 text-xs font-semibold text-slate-500">
                 Sort:
               </span>
-              <Chip
-                active={sort === "newest"}
-                onClick={() => setSort("newest")}
-              >
+              <Chip active={sort === "newest"} onClick={() => setSort("newest")}>
                 Newest
               </Chip>
-              <Chip
-                active={sort === "oldest"}
-                onClick={() => setSort("oldest")}
-              >
+              <Chip active={sort === "oldest"} onClick={() => setSort("oldest")}>
                 Oldest
               </Chip>
               <Chip
@@ -316,10 +587,7 @@ export default function CompanySubscriptionsPage() {
               >
                 Expired soon
               </Chip>
-              <Chip
-                active={sort === "status"}
-                onClick={() => setSort("status")}
-              >
+              <Chip active={sort === "status"} onClick={() => setSort("status")}>
                 Status A–Z
               </Chip>
             </div>
@@ -331,16 +599,12 @@ export default function CompanySubscriptionsPage() {
               </span>
               <Chip
                 active={filters.statuses.length === 0}
-                onClick={() =>
-                  setFilters((f) => ({ ...f, statuses: [] as any }))
-                }
+                onClick={() => setFilters((f) => ({ ...f, statuses: [] as any }))}
               >
                 All
               </Chip>
               {["Active", "Pending", "Expired", "Cancelled"].map((s) => {
-                const active = filters.statuses.includes(
-                  s as CompanySubscriptionStatus
-                );
+                const active = filters.statuses.includes(s as CompanySubscriptionStatus);
                 return (
                   <Chip
                     key={s}
@@ -348,15 +612,9 @@ export default function CompanySubscriptionsPage() {
                     onClick={() => {
                       setFilters((f) => {
                         const set = new Set(f.statuses);
-                        if (set.has(s as CompanySubscriptionStatus))
-                          set.delete(s as CompanySubscriptionStatus);
+                        if (set.has(s as CompanySubscriptionStatus)) set.delete(s as CompanySubscriptionStatus);
                         else set.add(s as CompanySubscriptionStatus);
-                        return {
-                          ...f,
-                          statuses: Array.from(
-                            set
-                          ) as CompanySubscriptionStatus[],
-                        };
+                        return { ...f, statuses: Array.from(set) as CompanySubscriptionStatus[] };
                       });
                     }}
                   >
@@ -380,8 +638,7 @@ export default function CompanySubscriptionsPage() {
                 No subscriptions available.
               </div>
               <div className="text-xs text-slate-500">
-                Try adjusting filters or share a subscription from your personal
-                plan.
+                Try adjusting filters or share a subscription from your personal plan.
               </div>
             </div>
           ) : (
@@ -400,27 +657,58 @@ export default function CompanySubscriptionsPage() {
                     <th className="px-5 py-3 pr-7 text-right">Action</th>
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-slate-100 text-[13px]">
                   {items.map((s) => {
                     const autoMonth = isAutoMonthly(s);
                     return (
                       <tr key={s.id} className="hover:bg-slate-50/70">
                         <td className="px-5 py-3" />
+
+                        {/* PLAN + tooltip usage */}
                         <td className="px-5 py-3">
-                          <span className="text-sm font-semibold text-slate-900">
-                            {s.planName || "(Unnamed plan)"}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {s.planName || "(Unnamed plan)"}
+                            </span>
+
+                            <Popover
+                              trigger="hover"
+                              placement="rightTop"
+                              mouseEnterDelay={0.15}
+                              destroyTooltipOnHide
+                              content={renderUsagePopover(s.id)}
+                              onOpenChange={(open) => {
+                                if (open) ensureDetailForTip(s.id);
+                              }}
+                            >
+                              <button
+                                type="button"
+                                aria-label="View feature usage"
+                                className={cn(
+                                  "inline-flex h-6 w-6 items-center justify-center rounded-full",
+                                  "border border-slate-200 bg-white text-slate-500",
+                                  "hover:border-blue-300 hover:text-blue-600"
+                                )}
+                              >
+                                <Info className="h-3.5 w-3.5" />
+                              </button>
+                            </Popover>
+                          </div>
                         </td>
+
                         <td className="px-5 py-3">
                           <span className="text-xs text-slate-700">
                             {s.companyName || "(Unnamed company)"}
                           </span>
                         </td>
+
                         <td className="px-5 py-3">
                           <span className="text-xs text-slate-700">
                             {s.userName || "—"}
                           </span>
                         </td>
+
                         <td className="px-5 py-3">
                           <span
                             className={cn(
@@ -431,11 +719,13 @@ export default function CompanySubscriptionsPage() {
                             {s.status}
                           </span>
                         </td>
+
                         <td className="px-5 py-3">
                           <span className="text-xs text-slate-700">
                             {formatDate(s.sharedOn)}
                           </span>
                         </td>
+
                         <td className="px-5 py-3">
                           {autoMonth ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
@@ -448,6 +738,7 @@ export default function CompanySubscriptionsPage() {
                             </span>
                           )}
                         </td>
+
                         <td className="px-5 py-3">
                           {s.seatsLimitSnapshot != null ? (
                             <span className="text-xs text-slate-700">
@@ -459,8 +750,8 @@ export default function CompanySubscriptionsPage() {
                             </span>
                           )}
                         </td>
+
                         <td className="px-5 py-3 pr-7 text-right">
-                          {/* Nút con mắt: nền trắng, viền xám nhạt, icon xám */}
                           <button
                             onClick={() => openDetail(s)}
                             className={cn(
@@ -478,11 +769,9 @@ export default function CompanySubscriptionsPage() {
                 </tbody>
               </table>
 
-              {/* Pagination giống Members */}
+              {/* Pagination */}
               <div className="flex items-center justify-between px-6 pb-5 pt-3">
-                <span className="text-[11px] text-slate-500">
-                  {/* có thể thêm text nếu cần */}
-                </span>
+                <span className="text-[11px] text-slate-500" />
 
                 <div className="flex items-center gap-2 text-[13px]">
                   <button
@@ -514,9 +803,7 @@ export default function CompanySubscriptionsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setPage((p) => Math.min(totalPages, p + 1))
-                    }
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-lg border text-xs",
