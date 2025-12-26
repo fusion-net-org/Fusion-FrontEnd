@@ -46,8 +46,7 @@
   { "id": 106, "functionCode": "TASK_ADD_ATTACHMENT", "functionName": "Add attachment", "pageCode": "TASK", "sortOrder": 14 },
   { "id": 107, "functionCode": "TASK_DELETE_ATTACHMENT", "functionName": "Delete attachment", "pageCode": "TASK", "sortOrder": 15 },
   { "id": 100, "functionCode": "TASK_SPLIT", "functionName": "Split task", "pageCode": "TASK", "sortOrder": 16 },
-  { "id": 101, "functionCode": "TASK_CHANGE_SPRINT", "functionName": "Change sprint task", "pageCode": "TASK", "sortOrder": 17 },
-  { "id": 103, "functionCode": "TASK_MOVE_SPRINT", "functionName": "Move task sprint", "pageCode": "TASK", "sortOrder": 18 },
+  { "id": 103, "functionCode": "TASK_MOVE_SPRINT", "functionName": "Change task sprint", "pageCode": "TASK", "sortOrder": 18 },
 
   { "id": 72, "functionCode": "TICKET_LIST_VIEW", "functionName": "View ticket list (search/sort/filter/paging)", "pageCode": "TICKET", "sortOrder": 1 },
   { "id": 73, "functionCode": "TICKET_CREATE", "functionName": "Create ticket", "pageCode": "TICKET", "sortOrder": 2 },

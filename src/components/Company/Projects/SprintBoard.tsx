@@ -18,6 +18,7 @@ import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import {  useNavigate, useParams } from "react-router-dom";
 import { Can } from "@/permission/PermissionProvider";
+import SprintKpiTable from "./SprintKpiTable";
 
 type Id = string;
 
@@ -1042,15 +1043,7 @@ function onDragEnd(result: DropResult) {
         >
           <TrendingUp className="w-4 h-4" /> Analytics
         </button>
-        <button
-          onClick={() => setView("Roadmap")}
-          className={cn(
-            "px-3 h-9 rounded-full border text-sm flex items-center gap-1",
-            view === "Roadmap" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
-          )}
-        >
-          <CalendarDays className="w-4 h-4" /> Roadmap
-        </button>
+       
       </div>
     </div>
   );
@@ -1434,12 +1427,7 @@ console.log(hasData)
     <div className="flex items-center justify-between mt-2">
       <div className="text-slate-600 text-sm">
       </div>
-      <button
-        onClick={() => setClosePanelOpen(true)}
-        className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1"
-      >
-        <CircleSlash2 className="w-4 h-4" /> Close sprint
-      </button>
+     
     </div>
 
     <SprintBoard
@@ -1465,131 +1453,65 @@ console.log(hasData)
 
 
 
-           {view === "Analytics" && (
-        <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {/* Velocity per sprint */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
-              {velocityData.length > 0 && (
-                <div className="text-[11px] text-slate-500">
-                  Avg done:&nbsp;
-                  <span className="font-semibold">
-                    {Math.round(
-                      velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
-                        Math.max(1, velocityData.length),
-                    )}
-                  </span>{" "}
-                  pts / sprint
-                </div>
+         {view === "Analytics" && (
+  <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+    {/* Velocity per sprint */}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm min-w-0">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
+        {velocityData.length > 0 && (
+          <div className="text-[11px] text-slate-500">
+            Avg done:&nbsp;
+            <span className="font-semibold">
+              {Math.round(
+                velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
+                  Math.max(1, velocityData.length),
               )}
-            </div>
-
-            <div className="h-[260px]">
-              {velocityData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={velocityData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value, key) => {
-                        if (key === "committed") return [value, "Committed"];
-                        if (key === "completed") return [value, "Completed"];
-                        return [value, key];
-                      }}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="committed"
-                      name="Committed"
-                      stroke="#60A5FA"
-                      dot
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="completed"
-                      name="Completed"
-                      stroke="#22C55E"
-                      dot
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                  No story points data across sprints yet.
-                </div>
-              )}
-            </div>
+            </span>{" "}
+            pts / sprint
           </div>
+        )}
+      </div>
 
-          {/* Work mix by type */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-slate-600 text-sm">Work mix (story points by type)</div>
-              <div className="text-[11px] text-slate-500">
-                Feature / Bug / Chore / Other
-              </div>
-            </div>
-
-            <div className="h-[260px]">
-              {workMixData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={workMixData} stackOffset="expand">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} />
-                    <Tooltip
-                      formatter={(value, key) => {
-                        const pct = typeof value === "number" ? `${Math.round(value * 100)}%` : value;
-                        return [pct, key];
-                      }}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="Feature"
-                      name="Feature"
-                      stackId="1"
-                      stroke="#60A5FA"
-                      fill="#BFDBFE"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Bug"
-                      name="Bug"
-                      stackId="1"
-                      stroke="#F97316"
-                      fill="#FED7AA"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Chore"
-                      name="Chore"
-                      stackId="1"
-                      stroke="#A855F7"
-                      fill="#E9D5FF"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Other"
-                      name="Other"
-                      stackId="1"
-                      stroke="#6B7280"
-                      fill="#E5E7EB"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                  Not enough typed tasks to show work mix.
-                </div>
-              )}
-            </div>
+      <div className="h-[260px]">
+        {velocityData.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={velocityData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip
+                formatter={(value, key) => {
+                  if (key === "committed") return [value, "Committed"];
+                  if (key === "completed") return [value, "Completed"];
+                  return [value, key];
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="committed" name="Committed" stroke="#60A5FA" dot />
+              <Line type="monotone" dataKey="completed" name="Completed" stroke="#22C55E" dot />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-sm text-slate-500">
+            No story points data across sprints yet.
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+
+    {/* KPI table (same row on xl) */}
+    <SprintKpiTable
+      className="min-w-0"
+      sprints={sprints}
+      tasks={tasks}
+    />
+
+    {/* Nếu muốn thêm chart khác thì để ở dưới: */}
+    {/* <div className="xl:col-span-2">...</div> */}
+  </div>
+)}
+
 
 
 

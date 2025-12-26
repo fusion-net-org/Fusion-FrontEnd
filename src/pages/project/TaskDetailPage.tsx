@@ -246,7 +246,7 @@ function TicketDetailLayout({
 const PERM = {
   DETAIL_EDIT: "TASK_DETAIL_UPDATE",      // edit detail fields (priority/type/points/severity/dates/desc/checklist...)
   ASSIGN_EDIT: "TASK_ASSIGN_MEMBER",      // assignee + workflow owners
-  SPRINT_EDIT: "TASK_CHANGE_SPRINT",      // sprint
+  SPRINT_EDIT: "TASK_MOVE_SPRINT",      // sprint
 } as const;
 
 const canEditDetail = !permLoading && can(PERM.DETAIL_EDIT);
