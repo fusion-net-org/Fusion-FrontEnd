@@ -22,6 +22,7 @@ export type TransitionVm = {
     label?: string | null;
     rule?: string | null;
     roleNames?: string[] | null;
+     enforceTransitions?: boolean;
 };
 
 export type DesignerDto = {
