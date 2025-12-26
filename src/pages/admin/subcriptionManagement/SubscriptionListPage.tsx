@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {Button,Input,Modal, Select,Space,Spin,Table,Tag,message,Tooltip,} from "antd";
-import { Eye,Edit,Trash2,Package,ArrowDown,ArrowUp,RotateCcw,Plus,AlertTriangle,} from "lucide-react";
+import { Button, Input, Modal, Select, Space, Spin, Table, Tag, message, Tooltip, } from "antd";
+import { Eye, Edit, Trash2, Package, ArrowDown, ArrowUp, RotateCcw, Plus, AlertTriangle, } from "lucide-react";
 import type {
   GetPlansPagedParams,
   SubscriptionPlanListItemResponse,
@@ -22,7 +22,14 @@ const { Option } = Select;
 
 // ===== helpers =====
 type SortCol = "name" | "createdAt";
-const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "—");
+const fmtDate = (iso?: string) =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    })
+    : "—";
 
 const scopeTagColor = (s?: LicenseScope) =>
   s === "Userlimits" ? "purple" : "geekblue";
@@ -40,7 +47,7 @@ export default function SubscriptionListPage() {
   // filters & paging
   const [keyword, setKeyword] = useState("");
   const [isActive, setIsActive] = useState<boolean | null>(null);
-  const [sortColumn, setSortColumn] = useState<SortCol>("name");
+  const [sortColumn, setSortColumn] = useState<SortCol>("createdAt");
   const [sortDescending, setSortDescending] = useState(true);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -88,7 +95,7 @@ export default function SubscriptionListPage() {
   const resetFilters = () => {
     setKeyword("");
     setIsActive(null);
-    setSortColumn("name");
+    setSortColumn("createdAt");
     setSortDescending(true);
     fetchPaged(1, pageSize);
   };
@@ -124,57 +131,57 @@ export default function SubscriptionListPage() {
     }
   };
 
-const confirmDelete = (id: string) => {
-  Modal.confirm({
-    title: "Delete plan?",
-    content: "This action cannot be undone.",
-    okText: "Delete",
-    cancelText: "Cancel",
-    okButtonProps: { danger: true },
-    onOk: async () => {
-      try {
-        await deletePlan(id);
-        message.success("Deleted");
-        fetchPaged(pageNumber, pageSize);
-      } catch (e: any) {
-        // ❗ Thay vì toast lỗi chung -> show warning popup đẹp
-        Modal.warning({
-          centered: true,
-          icon: (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-            </div>
-          ),
-          title: (
-            <span className="text-sm font-semibold text-slate-900">
-              Plan cannot be deleted
-            </span>
-          ),
-          content: (
-            <div className="mt-1 text-xs leading-relaxed text-slate-600">
-              <p>
-                This subscription plan has already been applied to one or more users.
-              </p>
-              <p className="mt-2">
-                Instead of deleting, please open the plan and change its{" "}
-                <span className="font-semibold text-amber-600 underline decoration-dotted">
-                  status
-                </span>{" "}
-                to <span className="font-semibold">Inactive</span>. This will keep
-                existing users stable while preventing new assignments.
-              </p>
-            </div>
-          ),
-          okText: "I understand",
-          okButtonProps: {
-            className:
-              "bg-indigo-600 hover:bg-indigo-700 border-none text-white font-semibold",
-          },
-        });
-      }
-    },
-  });
-};
+  const confirmDelete = (id: string) => {
+    Modal.confirm({
+      title: "Delete plan?",
+      content: "This action cannot be undone.",
+      okText: "Delete",
+      cancelText: "Cancel",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deletePlan(id);
+          message.success("Deleted");
+          fetchPaged(pageNumber, pageSize);
+        } catch (e: any) {
+          // ❗ Thay vì toast lỗi chung -> show warning popup đẹp
+          Modal.warning({
+            centered: true,
+            icon: (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+              </div>
+            ),
+            title: (
+              <span className="text-sm font-semibold text-slate-900">
+                Plan cannot be deleted
+              </span>
+            ),
+            content: (
+              <div className="mt-1 text-xs leading-relaxed text-slate-600">
+                <p>
+                  This subscription plan has already been applied to one or more users.
+                </p>
+                <p className="mt-2">
+                  Instead of deleting, please open the plan and change its{" "}
+                  <span className="font-semibold text-amber-600 underline decoration-dotted">
+                    status
+                  </span>{" "}
+                  to <span className="font-semibold">Inactive</span>. This will keep
+                  existing users stable while preventing new assignments.
+                </p>
+              </div>
+            ),
+            okText: "I understand",
+            okButtonProps: {
+              className:
+                "bg-indigo-600 hover:bg-indigo-700 border-none text-white font-semibold",
+            },
+          });
+        }
+      },
+    });
+  };
   const viewDetail = async (id: string) => {
     setLoadingDetail(true);
     try {
@@ -316,8 +323,8 @@ const confirmDelete = (id: string) => {
               onChange={(v: SortCol) => setSortColumn(v)}
               style={{ width: 180 }}
             >
-              <Option value="name">Sort by Name</Option>
               <Option value="createdAt">Sort by Created</Option>
+              <Option value="name">Sort by Name</Option>
             </Select>
 
             <Button
