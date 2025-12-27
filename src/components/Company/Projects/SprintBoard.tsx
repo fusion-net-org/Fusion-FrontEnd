@@ -17,11 +17,12 @@ import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import {  useNavigate, useParams } from "react-router-dom";
-import { Can } from "@/permission/PermissionProvider";
+import { Can, usePermissions } from "@/permission/PermissionProvider";
 import SprintKpiTable from "./SprintKpiTable";
+import { getUserIdFromToken } from "@/utils/token";
 
 type Id = string;
-
+const userId = getUserIdFromToken();
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
@@ -633,6 +634,44 @@ export default function SprintWorkspacePage() {
   }, [sprints, now]);
 
   const currentSprintId = currentSprint?.id ?? "";
+  const { can } = usePermissions();
+
+  // ✅ permission mới
+  const canViewAllSprintTasks = can("SPRINT_TASK_VIEW_ALL");
+
+  const myUserId =userId;
+
+  const isAssignedToMe = React.useCallback(
+    (t: TaskVm) => {
+      if (!myUserId) return true;
+
+      const anyT: any = t as any;
+      if (anyT.assigneeId && anyT.assigneeId === myUserId) return true;
+      if (anyT.assignedToId && anyT.assignedToId === myUserId) return true;
+
+      if (anyT.assignee?.id && anyT.assignee.id === myUserId) return true;
+
+      const arr =
+        anyT.assignees ||
+        anyT.assignedMembers ||
+        anyT.members ||
+        anyT.assignments ||
+        [];
+
+      if (Array.isArray(arr)) {
+        return arr.some((x: any) => (x?.id ?? x?.userId) === myUserId);
+      }
+
+      return false;
+    },
+    [myUserId],
+  );
+
+  // ✅ tasks hiển thị theo permission
+  const visibleTasks = React.useMemo(() => {
+    if (canViewAllSprintTasks) return tasks;
+    return tasks.filter(isAssignedToMe);
+  }, [tasks, canViewAllSprintTasks, isAssignedToMe]);
 
 const [flashTaskId, setFlashTaskId] = useState<Id | null>(null);
   const { companyId, projectId } = useParams();
@@ -725,7 +764,7 @@ const columns = useMemo(() => {
 
   const validSprintIds = new Set(sprints.map(s => s.id));
 
-  for (const t of tasks) {
+  for (const t of visibleTasks) {
     const belongToActive =
       (t.sprintId ?? "") === activeSprint.id ||
       !validSprintIds.has(t.sprintId ?? "");
@@ -749,7 +788,7 @@ const columns = useMemo(() => {
   }
 
   return { order, byId };
-}, [tasks, activeSprint, keyword, sprints, lastCrossMove]);
+}, [visibleTasks, activeSprint, keyword, sprints, lastCrossMove]);
 
 
   // ===== Metrics =====
@@ -762,7 +801,7 @@ const columns = useMemo(() => {
         !validSprintIds.has(t.sprintId ?? "")
       )
       .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
-  }, [tasks, activeSprint, sprints]);
+  }, [visibleTasks, activeSprint, sprints]);
 
   const completedPoints = useMemo(() => {
     if (!activeSprint) return 0;
@@ -778,17 +817,17 @@ const columns = useMemo(() => {
 
   const completionPct = committedPoints > 0 ? Math.round((100 * completedPoints) / committedPoints) : 0;
  const burnupData = useMemo(
-    () => buildBurnupData(activeSprint, sprints, tasks),
+    () => buildBurnupData(activeSprint, sprints, visibleTasks),
     [activeSprint, sprints, tasks],
   );
 
   const velocityData = useMemo(
-    () => buildVelocityData(sprints, tasks),
+    () => buildVelocityData(sprints, visibleTasks),
     [sprints, tasks],
   );
 
   const workMixData = useMemo(
-    () => buildWorkMixData(sprints, tasks),
+    () => buildWorkMixData(sprints, visibleTasks),
     [sprints, tasks],
   );
     // ===== Workflow transitions theo sprint (để highlight đích success) =====
@@ -885,7 +924,7 @@ const [highlightTargets, setHighlightTargets] = useState<
 function onDragStart(start: DragStart) {
   if (!activeSprint) return;
 
-  const task = tasks.find((x) => x.id === start.draggableId);
+  const task = visibleTasks.find((x) => x.id === start.draggableId);
   if (!task) return;
 
   const fromStatusId = resolveStatusId(task, activeSprint);
@@ -945,7 +984,7 @@ function onDragEnd(result: DropResult) {
   const fromStatusId = source.droppableId;
   const toStatusId = destination.droppableId;
 
-  const task = tasks.find((x) => x.id === draggableId);
+  const task = visibleTasks.find((x) => x.id === draggableId);
   if (!task) return;
 
   const isSameColumn = fromStatusId === toStatusId;
