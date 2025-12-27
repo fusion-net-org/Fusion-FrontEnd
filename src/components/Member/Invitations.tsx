@@ -51,7 +51,7 @@ const InvitationPage: React.FC = () => {
   );
   //sort column
   const [sortColumn, setSortColumn] = useState<string>('JoinedAt');
-  const [sortDescending, setSortDescending] = useState<boolean>(true);
+  const [sortDescending, setSortDescending] = useState<boolean>(false);
 
   // state loading
   const [loading, setLoading] = useState(false);
