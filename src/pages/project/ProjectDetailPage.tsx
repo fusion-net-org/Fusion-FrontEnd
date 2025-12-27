@@ -496,10 +496,11 @@ export default function ProjectDetailPage() {
     [project, meId],
   );
 
-  const handleOpenBoard = () => {
-    if (!companyId || !projectId) return;
-    navigate(`/companies/${companyId}/projects/${projectId}/board`);
-  };
+const handleOpenBoard = () => {
+  if (!companyId || !projectId) return;
+  navigate(`/companies/${companyId}/project/${projectId}`);
+};
+
 
   const handleViewWorkflow = () => {
     if (!companyId || !project?.workflowId) return;
@@ -984,7 +985,29 @@ export default function ProjectDetailPage() {
               <Activity className="size-4" />
               Open board
             </button> */}
-
+ <button
+    type="button"
+    onClick={project.isClosed ? handleOpenClosureReport : handleOpenBoard}
+    disabled={!companyId || !projectId}
+    className={
+      "inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm disabled:opacity-60 " +
+      (project.isClosed
+        ? "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+        : "bg-blue-600 text-white hover:bg-blue-700")
+    }
+  >
+    {project.isClosed ? (
+      <>
+        <Lock className="size-4 text-slate-600" />
+        Project closure
+      </>
+    ) : (
+      <>
+        <Activity className="size-4" />
+        Open board
+      </>
+    )}
+  </button>
             <button
               type="button"
               onClick={() => setActionsOpen((x) => !x)}
@@ -993,6 +1016,7 @@ export default function ProjectDetailPage() {
               <MoreHorizontal className="size-4" />
               Project actions
             </button>
+
             {project.isClosed && (
               <button
                 type="button"
@@ -1025,6 +1049,7 @@ export default function ProjectDetailPage() {
                 </button>
 
                 <div className="my-1 border-t border-slate-100" />
+
 
                 {/* CLOSE / REOPEN PROJECT */}
                 {!project.isClosed ? (

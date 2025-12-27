@@ -453,7 +453,7 @@ export default function TaskCard({
           <TimerReset className="w-3 h-3" /> {Math.max(0, points ?? 0)} pts
         </div>
         <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours ?? 0)}/
+          <Clock className="w-3 h-3" /> 
           {t.estimateHours ?? 0}h
         </div>
         <div className="flex items-center gap-1">

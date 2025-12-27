@@ -362,7 +362,7 @@ const dragDisabled = !canUpdateTask;
                   </div>
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="mb-1 block text-[11px] font-medium text-slate-600">
                     Estimate (hours)
                   </label>
@@ -379,7 +379,7 @@ const dragDisabled = !canUpdateTask;
                       }))
                     }
                   />
-                </div>
+                </div> */}
 
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <button

@@ -244,7 +244,7 @@ export default function QuickTaskCreateCard({
         </label>
 
         {/* Assignee quick (chỉ UI) */}
-        <label className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs border-slate-300 text-slate-700">
+        {/* <label className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs border-slate-300 text-slate-700">
           <UserRound className="h-3.5 w-3.5" />
           <input
             value={assigneeName}
@@ -253,13 +253,13 @@ export default function QuickTaskCreateCard({
             placeholder="Assignee"
             onKeyDown={onKeyDown}
           />
-        </label>
+        </label> */}
 
         {/* Priority */}
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskVm["priority"])}
-          className="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700"
+          className="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 ml-0"
           title="Priority"
           disabled={isSaving}
         >
@@ -269,6 +269,8 @@ export default function QuickTaskCreateCard({
           <option>Low</option>
         </select>
 
+      </div>
+      <div className="flex">
         {/* Cancel + Create */}
         <button
           type="button"
@@ -291,7 +293,7 @@ export default function QuickTaskCreateCard({
         >
           <Plus className="h-4 w-4" /> {isSaving ? "Creating..." : "Create"}
         </button>
-      </div>
+        </div>
     </div>
   );
 }
