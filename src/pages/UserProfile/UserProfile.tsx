@@ -22,12 +22,43 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { User } from '@/interfaces/User/User';
-import { getSelfUser, putSelfUser, changePassword } from '@/services/userService.js';
+import {
+  getSelfUser,
+  putSelfUser,
+  changePassword,
+  getTransactionPagedOfUser,
+} from '@/services/userService.js';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import { logoutUser } from '@/redux/userSlice';
+import { getTransactionById } from '@/services/transactionService.js';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
+import { Input, Tag } from 'antd';
+import { Search } from 'lucide-react';
 
 type PasswordFieldName = 'oldPassword' | 'newPassword' | 'confirmPassword';
+
+const TX_STATUS_COLOR: Record<string, string> = {
+  Success: 'green',
+  Pending: 'gold',
+  Failed: 'red',
+};
+
+const DetailItem = ({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  children?: React.ReactNode;
+}) => (
+  <div>
+    <p className="text-xs text-gray-500 mb-1">{label}</p>
+    <div className="font-medium text-gray-900">{children ?? value ?? '-'}</div>
+  </div>
+);
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -38,6 +69,15 @@ const UserProfile = () => {
   const userFromRedux = useAppSelector((state) => state.user);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [openDetail, setOpenDetail] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [transactionDetail, setTransactionDetail] = useState<any>(null);
 
   const [profileData, setProfileData] = useState<User>({
     userName: 'Unknown',
@@ -62,7 +102,7 @@ const UserProfile = () => {
     { id: 'password', label: 'Change password', icon: Lock },
     // { id: 'notifications', label: 'Notifications', icon: Bell },
     // { id: 'security', label: 'Security', icon: Shield },
-    // { id: 'billing', label: 'Billing', icon: CreditCard },
+    { id: 'transaction', label: 'My transaction', icon: CreditCard },
     // { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -164,6 +204,42 @@ const UserProfile = () => {
       toast.error((error.message as string) || 'Change password failed!');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // handle get transaction of user
+  const fetchTransactions = async () => {
+    setTransactionLoading(true);
+    try {
+      const res = await getTransactionPagedOfUser(keyword, pageNumber, pageSize);
+
+      setTransactions(res.data.items || []);
+      setTotalCount(res.data.totalCount || 0);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load transactions');
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'transaction') {
+      fetchTransactions();
+    }
+  }, [activeTab, pageNumber, keyword]);
+
+  // handle get detail transaction
+  const fetchTransactionDetail = async (id: string) => {
+    setDetailLoading(true);
+    try {
+      const res = await getTransactionById(id);
+      console.log(res);
+      setTransactionDetail(res);
+      setOpenDetail(true);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load transaction detail');
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -496,6 +572,213 @@ const UserProfile = () => {
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {isLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'transaction' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-900 m-0">Transaction Management</h3>
+                <p className="text-sm text-gray-500">View your transaction history</p>
+
+                {/* Search */}
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Input
+                    placeholder="Search by plan or order code..."
+                    allowClear
+                    prefix={<Search size={16} className="text-gray-400" />}
+                    value={keyword}
+                    onChange={(e) => {
+                      setKeyword(e.target.value);
+                      setPageNumber(1);
+                    }}
+                    style={{ width: 280 }}
+                  />
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Order Code
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Plan
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Created At
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {transactionLoading ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-6 text-gray-400">
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : transactions.length > 0 ? (
+                      transactions.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            {tx.orderCode}
+                          </td>
+
+                          <td className="px-6 py-4 text-sm text-gray-600">{tx.planName}</td>
+
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {tx.amount?.toLocaleString()} {tx.currency}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <Tag color={TX_STATUS_COLOR[tx.status] || 'default'}>{tx.status}</Tag>
+                          </td>
+
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {new Date(tx.createdAt).toLocaleDateString('en-CA')}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <button
+                              onClick={() => fetchTransactionDetail(tx.id)}
+                              className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                            >
+                              View detail
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="text-center text-gray-400 py-6">
+                          No transactions found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Showing <b>{transactions.length}</b> of <b>{totalCount}</b> transactions
+                  </div>
+
+                  <Stack spacing={2}>
+                    <Pagination
+                      count={Math.max(1, Math.ceil(totalCount / pageSize))}
+                      page={pageNumber}
+                      onChange={(_, p) => setPageNumber(p)}
+                      color="primary"
+                      variant="outlined"
+                      shape="rounded"
+                      showFirstButton
+                      showLastButton
+                    />
+                  </Stack>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {openDetail && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-900">Transaction Detail</h3>
+                  <button
+                    onClick={() => setOpenDetail(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6">
+                  {detailLoading || !transactionDetail ? (
+                    <p className="text-gray-500 text-center py-6">Loading...</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <DetailItem label="Order Code" value={transactionDetail.orderCode} />
+                      <DetailItem label="Plan" value={transactionDetail.planName} />
+                      <DetailItem label="Amount">
+                        {transactionDetail.amount?.toLocaleString()} {transactionDetail.currency}
+                      </DetailItem>
+                      <DetailItem label="Status">
+                        <Tag color={TX_STATUS_COLOR[transactionDetail.status]}>
+                          {transactionDetail.status}
+                        </Tag>
+                      </DetailItem>
+
+                      <DetailItem label="Provider" value={transactionDetail.provider} />
+                      <DetailItem label="Type" value={transactionDetail.type} />
+
+                      <DetailItem label="User">{transactionDetail.userName}</DetailItem>
+
+                      <DetailItem label="Account Number">
+                        {transactionDetail.accountNumber}
+                      </DetailItem>
+
+                      <DetailItem label="Counter Bank">
+                        {transactionDetail.counterAccountBankName}
+                      </DetailItem>
+
+                      <DetailItem label="Counter Account">
+                        {transactionDetail.counterAccountNumber}
+                      </DetailItem>
+
+                      <DetailItem label="Created At">
+                        {new Date(transactionDetail.createdAt).toLocaleString()}
+                      </DetailItem>
+
+                      <DetailItem label="Paid At">
+                        {transactionDetail.paidAt
+                          ? new Date(transactionDetail.paidAt).toLocaleString()
+                          : '-'}
+                      </DetailItem>
+
+                      <DetailItem label="Billing Period">
+                        {transactionDetail.billingPeriodSnapshot}
+                      </DetailItem>
+
+                      <DetailItem label="Period Count">
+                        {transactionDetail.periodCountSnapshot}
+                      </DetailItem>
+
+                      <DetailItem label="Payment Mode">
+                        {transactionDetail.paymentModeSnapshot}
+                      </DetailItem>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t flex justify-end">
+                  <button
+                    onClick={() => setOpenDetail(false)}
+                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                  >
+                    Close
                   </button>
                 </div>
               </div>
