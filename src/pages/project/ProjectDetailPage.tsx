@@ -496,10 +496,11 @@ export default function ProjectDetailPage() {
     [project, meId],
   );
 
-  const handleOpenBoard = () => {
-    if (!companyId || !projectId) return;
-    navigate(`/companies/${companyId}/projects/${projectId}/board`);
-  };
+const handleOpenBoard = () => {
+  if (!companyId || !projectId) return;
+  navigate(`/companies/${companyId}/project/${projectId}`);
+};
+
 
   const handleViewWorkflow = () => {
     if (!companyId || !project?.workflowId) return;
@@ -984,7 +985,29 @@ const handleReopenProject = async () => {
               <Activity className="size-4" />
               Open board
             </button> */}
-
+ <button
+    type="button"
+    onClick={project.isClosed ? handleOpenClosureReport : handleOpenBoard}
+    disabled={!companyId || !projectId}
+    className={
+      "inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm disabled:opacity-60 " +
+      (project.isClosed
+        ? "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+        : "bg-blue-600 text-white hover:bg-blue-700")
+    }
+  >
+    {project.isClosed ? (
+      <>
+        <Lock className="size-4 text-slate-600" />
+        Project closure
+      </>
+    ) : (
+      <>
+        <Activity className="size-4" />
+        Open board
+      </>
+    )}
+  </button>
             <button
               type="button"
               onClick={() => setActionsOpen((x) => !x)}
@@ -993,7 +1016,7 @@ const handleReopenProject = async () => {
               <MoreHorizontal className="size-4" />
               Project actions
             </button>
-{project.isClosed && (
+{/* {project.isClosed && (
   <button
     type="button"
     onClick={handleOpenClosureReport}
@@ -1002,7 +1025,7 @@ const handleReopenProject = async () => {
     <Lock className="size-4 text-slate-600" />
     Project closure
   </button>
-)}
+)} */}
 
             {actionsOpen && (
               <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -1027,41 +1050,7 @@ const handleReopenProject = async () => {
                 <div className="my-1 border-t border-slate-100" />
 
               {/* CLOSE / REOPEN PROJECT */}
-{!project.isClosed ? (
-  <button
-    type="button"
-    onClick={() => {
-      setActionsOpen(false);
-      setConfirmState({ kind: "closeProject" });
-    }}
-    disabled={!canCloseProject || closing}
-    title={canCloseProject ? "Close this project" : "Only the creator can close this project"}
-    className={
-      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
-      (canCloseProject ? "text-slate-700" : "text-slate-500")
-    }
-  >
-    <Lock className="size-3.5" />
-    <span>Close project</span>
-  </button>
-) : (
-  <button
-    type="button"
-    onClick={() => {
-      setActionsOpen(false);
-      setConfirmState({ kind: "reopenProject" });
-    }}
-    disabled={!canCloseProject || reopening}
-    title={canCloseProject ? "Reopen this project" : "Only the creator can reopen this project"}
-    className={
-      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
-      (canCloseProject ? "text-slate-700" : "text-slate-500")
-    }
-  >
-    <Lock className="size-3.5" />
-    <span>Reopen project</span>
-  </button>
-)}
+
 
 
               </div>
