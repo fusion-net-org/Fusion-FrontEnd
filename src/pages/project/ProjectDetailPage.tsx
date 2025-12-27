@@ -27,8 +27,8 @@ import {
   GetProjectByProjectId,
   getCompanyMembersPaged,
   updateProject,
-   closeProject,     
-  reopenProject,  
+  closeProject,
+  reopenProject,
 } from "@/services/projectService.js";
 import {
   addProjectMember,
@@ -313,10 +313,10 @@ export default function ProjectDetailPage() {
         // createdBy + createdAt
         const createdById: string | null = String(
           detail.createdBy ??
-            detail.createdById ??
-            detail.createdByUserId ??
-            detail.createdByUser ??
-            "",
+          detail.createdById ??
+          detail.createdByUserId ??
+          detail.createdByUser ??
+          "",
         ) || null;
 
         const createdAt: string =
@@ -346,8 +346,8 @@ export default function ProjectDetailPage() {
         const memberItems: any[] = Array.isArray(memberPayload.items)
           ? memberPayload.items
           : Array.isArray(memberPayload)
-          ? memberPayload
-          : [];
+            ? memberPayload
+            : [];
 
         const rawMembers: any[] = memberItems.length > 0 ? memberItems : rawMembersFromProject;
         const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
@@ -545,10 +545,10 @@ export default function ProjectDetailPage() {
       setProject((prev) =>
         prev
           ? {
-              ...prev,
-              name: updated.name ?? trimmedName,
-              description: updated.description ?? (editDescription.trim() || null),
-            }
+            ...prev,
+            name: updated.name ?? trimmedName,
+            description: updated.description ?? (editDescription.trim() || null),
+          }
           : prev,
       );
 
@@ -561,65 +561,65 @@ export default function ProjectDetailPage() {
       setSavingBasic(false);
     }
   };
- const handleOpenClosureReport = React.useCallback(() => {
-  if (!companyId || !projectId) return;
-  navigate(`/companies/${companyId}/project/${projectId}/closue`);
-}, [companyId, projectId, navigate]);
+  const handleOpenClosureReport = React.useCallback(() => {
+    if (!companyId || !projectId) return;
+    navigate(`/companies/${companyId}/project/${projectId}/closue`);
+  }, [companyId, projectId, navigate]);
 
 
-const handleReopenProject = async () => {
-  if (!project) return;
+  const handleReopenProject = async () => {
+    if (!project) return;
 
-  if (!canCloseProject) {
-    toast.error("Only the creator can reopen this project.");
-    return;
-  }
-  if (!project.isClosed) {
-    toast.info("Project is not closed.");
-    return;
-  }
+    if (!canCloseProject) {
+      toast.error("Only the creator can reopen this project.");
+      return;
+    }
+    if (!project.isClosed) {
+      toast.info("Project is not closed.");
+      return;
+    }
 
-  setReopening(true);
-  try {
-    await reopenProject(project.id);
+    setReopening(true);
+    try {
+      await reopenProject(project.id);
 
-    setProject((prev) => (prev ? { ...prev, isClosed: false } : prev));
-    toast.success("Project reopened.");
-  } catch (err: any) {
-    console.error("Reopen project failed", err);
-    toast.error(err?.response?.data?.message || err?.message || "Failed to reopen project.");
-  } finally {
-    setReopening(false);
-    setActionsOpen(false);
-  }
-};
+      setProject((prev) => (prev ? { ...prev, isClosed: false } : prev));
+      toast.success("Project reopened.");
+    } catch (err: any) {
+      console.error("Reopen project failed", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to reopen project.");
+    } finally {
+      setReopening(false);
+      setActionsOpen(false);
+    }
+  };
 
- const handleCloseProject = async () => {
-  if (!project) return;
+  const handleCloseProject = async () => {
+    if (!project) return;
 
-  if (!canCloseProject) {
-    toast.error("Only the creator can close this project.");
-    return;
-  }
-  if (project.isClosed) {
-    toast.info("Project is already closed.");
-    return;
-  }
+    if (!canCloseProject) {
+      toast.error("Only the creator can close this project.");
+      return;
+    }
+    if (project.isClosed) {
+      toast.info("Project is already closed.");
+      return;
+    }
 
-  setClosing(true);
-  try {
-    await closeProject(project.id);
+    setClosing(true);
+    try {
+      await closeProject(project.id);
 
-    setProject((prev) => (prev ? { ...prev, isClosed: true } : prev));
-    toast.success("Project closed.");
-  } catch (err: any) {
-    console.error("Close project failed", err);
-    toast.error(err?.response?.data?.message || err?.message || "Failed to close project.");
-  } finally {
-    setClosing(false);
-    setActionsOpen(false);
-  }
-};
+      setProject((prev) => (prev ? { ...prev, isClosed: true } : prev));
+      toast.success("Project closed.");
+    } catch (err: any) {
+      console.error("Close project failed", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to close project.");
+    } finally {
+      setClosing(false);
+      setActionsOpen(false);
+    }
+  };
 
 
   const projectStats = project ? project.stats : null;
@@ -710,11 +710,11 @@ const handleReopenProject = async () => {
       setConfirmState({ kind: "none" });
       return;
     }
- if (confirmState.kind === "reopenProject") {
-    await handleReopenProject();
-    setConfirmState({ kind: "none" });
-    return;
-  }
+    if (confirmState.kind === "reopenProject") {
+      await handleReopenProject();
+      setConfirmState({ kind: "none" });
+      return;
+    }
     if (confirmState.kind === "kickMember") {
       await handleRemoveMember(confirmState.member.userId);
       setConfirmState({ kind: "none" });
@@ -745,7 +745,7 @@ const handleReopenProject = async () => {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
-      
+
 
       {/* Header */}
       <div
@@ -773,8 +773,8 @@ const handleReopenProject = async () => {
                 {project.status === "InProgress"
                   ? "In progress"
                   : project.status === "OnHold"
-                  ? "On hold"
-                  : project.status}
+                    ? "On hold"
+                    : project.status}
               </span>
 
               <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700 border border-indigo-100">
@@ -848,14 +848,14 @@ const handleReopenProject = async () => {
                       {project.name}
                     </h1>
                     <Can code="PROJECT_UPDATE">
-                    <button
-                      type="button"
-                      onClick={handleStartEditBasic}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                    >
-                      <Edit3 className="size-3.5" />
-                      Edit
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleStartEditBasic}
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                      >
+                        <Edit3 className="size-3.5" />
+                        Edit
+                      </button>
                     </Can>
                   </div>
 
@@ -993,16 +993,16 @@ const handleReopenProject = async () => {
               <MoreHorizontal className="size-4" />
               Project actions
             </button>
-{project.isClosed && (
-  <button
-    type="button"
-    onClick={handleOpenClosureReport}
-    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-  >
-    <Lock className="size-4 text-slate-600" />
-    Project closure
-  </button>
-)}
+            {project.isClosed && (
+              <button
+                type="button"
+                onClick={handleOpenClosureReport}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <Lock className="size-4 text-slate-600" />
+                Project closure
+              </button>
+            )}
 
             {actionsOpen && (
               <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -1026,42 +1026,42 @@ const handleReopenProject = async () => {
 
                 <div className="my-1 border-t border-slate-100" />
 
-              {/* CLOSE / REOPEN PROJECT */}
-{!project.isClosed ? (
-  <button
-    type="button"
-    onClick={() => {
-      setActionsOpen(false);
-      setConfirmState({ kind: "closeProject" });
-    }}
-    disabled={!canCloseProject || closing}
-    title={canCloseProject ? "Close this project" : "Only the creator can close this project"}
-    className={
-      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
-      (canCloseProject ? "text-slate-700" : "text-slate-500")
-    }
-  >
-    <Lock className="size-3.5" />
-    <span>Close project</span>
-  </button>
-) : (
-  <button
-    type="button"
-    onClick={() => {
-      setActionsOpen(false);
-      setConfirmState({ kind: "reopenProject" });
-    }}
-    disabled={!canCloseProject || reopening}
-    title={canCloseProject ? "Reopen this project" : "Only the creator can reopen this project"}
-    className={
-      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
-      (canCloseProject ? "text-slate-700" : "text-slate-500")
-    }
-  >
-    <Lock className="size-3.5" />
-    <span>Reopen project</span>
-  </button>
-)}
+                {/* CLOSE / REOPEN PROJECT */}
+                {!project.isClosed ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      setConfirmState({ kind: "closeProject" });
+                    }}
+                    disabled={!canCloseProject || closing}
+                    title={canCloseProject ? "Close this project" : "Only the creator can close this project"}
+                    className={
+                      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
+                      (canCloseProject ? "text-slate-700" : "text-slate-500")
+                    }
+                  >
+                    <Lock className="size-3.5" />
+                    <span>Close project</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      setConfirmState({ kind: "reopenProject" });
+                    }}
+                    disabled={!canCloseProject || reopening}
+                    title={canCloseProject ? "Reopen this project" : "Only the creator can reopen this project"}
+                    className={
+                      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
+                      (canCloseProject ? "text-slate-700" : "text-slate-500")
+                    }
+                  >
+                    <Lock className="size-3.5" />
+                    <span>Reopen project</span>
+                  </button>
+                )}
 
 
               </div>
@@ -1308,14 +1308,14 @@ const handleReopenProject = async () => {
                       <td className="px-4 py-2.5 text-right text-xs">
                         {canKickMember(m.userId) ? (
                           <Can code='PROJECT_KICK_MEMBER'>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmState({ kind: "kickMember", member: m })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100"
-                          >
-                            <Trash2 className="size-3.5" />
-                            Kick
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmState({ kind: "kickMember", member: m })}
+                              className="inline-flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100"
+                            >
+                              <Trash2 className="size-3.5" />
+                              Kick
+                            </button>
                           </Can>
                         ) : null}
                       </td>
@@ -1325,71 +1325,71 @@ const handleReopenProject = async () => {
               </tbody>
             </table>
           </div>
-<Can code='PROJECT_INVITE_MEMBER'>
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4 sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <UserPlus className="size-4 text-blue-600" />
-                  Assign member from company
-                </div>
-                <p className="text-xs text-slate-500">
-                  Choose people who already belong to this company to add them into the project.
-                </p>
-              </div>
-            </div>
-
-            {availableMembers.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-500">
-                No more available members to add. Invite new members to the company first.
-              </div>
-            ) : (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {availableMembers.map((m) => (
-                  <div
-                    key={m.userId}
-                    className="rounded-xl border border-slate-200 bg-white p-3 flex flex-col justify-between"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="inline-flex size-9 items-center justify-center rounded-full bg-blue-600/10 text-sm font-semibold text-blue-700">
-                        {initials(m.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-900">{m.name}</div>
-                        <div className="truncate text-xs text-slate-500">{m.email}</div>
-                        {m.roleName && (
-                          <div className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                            {m.roleName}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                      <span>{m.isPartner ? "Partner" : "Company member"}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleAddMember(m)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        <UserPlus className="size-3.5" />
-                        Add to project
-                      </button>
-                    </div>
+          <Can code='PROJECT_INVITE_MEMBER'>
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <UserPlus className="size-4 text-blue-600" />
+                    Assign member from company
                   </div>
-                ))}
+                  <p className="text-xs text-slate-500">
+                    Choose people who already belong to this company to add them into the project.
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+
+              {availableMembers.length === 0 ? (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-500">
+                  No more available members to add. Invite new members to the company first.
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {availableMembers.map((m) => (
+                    <div
+                      key={m.userId}
+                      className="rounded-xl border border-slate-200 bg-white p-3 flex flex-col justify-between"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="inline-flex size-9 items-center justify-center rounded-full bg-blue-600/10 text-sm font-semibold text-blue-700">
+                          {initials(m.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-slate-900">{m.name}</div>
+                          <div className="truncate text-xs text-slate-500">{m.email}</div>
+                          {m.roleName && (
+                            <div className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                              {m.roleName}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                        <span>{m.isPartner ? "Partner" : "Company member"}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleAddMember(m)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          <UserPlus className="size-3.5" />
+                          Add to project
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Can>
         </div>
       )}
 
-   {activeTab === "activity" && (
-  <div className="mt-5">
-    <ProjectActivityTimeline projectId={project.id} />
-  </div>
-)}
+      {activeTab === "activity" && (
+        <div className="mt-5">
+          <ProjectActivityTimeline projectId={project.id} />
+        </div>
+      )}
 
       {/* Workflow Preview Modal */}
       {workflowPreviewOpen && project.workflowId && (
@@ -1415,29 +1415,29 @@ const handleReopenProject = async () => {
               </div>
 
               <div className="flex-1">
-               <h2 className="text-sm font-semibold text-slate-900">
-  {isCloseProjectConfirm
-    ? "Close project?"
-    : isReopenProjectConfirm
-    ? "Reopen project?"
-    : "Remove member from project?"}
-</h2>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {isCloseProjectConfirm
+                    ? "Close project?"
+                    : isReopenProjectConfirm
+                      ? "Reopen project?"
+                      : "Remove member from project?"}
+                </h2>
 
 
                 <p className="mt-1 text-xs text-slate-600">
-                {isCloseProjectConfirm && (
-  <>
-    This will mark <span className="font-semibold">"{project.name}"</span> as{" "}
-    <span className="font-semibold">Closed</span>. Only the creator can do this.
-  </>
-)}
+                  {isCloseProjectConfirm && (
+                    <>
+                      This will mark <span className="font-semibold">"{project.name}"</span> as{" "}
+                      <span className="font-semibold">Closed</span>. Only the creator can do this.
+                    </>
+                  )}
 
-{isReopenProjectConfirm && (
-  <>
-    This will mark <span className="font-semibold">"{project.name}"</span> as{" "}
-    <span className="font-semibold">Open</span> again. Only the creator can do this.
-  </>
-)}
+                  {isReopenProjectConfirm && (
+                    <>
+                      This will mark <span className="font-semibold">"{project.name}"</span> as{" "}
+                      <span className="font-semibold">Open</span> again. Only the creator can do this.
+                    </>
+                  )}
 
                 </p>
               </div>
@@ -1454,29 +1454,29 @@ const handleReopenProject = async () => {
               </button>
 
               <button
-  type="button"
-  onClick={handleConfirmAction}
-  disabled={
-    (isCloseProjectConfirm && (closing || !canCloseProject)) ||
-    (isReopenProjectConfirm && (reopening || !canCloseProject))
-  }
-  className={
-    "inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 " +
-    (isCloseProjectConfirm || isReopenProjectConfirm
-      ? "bg-slate-800 hover:bg-slate-900"
-      : "bg-rose-600 hover:bg-rose-700")
-  }
->
-  {(closing && isCloseProjectConfirm) || (reopening && isReopenProjectConfirm) ? (
-    <span className="size-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
-  ) : null}
+                type="button"
+                onClick={handleConfirmAction}
+                disabled={
+                  (isCloseProjectConfirm && (closing || !canCloseProject)) ||
+                  (isReopenProjectConfirm && (reopening || !canCloseProject))
+                }
+                className={
+                  "inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 " +
+                  (isCloseProjectConfirm || isReopenProjectConfirm
+                    ? "bg-slate-800 hover:bg-slate-900"
+                    : "bg-rose-600 hover:bg-rose-700")
+                }
+              >
+                {(closing && isCloseProjectConfirm) || (reopening && isReopenProjectConfirm) ? (
+                  <span className="size-3 animate-spin rounded-full border border-white/60 border-t-transparent" />
+                ) : null}
 
-  {isCloseProjectConfirm
-    ? "Close project"
-    : isReopenProjectConfirm
-    ? "Reopen project"
-    : "Remove member"}
-</button>
+                {isCloseProjectConfirm
+                  ? "Close project"
+                  : isReopenProjectConfirm
+                    ? "Reopen project"
+                    : "Remove member"}
+              </button>
 
             </div>
           </div>

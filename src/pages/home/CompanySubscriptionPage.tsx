@@ -375,16 +375,16 @@ export default function CompanySubscriptionsPage() {
               const remainText = unlimited
                 ? "∞"
                 : remainingValue === null
-                ? "—"
-                : remainingValue.toLocaleString("vi-VN");
+                  ? "—"
+                  : remainingValue.toLocaleString("vi-VN");
 
               const isShowingRemaining = unlimited || remainingValue !== null;
               const isZero = !unlimited && remainingValue === 0;
               const numberClass = isZero
                 ? "text-rose-600"
                 : isShowingRemaining
-                ? "text-emerald-600"
-                : "text-slate-800";
+                  ? "text-emerald-600"
+                  : "text-slate-800";
 
               const fallbackUsageText = limit == null ? `${used}/∞` : `${used}/${limit}`;
               const rightText = unlimited || remainingValue !== null ? remainText : fallbackUsageText;
@@ -433,7 +433,7 @@ export default function CompanySubscriptionsPage() {
         message.success(`Updated status to ${nextStatus}`);
         await fetchData(); // refresh because BE may auto pause other subscriptions
       } catch (e: any) {
-        // ✅ theo yêu cầu: update failed -> in message này
+        //  theo yêu cầu: update failed -> in message này
         message.error(
           "Only the company that owns the current subscription package or plan can update the package status"
         );

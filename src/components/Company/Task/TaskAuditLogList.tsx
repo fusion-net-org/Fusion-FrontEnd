@@ -242,48 +242,48 @@ export default function TaskAuditLogList({
     (actionsMeta as any[]).forEach((x) => set.add(String(x.category || "other")));
     return Array.from(set).sort();
   }, []);
-const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
 
   const load = React.useCallback(
-  async (opts?: { reset?: boolean; page?: number }) => {
-    if (!taskId) return;
+    async (opts?: { reset?: boolean; page?: number }) => {
+      if (!taskId) return;
 
-    setLoading(true);
-    try {
-      const nextPage = opts?.page ?? (opts?.reset ? 1 : pageNumber);
+      setLoading(true);
+      try {
+        const nextPage = opts?.page ?? (opts?.reset ? 1 : pageNumber);
 
-      // category -> actions csv (lọc theo meta)
-      const actions =
-        selectedCats.length === 0
-          ? []
-          : (actionsMeta as any[])
+        // category -> actions csv (lọc theo meta)
+        const actions =
+          selectedCats.length === 0
+            ? []
+            : (actionsMeta as any[])
               .filter((a) => selectedCats.includes(String(a.category || "other")))
               .map((a) => String(a.code));
 
-      const res = await getTaskLogEvents(taskId, {
-        pageNumber: nextPage,
-        pageSize,
-        keyword: keyword.trim(),
-        actions,
-        sortColumn: "CreatedAt",
-        sortDescending: true, // ✅ newest first
-      });
+        const res = await getTaskLogEvents(taskId, {
+          pageNumber: nextPage,
+          pageSize,
+          keyword: keyword.trim(),
+          actions,
+          sortColumn: "CreatedAt",
+          sortDescending: true, //  newest first
+        });
 
-      setItems((prev) => (opts?.reset ? res.items : [...prev, ...res.items]));
-      setTotalCount(res.totalCount ?? 0);
-      setPageNumber(res.pageNumber ?? nextPage);
+        setItems((prev) => (opts?.reset ? res.items : [...prev, ...res.items]));
+        setTotalCount(res.totalCount ?? 0);
+        setPageNumber(res.pageNumber ?? nextPage);
 
-      // ✅ reset thì kéo lên đầu để thấy newest
-      if (opts?.reset && scrollRef.current) scrollRef.current.scrollTop = 0;
-    } catch (e) {
-      console.error("[TaskAuditLogList] load failed", e);
-      if (opts?.reset) setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  },
-  [taskId, pageNumber, pageSize, keyword, selectedCats]
-);
+        //  reset thì kéo lên đầu để thấy newest
+        if (opts?.reset && scrollRef.current) scrollRef.current.scrollTop = 0;
+      } catch (e) {
+        console.error("[TaskAuditLogList] load failed", e);
+        if (opts?.reset) setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [taskId, pageNumber, pageSize, keyword, selectedCats]
+  );
 
 
   React.useEffect(() => {
@@ -392,9 +392,9 @@ const scrollRef = React.useRef<HTMLDivElement | null>(null);
       )}
 
       <div
-  ref={scrollRef}
-  className={cn("mt-2", compact ? "max-h-64 overflow-y-auto pr-1" : "max-h-[420px] overflow-y-auto pr-1")}
->
+        ref={scrollRef}
+        className={cn("mt-2", compact ? "max-h-64 overflow-y-auto pr-1" : "max-h-[420px] overflow-y-auto pr-1")}
+      >
         {loading && items.length === 0 ? (
           <div className="space-y-2 mt-2">
             <div className="h-9 rounded-xl bg-slate-100 animate-pulse" />
@@ -421,8 +421,8 @@ const scrollRef = React.useRef<HTMLDivElement | null>(null);
                     const Icon = ICONS[String(metaInfo?.icon || "Eye")] || Eye;
 
                     const iso = safeIso(log);
-const timeText = iso ? formatTime(iso) : "";
-const fullTime = iso ? formatDateTimeFull(iso) : "";
+                    const timeText = iso ? formatTime(iso) : "";
+                    const fullTime = iso ? formatDateTimeFull(iso) : "";
                     const actorName =
                       log.actorName ||
                       log.actorUserName ||
@@ -469,14 +469,14 @@ const fullTime = iso ? formatDateTimeFull(iso) : "";
                               </span>
 
                               {/* visibility pill */}
-                          
-                             
 
-{timeText && (
-  <span className="text-[10px] text-slate-400" title={fullTime}>
-    • {timeText}
-  </span>
-)}                            </div>
+
+
+                              {timeText && (
+                                <span className="text-[10px] text-slate-400" title={fullTime}>
+                                  • {timeText}
+                                </span>
+                              )}                            </div>
 
                             <div className="mt-1 text-[11px] text-slate-700">
                               {businessMsg}
@@ -500,7 +500,7 @@ const fullTime = iso ? formatDateTimeFull(iso) : "";
                               </div>
                             )} */}
 
-                         
+
                           </div>
                         </div>
                       </div>
