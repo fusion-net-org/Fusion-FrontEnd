@@ -44,6 +44,8 @@ export interface ProjectDetailResponse {
   createByName: string;
   createAt: string; // ISO datetime string
   updateAt: string; // ISO datetime string
+  contractBudget: number | null;
+  ticketTotalBudget: number | null;
 }
 // Generic cho ResponseModel<T> backend đang trả về (nếu cần)
 export interface ApiResponse<T> {
