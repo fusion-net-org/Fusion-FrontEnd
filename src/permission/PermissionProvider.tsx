@@ -75,7 +75,7 @@ export function PermissionProvider({
   const clear = useCallback(() => {
     if (effectiveCompanyId) cache.delete(cacheKey(userId, effectiveCompanyId));
     hardClearState();
-    clearCurrentCompanyId(); // ✅ clear header / context
+    clearCurrentCompanyId(); 
   }, [effectiveCompanyId, userId, hardClearState]);
 
   const load = useCallback(
@@ -87,7 +87,6 @@ export function PermissionProvider({
         return;
       }
 
-      // ✅ set header cho axios
       setCurrentCompanyId(cid);
 
       const key = cacheKey(userId, cid);

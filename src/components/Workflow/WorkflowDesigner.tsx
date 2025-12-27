@@ -1,5 +1,5 @@
 // src/components/workflow/WorkflowDesigner.tsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   addEdge,
   Background,
@@ -53,6 +53,59 @@ const EDGE_LABEL: Record<TransitionType, string> = {
   failure: "Fail",
   optional: "Optional",
 };
+
+export type EdgeData = {
+  type: TransitionType;
+  roleNames?: string[];
+  rule?: string;
+  label?: string;
+  enforceTransitions?: boolean; // chỉ có ý nghĩa với non-failure
+};
+
+/* =========================
+   Enforce rules (business)
+   - Fail edges are NOT counted and NOT blocked.
+   - If a status has an incoming enforced NON-failure edge => it can have ONLY that 1 incoming non-failure.
+   - Cannot enforce a failure edge.
+   ========================= */
+
+const getEdgeType = (e: Edge<EdgeData> | { data?: EdgeData }): TransitionType =>
+  ((e as any)?.data?.type ?? "optional") as TransitionType;
+
+const isFailureEdge = (e: Edge<EdgeData> | { data?: EdgeData }) =>
+  getEdgeType(e) === "failure";
+
+const isEnforcedNonFail = (e: Edge<EdgeData> | { data?: EdgeData }) =>
+  !!(e as any)?.data?.enforceTransitions && !isFailureEdge(e);
+
+const outgoingEdges = (
+  all: Edge<EdgeData>[],
+  sourceId: string,
+  opts?: { excludeEdgeId?: string; ignoreFailure?: boolean }
+) =>
+  all.filter((e) => {
+    if (String(e.source) !== String(sourceId)) return false;
+    if (opts?.excludeEdgeId && e.id === opts.excludeEdgeId) return false;
+    if (opts?.ignoreFailure && isFailureEdge(e)) return false;
+    return true;
+  });
+
+const hasEnforcedOutgoingNonFail = (
+  all: Edge<EdgeData>[],
+  sourceId: string,
+  opts?: { excludeEdgeId?: string }
+) =>
+  outgoingEdges(all, sourceId, {
+    excludeEdgeId: opts?.excludeEdgeId,
+    ignoreFailure: true,
+  }).some((e) => isEnforcedNonFail(e));
+
+const isDuplicateEdge = (
+  edges: Edge<EdgeData>[],
+  source: string,
+  target: string
+) => edges.some((e) => String(e.source) === source && String(e.target) === target);
+
 const validateDesigner = (p: DesignerDto) => {
   const name = (p.workflow?.name ?? "").trim();
   if (!name) return "Workflow name is required.";
@@ -64,6 +117,39 @@ const validateDesigner = (p: DesignerDto) => {
   if (starts.length !== 1) return "A workflow must have exactly one Start status.";
   if (ends.length !== 1) return "A workflow must have exactly one End status.";
   if (starts[0].id === ends[0].id) return "Start and End cannot be the same status.";
+
+  // Enforce cannot be on failure transitions
+  for (const tr of p.transitions ?? []) {
+    const t = (tr.type ?? "optional") as TransitionType;
+    if (t === "failure" && tr.enforceTransitions) {
+      return `Cannot enforce a Fail transition.`;
+    }
+  }
+
+const outgoingNonFailCount = new Map<string, number>();
+for (const tr of p.transitions ?? []) {
+  const t = (tr.type ?? "optional") as TransitionType;
+  if (t === "failure") continue;
+  outgoingNonFailCount.set(
+    tr.fromStatusId,
+    (outgoingNonFailCount.get(tr.fromStatusId) ?? 0) + 1
+  );
+}
+
+// If any NON-failure enforced edge FROM a status => that status must have exactly 1 OUTGOING NON-failure.
+for (const tr of p.transitions ?? []) {
+  const t = (tr.type ?? "optional") as TransitionType;
+  if (t === "failure") continue;
+
+  if (tr.enforceTransitions) {
+    const cnt = outgoingNonFailCount.get(tr.fromStatusId) ?? 0;
+    if (cnt !== 1) {
+      const fromName =
+        statuses.find((s) => s.id === tr.fromStatusId)?.name ?? tr.fromStatusId;
+      return `Enforced source "${fromName}" must have exactly 1 outgoing (excluding Fail) (currently ${cnt}).`;
+    }
+  }
+}
 
   return null;
 };
@@ -85,19 +171,6 @@ const hexToRgba = (hex?: string | null, alpha = 0.18) => {
   }
 };
 
-export type EdgeData = {
-  type: TransitionType;
-  roleNames?: string[];
-  rule?: string;
-  label?: string;
-};
-
-const isDuplicateEdge = (
-  edges: Edge<EdgeData>[],
-  source: string,
-  target: string
-) => edges.some((e) => String(e.source) === source && String(e.target) === target);
-
 const makeEdge = (t: TransitionVm, showLabels: boolean): Edge<EdgeData> => {
   const color = EDGE_COLORS[t.type];
   return {
@@ -112,6 +185,7 @@ const makeEdge = (t: TransitionVm, showLabels: boolean): Edge<EdgeData> => {
       roleNames: t.roleNames ?? [],
       rule: t.rule ?? undefined,
       label: t.label ?? undefined,
+      enforceTransitions: t.enforceTransitions ?? false,
     },
   };
 };
@@ -177,7 +251,8 @@ const StatusNode: React.FC<NodeProps<StatusNodeData>> = ({ data, selected }) => 
           <div className="font-semibold truncate max-w-[140px]">{st.name}</div>
         </div>
         <div className="flex gap-1 opacity-90 text-gray-700">
-          {st.isStart && <Play size={16} />} {st.isEnd && <CheckCircle2 size={16} />}
+          {st.isStart && <Play size={16} />}{" "}
+          {st.isEnd && <CheckCircle2 size={16} />}
         </div>
       </div>
       <div className="px-3 py-2">
@@ -271,7 +346,7 @@ const TagsInput: React.FC<{
   );
 };
 
-/** ===== Status panel (tách ra top-level) ===== */
+/** ===== Status panel ===== */
 type StatusPanelProps = {
   status: StatusVm;
   onEditStatus: (id: string, patch: Partial<StatusVm>) => void;
@@ -285,7 +360,6 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
 }) => {
   const [nameDraft, setNameDraft] = useState(status.name ?? "");
 
-  // Khi đổi selected status -> sync lại field
   useEffect(() => {
     setNameDraft(status.name ?? "");
   }, [status.id, status.name]);
@@ -326,9 +400,7 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
             type="checkbox"
             className="accent-emerald-600"
             checked={!!status.isStart}
-            onChange={(e) =>
-              onEditStatus(status.id, { isStart: e.target.checked })
-            }
+            onChange={(e) => onEditStatus(status.id, { isStart: e.target.checked })}
           />
           Start
         </label>
@@ -337,9 +409,7 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
             type="checkbox"
             className="accent-emerald-600"
             checked={!!status.isEnd}
-            onChange={(e) =>
-              onEditStatus(status.id, { isEnd: e.target.checked })
-            }
+            onChange={(e) => onEditStatus(status.id, { isEnd: e.target.checked })}
           />
           End
         </label>
@@ -362,15 +432,13 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
           <Trash2 size={16} />
           Delete status
         </button>
-        <div className="text-xs text-gray-400">
-          ID: {status.id.slice(0, 8)}...
-        </div>
+        <div className="text-xs text-gray-400">ID: {status.id.slice(0, 8)}...</div>
       </div>
     </div>
   );
 };
 
-/** ===== Edge panel (tách ra top-level) ===== */
+/** ===== Edge panel ===== */
 type EdgePanelProps = {
   edge: Edge<EdgeData>;
   dto: DesignerDto;
@@ -382,6 +450,7 @@ type EdgePanelProps = {
       label: string;
       rule: string;
       roleNames: string[];
+      enforceTransitions: boolean;
     }>
   ) => void;
   onDeleteEdge: (edge: Edge<EdgeData>) => void;
@@ -396,11 +465,9 @@ const EdgePanel: React.FC<EdgePanelProps> = ({
 }) => {
   const type: TransitionType = edge.data?.type ?? "optional";
   const fromName =
-    dto.statuses.find((s) => s.id === edge.source)?.name ||
-    (edge.source as string);
+    dto.statuses.find((s) => s.id === edge.source)?.name || (edge.source as string);
   const toName =
-    dto.statuses.find((s) => s.id === edge.target)?.name ||
-    (edge.target as string);
+    dto.statuses.find((s) => s.id === edge.target)?.name || (edge.target as string);
 
   const edgeData: Partial<EdgeData> = edge.data ?? {};
   const [labelDraft, setLabelDraft] = useState<string>(edgeData.label ?? "");
@@ -432,10 +499,7 @@ const EdgePanel: React.FC<EdgePanelProps> = ({
               }`}
               onClick={() => onUpdateEdge(edge, { type: t })}
             >
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: EDGE_COLORS[t] }}
-              />{" "}
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: EDGE_COLORS[t] }} />
               {EDGE_LABEL[t]}
             </button>
           ))}
@@ -472,6 +536,24 @@ const EdgePanel: React.FC<EdgePanelProps> = ({
         />
       </div>
 
+      <div className="grid gap-2">
+        <label className="text-xs text-gray-500">Enforce</label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-emerald-600"
+            checked={!!edgeData.enforceTransitions}
+            onChange={(e) => onUpdateEdge(edge, { enforceTransitions: e.target.checked })}
+          />
+          Enforce this transition (only 1 incoming non-fail allowed)
+        </label>
+        {type === "failure" && (
+          <div className="text-xs text-amber-600">
+            Fail transitions cannot be enforced.
+          </div>
+        )}
+      </div>
+
       <div className="pt-2 border-t flex items-center justify-between">
         <button
           onClick={() => onDeleteEdge(edge)}
@@ -480,7 +562,6 @@ const EdgePanel: React.FC<EdgePanelProps> = ({
           <Trash2 size={16} />
           Delete transition
         </button>
-        <div className="text-xs text-gray-400">ID: {edge.id}</div>
       </div>
     </div>
   );
@@ -488,13 +569,9 @@ const EdgePanel: React.FC<EdgePanelProps> = ({
 
 /** ===== Main designer ===== */
 export type WorkflowDesignerProps = {
-  /** Dữ liệu ban đầu (từ API edit) hoặc template tạo mới */
   initialDto: DesignerDto;
-  /** Lưu – trả về dto đã build (đã chèn vị trí node + edge data) */
   onSave: (payload: DesignerDto) => Promise<void>;
-  /** Nhãn tiêu đề nhỏ */
   title?: string;
-  /** Loading/saving flags kiểm soát từ ngoài (tuỳ thích) */
   externalSaving?: boolean;
 };
 
@@ -514,12 +591,16 @@ export default function WorkflowDesigner({
   const [nodes, setNodes, onNodesChange] = useNodesState<StatusNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<EdgeData>([]);
 
+  // keep latest edges to avoid race/stale closures
+  const edgesRef = useRef<Edge<EdgeData>[]>([]);
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
   // selection
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-const [saveAttempted, setSaveAttempted] = useState(false);
 
-const validationError = useMemo(() => validateDesigner(dto), [dto]);
   const selectedEdge = useMemo(
     () => edges.find((e): e is Edge<EdgeData> => e.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId]
@@ -530,7 +611,43 @@ const validationError = useMemo(() => validateDesigner(dto), [dto]);
     [dto?.statuses, selectedNodeId]
   );
 
-  // init graph when initialDto changes (edit & create đều dùng)
+  const handleEditStatus = useCallback(
+    (id: string, patch: Partial<StatusVm>) => {
+      setDto((prev) => {
+        let nextStatuses = prev.statuses.map((s) => (s.id === id ? { ...s, ...patch } : s));
+
+        if (patch.isStart === true) {
+          nextStatuses = nextStatuses.map((s) => {
+            if (s.id === id) return { ...s, isStart: true, isEnd: false };
+            return { ...s, isStart: false };
+          });
+        }
+
+        if (patch.isEnd === true) {
+          nextStatuses = nextStatuses.map((s) => {
+            if (s.id === id) return { ...s, isEnd: true, isStart: false };
+            return { ...s, isEnd: false };
+          });
+        }
+
+        setNodes((ns) =>
+          ns.map((n) => {
+            const st = nextStatuses.find((x) => x.id === n.id);
+            if (!st) return n;
+            return {
+              ...n,
+              data: { ...(n.data as StatusNodeData), status: st },
+            };
+          })
+        );
+
+        return { ...prev, statuses: nextStatuses };
+      });
+    },
+    [setNodes]
+  );
+
+  // init graph
   useEffect(() => {
     const ns: Node<StatusNodeData>[] = (initialDto.statuses ?? []).map((s) => ({
       id: s.id,
@@ -538,9 +655,9 @@ const validationError = useMemo(() => validateDesigner(dto), [dto]);
       data: { status: s, onEdit: handleEditStatus },
       position: { x: s.x ?? 200, y: s.y ?? 320 },
     }));
-    const es: Edge<EdgeData>[] = (initialDto.transitions ?? []).map((t) =>
-      makeEdge(t, showLabels)
-    );
+
+    const es: Edge<EdgeData>[] = (initialDto.transitions ?? []).map((t) => makeEdge(t, showLabels));
+
     setNodes(ns);
     setEdges(es);
     setDto(initialDto);
@@ -557,23 +674,60 @@ const validationError = useMemo(() => validateDesigner(dto), [dto]);
     (c: Connection) => {
       if (!c.source || !c.target) return false;
       if (c.source === c.target) return false;
-      if (isDuplicateEdge(edges, c.source, c.target)) return false;
+
+      const cur = edgesRef.current;
+
+      // duplicate
+      if (isDuplicateEdge(cur, c.source, c.target)) return false;
+
+      // if target has enforced non-fail incoming => block new non-fail
+if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, c.source)) return false;
+
       return true;
     },
-    [edges]
+    [edgeMode]
   );
 
   const onEdgeUpdate = useCallback(
     (oldEdge: Edge<EdgeData>, newConnection: Connection) => {
-      if (!newConnection.source || !newConnection.target) return;
-      if (!isValidConnection({ ...newConnection })) return;
+      const ns = newConnection.source;
+      const nt = newConnection.target;
+      if (!ns || !nt) return;
+      if (ns === nt) return;
+
+      const cur = edgesRef.current;
+      const withoutOld = cur.filter((e) => e.id !== oldEdge.id);
+
+      // duplicate
+      if (isDuplicateEdge(withoutOld, ns, nt)) {
+        toast.error("Duplicate transition is not allowed.");
+        return;
+      }
+
+      const movingType = getEdgeType(oldEdge);
+      const movingIsFailure = movingType === "failure";
+      const movingIsEnforced = isEnforcedNonFail(oldEdge);
+
+   // moving a NON-fail edge FROM a locked source => block
+if (!movingIsFailure && hasEnforcedOutgoingNonFail(withoutOld, ns)) {
+  toast.error("Cannot move: source is locked by an enforced transition (excluding Fail).");
+  return;
+}
+
+// moving an ENFORCED non-fail edge => new SOURCE must have NO other outgoing non-fail (excluding Fail)
+if (movingIsEnforced) {
+  const otherOutgoingNonFail = outgoingEdges(withoutOld, ns, { ignoreFailure: true });
+  if (otherOutgoingNonFail.length > 0) {
+    toast.error(
+      "Cannot move enforced transition: source already has other outgoing transitions (excluding Fail)."
+    );
+    return;
+  }
+}
+
 
       setEdges((es) =>
-        es.map((e) =>
-          e.id === oldEdge.id
-            ? { ...e, source: newConnection.source!, target: newConnection.target! }
-            : e
-        )
+        es.map((e) => (e.id === oldEdge.id ? { ...e, source: ns, target: nt } : e))
       );
 
       setDto((prev) => {
@@ -584,81 +738,57 @@ const validationError = useMemo(() => validateDesigner(dto), [dto]);
         const next = { ...prev, transitions: [...prev.transitions] };
         next.transitions[i] = {
           ...next.transitions[i],
-          fromStatusId: newConnection.source!,
-          toStatusId: newConnection.target!,
+          fromStatusId: ns,
+          toStatusId: nt,
         };
         return next;
       });
     },
-    [isValidConnection]
+    []
   );
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      if (!connection.source || !connection.target) return;
-      const t: TransitionVm = {
-        fromStatusId: connection.source,
-        toStatusId: connection.target,
+      const s = connection.source;
+      const t = connection.target;
+      if (!s || !t) return;
+      if (s === t) return;
+
+      const cur = edgesRef.current;
+
+      if (isDuplicateEdge(cur, s, t)) {
+        toast.error("Duplicate transition is not allowed.");
+        return;
+      }
+
+      // block non-fail into enforced target
+    if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, s)) {
+  toast.error("Cannot connect: source is locked by an enforced transition (excluding Fail).");
+  return;
+}
+
+      const tr: TransitionVm = {
+        fromStatusId: s,
+        toStatusId: t,
         type: edgeMode,
         label: EDGE_LABEL[edgeMode],
+        enforceTransitions: false,
       };
-      const e = makeEdge(t, showLabels);
+
+      const e = makeEdge(tr, showLabels);
+
       setEdges((eds) => addEdge(e, eds));
-      setDto((prev) => ({ ...prev, transitions: [...prev.transitions, t] }));
+      setDto((prev) => ({ ...prev, transitions: [...prev.transitions, tr] }));
     },
     [edgeMode, showLabels]
   );
-
-const handleEditStatus = useCallback(
-  (id: string, patch: Partial<StatusVm>) => {
-    setDto((prev) => {
-      // apply patch
-      let nextStatuses = prev.statuses.map((s) =>
-        s.id === id ? { ...s, ...patch } : s
-      );
-
-      if (patch.isStart === true) {
-        nextStatuses = nextStatuses.map((s) => {
-          if (s.id === id) return { ...s, isStart: true, isEnd: false };
-          return { ...s, isStart: false };
-        });
-      }
-
-      if (patch.isEnd === true) {
-        nextStatuses = nextStatuses.map((s) => {
-          if (s.id === id) return { ...s, isEnd: true, isStart: false };
-          return { ...s, isEnd: false };
-        });
-      }
-
-      setNodes((ns) =>
-        ns.map((n) => {
-          const st = nextStatuses.find((x) => x.id === n.id);
-          if (!st) return n;
-          return {
-            ...n,
-            data: { ...(n.data as StatusNodeData), status: st },
-          };
-        })
-      );
-
-      return { ...prev, statuses: nextStatuses };
-    });
-  },
-  [setNodes]
-);
-
 
   const onNodeDragStop = useCallback((_: any, node: Node) => {
     setDto((prev) => ({
       ...prev,
       statuses: prev.statuses.map((s) =>
         s.id === node.id
-          ? {
-              ...s,
-              x: Math.round(node.position.x),
-              y: Math.round(node.position.y),
-            }
+          ? { ...s, x: Math.round(node.position.x), y: Math.round(node.position.y) }
           : s
       ),
     }));
@@ -672,16 +802,14 @@ const handleEditStatus = useCallback(
     []
   );
 
-  // generic delete helpers
+  // delete helpers
   const deleteNodeById = useCallback((id: string) => {
     setNodes((ns) => ns.filter((n) => n.id !== id));
     setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
     setDto((prev) => ({
       ...prev,
       statuses: prev.statuses.filter((s) => s.id !== id),
-      transitions: prev.transitions.filter(
-        (t) => t.fromStatusId !== id && t.toStatusId !== id
-      ),
+      transitions: prev.transitions.filter((t) => t.fromStatusId !== id && t.toStatusId !== id),
     }));
     setSelectedNodeId((cur) => (cur === id ? null : cur));
   }, []);
@@ -705,9 +833,9 @@ const handleEditStatus = useCallback(
 
   const deleteSelectedEdge = useCallback(() => {
     if (!selectedEdgeId) return;
-    const edge = edges.find((e) => e.id === selectedEdgeId);
-    if (!edge) return;
-    deleteEdge(edge);
+    const e = edges.find((x) => x.id === selectedEdgeId);
+    if (!e) return;
+    deleteEdge(e);
   }, [selectedEdgeId, edges, deleteEdge]);
 
   const onEdgesDelete = useCallback((deleted: Edge[]) => {
@@ -716,9 +844,7 @@ const handleEditStatus = useCallback(
       const rm = new Set(deleted.map((d) => `${d.source}|${d.target}`));
       return {
         ...prev,
-        transitions: prev.transitions.filter(
-          (t) => !rm.has(`${t.fromStatusId}|${t.toStatusId}`)
-        ),
+        transitions: prev.transitions.filter((t) => !rm.has(`${t.fromStatusId}|${t.toStatusId}`)),
       };
     });
   }, []);
@@ -729,9 +855,7 @@ const handleEditStatus = useCallback(
     setDto((prev) => ({
       ...prev,
       statuses: prev.statuses.filter((s) => !ids.has(s.id)),
-      transitions: prev.transitions.filter(
-        (t) => !(ids.has(t.fromStatusId) || ids.has(t.toStatusId))
-      ),
+      transitions: prev.transitions.filter((t) => !(ids.has(t.fromStatusId) || ids.has(t.toStatusId))),
     }));
   }, []);
 
@@ -761,7 +885,7 @@ const handleEditStatus = useCallback(
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedEdgeId, selectedNodeId, deleteSelectedEdge, deleteSelectedNode]);
 
-  // update edge props (type/label/rule/roles)
+  // update edge props (type/label/rule/roles/enforce)
   const handleUpdateEdge = useCallback(
     (
       edge: Edge<EdgeData>,
@@ -770,24 +894,68 @@ const handleEditStatus = useCallback(
         label: string;
         rule: string;
         roleNames: string[];
+        enforceTransitions: boolean;
       }>
     ) => {
+      const cur = edgesRef.current;
+      const existingType = (edge.data?.type ?? "optional") as TransitionType;
+      const nextType = (patch.type ?? existingType) as TransitionType;
+
+      const existingEnforce = !!edge.data?.enforceTransitions;
+      const wantsEnforce = patch.enforceTransitions; // boolean | undefined
+      let nextEnforce = wantsEnforce ?? existingEnforce;
+
+      // cannot enforce Fail
+      if (nextType === "failure" && nextEnforce) {
+        toast.error("Cannot enforce a Fail transition.");
+        nextEnforce = false; // auto-off
+      }
+if (
+  nextType !== "failure" &&
+  hasEnforcedOutgoingNonFail(cur, edge.source as string, { excludeEdgeId: edge.id })
+) {
+  toast.error("This source is locked by another enforced transition (excluding Fail).");
+  return;
+}
+if (!existingEnforce && wantsEnforce === true) {
+  const others = outgoingEdges(cur, edge.source as string, {
+    excludeEdgeId: edge.id,
+    ignoreFailure: true,
+  });
+  if (others.length > 0) {
+    toast.error("Cannot enforce: source already has other outgoing transitions (excluding Fail).");
+    return;
+  }
+}
+
+
+     if (nextType !== "failure") {
+  const lockedByOther = hasEnforcedOutgoingNonFail(cur, edge.source as string, {
+    excludeEdgeId: edge.id,
+  });
+  if (lockedByOther && nextEnforce) {
+    toast.error("This source is locked by another enforced transition.");
+    return;
+  }
+}
+
+
       setEdges((es) =>
         es.map((e) => {
           if (e.id !== edge.id) return e;
-          const nextType =
-            (patch.type as TransitionType | undefined) ??
-            (e.data?.type as TransitionType) ??
-            "optional";
-          const color = EDGE_COLORS[nextType];
+
+          const finalType = (patch.type ?? (e.data?.type ?? "optional")) as TransitionType;
+          const color = EDGE_COLORS[finalType];
+
+          const finalEnforce =
+            finalType === "failure" ? false : (patch.enforceTransitions ?? e.data?.enforceTransitions ?? false);
+
           return {
             ...e,
-            data: { ...e.data, ...patch, type: nextType },
+            data: { ...e.data, ...patch, type: finalType, enforceTransitions: finalEnforce },
             style: { ...(e.style || {}), stroke: color, strokeWidth: 2 },
             markerEnd: { type: MarkerType.ArrowClosed, color },
-            label: showLabels
-              ? patch.label ?? e.data?.label ?? EDGE_LABEL[nextType]
-              : undefined,
+            label: showLabels ? (patch.label ?? e.data?.label ?? EDGE_LABEL[finalType]) : undefined,
           } as Edge<EdgeData>;
         })
       );
@@ -800,6 +968,7 @@ const handleEditStatus = useCallback(
                 ...t,
                 ...patch,
                 type: (patch.type ?? t.type ?? "optional") as TransitionType,
+                enforceTransitions: nextType === "failure" ? false : (patch.enforceTransitions ?? t.enforceTransitions ?? false),
               } as TransitionVm)
             : t
         );
@@ -809,46 +978,45 @@ const handleEditStatus = useCallback(
     [showLabels]
   );
 
-  // build payload & save
- const handleSave = async () => {
-  if (externalSaving) return;
+  // save
+  const handleSave = async () => {
+    if (externalSaving) return;
+    setSaving(true);
+    try {
+      const payload: DesignerDto = {
+        ...dto,
+        transitions: edges.map((e) => ({
+          fromStatusId: String(e.source),
+          toStatusId: String(e.target),
+          type: (e.data?.type as TransitionType) || "optional",
+          label: typeof e.label === "string" ? e.label : e.data?.label,
+          rule: e.data?.rule,
+          roleNames: e.data?.roleNames ?? [],
+          enforceTransitions:
+            ((e.data?.type as TransitionType) === "failure")
+              ? false
+              : (e.data?.enforceTransitions ?? false),
+        })),
+        statuses: nodes.map((n) => {
+          const s = dto.statuses.find((x) => x.id === n.id)!;
+          return { ...s, x: Math.round(n.position.x), y: Math.round(n.position.y) };
+        }),
+      };
 
-  setSaveAttempted(true);
+      const err = validateDesigner(payload);
+      if (err) {
+        toast.error(err);
+        return;
+      }
 
-  const err = validateDesigner(dto);
-  if (err) {
-    toast.error(err);
-    return;
-  }
-
-  setSaving(true);
-  try {
-    const payload: DesignerDto = {
-      ...dto,
-      transitions: edges.map((e) => ({
-        fromStatusId: String(e.source),
-        toStatusId: String(e.target),
-        type: (e.data?.type as TransitionType) || "optional",
-        label: typeof e.label === "string" ? e.label : e.data?.label,
-        rule: e.data?.rule,
-        roleNames: e.data?.roleNames ?? [],
-      })),
-      statuses: nodes.map((n) => {
-        const s = dto.statuses.find((x) => x.id === n.id)!;
-        return { ...s, x: Math.round(n.position.x), y: Math.round(n.position.y) };
-      }),
-    };
-
-    await onSave(payload);
-  } catch (e: any) {
-    console.error("WorkflowDesigner save failed:", e);
-    toast.error(e?.response?.data?.message || e?.message || "Save workflow failed");
-  } finally {
-    setSaving(false);
-  }
-};
-
-
+      await onSave(payload);
+    } catch (e: any) {
+      console.error("WorkflowDesigner save failed:", e);
+      toast.error(e?.response?.data?.message || e?.message || "Save workflow failed");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const resetLocal = () => setDto(initialDto);
 
@@ -873,20 +1041,15 @@ const handleEditStatus = useCallback(
     setDto((prev) => ({ ...prev, statuses: [...prev.statuses, s] }));
   };
 
-  if (loading)
-    return (
-      <div className="h-[80vh] grid place-items-center text-gray-500">
-        Loading...
-      </div>
-    );
+  if (loading) {
+    return <div className="h-[80vh] grid place-items-center text-gray-500">Loading...</div>;
+  }
 
   const currentColor = EDGE_COLORS[edgeMode];
 
   return (
     <div className="h-[calc(100vh-40px)] w-full flex overflow-hidden">
       <div className="flex-1 relative">
-      
-
         <div className="absolute z-50 left-4 top-3 flex flex-wrap gap-2 items-center bg-white/90 backdrop-blur rounded-xl border shadow px-3 py-2">
           <div className="text-sm text-gray-600">{title}</div>
           <input
@@ -920,10 +1083,7 @@ const handleEditStatus = useCallback(
                 }`}
                 title={`New edges will be ${EDGE_LABEL[t]}`}
               >
-                <span
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: EDGE_COLORS[t] }}
-                />
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: EDGE_COLORS[t] }} />
                 {EDGE_LABEL[t]}
               </button>
             ))}
@@ -984,9 +1144,7 @@ const handleEditStatus = useCallback(
             zoomable
             nodeBorderRadius={12}
             maskColor="rgba(17,24,39,0.05)"
-            nodeColor={(n) =>
-              hexToRgba((n as any)?.data?.status?.color, 0.18)
-            }
+            nodeColor={(n) => hexToRgba((n as any)?.data?.status?.color, 0.18)}
             nodeStrokeColor={(n) => {
               const st = (n as any)?.data?.status as StatusVm | undefined;
               if (!st) return "#cbd5e1";
@@ -1005,24 +1163,15 @@ const handleEditStatus = useCallback(
           <div className="text-sm font-semibold">Properties</div>
           <div className="flex items-center gap-3 text-xs text-gray-600">
             <div className="inline-flex items-center gap-1">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: EDGE_COLORS.success }}
-              />
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: EDGE_COLORS.success }} />
               Success
             </div>
             <div className="inline-flex items-center gap-1">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: EDGE_COLORS.failure }}
-              />
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: EDGE_COLORS.failure }} />
               Fail
             </div>
             <div className="inline-flex items-center gap-1">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: EDGE_COLORS.optional }}
-              />
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: EDGE_COLORS.optional }} />
               Optional
             </div>
           </div>
@@ -1044,8 +1193,7 @@ const handleEditStatus = useCallback(
           />
         ) : (
           <div className="text-sm text-gray-500">
-            Select a status or an edge to edit its properties. Drag between nodes
-            to add a transition.
+            Select a status or an edge to edit its properties. Drag between nodes to add a transition.
             <div className="mt-3 inline-flex items-center gap-2 text-gray-700">
               <Link2 size={16} /> Tip: choose edge type first then connect.
             </div>

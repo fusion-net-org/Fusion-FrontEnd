@@ -18,6 +18,7 @@ import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import {  useNavigate, useParams } from "react-router-dom";
 import { Can } from "@/permission/PermissionProvider";
+import SprintKpiTable from "./SprintKpiTable";
 
 type Id = string;
 
@@ -388,6 +389,7 @@ type SprintBoardProps = {
   onChangeStatus: (t: TaskVm, nextStatusId: string) => void;
   toNextStatusId: (t: TaskVm, sp: SprintVm) => string | null;
   onOpenTicket: (taskId: string) => void;
+   dragPolicy: { fromStatusId: string; allowed: string[] } | null;
 };
 
 
@@ -405,6 +407,7 @@ function SprintBoard({
   onChangeStatus,
   toNextStatusId,
   onOpenTicket,
+  dragPolicy,
 }: SprintBoardProps) {
 
 
@@ -430,7 +433,10 @@ const renderCol = (statusId: string, idx: number) => {
   const highlight = highlightTargets[statusId]; // HighlightInfo | undefined
   const targetType = highlight?.kind;           // "success" | "optional" | "failure" | undefined
   const targetLabels = highlight?.labels ?? [];
-
+const dimmed =
+    !!dragPolicy &&
+    statusId !== dragPolicy.fromStatusId && // cột nguồn luôn được
+    !dragPolicy.allowed.includes(statusId); 
   return (
     <div
       key={statusId}
@@ -460,17 +466,22 @@ const renderCol = (statusId: string, idx: number) => {
           </div>
         }
       >
-        <Droppable droppableId={statusId} type="task">
-          {(provided, snapshot) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className={cn(
-                "h-full overflow-y-auto overscroll-contain pr-1",
-                snapshot.isDraggingOver && "bg-slate-50 rounded-xl",
-              )}
-              style={{ scrollbarWidth: "thin" }}
-            >
+      <Droppable droppableId={statusId} type="task" isDropDisabled={dimmed}>
+  {(provided, snapshot) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.droppableProps}
+      className={cn(
+        "relative h-full overflow-y-auto overscroll-contain pr-1",
+        snapshot.isDraggingOver && "bg-slate-50 rounded-xl",
+        dimmed && "opacity-40 grayscale", // ✅ dim UI
+      )}
+      style={{ scrollbarWidth: "thin" }}
+    >
+      {dimmed && (
+        <div className="absolute inset-0 bg-slate-200/25 pointer-events-none rounded-xl" />
+      )}
+
               <Can code='TASK_CREATE'>
               <ColumnHoverCreate
                 sprint={activeSprint}
@@ -563,10 +574,66 @@ type HighlightInfo = {
 
 /* ========= Page ========= */
 export default function SprintWorkspacePage() {
+   
+
   // ===== từ context =====
   const {
     sprints, tasks, changeStatus, moveToNextSprint, split, done, reorder,
   } = useProjectBoard();
+   // ===== Realtime clock =====
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    // update mỗi 30s cho “realtime” (nhẹ hơn mỗi giây)
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const toMs = (iso?: string | null) => {
+    if (!iso) return Number.NaN;
+    const d = new Date(iso);
+    const ms = d.getTime();
+    return Number.isNaN(ms) ? Number.NaN : ms;
+  };
+
+  const isInRange = (n: Date, start?: string | null, end?: string | null) => {
+    const s = toMs(start);
+    const e = toMs(end);
+    const x = n.getTime();
+    if (Number.isNaN(s) || Number.isNaN(e)) return false;
+    return x >= s && x <= e;
+  };
+    // ===== Current sprint resolver =====
+  const currentSprint: SprintVm | null = useMemo(() => {
+    if (!sprints.length) return null;
+
+    // 1) sprint đang diễn ra
+    const running = sprints.find((s) => isInRange(now, s.start, s.end));
+    if (running) return running;
+
+    // 2) nếu không có sprint đang chạy -> lấy sprint sắp tới gần nhất (start > now)
+    const upcoming = sprints
+      .filter((s) => {
+        const sMs = toMs(s.start);
+        return !Number.isNaN(sMs) && sMs > now.getTime();
+      })
+      .sort((a, b) => toMs(a.start) - toMs(b.start))[0];
+
+    if (upcoming) return upcoming;
+
+    // 3) nếu cũng không có upcoming -> lấy sprint gần nhất đã qua (end < now)
+    const latestPast = sprints
+      .filter((s) => {
+        const eMs = toMs(s.end);
+        return !Number.isNaN(eMs) && eMs < now.getTime();
+      })
+      .sort((a, b) => toMs(b.end) - toMs(a.end))[0];
+
+    return latestPast ?? sprints[0];
+  }, [sprints, now]);
+
+  const currentSprintId = currentSprint?.id ?? "";
+
 const [flashTaskId, setFlashTaskId] = useState<Id | null>(null);
   const { companyId, projectId } = useParams();
   const navigate = useNavigate();
@@ -586,7 +653,7 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [flashTaskId]);
   // ===== UI State =====
-  const [activeSprintId, setActiveSprintId] = useState<Id>(sprints[0]?.id ?? "");
+  const [activeSprintId, setActiveSprintId] = useState<Id>("");
   const [view, setView] = useState<"Board" | "Analytics" | "Roadmap">("Board");
   const [closePanelOpen, setClosePanelOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
@@ -596,9 +663,23 @@ const [lastCrossMove, setLastCrossMove] = useState<{
   toStatusId: string;
 } | null>(null);
   // set sprint mặc định khi có dữ liệu
+  
   useEffect(() => {
-    if (!activeSprintId && sprints.length) setActiveSprintId(sprints[0].id);
-  }, [sprints, activeSprintId]);
+    if (!sprints.length) return;
+
+    // nếu chưa chọn sprint => auto chọn current sprint
+    if (!activeSprintId) {
+      setActiveSprintId(currentSprintId || sprints[0].id);
+      return;
+    }
+
+    // nếu sprint đang chọn không còn tồn tại => fallback về current sprint
+    const stillExists = sprints.some((s) => s.id === activeSprintId);
+    if (!stillExists) {
+      setActiveSprintId(currentSprintId || sprints[0].id);
+    }
+  }, [sprints, activeSprintId, currentSprintId]);
+
 
   const activeSprint: SprintVm | null = useMemo(
     () => sprints.find((s) => s.id === activeSprintId) ?? null,
@@ -614,11 +695,26 @@ const [lastCrossMove, setLastCrossMove] = useState<{
     const byCat  = sp.statusOrder.find(id => sp.statusMeta[id].category === t.statusCategory);
     return byCat || sp.statusOrder[0];
   }
+const normalizedStatusOrder = useMemo(() => {
+  if (!activeSprint) return [] as string[];
+
+  const raw = activeSprint.statusOrder ?? [];
+  const endIds = raw.filter((id) => {
+    const meta: any = activeSprint.statusMeta?.[id];
+    return meta?.isEnd === true || meta?.category === "DONE";
+  });
+
+  if (!endIds.length) return raw;
+
+  const endSet = new Set(endIds);
+  return [...raw.filter((id) => !endSet.has(id)), ...endIds];
+}, [activeSprint]);
 
   // ===== Columns động theo sprint đang chọn + search =====
 const columns = useMemo(() => {
   if (!activeSprint) return { order: [] as string[], byId: {} as Record<string, TaskVm[]> };
-  const order = activeSprint.statusOrder;
+  const order = normalizedStatusOrder;
+
   const byId: Record<string, TaskVm[]> = {};
   const match = (t: TaskVm) =>
     !keyword ||
@@ -696,13 +792,13 @@ const columns = useMemo(() => {
     [sprints, tasks],
   );
     // ===== Workflow transitions theo sprint (để highlight đích success) =====
-   // ===== Workflow transitions theo sprint (để highlight các đích hợp lệ khi drag) =====
   type SprintTransition = {
     id: string;
     fromStatusId: string;
     toStatusId: string;
     type: string; // "success" | "failure" | "optional" | ...
     label?: string | null;
+    enforceTransitions?: boolean;
   };
 
   // Lấy transitions từ sprint đang active
@@ -734,14 +830,18 @@ const columns = useMemo(() => {
           "",
         type: String(x.type ?? x.transitionType ?? "success").toLowerCase(),
         label: x.label ?? null, // ⬅ lấy label "Go", "Complete", "Rework"
+        enforceTransitions: !!x.enforceTransitions,
       }),
     )
     .filter((tr) => tr.fromStatusId && tr.toStatusId);
 }, [activeSprint]);
 
+const [dragPolicy, setDragPolicy] = useState<{
+  fromStatusId: string;
+  allowed: string[];
+} | null>(null);
 
   // Map: fromStatusId -> list các toStatusId được phép move tới
-  // (nghiệp vụ: cho phép success + optional; nếu sau này muốn cho failure thêm vào đây)
   const allowedTargetsByFromId = useMemo(() => {
     const map = new Map<string, string[]>();
 
@@ -782,7 +882,6 @@ const [highlightTargets, setHighlightTargets] = useState<
   function onMarkDone(t: TaskVm) {
     done((window as any).__projectId, t);
   }
-  // Khi bắt đầu drag một task => highlight allowed targets
 function onDragStart(start: DragStart) {
   if (!activeSprint) return;
 
@@ -791,14 +890,22 @@ function onDragStart(start: DragStart) {
 
   const fromStatusId = resolveStatusId(task, activeSprint);
 
-  const next: Record<string, HighlightInfo> = {};
+  // ✅ policy chỉ bật khi có enforceTransitions=true ở source này
+  const enforcedTargets = Array.from(
+    new Set(
+      activeTransitions
+        .filter((tr) => tr.fromStatusId === fromStatusId && tr.enforceTransitions)
+        .map((tr) => tr.toStatusId),
+    ),
+  );
 
-  // priority: success > failure > optional
-  const priority: Record<HighlightKind, number> = {
-    success: 3,
-    failure: 2,
-    optional: 1,
-  };
+  setDragPolicy(
+    enforcedTargets.length ? { fromStatusId, allowed: enforcedTargets } : null,
+  );
+
+  // (giữ highlightTargets như bạn đang làm - muốn highlight hết transition hay chỉ enforce tùy bạn)
+  const next: Record<string, HighlightInfo> = {};
+  const priority: Record<HighlightKind, number> = { success: 3, failure: 2, optional: 1 };
 
   activeTransitions.forEach((tr) => {
     if (tr.fromStatusId !== fromStatusId) return;
@@ -810,24 +917,13 @@ function onDragStart(start: DragStart) {
 
     const rawLabel = (tr.label || "").trim();
     const label =
-      rawLabel ||
-      (kind === "success"
-        ? "Success"
-        : kind === "failure"
-        ? "Rework"
-        : "Optional");
+      rawLabel || (kind === "success" ? "Success" : kind === "failure" ? "Rework" : "Optional");
 
     const prev = next[tr.toStatusId];
-
-    if (!prev) {
-      next[tr.toStatusId] = { kind, labels: [label] };
-    } else {
-      const bestKind =
-        priority[kind] > priority[prev.kind] ? kind : prev.kind;
-      const labels = prev.labels.includes(label)
-        ? prev.labels
-        : [...prev.labels, label];
-
+    if (!prev) next[tr.toStatusId] = { kind, labels: [label] };
+    else {
+      const bestKind = priority[kind] > priority[prev.kind] ? kind : prev.kind;
+      const labels = prev.labels.includes(label) ? prev.labels : [...prev.labels, label];
       next[tr.toStatusId] = { kind: bestKind, labels };
     }
   });
@@ -838,8 +934,10 @@ function onDragStart(start: DragStart) {
 
 
 
+
 function onDragEnd(result: DropResult) {
   setHighlightTargets({});
+  setDragPolicy(null);
 
   const { source, destination, draggableId } = result;
   if (!destination || !activeSprint) return;
@@ -852,32 +950,33 @@ function onDragEnd(result: DropResult) {
 
   const isSameColumn = fromStatusId === toStatusId;
 
+  if (!isSameColumn && dragPolicy) {
+    const allowed = dragPolicy.allowed.includes(toStatusId);
+    if (!allowed) {
+      // ✅ drop vào cột không cho phép => bỏ qua
+      return;
+    }
+  }
+
   if (isSameColumn) {
     if (source.index === destination.index) return;
 
-    // cùng cột: reorder như cũ
-    reorder(
-      (window as any).__projectId,
-      activeSprint.id,
-      task,
-      toStatusId,
-      destination.index,
-    );
+    reorder((window as any).__projectId, activeSprint.id, task, toStatusId, destination.index);
     setLastCrossMove(null);
     return;
   }
 
-  // 🚚 KHÁC CỘT: chỉ cần gọi REORDER (BE sẽ tự đổi status + notify)
   reorder(
     (window as any).__projectId,
     activeSprint.id,
     { ...task, workflowStatusId: toStatusId, sprintId: activeSprint.id },
     toStatusId,
-    0, // top
+    0,
   );
 
   setLastCrossMove({ taskId: task.id, toStatusId });
 }
+
 
 
 
@@ -907,8 +1006,16 @@ function onDragEnd(result: DropResult) {
   /* ===== Header ===== */
   const Header = (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="text-2xl font-semibold">Sprint</div>
-      <div className="flex items-center gap-2">
+ <div>
+        <div className="text-2xl font-semibold">Sprint</div>
+
+        <div className="mt-1 text-xs text-slate-600 flex flex-wrap items-center gap-2">
+         
+          <span className="px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+            Current sprint: {currentSprint?.name ?? "N/A"}
+          </span>
+        </div>
+      </div>      <div className="flex items-center gap-2">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -936,15 +1043,7 @@ function onDragEnd(result: DropResult) {
         >
           <TrendingUp className="w-4 h-4" /> Analytics
         </button>
-        <button
-          onClick={() => setView("Roadmap")}
-          className={cn(
-            "px-3 h-9 rounded-full border text-sm flex items-center gap-1",
-            view === "Roadmap" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
-          )}
-        >
-          <CalendarDays className="w-4 h-4" /> Roadmap
-        </button>
+       
       </div>
     </div>
   );
@@ -1092,15 +1191,7 @@ console.log(hasData)
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <MetricCard label="Committed pts" value={committedPoints} />
           <MetricCard label="Done pts" value={completedPoints} />
-          <MetricCard
-            label="Team capacity"
-            value={`${activeSprint?.capacityHours ?? 160}h`}
-            sub={`Estimate sum: ${
-              tasks
-                .filter((t) => (t.sprintId ?? "") === activeSprintId)
-                .reduce((s, t) => s + (t.estimateHours || 0), 0)
-            }h`}
-          />
+      
           <MetricCard
             label="Completion"
             value={
@@ -1336,12 +1427,7 @@ console.log(hasData)
     <div className="flex items-center justify-between mt-2">
       <div className="text-slate-600 text-sm">
       </div>
-      <button
-        onClick={() => setClosePanelOpen(true)}
-        className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1"
-      >
-        <CircleSlash2 className="w-4 h-4" /> Close sprint
-      </button>
+     
     </div>
 
     <SprintBoard
@@ -1358,6 +1444,7 @@ console.log(hasData)
       onChangeStatus={onChangeStatus}
       toNextStatusId={toNextStatusId}
       onOpenTicket={handleOpenTicket}
+       dragPolicy={dragPolicy}
     />
   </>
 )}
@@ -1366,131 +1453,65 @@ console.log(hasData)
 
 
 
-           {view === "Analytics" && (
-        <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {/* Velocity per sprint */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
-              {velocityData.length > 0 && (
-                <div className="text-[11px] text-slate-500">
-                  Avg done:&nbsp;
-                  <span className="font-semibold">
-                    {Math.round(
-                      velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
-                        Math.max(1, velocityData.length),
-                    )}
-                  </span>{" "}
-                  pts / sprint
-                </div>
+         {view === "Analytics" && (
+  <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+    {/* Velocity per sprint */}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm min-w-0">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
+        {velocityData.length > 0 && (
+          <div className="text-[11px] text-slate-500">
+            Avg done:&nbsp;
+            <span className="font-semibold">
+              {Math.round(
+                velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
+                  Math.max(1, velocityData.length),
               )}
-            </div>
-
-            <div className="h-[260px]">
-              {velocityData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={velocityData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value, key) => {
-                        if (key === "committed") return [value, "Committed"];
-                        if (key === "completed") return [value, "Completed"];
-                        return [value, key];
-                      }}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="committed"
-                      name="Committed"
-                      stroke="#60A5FA"
-                      dot
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="completed"
-                      name="Completed"
-                      stroke="#22C55E"
-                      dot
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                  No story points data across sprints yet.
-                </div>
-              )}
-            </div>
+            </span>{" "}
+            pts / sprint
           </div>
+        )}
+      </div>
 
-          {/* Work mix by type */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-slate-600 text-sm">Work mix (story points by type)</div>
-              <div className="text-[11px] text-slate-500">
-                Feature / Bug / Chore / Other
-              </div>
-            </div>
-
-            <div className="h-[260px]">
-              {workMixData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={workMixData} stackOffset="expand">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} />
-                    <Tooltip
-                      formatter={(value, key) => {
-                        const pct = typeof value === "number" ? `${Math.round(value * 100)}%` : value;
-                        return [pct, key];
-                      }}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="Feature"
-                      name="Feature"
-                      stackId="1"
-                      stroke="#60A5FA"
-                      fill="#BFDBFE"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Bug"
-                      name="Bug"
-                      stackId="1"
-                      stroke="#F97316"
-                      fill="#FED7AA"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Chore"
-                      name="Chore"
-                      stackId="1"
-                      stroke="#A855F7"
-                      fill="#E9D5FF"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Other"
-                      name="Other"
-                      stackId="1"
-                      stroke="#6B7280"
-                      fill="#E5E7EB"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                  Not enough typed tasks to show work mix.
-                </div>
-              )}
-            </div>
+      <div className="h-[260px]">
+        {velocityData.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={velocityData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip
+                formatter={(value, key) => {
+                  if (key === "committed") return [value, "Committed"];
+                  if (key === "completed") return [value, "Completed"];
+                  return [value, key];
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="committed" name="Committed" stroke="#60A5FA" dot />
+              <Line type="monotone" dataKey="completed" name="Completed" stroke="#22C55E" dot />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-sm text-slate-500">
+            No story points data across sprints yet.
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+
+    {/* KPI table (same row on xl) */}
+    <SprintKpiTable
+      className="min-w-0"
+      sprints={sprints}
+      tasks={tasks}
+    />
+
+    {/* Nếu muốn thêm chart khác thì để ở dưới: */}
+    {/* <div className="xl:col-span-2">...</div> */}
+  </div>
+)}
+
 
 
 

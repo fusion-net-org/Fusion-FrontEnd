@@ -987,7 +987,6 @@ export default function ProjectClosureReportPage() {
     [tasks, statusById]
   );
 
-  // ✅ keep id + color to render colored status breakdown
   const statusBreakdown = React.useMemo(() => {
     const map = new Map<string, { id?: string; label: string; count: number; isFinal: boolean; color?: string }>();
 
@@ -1053,21 +1052,12 @@ export default function ProjectClosureReportPage() {
               {isNonEmpty(projectDesc) ? projectDesc : "Dashboard-like overview based on sprints/tasks."}
             </p>
 
-            <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/95 ring-1 ring-white/25">
-              <BarChart3 className="size-3.5" />
-              <span>Completion by final statuses (isFinal)</span>
-            </div>
+          
           </div>
 
           <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 rounded-full bg-white/25 px-4 py-2 text-xs font-semibold text-white shadow-md backdrop-blur-sm transition hover:bg-white/35 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            >
-              <ArrowLeft className="size-4" />
-              <span>Back</span>
-            </button>
+        
+
 
             <button
               type="button"

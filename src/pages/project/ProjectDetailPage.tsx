@@ -486,7 +486,6 @@ export default function ProjectDetailPage() {
     return !!project?.createdById && !!meId && sameId(project.createdById, meId);
   }, [project?.createdById, meId]);
 
-  // ✅ Kick rule: không kick chủ project + không kick chính mình
   const canKickMember = React.useCallback(
     (memberUserId?: string | null) => {
       if (!project || !memberUserId) return false;
@@ -562,6 +561,12 @@ export default function ProjectDetailPage() {
       setSavingBasic(false);
     }
   };
+ const handleOpenClosureReport = React.useCallback(() => {
+  if (!companyId || !projectId) return;
+  navigate(`/companies/${companyId}/project/${projectId}/closue`);
+}, [companyId, projectId, navigate]);
+
+
 const handleReopenProject = async () => {
   if (!project) return;
 
@@ -576,7 +581,7 @@ const handleReopenProject = async () => {
 
   setReopening(true);
   try {
-    await reopenProject(project.id); // ✅ đúng API
+    await reopenProject(project.id);
 
     setProject((prev) => (prev ? { ...prev, isClosed: false } : prev));
     toast.success("Project reopened.");
@@ -603,7 +608,7 @@ const handleReopenProject = async () => {
 
   setClosing(true);
   try {
-    await closeProject(project.id); // ✅ đúng API
+    await closeProject(project.id);
 
     setProject((prev) => (prev ? { ...prev, isClosed: true } : prev));
     toast.success("Project closed.");
@@ -635,7 +640,6 @@ const handleReopenProject = async () => {
   const handleRemoveMember = async (userId: string) => {
     if (!project) return;
 
-    // ✅ double-safe: chặn kick owner/self dù ai gọi
     if (!canKickMember(userId)) {
       toast.info("You cannot kick the project owner or yourself.");
       return;
@@ -741,15 +745,7 @@ const handleReopenProject = async () => {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
-      {/* Back */}
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="mb-4 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm hover:bg-slate-50"
-      >
-        <ArrowLeft className="size-3.5" />
-        Back
-      </button>
+      
 
       {/* Header */}
       <div
@@ -997,6 +993,16 @@ const handleReopenProject = async () => {
               <MoreHorizontal className="size-4" />
               Project actions
             </button>
+{project.isClosed && (
+  <button
+    type="button"
+    onClick={handleOpenClosureReport}
+    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+  >
+    <Lock className="size-4 text-slate-600" />
+    Project closure
+  </button>
+)}
 
             {actionsOpen && (
               <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -1058,7 +1064,6 @@ const handleReopenProject = async () => {
 )}
 
 
-                {/* ✅ BỎ DELETE PROJECT HOÀN TOÀN */}
               </div>
             )}
           </div>
