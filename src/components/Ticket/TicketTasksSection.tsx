@@ -302,7 +302,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
               t.statusName ?? t.workflowStatusName ?? t.statusCode ?? t.workflowStatusCode ?? '—';
 
             if (isBacklog) {
-              // ✅ BACKLOG: giữ UI đơn giản
+              //  BACKLOG: giữ UI đơn giản
               return (
                 <div
                   key={t.id}
@@ -350,7 +350,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
               );
             }
 
-            // ✅ KHÔNG CÒN BACKLOG: show full info + clickable + "On sprint"
+            //  KHÔNG CÒN BACKLOG: show full info + clickable + "On sprint"
             return (
               <div
                 key={t.id}

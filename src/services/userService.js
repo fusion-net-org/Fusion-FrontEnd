@@ -192,3 +192,26 @@ export const GetUserRolesByCompany = async (companyId, userId) => {
     throw new Error(error.response?.data?.message || 'Error fetching member companies!');
   }
 };
+
+export const getTransactionPagedOfUser = async (
+  Keyword,
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn,
+  SortDescending,
+) => {
+  try {
+    const params = {};
+
+    if (Keyword) params.Keyword = Keyword;
+    if (PageNumber) params.PageNumber = PageNumber;
+    if (PageSize) params.PageSize = PageSize;
+    if (SortColumn) params.SortColumn = SortColumn;
+    if (SortDescending !== undefined) params.SortDescending = SortDescending;
+
+    const res = await axiosInstance.get(`/TransactionPayment/me/paged`, { params });
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};

@@ -55,7 +55,7 @@ const RemoveRoleModal: React.FC<RemoveRoleModalProps> = ({
       const userRoles: IRoleDto[] = response.data || [];
       setRoles(userRoles);
 
-      // ✅ mặc định chọn TẤT CẢ role thường để remove (Owner bị loại)
+      //  mặc định chọn TẤT CẢ role thường để remove (Owner bị loại)
       setSelectedRoles(userRoles.filter((r: any) => !isOwnerRole(r)).map((r) => r.id));
     } catch (error: any) {
       toast.error(error.message || "Failed to fetch roles");
@@ -70,7 +70,7 @@ const RemoveRoleModal: React.FC<RemoveRoleModalProps> = ({
   }, [isOpen, companyId, userId]);
 
   const handleToggleRole = (role: any) => {
-    if (isOwnerRole(role)) return; // ✅ Owner không toggle
+    if (isOwnerRole(role)) return; //  Owner không toggle
     const roleId = role.id;
 
     setSelectedRoles((prev) =>
@@ -79,7 +79,7 @@ const RemoveRoleModal: React.FC<RemoveRoleModalProps> = ({
   };
 
   const handleConfirm = async () => {
-    // ✅ chỉ remove role thường
+    //  chỉ remove role thường
     const idsToRemove = selectedRoles.filter((id) => removableRoleIds.includes(id));
 
     if (!idsToRemove.length) {

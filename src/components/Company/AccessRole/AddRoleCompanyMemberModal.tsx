@@ -49,7 +49,7 @@ export default function AddRoleModal({
   const sorted = [...items].sort((a, b) => {
     const ao = isOwnerRole(getName(a));
     const bo = isOwnerRole(getName(b));
-    if (ao !== bo) return ao ? 1 : -1;            // ✅ Owner xuống cuối
+    if (ao !== bo) return ao ? 1 : -1;            //  Owner xuống cuối
     return getName(a).localeCompare(getName(b));  // (optional) sort tên
   });
 
@@ -68,8 +68,8 @@ export default function AddRoleModal({
 
   const toggleRole = (role: Role) => {
     const name = (role as any).roleName ?? (role as any).name;
-    if (isOwnerRole(name)) return; // ✅ khóa Owner
-    if (userRoleIds.has(role.id)) return; // ✅ khóa role đã có
+    if (isOwnerRole(name)) return; //  khóa Owner
+    if (userRoleIds.has(role.id)) return; //  khóa role đã có
 
     setSelectedRoles((prev) =>
       prev.includes(role.id) ? prev.filter((id) => id !== role.id) : [...prev, role.id]
@@ -110,7 +110,7 @@ export default function AddRoleModal({
                     disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-100",
                   ].join(" ")}
                   onClick={(e) => {
-                    // ✅ cho click cả dòng để tick, nhưng tôn trọng disabled
+                    //  cho click cả dòng để tick, nhưng tôn trọng disabled
                     e.preventDefault();
                     if (!disabled) toggleRole(role);
                   }}
