@@ -343,7 +343,7 @@ export default function ProjectRequestDetail() {
 
               <div className="flex justify-end gap-4">
                 {/* Delete / Restore */}
-                {(viewMode === 'AsRequester' || viewMode === 'AsExecutor') &&
+                {/* {(viewMode === 'AsRequester' || viewMode === 'AsExecutor') &&
                   projectRequest?.status === 'Pending' &&
                   projectRequest &&
                   (!projectRequest.isDeleted ? (
@@ -362,7 +362,7 @@ export default function ProjectRequestDetail() {
                       onClick={handleRestore}
                       disabled={deleting}
                     />
-                  ))}
+                  ))} */}
 
                 {/* Accept / Decline */}
                 {viewMode === 'AsExecutor' && projectRequest?.status === 'Pending' && (
