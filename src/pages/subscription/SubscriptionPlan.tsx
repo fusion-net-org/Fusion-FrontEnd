@@ -526,13 +526,6 @@ export default function SubscriptionPlan() {
                       )}
                     >
                       <div className="flex h-full flex-col rounded-2xl bg-white p-5">
-                        {isHighlight && (
-                          <div className="absolute -top-3 right-6 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
-                            <Star className="h-3.5 w-3.5 fill-current" />
-                            Most popular
-                          </div>
-                        )}
-
                         {/* Header */}
                         <div className="flex flex-col gap-1">
                           <h2 className="text-sm font-semibold tracking-tight text-slate-900">

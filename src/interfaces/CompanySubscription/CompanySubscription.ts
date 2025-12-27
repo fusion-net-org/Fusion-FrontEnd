@@ -3,7 +3,9 @@
 import type { Guid, PagedResult } from "@/interfaces/SubscriptionPlan/SubscriptionPlan";
 
 export type CompanySubscriptionStatus = string;
-
+export type CompanySubscriptionUpdateStatusRequest = {
+  status: "Active" | "Paused";
+};
 // ====== CREATE REQUEST ======
 export type CompanySubscriptionCreateRequest = {
   userSubscriptionId: Guid;

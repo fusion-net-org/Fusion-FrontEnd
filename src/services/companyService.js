@@ -10,7 +10,6 @@ export const createCompany = async (data) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
-
 export const updateCompany = async (id, data) => {
   try {
     const response = await axiosInstance.put(`/company/${id}`, data, {

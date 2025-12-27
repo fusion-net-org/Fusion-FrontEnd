@@ -81,6 +81,24 @@ export async function getActiveCompanySubscriptions(companyId) {
     return [];
   }
 }
+export const updateCompanySubscriptionStatus = async (
+  companyId,
+  companySubscriptionId,
+  data
+) => {
+  try {
+    // data: { status: "Active" | "Paused" }
+    const response = await axiosInstance.put(
+      `/CompanySubscription/companies/${companyId}/items/${companySubscriptionId}/status`,
+      data
+    );
+
+    // BE trả ResponseModel<bool> => thường nằm ở response.data.data
+    return response?.data?.data ?? response?.data ?? true;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Error!");
+  }
+};
 
 /** GET /CompanySubscription/{companySubscriptionId}/user-usage */
 export async function getCompanySubscriptionUserUsage(companySubscriptionId) {
