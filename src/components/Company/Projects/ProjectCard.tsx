@@ -54,7 +54,7 @@ const StatusBadge: React.FC<{ status: ProjectStatus; dim?: boolean }> = ({ statu
       text: 'Completed',
     },
 
-    // ✅ thêm để không lỗi union type
+    //  thêm để không lỗi union type
     Active: {
       color: '#3b82f6',
       cls: 'bg-blue-50 text-blue-700 border-blue-100',

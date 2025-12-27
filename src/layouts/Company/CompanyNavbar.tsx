@@ -252,7 +252,7 @@ export default function CompanyNavbar({
             Menu
           </div>
 
-          {/* ✅ KHÔNG FILTER theo permission */}
+          {/*  KHÔNG FILTER theo permission */}
           {visibleItems.map((it) => {
             const hasChildren = !!it.children?.length;
             const isOpen = openMenus.has(it.key);
@@ -298,7 +298,7 @@ export default function CompanyNavbar({
 
                   {!isCollapsed && (
                     <>
-                      {/* ✅ 1 hàng: label (truncate) + lock icon (KHÔNG pill tag) */}
+                      {/*  1 hàng: label (truncate) + lock icon (KHÔNG pill tag) */}
                       <span className="flex min-w-0 flex-1 items-center gap-2">
                         <span className="min-w-0 flex-1 text-left truncate whitespace-nowrap">
                           {it.label}
@@ -353,7 +353,7 @@ export default function CompanyNavbar({
                           `}
                           title={subDenied ? "No permission" : undefined}
                         >
-                          {/* ✅ 1 hàng: sub name (truncate) + lock */}
+                          {/*  1 hàng: sub name (truncate) + lock */}
                           <span className="flex min-w-0 items-center gap-2">
                             <span className="min-w-0 flex-1 truncate whitespace-nowrap">{sub.name}</span>
                             {subDenied && (

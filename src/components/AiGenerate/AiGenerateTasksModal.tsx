@@ -377,7 +377,7 @@ const flat: TaskVm[] = Array.isArray(res?.sprints)
 
 const tasks: TaskVm[] = flat;
 
-// ✅ THÊM DÒNG NÀY (đẩy task về board)
+//  THÊM DÒNG NÀY (đẩy task về board)
 onGenerated?.(tasks, {
   defaultSprintId: primarySprint?.id ?? (selectedSprints[0]?.id ?? ""),
   selectedSprintIds,

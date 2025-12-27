@@ -59,7 +59,7 @@ const RestoreTicketModal: React.FC<RestoreTicketModalProps> = ({
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
           <Text type="success" strong>
-            ✅ Are you sure you want to restore this ticket?
+             Are you sure you want to restore this ticket?
           </Text>
           <br />
           <Text type="secondary">This will make the ticket active again.</Text>

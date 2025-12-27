@@ -151,7 +151,7 @@ function getEntitlementFields(e: any) {
     e?.MonthlyLimit
   );
 
-  // ✅ remaining/usesLeft: ưu tiên field BE trả về trực tiếp
+  //  remaining/usesLeft: ưu tiên field BE trả về trực tiếp
   const remainingRaw = pickNumber(
     e?.usesLeft,
     e?.UsesLeft,
@@ -173,8 +173,8 @@ function getEntitlementFields(e: any) {
     remainingRaw !== null
       ? remainingRaw
       : limit === null
-      ? null
-      : Math.max(0, Number(limit) - Number(used));
+        ? null
+        : Math.max(0, Number(limit) - Number(used));
 
   const unlimited = limit === null && remaining === null;
 
@@ -201,7 +201,7 @@ export default function UserSubscriptionDetailModal({
   const detail = data;
   const isAutoMonthly = !!detail && detail.unitPrice === 0;
 
-  // ✅ Local share remaining state (update realtime after share)
+  //  Local share remaining state (update realtime after share)
   const [shareRemaining, setShareRemaining] = useState<number | null>(null);
 
   // ===== SHARE STATE =====
@@ -263,7 +263,7 @@ export default function UserSubscriptionDetailModal({
     // null = unlimited/unknown => neutral
     if (shareRemaining === null) return "text-slate-900";
     if (shareRemaining === 0) return "text-rose-600";
-    return "text-emerald-600"; // ✅ !=0 => xanh
+    return "text-emerald-600"; //  !=0 => xanh
   }, [shareRemaining]);
 
   const handleToggleShare = async () => {
@@ -333,7 +333,7 @@ export default function UserSubscriptionDetailModal({
 
       setSharedMap((prev) => ({ ...prev, [companyId]: true }));
 
-      // ✅ decrement share remaining realtime (if not unlimited)
+      //  decrement share remaining realtime (if not unlimited)
       setShareRemaining((prev) => {
         if (prev === null) return null;
         const next = Math.max(0, prev - 1);
@@ -504,10 +504,10 @@ export default function UserSubscriptionDetailModal({
                     {isAutoMonthly
                       ? "Free plan · limited free uses reset every month on specific features."
                       : formatPaymentMode(
-                          detail.paymentMode as PaymentMode,
-                          detail.installmentCount,
-                          detail.installmentInterval as BillingPeriod | null
-                        )}
+                        detail.paymentMode as PaymentMode,
+                        detail.installmentCount,
+                        detail.installmentInterval as BillingPeriod | null
+                      )}
                   </p>
                 </div>
 
@@ -640,7 +640,7 @@ export default function UserSubscriptionDetailModal({
                                 ? "text-emerald-600"
                                 : "text-indigo-600 hover:text-indigo-700",
                               (!canShareMore || isSubmitting || !id) &&
-                                "cursor-not-allowed opacity-60"
+                              "cursor-not-allowed opacity-60"
                             )}
                           >
                             {isSubmitting ? "Sharing..." : isShared ? "Shared" : "Share"}
@@ -680,22 +680,22 @@ export default function UserSubscriptionDetailModal({
                     const remainText = unlimited
                       ? "∞"
                       : remaining === null
-                      ? "—"
-                      : Number(remaining).toLocaleString("vi-VN");
+                        ? "—"
+                        : Number(remaining).toLocaleString("vi-VN");
 
                     const isZero = !unlimited && remaining === 0;
                     const remainTone = unlimited
                       ? "text-slate-900"
                       : isZero
-                      ? "text-rose-600"
-                      : "text-emerald-600"; // ✅ != 0 => xanh
+                        ? "text-rose-600"
+                        : "text-emerald-600"; //  != 0 => xanh
 
                     const subText =
                       hasRemaining && !unlimited
                         ? "Uses left"
                         : limit != null
-                        ? `Used: ${used}/${limit}`
-                        : "Included in this plan";
+                          ? `Used: ${used}/${limit}`
+                          : "Included in this plan";
 
                     return (
                       <li

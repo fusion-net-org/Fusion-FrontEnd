@@ -474,7 +474,7 @@ const dimmed =
       className={cn(
         "relative h-full overflow-y-auto overscroll-contain pr-1",
         snapshot.isDraggingOver && "bg-slate-50 rounded-xl",
-        dimmed && "opacity-40 grayscale", // ✅ dim UI
+        dimmed && "opacity-40 grayscale", //  dim UI
       )}
       style={{ scrollbarWidth: "thin" }}
     >
@@ -890,7 +890,7 @@ function onDragStart(start: DragStart) {
 
   const fromStatusId = resolveStatusId(task, activeSprint);
 
-  // ✅ policy chỉ bật khi có enforceTransitions=true ở source này
+  //  policy chỉ bật khi có enforceTransitions=true ở source này
   const enforcedTargets = Array.from(
     new Set(
       activeTransitions
@@ -953,7 +953,7 @@ function onDragEnd(result: DropResult) {
   if (!isSameColumn && dragPolicy) {
     const allowed = dragPolicy.allowed.includes(toStatusId);
     if (!allowed) {
-      // ✅ drop vào cột không cho phép => bỏ qua
+      //  drop vào cột không cho phép => bỏ qua
       return;
     }
   }

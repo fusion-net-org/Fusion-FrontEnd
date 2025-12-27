@@ -28,7 +28,7 @@ function Checkbox({
 export default function PermissionGroup({
   group,
   onToggle,
-  disabled = false, // ✅ add
+  disabled = false, //  add
 }: {
   group: Group;
   onToggle: (groupId: string, itemId?: string, value?: boolean) => void;
@@ -40,7 +40,7 @@ export default function PermissionGroup({
     <div className={["border border-[#e5e7eb] rounded-xl bg-white p-3", disabled ? "opacity-70" : ""].join(" ")}>
       <button
         type="button"
-        disabled={disabled} // ✅
+        disabled={disabled} // 
         onClick={() => onToggle(group.id, undefined, !allChecked)}
         className={[
           "w-full inline-flex items-center gap-2 font-semibold text-[#1f2937] text-[14px] mb-[10px] text-left",
@@ -49,7 +49,7 @@ export default function PermissionGroup({
       >
         <Checkbox
           checked={allChecked}
-          onClick={() => { if (!disabled) onToggle(group.id, undefined, !allChecked); }} // ✅ guard
+          onClick={() => { if (!disabled) onToggle(group.id, undefined, !allChecked); }} //  guard
         />
         <span className="select-none">{group.title}</span>
       </button>
@@ -61,7 +61,7 @@ export default function PermissionGroup({
             <button
               key={it.id}
               type="button"
-              disabled={disabled} // ✅
+              disabled={disabled} // 
               onClick={() => onToggle(group.id, it.id, !checked)}
               className={[
                 "w-full flex items-center gap-[10px] py-2 px-[2px] text-[14px] text-[#374151] text-left rounded-lg",
@@ -70,7 +70,7 @@ export default function PermissionGroup({
             >
               <Checkbox
                 checked={checked}
-                onClick={() => { if (!disabled) onToggle(group.id, it.id, !checked); }} // ✅ guard
+                onClick={() => { if (!disabled) onToggle(group.id, it.id, !checked); }} //  guard
               />
               <span className="select-none">{it.name}</span>
             </button>
