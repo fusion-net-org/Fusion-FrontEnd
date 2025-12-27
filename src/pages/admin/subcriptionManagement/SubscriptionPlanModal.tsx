@@ -489,35 +489,51 @@ export default function SubscriptionPlanModal({
               </Form.Item>
 
               <Form.Item
-                label={
-                  <span className="text-xs font-medium text-slate-700">
-                    Company share limit
-                  </span>
-                }
+                label={<span className="text-xs font-medium text-slate-700">Company share limit</span>}
                 name="companyShareLimit"
+                rules={[
+                  {
+                    validator: async (_, value) => {
+                      if (value === null || value === undefined || value === "") return;
+                      const n = Number(value);
+                      if (Number.isNaN(n)) throw new Error("Invalid number");
+                      if (n <= 0) throw new Error("Company share limit must be greater than 0");
+                    },
+                  },
+                ]}
               >
                 <InputNumber
-                  min={0}
+                  min={1}
                   className="w-full"
-                  placeholder="null = unlimited"
                 />
               </Form.Item>
 
               <Form.Item
-                label={
-                  <span className="text-xs font-medium text-slate-700">
-                    Seats per company limit
-                  </span>
-                }
+                label={<span className="text-xs font-medium text-slate-700">Seats per company limit</span>}
                 name="seatsPerCompanyLimit"
+                rules={[
+                  {
+                    validator: async (_, value) => {
+                      // EntireCompany: field disabled -> skip validation
+                      if (licenseScope === "EntireCompany") return;
+
+                      // null/undefined = unlimited -> OK
+                      if (value === null || value === undefined || value === "") return;
+
+                      const n = Number(value);
+                      if (Number.isNaN(n)) throw new Error("Invalid number");
+                      if (n <= 0) throw new Error("Seats per company limit must be greater than 0");
+                    },
+                  },
+                ]}
               >
                 <InputNumber
-                  min={0}
+                  min={1}
                   className="w-full"
                   placeholder={
                     licenseScope === "EntireCompany"
                       ? "Not applicable for entire-company plans"
-                      : "null = unlimited"
+                      : ""
                   }
                   disabled={licenseScope === "EntireCompany"}
                 />
@@ -662,7 +678,6 @@ export default function SubscriptionPlanModal({
                 initialValue="Month"
               >
                 <Select disabled={autoGrantMonthly}>
-                  <Option value="Week">Week</Option>
                   <Option value="Month">Month</Option>
                   <Option value="Year">Year</Option>
                 </Select>
@@ -679,21 +694,6 @@ export default function SubscriptionPlanModal({
                 rules={[{ required: true, message: "Period count is required" }]}
               >
                 <InputNumber min={1} className="w-full" disabled={autoGrantMonthly} />
-              </Form.Item>
-
-              <Form.Item
-                label={
-                  <span className="text-xs font-medium text-slate-700">
-                    Charge unit
-                  </span>
-                }
-                name={["price", "chargeUnit"]}
-                initialValue="PerSubscription"
-              >
-                <Select>
-                  <Option value="PerSubscription">Per subscription</Option>
-                  <Option value="PerSeat">Per seat</Option>
-                </Select>
               </Form.Item>
 
               <Form.Item
@@ -717,19 +717,15 @@ export default function SubscriptionPlanModal({
               </Form.Item>
 
               <Form.Item
-                label={
-                  <span className="text-xs font-medium text-slate-700">
-                    Currency
-                  </span>
-                }
+                label={<span className="text-xs font-medium text-slate-700">Currency</span>}
                 name={["price", "currency"]}
                 initialValue="VND"
               >
-                <Select>
-                  <Option value="VND">VND</Option>
-                  <Option value="USD">USD</Option>
-                  <Option value="EUR">EUR</Option>
-                </Select>
+                <Select
+                  className="w-full"
+                  placeholder="Select currency"
+                  options={[{ value: "VND", label: "VND" }]}
+                />
               </Form.Item>
 
               <Form.Item
@@ -780,7 +776,6 @@ export default function SubscriptionPlanModal({
                     ]}
                   >
                     <Select>
-                      <Option value="Week">Week</Option>
                       <Option value="Month">Month</Option>
                       <Option value="Year">Year</Option>
                     </Select>
@@ -794,7 +789,7 @@ export default function SubscriptionPlanModal({
               <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-3">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-xs font-medium text-slate-700">
-                     Discount
+                    Discount
                   </div>
                 </div>
 
