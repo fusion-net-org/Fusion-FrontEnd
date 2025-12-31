@@ -74,10 +74,11 @@ import TicketDetailAdminPage from './pages/admin/ticketManagement/TicketDetailAd
 import ContractListAdminPage from './pages/admin/contractManagement/ContractListAdminPage';
 import ContractDetailAdminPage from './pages/admin/contractManagement/ContractDetailAdminPage';
 
-import RequirePerm from "@/permission/RequirePerm";
+import RequirePerm from '@/permission/RequirePerm';
 
 import CompanyRole from './pages/home/CompanyRole';
 import ProjectClosureReportPage from './pages/project/ProjectClosureReportPage';
+import ChatPage from './pages/chat/ChatPage';
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
@@ -163,62 +164,90 @@ function App() {
             </CompanyProtectedRoute>
           }
         >
- <Route
-    path="/companies/:companyId/access-role"
-    element={
-       <RequirePerm code="ROLE_LIST_VIEW">
-        <AccessRolePage />
-       </RequirePerm>
-    }
-  />          
-  <Route
-    path="/company/:companyId"
-    element={
-      // <RequirePerm code="COMPANY_DETAIL_VIEW">
-        <CompanyDetail />
-      // </RequirePerm>
-    }
-  />
-          <Route path="/company/:companyId/partners" element={
+          <Route
+            path="/companies/:companyId/access-role"
+            element={
+              <RequirePerm code="ROLE_LIST_VIEW">
+                <AccessRolePage />
+              </RequirePerm>
+            }
+          />
+          <Route
+            path="/company/:companyId"
+            element={
+              // <RequirePerm code="COMPANY_DETAIL_VIEW">
+              <CompanyDetail />
+              // </RequirePerm>
+            }
+          />
+          <Route
+            path="/company/:companyId/partners"
+            element={
               <RequirePerm code="PARTNER_LIST_VIEW">
-            <Partners /></RequirePerm>} />
+                <Partners />
+              </RequirePerm>
+            }
+          />
           <Route path="/company/:companyId/partners/:id" element={<PartnerDetails />} />
-          <Route path="/company/:companyId/members" element={
-             <RequirePerm code="MEMBER_LIST_VIEW">
-            <CompanyMember />
-            </RequirePerm>
-            } />
-          <Route path="/company/:companyId/roles" element={
-            <RequirePerm code="ROLE_LIST_VIEW">
-            <CompanyRole /></RequirePerm>} />
+          <Route
+            path="/company/:companyId/members"
+            element={
+              <RequirePerm code="MEMBER_LIST_VIEW">
+                <CompanyMember />
+              </RequirePerm>
+            }
+          />
+          <Route
+            path="/company/:companyId/roles"
+            element={
+              <RequirePerm code="ROLE_LIST_VIEW">
+                <CompanyRole />
+              </RequirePerm>
+            }
+          />
           <Route path="/companies/:companyId/project" element={<ProjectsPage />} />
           <Route path="/company/:companyId/subscription" element={<CompanySubscriptionPage />} />
           <Route
             path="/companies/:companyId/projectRequest/:projectId"
             element={<ProjectsCompanyRequest />}
-            
           />
-          <Route path="/companies/:companyId/project/:projectId/closue" element={<ProjectClosureReportPage />} />
+          <Route
+            path="/companies/:companyId/project/:projectId/closue"
+            element={<ProjectClosureReportPage />}
+          />
           <Route
             path="/companies/:companyId/project/:projectId/tickets/:ticketId"
             element={
-             <RequirePerm code="TICKET_DETAIL_VIEW">
-            <TicketDetailPage /></RequirePerm>}
+              <RequirePerm code="TICKET_DETAIL_VIEW">
+                <TicketDetailPage />
+              </RequirePerm>
+            }
           />
 
-          <Route path="/company/:companyId/project-request" element={
-            <RequirePerm code="PRQ_LIST_VIEW">
-            <ProjectRequest /> 
-            </RequirePerm>} />
+          <Route
+            path="/company/:companyId/project-request"
+            element={
+              <RequirePerm code="PRQ_LIST_VIEW">
+                <ProjectRequest />
+              </RequirePerm>
+            }
+          />
           <Route
             path="/company/:companyId/project-request/:id"
             element={
-            <RequirePerm code="PRQ_DETAIL_VIEW">
-            <ProjectRequestDetail /></RequirePerm>}
+              <RequirePerm code="PRQ_DETAIL_VIEW">
+                <ProjectRequestDetail />
+              </RequirePerm>
+            }
           />
-          <Route path="/company/:companyId/ticket" element={
-               <RequirePerm code="TICKET_LIST_VIEW">
-            <TicketPage /></RequirePerm>} />
+          <Route
+            path="/company/:companyId/ticket"
+            element={
+              <RequirePerm code="TICKET_LIST_VIEW">
+                <TicketPage />
+              </RequirePerm>
+            }
+          />
 
           <Route path="/company/:companyId/members/:Id" element={<CompanyMemberDetail />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
@@ -226,10 +255,14 @@ function App() {
             path="/companies/:companyId/workflows/:workflowId"
             element={<WorkflowDesignerPage />}
           />
-          <Route path="/companies/:companyId/workflows" element={
-             <RequirePerm code="WORKFLOW_LIST_VIEW">
-            <WorkflowListPage />
-            </RequirePerm>} />
+          <Route
+            path="/companies/:companyId/workflows"
+            element={
+              <RequirePerm code="WORKFLOW_LIST_VIEW">
+                <WorkflowListPage />
+              </RequirePerm>
+            }
+          />
           <Route path="/companies/:companyId/project/:projectId" element={<ProjectBoardPage />} />
           <Route path="/companies/:companyId/workflows/new" element={<WorkflowDesignerPage />} />
           <Route
@@ -239,8 +272,10 @@ function App() {
           <Route
             path="/companies/:companyId/project/:projectId/detail"
             element={
-             <RequirePerm code="PROJECT_DETAIL_VIEW">
-            <ProjectDetailPage /></RequirePerm>}
+              <RequirePerm code="PROJECT_DETAIL_VIEW">
+                <ProjectDetailPage />
+              </RequirePerm>
+            }
           />
 
           {/* LIST */}
@@ -256,6 +291,14 @@ function App() {
         <Route path="/request-reset-password" element={<RequestResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/my-profile" element={<UserProfile />} />
+        <Route
+          path="/live-chat"
+          element={
+            <RequireAuth>
+              <ChatPage />
+            </RequireAuth>
+          }
+        />
 
         <Route path="*" element={<NotFound />} />
         {/*Route payment-result */}
