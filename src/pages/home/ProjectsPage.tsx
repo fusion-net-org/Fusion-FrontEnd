@@ -457,15 +457,20 @@ const isOutsourceExecutor = (p: Project) =>
   {current.map((p) => {
     const isReq = isProjectRequest(p);
     const isExec = isOutsourceExecutor(p);
+    const isMaint = p.isMaintenance === true;
+const compCount = Number(p.maintenanceComponentCount ?? 0);
+
     return (
-      <tr
-        key={p.id}
-        className={[
-          'hover:bg-slate-50',
-          isReq ? 'bg-amber-50/40 ring-1 ring-amber-200' : '',
-          !isReq && isExec ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : '',
-        ].join(' ')}
-      >
+    <tr
+  key={p.id}
+  className={[
+    'hover:bg-slate-50',
+    isMaint ? 'bg-[#fbf6ef] ring-1 ring-[#d9b892]' : '',
+    !isMaint && isReq ? 'bg-amber-50/40 ring-1 ring-amber-200' : '',
+    !isMaint && !isReq && isExec ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : '',
+  ].join(' ')}
+>
+
         <td className="px-4">
           <input
             type="radio"
@@ -491,6 +496,11 @@ const isOutsourceExecutor = (p: Project) =>
               Outsourced (Executor)
             </span>
           )}
+          {isMaint && (
+  <span className="ml-2 align-middle rounded-full border border-[#d9b892] bg-[#f4e7d7] px-2 py-0.5 text-[10px] font-medium text-[#7a4b21]">
+    Maintenance • {compCount} component{compCount === 1 ? '' : 's'}
+  </span>
+)}
         </td>
 
         <td className="px-4 py-2">{p.name}</td>

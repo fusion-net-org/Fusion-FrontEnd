@@ -40,11 +40,10 @@ const normStatus = (s) => {
   return 'Planned';
 };
 
-/* Nhận đủ các kiểu date (DateOnly, string ISO, ticks…) => 'yyyy-MM-dd' */
 const toDateStr = (v) => {
   if (!v) return null;
   if (typeof v === 'string') return v.length >= 10 ? v.slice(0, 10) : v;
-  if (typeof v === 'object' && 'year' in v && 'month' in v && 'day' in v) {
+  if (typeof v === 'object' && v && 'year' in v && 'month' in v && 'day' in v) {
     const m = String(v.month).padStart(2, '0');
     const d = String(v.day).padStart(2, '0');
     return `${v.year}-${m}-${d}`;
@@ -56,21 +55,35 @@ const toDateStr = (v) => {
   }
 };
 
-/* Map bất chấp DTO backend khác tên */
-const mapItemToProject = (r, currentCompanyId) => {
-  const hasCompanyRequest = !!(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID);
-  const ptype =
-    r.ptype /* BE đã trả sẵn nếu bạn đã map */ ??
-    (hasCompanyRequest ? 'Outsourced' : 'Internal') ??
-    (r.isHired ? 'Outsourced' : 'Internal'); // fallback cũ
+const toInt = (v, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
-  // Ưu tiên flag từ BE; fallback theo companyRequestId == currentCompanyId
+/* Map DTO project list -> Project VM */
+const mapItemToProject = (r, currentCompanyId) => {
+  const companyRequestId =
+    r.companyRequestId ?? r.company_request_id ?? r.companyRequestID ?? null;
+
+  const hasCompanyRequest = !!companyRequestId;
+
+  const ptype =
+    r.ptype ??
+    (hasCompanyRequest ? 'Outsourced' : 'Internal') ??
+    (r.isHired ? 'Outsourced' : 'Internal');
+
   const isRequest =
     typeof r.isRequest === 'boolean'
       ? r.isRequest
       : hasCompanyRequest &&
-        String(r.companyRequestId ?? r.company_request_id ?? r.companyRequestID).toLowerCase() ===
-          String(currentCompanyId).toLowerCase();
+        String(companyRequestId).toLowerCase() === String(currentCompanyId).toLowerCase();
+
+  const isMaintenance = !!(r.isMaintenance ?? r.is_maintenance ?? false);
+
+  // backend có thể trả maintenanceComponentCount / componentCount / totalComponents...
+  const maintenanceComponentCount = toInt(
+    r.maintenanceComponentCount ?? r.componentCount ?? r.totalComponents ?? 0,
+  );
 
   return {
     id: String(r.id),
@@ -85,13 +98,20 @@ const mapItemToProject = (r, currentCompanyId) => {
       (r.workflowCompanyName && r.workflowName
         ? `${r.workflowCompanyName} — ${r.workflowName}`
         : null),
+
     startDate: toDateStr(r.startDate),
     endDate: toDateStr(r.endDate),
     status: normStatus(r.status),
+
     ptype,
     isRequest: !!isRequest,
+
+    isMaintenance,
+    maintenanceComponentCount,
+    
   };
 };
+
 // ... các hàm ở trên (isGuid, getCompanyMembersPaged, normStatus, toDateStr, mapItemToProject) ...
 
 // Map DTO member trong project -> VM dùng cho FE
@@ -274,36 +294,51 @@ export async function createProject(payload) {
     name,
     description,
     status,
-    startDate, // 'yyyy-MM-dd'
-    endDate, // 'yyyy-MM-dd'
+    startDate,
+    endDate,
     sprintLengthWeeks,
-    workflowId, // GUID
+    workflowId,
     memberIds,
+
+    isMaintenance,
+    maintenanceForProjectId,
+    maintenanceComponents,
   } = payload;
 
   if (!isGuid(companyId)) throw new Error('Invalid companyId');
   if (!isGuid(workflowId)) throw new Error('Invalid workflowId');
-  console.log('a');
+
   const dto = {
     companyId,
     isHired: !!isHired,
     companyRequestId: isGuid(companyRequestId) ? companyRequestId : null,
-    projectRequestId: isGuid(projectRequestId) ? projectRequestId : null,
+
+    projectRequestId: isMaintenance ? null : (isGuid(projectRequestId) ? projectRequestId : null),
+
     code: code?.trim(),
     name: name?.trim(),
     description: description?.trim() || null,
     status,
-    startDate, // giữ nguyên yyyy-MM-dd
-    endDate, // giữ nguyên yyyy-MM-dd
+    startDate,
+    endDate,
     sprintLengthWeeks,
     workflowId,
     memberIds: (memberIds || []).filter(isGuid),
+
+    isMaintenance: !!isMaintenance,
+    maintenanceForProjectId: isGuid(maintenanceForProjectId) ? maintenanceForProjectId : null,
+    maintenanceComponents: (maintenanceComponents || [])
+      .map((c) => ({
+        name: (c.name || '').trim(),
+        note: (c.note || '').trim(),
+      }))
+      .filter((c) => !!c.name),
   };
 
-  // 👉 Nếu BE dùng /projects (không có /companies/{id}/...), đổi path ở đây
   const { data } = await axiosInstance.post(`/companies/${companyId}/projects`, dto);
   return data?.data ?? data;
 }
+
 
 // https://localhost:7160/api/projects/5E9AC255-E049-4106-85FB-43F0492D0637
 export const GetProjectByProjectId = async (id) => {
