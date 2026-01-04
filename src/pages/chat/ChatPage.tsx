@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, MessageSquarePlus, UsersRound, X } from 'lucide-react';
-import { connection } from '@/pages/chat/signalR';
+import { connection, joinGroup, leaveGroup } from '@/pages/chat/signalR';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import {
   getMyFriendList,
@@ -9,6 +9,7 @@ import {
   createGroupChat,
 } from '@/services/chatService.js';
 import { toast } from 'react-toastify';
+import { v4 as uuidv4 } from 'uuid';
 
 // const chats = [
 //   { id: 1, name: 'Nhóm Test', members: 3, time: '22m' },
@@ -23,14 +24,14 @@ import { toast } from 'react-toastify';
 //   { id: 3, name: 'KienMinh', status: 'kienminh@gmail.com', online: false },
 // ];
 
-const messages = [
-  { id: 1, text: 'e lô', time: '29/9 15:46', mine: false },
-  { id: 2, text: 'looo', time: '29/9 15:47', mine: false },
-  { id: 3, text: '???', time: '29/9 15:49', mine: false },
-  { id: 4, text: 'làm xong chưa', time: '29/9 15:49', mine: false },
-  { id: 5, text: 'chưa', time: '13:50', mine: true },
-  { id: 6, text: 'doi ty', time: '14:09', mine: true },
-];
+// const messages = [
+//   { id: 1, text: 'e lô', time: '29/9 15:46', mine: false },
+//   { id: 2, text: 'looo', time: '29/9 15:47', mine: false },
+//   { id: 3, text: '???', time: '29/9 15:49', mine: false },
+//   { id: 4, text: 'làm xong chưa', time: '29/9 15:49', mine: false },
+//   { id: 5, text: 'chưa', time: '13:50', mine: true },
+//   { id: 6, text: 'doi ty', time: '14:09', mine: true },
+// ];
 
 export interface UserInfo {
   name: string;
@@ -39,10 +40,14 @@ export interface UserInfo {
   initials?: string;
 }
 
-type Message = {
-  id: number;
-  text: string;
-  time: string;
+export type ChatMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  emailSender?: string;
+  content: string;
+  clientMessageId?: string;
+  createdAt?: string;
   mine: boolean;
 };
 
@@ -61,13 +66,21 @@ type Conversation = {
   members?: number;
   time?: string;
   avatar?: string | null;
+  peerEmail?: string;
+  peerUserId?: string;
+  lastMessage?: string;
+  hasUnread?: boolean;
 };
 
 export default function ChatPage() {
-  const [activeChat, setActiveChat] = useState<string | null>(null);
+  //Group Activation
+  const [activeChat, setActiveChat] = useState<Conversation | null>(null);
+  const [joinedGroupId, setJoinedGroupId] = useState<string | null>(null);
+  const activeChatRef = useRef<Conversation | null>(null);
+
   const dispatch = useAppDispatch();
   const userFromRedux = useAppSelector((state) => state.user.user);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
 
@@ -108,14 +121,56 @@ export default function ChatPage() {
       .then(() => {
         console.log('SignalR connected');
 
-        connection.on('ReceiveMessage', (message: Message) => {
-          setMessages((prev) => [...prev, message]);
+        // Group message
+        connection.on('ReceiveGroupMessage', (msg: ChatMessage) => {
+          const currentChat = activeChatRef.current;
+
+          if (currentChat?.type !== 2) return;
+          if (msg.conversationId !== currentChat.id) return;
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: msg.id,
+              conversationId: msg.conversationId,
+              senderId: msg.senderId,
+              content: msg.content,
+              createdAt: new Date(msg.createdAt || Date.now()).toLocaleTimeString(),
+              mine: msg.emailSender === userFromRedux?.email,
+            },
+          ]);
+        });
+
+        // Private message
+        connection.on('ReceivePrivateMessage', (msg: ChatMessage) => {
+          const currentChat = activeChatRef.current;
+
+          if (!currentChat) return;
+          if (currentChat.type !== 1) return;
+          if (msg.conversationId !== currentChat.id) return;
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: msg.id,
+              conversationId: msg.conversationId,
+              senderId: msg.senderId,
+              content: msg.content,
+              createdAt: new Date(msg.createdAt || Date.now()).toLocaleTimeString(),
+              mine: msg.emailSender === userFromRedux?.email,
+            },
+          ]);
         });
       })
       .catch(console.error);
 
     return () => {
-      connection.off('ReceiveMessage');
+      if (joinedGroupId) {
+        leaveGroup(joinedGroupId);
+      }
+
+      connection.off('ReceivePrivateMessage');
+      connection.off('ReceiveGroupMessage');
       connection.stop();
     };
   }, []);
@@ -154,6 +209,7 @@ export default function ChatPage() {
             members: 2,
             time: item.lastMessageAt ? new Date(item.lastMessageAt).toLocaleTimeString() : '',
             avatar: item.peerAvatar,
+            peerUserId: item.peerUserId,
           };
         }
 
@@ -177,6 +233,10 @@ export default function ChatPage() {
     fetchFriends();
     fetchChats();
   }, []);
+
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
 
   //Add new friend
   const handleAddFriend = async () => {
@@ -233,6 +293,32 @@ export default function ChatPage() {
     }
   };
 
+  //Send Message
+  const handleSend = async () => {
+    if (!text.trim() || !activeChat) return;
+
+    const clientMessageId = uuidv4();
+
+    if (activeChat.type === 2) {
+      await connection.invoke('SendGroupMessage', activeChat.id, clientMessageId, text, []);
+    }
+
+    console.log('Active Chat:', activeChat);
+    console.log('Messgae Chat:', clientMessageId, text);
+
+    if (activeChat.type === 1) {
+      await connection.invoke(
+        'SendPrivateMessage',
+        activeChat.peerUserId,
+        activeChat.id,
+        clientMessageId,
+        text,
+      );
+    }
+
+    setText('');
+  };
+
   return (
     <>
       <div className="flex h-screen bg-gray-100">
@@ -269,30 +355,59 @@ export default function ChatPage() {
               chats.map((c) => (
                 <div
                   key={c.id}
-                  onClick={() => setActiveChat(c.id)}
-                  className={`p-3 rounded-xl cursor-pointer flex justify-between items-center ${
-                    activeChat === c.id
+                  onClick={async () => {
+                    if (joinedGroupId && joinedGroupId !== c.id) {
+                      await leaveGroup(joinedGroupId);
+                      setJoinedGroupId(null);
+                    }
+
+                    if (c.type === 2) {
+                      await joinGroup(c.id);
+                      setJoinedGroupId(c.id);
+                    }
+
+                    setActiveChat(c);
+                    setMessages([]);
+
+                    setChats((prev) =>
+                      prev.map((x) => (x.id === c.id ? { ...x, hasUnread: false } : x)),
+                    );
+                  }}
+                  className={`relative p-3 rounded-xl cursor-pointer ${
+                    activeChat?.id === c.id
                       ? 'border border-purple-400 bg-purple-50'
                       : 'hover:bg-gray-100'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    {/* Avatar */}
-                    {c.type === 1 && c.avatar ? (
-                      <img src={c.avatar} className="w-9 h-9 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-purple-200 flex items-center justify-center font-semibold text-purple-700">
-                        {c.name[0]?.toUpperCase()}
-                      </div>
-                    )}
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Avatar */}
+                      {c.type === 1 && c.avatar ? (
+                        <img src={c.avatar} className="w-9 h-9 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-purple-200 flex items-center justify-center font-semibold text-purple-700">
+                          {c.name[0]?.toUpperCase()}
+                        </div>
+                      )}
 
-                    <div>
-                      <div className="font-medium text-sm">{c.name}</div>
-                      {c.type === 2 && <div className="text-xs text-gray-400">Group chat</div>}
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm">{c.name}</div>
+
+                        {c.lastMessage && (
+                          <div className="text-xs text-gray-400 truncate max-w-[160px]">
+                            {c.lastMessage}
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {c.time && <span className="text-xs text-gray-400">{c.time}</span>}
                   </div>
 
-                  {c.time && <span className="text-xs text-gray-400">{c.time}</span>}
+                  {/* 🔴 UNREAD DOT */}
+                  {c.hasUnread && (
+                    <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+                  )}
                 </div>
               ))
             )}
@@ -399,8 +514,8 @@ export default function ChatPage() {
                       : 'bg-white text-gray-800 rounded-bl-none'
                   }`}
                 >
-                  <div>{m.text}</div>
-                  <div className="text-[10px] opacity-60 mt-1 text-right">{m.time}</div>
+                  <div>{m.content}</div>
+                  <div className="text-[10px] opacity-60 mt-1 text-right">{m.createdAt}</div>
                 </div>
               </div>
             ))}
@@ -409,12 +524,17 @@ export default function ChatPage() {
           {/* Input */}
           <div className="p-4 bg-white border-t flex items-center gap-3">
             <input
+              value={text}
               disabled={!activeChat}
+              onChange={(e) => setText(e.target.value)}
               placeholder={activeChat ? 'Soạn tin nhắn...' : 'Chọn group để chat'}
               className="flex-1 px-4 py-2 border rounded-full disabled:bg-gray-100"
             />
 
-            <button className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center">
+            <button
+              onClick={handleSend}
+              className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center"
+            >
               ➤
             </button>
           </div>

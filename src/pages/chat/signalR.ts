@@ -1,22 +1,29 @@
 import * as signalR from '@microsoft/signalr';
 
 export const connection = new signalR.HubConnectionBuilder()
-  .withUrl("https://localhost:7160/chathub", {
-    accessTokenFactory: () =>
-      localStorage.getItem("token") || ""
+  .withUrl('https://localhost:7160/chathub', {
+    accessTokenFactory: () => getAccessToken(),
   })
   .withAutomaticReconnect()
   .build();
 
-  export async function joinGroup(conversationId: string) {
-  if (connection.state !== signalR.HubConnectionState.Connected)
-    await connection.start();
+export async function joinGroup(conversationId: string) {
+  if (connection.state !== signalR.HubConnectionState.Connected) await connection.start();
 
-  await connection.invoke("JoinGroup", conversationId);
+  await connection.invoke('JoinGroup', conversationId);
 }
 
 export async function leaveGroup(conversationId: string) {
   if (connection.state === signalR.HubConnectionState.Connected) {
-    await connection.invoke("LeaveGroup", conversationId);
+    await connection.invoke('LeaveGroup', conversationId);
   }
 }
+
+const getAccessToken = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    return user?.token ?? '';
+  } catch {
+    return '';
+  }
+};
