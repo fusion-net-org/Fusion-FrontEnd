@@ -142,7 +142,8 @@ export const CreateProjectRequest = async (data) => {
     if (data.StartDate !== undefined && data.StartDate !== null)
       params.append('StartDate', data.StartDate);
     if (data.EndDate !== undefined && data.EndDate !== null) params.append('EndDate', data.EndDate);
-
+    if (data.IsMaintenance !== undefined && data.IsMaintenance !== null)
+      params.append('IsMaintenance', data.IsMaintenance);
     const url = `/projectrequest?${params.toString()}`;
 
     const response = await axiosInstance.post(url);
