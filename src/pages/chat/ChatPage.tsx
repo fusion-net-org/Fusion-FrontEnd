@@ -7,9 +7,12 @@ import {
   sendAddFriend,
   getMyGroupChatList,
   createGroupChat,
+  getMessages,
 } from '@/services/chatService.js';
 import { toast } from 'react-toastify';
 import { v4 as uuidv4 } from 'uuid';
+import { ChatListSkeleton } from './ChatSkeleton';
+import { MessageSkeleton } from './MessageSkeleton';
 
 // const chats = [
 //   { id: 1, name: 'Nhóm Test', members: 3, time: '22m' },
@@ -48,6 +51,8 @@ export type ChatMessage = {
   content: string;
   clientMessageId?: string;
   createdAt?: string;
+  senderAvatar?: string;
+  senderName?: string;
   mine: boolean;
 };
 
@@ -70,6 +75,7 @@ type Conversation = {
   peerUserId?: string;
   lastMessage?: string;
   hasUnread?: boolean;
+  title?: string;
 };
 
 export default function ChatPage() {
@@ -83,6 +89,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
+
+  //loading
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   // Add friend
   const [showAddFriend, setShowAddFriend] = useState(false);
@@ -178,11 +189,12 @@ export default function ChatPage() {
   // get friend list
   const fetchFriends = async () => {
     try {
+      setLoadingFriends(true);
       const res = await getMyFriendList();
 
       const mappedFriends: Friend[] = res.data.items.map((item: any) => ({
         id: item.friendshipId,
-        name: item.email.split('@')[0],
+        name: item.userName,
         email: item.email,
         avatar: item.avatar,
         online: false,
@@ -191,34 +203,33 @@ export default function ChatPage() {
       setFriends(mappedFriends);
     } catch (err) {
       console.error('Fetch friends failed', err);
+    } finally {
+      setLoadingFriends(false);
     }
   };
 
   // get group chat
   const fetchChats = async () => {
     try {
+      setLoadingChats(true);
       const res = await getMyGroupChatList();
 
       const mappedChats: Conversation[] = res.data.items.map((item: any) => {
-        // Direct message
         if (item.type === 1) {
           return {
             id: item.id,
             type: 1,
             name: item.peerEmail?.split('@')[0] || 'Unknown',
-            members: 2,
             time: item.lastMessageAt ? new Date(item.lastMessageAt).toLocaleTimeString() : '',
             avatar: item.peerAvatar,
             peerUserId: item.peerUserId,
           };
         }
 
-        // Group chat
         return {
           id: item.id,
           type: 2,
           name: item.title || 'Unnamed Group',
-          members: undefined,
           time: item.lastMessageAt ? new Date(item.lastMessageAt).toLocaleTimeString() : '',
         };
       });
@@ -226,6 +237,8 @@ export default function ChatPage() {
       setChats(mappedChats);
     } catch (err) {
       console.error('Fetch chats failed', err);
+    } finally {
+      setLoadingChats(false);
     }
   };
 
@@ -293,6 +306,38 @@ export default function ChatPage() {
     }
   };
 
+  //loadMess
+  const mapMessages = (items: any[]): ChatMessage[] => {
+    return items
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .map((m) => ({
+        id: m.id,
+        conversationId: m.conversationId,
+        senderId: m.senderId,
+        senderName: m.senderName,
+        senderAvatar: m.senderAvatar,
+        content: m.content,
+        createdAt: new Date(m.createdAt).toLocaleTimeString(),
+        mine: m.senderName === userFromRedux?.username,
+      }));
+  };
+
+  const loadMessages = async (conversationId: string) => {
+    setLoadingMessages(true);
+    try {
+      setMessages([]);
+      const res = await getMessages(conversationId);
+
+      const mapped = mapMessages(res.data.items);
+      setMessages(mapped);
+    } catch (err) {
+      console.error('Load messages failed', err);
+      toast.error('Cannot load messages');
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
   //Send Message
   const handleSend = async () => {
     if (!text.trim() || !activeChat) return;
@@ -348,68 +393,73 @@ export default function ChatPage() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {chats.length === 0 ? (
+          <div className="flex-1 overflow-y-auto">
+            {loadingChats ? (
+              <ChatListSkeleton count={6} />
+            ) : chats.length === 0 ? (
               <div className="py-6 text-center text-sm text-gray-400">No Group</div>
             ) : (
-              chats.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={async () => {
-                    if (joinedGroupId && joinedGroupId !== c.id) {
-                      await leaveGroup(joinedGroupId);
-                      setJoinedGroupId(null);
-                    }
+              <div className="space-y-2 p-2">
+                {chats.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={async () => {
+                      if (joinedGroupId && joinedGroupId !== c.id) {
+                        await leaveGroup(joinedGroupId);
+                        setJoinedGroupId(null);
+                      }
 
-                    if (c.type === 2) {
-                      await joinGroup(c.id);
-                      setJoinedGroupId(c.id);
-                    }
+                      if (c.type === 2) {
+                        await joinGroup(c.id);
+                        setJoinedGroupId(c.id);
+                      }
 
-                    setActiveChat(c);
-                    setMessages([]);
+                      setActiveChat(c);
+                      activeChatRef.current = c;
 
-                    setChats((prev) =>
-                      prev.map((x) => (x.id === c.id ? { ...x, hasUnread: false } : x)),
-                    );
-                  }}
-                  className={`relative p-3 rounded-xl cursor-pointer ${
-                    activeChat?.id === c.id
-                      ? 'border border-purple-400 bg-purple-50'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Avatar */}
-                      {c.type === 1 && c.avatar ? (
-                        <img src={c.avatar} className="w-9 h-9 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-purple-200 flex items-center justify-center font-semibold text-purple-700">
-                          {c.name[0]?.toUpperCase()}
-                        </div>
-                      )}
+                      await loadMessages(c.id);
 
-                      <div className="min-w-0">
-                        <div className="font-medium text-sm">{c.name}</div>
-
-                        {c.lastMessage && (
-                          <div className="text-xs text-gray-400 truncate max-w-[160px]">
-                            {c.lastMessage}
+                      setChats((prev) =>
+                        prev.map((x) => (x.id === c.id ? { ...x, hasUnread: false } : x)),
+                      );
+                    }}
+                    className={`relative p-3 rounded-xl cursor-pointer ${
+                      activeChat?.id === c.id
+                        ? 'border border-purple-400 bg-purple-50'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Avatar */}
+                        {c.type === 1 && c.avatar ? (
+                          <img src={c.avatar} className="w-9 h-9 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-purple-200 flex items-center justify-center font-semibold text-purple-700">
+                            {c.name[0]?.toUpperCase()}
                           </div>
                         )}
+
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm">{c.name}</div>
+
+                          {c.lastMessage && (
+                            <div className="text-xs text-gray-400 truncate max-w-[160px]">
+                              {c.lastMessage}
+                            </div>
+                          )}
+                        </div>
                       </div>
+
+                      {c.time && <span className="text-xs text-gray-400">{c.time}</span>}
                     </div>
 
-                    {c.time && <span className="text-xs text-gray-400">{c.time}</span>}
+                    {c.hasUnread && (
+                      <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+                    )}
                   </div>
-
-                  {/* 🔴 UNREAD DOT */}
-                  {c.hasUnread && (
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
-                  )}
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
 
@@ -450,7 +500,9 @@ export default function ChatPage() {
             </div>
           )}
           <div className="p-2 space-y-2">
-            {friends.length === 0 ? (
+            {loadingFriends ? (
+              <ChatListSkeleton count={4} />
+            ) : friends.length === 0 ? (
               <div className="py-6 text-center text-sm text-gray-400">No Friend</div>
             ) : (
               friends.map((f) => (
@@ -500,25 +552,66 @@ export default function ChatPage() {
         <main className="flex-1 flex flex-col">
           {/* Header */}
           <header className="h-16 bg-white border-b flex items-center px-6 font-semibold">
-            KienMinh
+            {activeChat
+              ? activeChat.type === 2
+                ? activeChat.title || activeChat.name
+                : activeChat.name
+              : 'Select a chat'}
           </header>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
+            {loadingMessages ? (
+              <MessageSkeleton />
+            ) : (
+              messages.map((m) => (
                 <div
-                  className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${
-                    m.mine
-                      ? 'bg-purple-500 text-white rounded-br-none'
-                      : 'bg-white text-gray-800 rounded-bl-none'
-                  }`}
+                  key={m.id}
+                  className={`flex items-end gap-2 ${m.mine ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div>{m.content}</div>
-                  <div className="text-[10px] opacity-60 mt-1 text-right">{m.createdAt}</div>
+                  {!m.mine && (
+                    <div className="relative group">
+                      {m.senderAvatar ? (
+                        <img
+                          src={m.senderAvatar}
+                          alt={m.senderName}
+                          className="w-9 h-9 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-purple-200 flex items-center justify-center font-semibold text-purple-700">
+                          {m.senderName?.[0]?.toUpperCase()}
+                        </div>
+                      )}
+
+                      {/* Hover tooltip */}
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block">
+                        <div className="px-2 py-1 text-xs text-white bg-black rounded-md whitespace-nowrap">
+                          {m.senderName}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message content */}
+                  <div className="max-w-xs">
+                    {!m.mine && (
+                      <div className="text-xs text-gray-500 mb-1 ml-1">{m.senderName}</div>
+                    )}
+
+                    <div
+                      className={`px-4 py-2 rounded-2xl text-sm ${
+                        m.mine
+                          ? 'bg-purple-500 text-white rounded-br-none'
+                          : 'bg-white text-gray-800 rounded-bl-none'
+                      }`}
+                    >
+                      <div>{m.content}</div>
+                      <div className="text-[10px] opacity-60 mt-1 text-right">{m.createdAt}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Input */}
@@ -527,7 +620,7 @@ export default function ChatPage() {
               value={text}
               disabled={!activeChat}
               onChange={(e) => setText(e.target.value)}
-              placeholder={activeChat ? 'Soạn tin nhắn...' : 'Chọn group để chat'}
+              placeholder={activeChat ? 'Compose a message...' : 'Choose a group to chat'}
               className="flex-1 px-4 py-2 border rounded-full disabled:bg-gray-100"
             />
 

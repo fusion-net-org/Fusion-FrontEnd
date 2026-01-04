@@ -38,3 +38,14 @@ export const createGroupChat = async (data) => {
     throw error.response?.data || { message: 'Error!' };
   }
 };
+
+export const getMessages = async (conversationId) => {
+  try {
+    const response = await axiosInstance.get(
+      `/Chat/conversations/${conversationId}/messages/paged`,
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Error!' };
+  }
+};
