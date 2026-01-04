@@ -22,6 +22,7 @@ export interface IProjectRequset {
   closedBy: string;
   convertedProjectId: string;
   contractId: string;
+  isMaintenance: boolean;
 }
 
 export interface ProjectRequestResponse {

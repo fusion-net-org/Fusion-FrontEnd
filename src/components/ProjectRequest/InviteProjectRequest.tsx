@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Input, DatePicker } from 'antd';
+import { Modal, Input, DatePicker, Select } from 'antd';
 import { toast } from 'react-toastify';
 import dayjs from 'dayjs';
 import LoadingOverlay from '@/common/LoadingOverlay';
@@ -11,8 +11,20 @@ import type { CompanyRequest } from '@/interfaces/Company/company';
 import { AutoComplete } from 'antd';
 import { debounce } from 'lodash';
 import { Steps } from 'antd';
-
+import { createProjectComponentsBulk } from '@/services/projectComponentService.js';
 const { TextArea } = Input;
+
+const MAINTENANCE_COMPONENT_OPTIONS = [
+  'Login',
+  'Authentication',
+  'Payment',
+  'Checkout',
+  'User Management',
+  'Report',
+  'Notification',
+  'Dashboard',
+  'API Integration',
+];
 
 interface InviteProjectRequestModalProps {
   open: boolean;
@@ -43,6 +55,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
     description: '',
     startDate: effectiveDate ? dayjs(effectiveDate) : null,
     endDate: expiredDate ? dayjs(expiredDate) : null,
+    IsMaintenance: false,
   });
   console.log('requesterCompanyId', requesterCompanyId);
   console.log('executorCompanyId', executorCompanyId);
@@ -50,6 +63,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
   //state executor company
   const [executorSearch, setExecutorSearch] = useState('');
   const [executorOptions, setExecutorOptions] = useState<{ label: string; value: string }[]>([]);
+  const [maintenanceComponents, setMaintenanceComponents] = useState<string[]>([]);
 
   //state loading
   const [loading, setLoading] = useState(false);
@@ -111,6 +125,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
         contractId: contractId ?? prev.contractId,
         startDate: effectiveDate ? dayjs(effectiveDate) : prev.startDate,
         endDate: expiredDate ? dayjs(expiredDate) : prev.endDate,
+        IsMaintenance: false,
       }));
     }
   }, [open, requesterCompanyId, executorCompanyId, contractId, effectiveDate, expiredDate]);
@@ -134,10 +149,20 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
         Description: formData.description || null,
         StartDate: formatDate(formData.startDate), // dùng formData.startDate
         EndDate: formatDate(formData.endDate), // dùng formData.endDate
+        IsMaintenance: formData.IsMaintenance,
       };
 
       const res = await CreateProjectRequest(payload);
+      const projectRequestId = res.data?.id;
+      if (formData.IsMaintenance && maintenanceComponents.length > 0) {
+        const componentsPayload = maintenanceComponents.map((name) => ({
+          ProjectRequestId: projectRequestId,
+          Name: name,
+          Description: `Maintenance for ${name}`,
+        }));
 
+        await createProjectComponentsBulk(componentsPayload);
+      }
       if (res?.succeeded) {
         toast.success(res.message || 'Project request created successfully!');
         onSuccess?.();
@@ -150,6 +175,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
           description: '',
           startDate: effectiveDate ? dayjs(effectiveDate) : null,
           endDate: expiredDate ? dayjs(expiredDate) : null,
+          IsMaintenance: false,
         });
       } else {
         toast.error(res?.message || 'Failed to create project request');
@@ -199,6 +225,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       }));
       setExecutorValue('');
       setExecutorOptions([]);
+      setMaintenanceComponents([]);
     }
   }, [open, executorCompanyId]);
 
@@ -267,6 +294,50 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
           />
         </div>
 
+        {/* Project Type */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 pb-1 inline-block">
+            Project Type
+          </label>
+          <Select
+            className="w-full"
+            value={formData.IsMaintenance}
+            onChange={(value) => {
+              handleChange('IsMaintenance', value);
+              if (!value) {
+                setMaintenanceComponents([]);
+              }
+            }}
+            options={[
+              { label: 'Development', value: false },
+              { label: 'Maintenance', value: true },
+            ]}
+          />
+        </div>
+        {/* Maintenance Components*/}
+        {formData.IsMaintenance && (
+          <div>
+            <label className="text-sm font-medium text-gray-700 pb-1 inline-block">
+              Components to Maintain
+            </label>
+            <Select
+              mode="tags"
+              className="w-full"
+              placeholder="Select or type components (e.g. Login, Payment)"
+              value={maintenanceComponents}
+              onChange={(value) => setMaintenanceComponents(value)}
+              options={MAINTENANCE_COMPONENT_OPTIONS.map((item) => ({
+                label: item,
+                value: item,
+              }))}
+              tokenSeparators={[',']}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Select from suggestions or type your own components.
+            </p>
+          </div>
+        )}
+
         {/* Description */}
         <div>
           <label className="text-sm font-medium text-gray-700 pb-1 inline-block">Description</label>
@@ -310,6 +381,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
               onClose();
               setExecutorValue('');
               setExecutorOptions([]);
+              setMaintenanceComponents([]);
               setFormData((prev) => ({
                 ...prev,
                 executorCompanyId: executorCompanyId ?? null,
@@ -317,6 +389,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
                 description: '',
                 startDate: null,
                 endDate: null,
+                IsMaintenance: false,
               }));
             }}
             className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-100 transition"
