@@ -83,6 +83,8 @@ export type SubscriptionPlanListItemResponse = {
   seatsPerCompanyLimit?: number | null; // null = unlimited
   createdAt: string; // ISO
   updatedAt: string; // ISO
+  BillingPeriod?: string;
+  PeriodCount: number | null;
 };
 
 // ---------- Inputs ----------

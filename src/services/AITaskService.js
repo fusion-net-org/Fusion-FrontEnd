@@ -1,47 +1,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { axiosInstance } from '../apiConfig';
 
-/**
- * Chuẩn hoá payload từ AiTaskGenerateRequest (FE) sang DTO BE.
- * BE đang dùng: ProjectId, SprintId, SprintName, SprintStart, SprintEnd,
- * WorkflowStatuses, DefaultStatusId, ... (xem AiTaskGenerateRequestDto).
- */
+
 const buildBackendPayload = (req) => {
   if (!req) throw new Error('AI request is required');
 
   const sprint = req.sprint || {};
   const workflow = req.workflow || { statuses: [], defaultStatusId: '' };
-  const teamCtx = req.teamContext || {
-    memberCount: 0,
-    roles: [],
-    techStack: [],
-  };
+  const teamCtx = req.teamContext || { memberCount: 0, roles: [], techStack: [] };
 
-  // ==== NEW: toàn bộ board context (từ FE: boardContext) ====
   const boardCtx = req.boardContext || {};
   const boardSprints = Array.isArray(boardCtx.sprints) ? boardCtx.sprints : [];
   const boardTasks = Array.isArray(boardCtx.tasks) ? boardCtx.tasks : [];
 
+  const out = req.outputConfig || {};
+
   return {
-    // ==== ids & basic context ====
     projectId: req.projectId,
     projectName: req.projectName,
+
     sprintId: sprint.id,
     sprintName: sprint.name,
     sprintStart: sprint.start,
     sprintEnd: sprint.end,
     sprintCapacityHours: sprint.capacityHours,
 
-    // ==== workflow ====
+    targetSprintIds: Array.isArray(req.targetSprintIds) ? req.targetSprintIds : [],
+
     workflowStatuses: workflow.statuses || [],
     defaultStatusId: workflow.defaultStatusId,
 
-    // ==== board context toàn bộ sprint board ====
-    // C# AiTaskGenerateRequestDto: BoardSprints, BoardTasks
     boardSprints,
     boardTasks,
 
-    // ==== goal & scope ====
     goal: req.goal,
     context: req.context,
     workTypes: req.workTypes || [],
@@ -49,36 +40,50 @@ const buildBackendPayload = (req) => {
     quantity: req.quantity,
     granularity: req.granularity,
 
-    // ==== estimate config ====
     estimateUnit: req.estimate?.unit,
     withEstimate: req.estimate?.withEstimate ?? true,
     estimateMin: req.estimate?.min,
     estimateMax: req.estimate?.max,
     totalEffortHours: req.estimate?.totalEffortHours,
 
-    // ==== timebox / deadline ====
     deadline: req.deadline,
 
-    // ==== team context (size, roles, tech) ====
     teamMemberCount: teamCtx.memberCount,
     teamRoles: teamCtx.roles || [],
     techStack: teamCtx.techStack || [],
 
-    // ==== requirements ====
     functionalRequirements: req.requirements?.functional,
     nonFunctionalRequirements: req.requirements?.nonFunctional,
     acceptanceHint: req.requirements?.acceptanceHint,
 
-    // ==== duplicate strategy ====
+    includeTitle: out.includeTitle ?? true,
+    includeDescription: out.includeDescription ?? true,
+    includeType: out.includeType ?? true,
+    includePriority: out.includePriority ?? true,
+    includeEstimate: out.includeEstimate ?? true,
+    includeAcceptanceCriteria: out.includeAcceptanceCriteria ?? true,
+    includeDependencies: out.includeDependencies ?? true,
+    includeStatusSuggestion: out.includeStatusSuggestion ?? true,
+    includeChecklist: out.includeChecklist ?? true,
+
     includeExistingTasks: req.duplicateStrategy?.includeExistingTasks ?? true,
     avoidSameTitle: req.duplicateStrategy?.avoidSameTitle ?? true,
     avoidSameDescription: req.duplicateStrategy?.avoidSameDescription ?? true,
     existingTasksSnapshot: req.existingTasksSnapshot || [],
-
-    // ==== output config (BE có thể dùng sau) ====
-    outputConfig: req.outputConfig,
   };
 };
+export const generateAndSaveAiTasksBySprint = async (clientRequest) => {
+  const dto = buildBackendPayload(clientRequest);
+  const { projectId, sprintId } = dto;
+
+  const res = await axiosInstance.post(
+    `/projects/${projectId}/sprints/${sprintId}/ai/generate-and-save/by-sprint`,
+    dto,
+  );
+
+  return res?.data?.data ?? res?.data;
+};
+
 /**
  * Gọi AI generate (preview – CHƯA lưu DB).
  * Trả về: AiGenerateTasksResponseDto (thường { tasks: AiGeneratedTaskDraft[] }).

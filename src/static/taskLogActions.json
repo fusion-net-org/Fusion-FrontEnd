@@ -1,0 +1,23 @@
+[
+  { "code": "TASK_CREATED", "label": "Task created", "category": "task", "icon": "Plus" },
+  { "code": "TASK_UPDATED", "label": "Task updated", "category": "task", "icon": "Edit3" },
+  { "code": "TASK_DELETED", "label": "Task deleted", "category": "task", "icon": "Trash2" },
+
+  { "code": "TASK_STATUS_CHANGED", "label": "Status changed", "category": "workflow", "icon": "Workflow" },
+  { "code": "TASK_REORDERED", "label": "Reordered / moved", "category": "workflow", "icon": "ArrowLeftRight" },
+  { "code": "TASK_MOVED_TO_SPRINT", "label": "Moved to sprint", "category": "sprint", "icon": "CalendarDays" },
+  { "code": "TASK_DRAFT_MATERIALIZED", "label": "Draft moved into sprint", "category": "sprint", "icon": "CalendarDays" },
+
+  { "code": "TASK_DRAFT_CREATED", "label": "Draft created", "category": "draft", "icon": "Plus" },
+  { "code": "TASK_DRAFT_UPDATED", "label": "Draft updated", "category": "draft", "icon": "Edit3" },
+
+  { "code": "TASK_SPLIT", "label": "Task split", "category": "task", "icon": "Split" },
+  { "code": "TASK_SPLIT_PART_CREATED", "label": "Split part created", "category": "task", "icon": "Split" },
+
+  { "code": "TASK_CREATED_FROM_TICKET", "label": "Created from ticket", "category": "ticket", "icon": "Ticket" },
+
+  { "code": "TASK_ATTACHMENT_UPLOADED", "label": "Attachment uploaded", "category": "attachment", "icon": "Paperclip" },
+  { "code": "TASK_ATTACHMENT_DELETED", "label": "Attachment deleted", "category": "attachment", "icon": "Paperclip" },
+
+  { "code": "TASK_COMMENT_ADDED", "label": "Comment added", "category": "comment", "icon": "MessageSquare" }
+]

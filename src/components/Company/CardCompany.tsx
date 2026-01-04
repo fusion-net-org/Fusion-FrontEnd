@@ -15,8 +15,35 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company, onClick }) => {
     <div
       onClick={onClick}
       key={company.id}
-      className="font-inter border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white flex flex-col h-full cursor-pointer"
+      className="relative font-inter border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white flex flex-col h-full cursor-pointer"
     >
+      {/* BADGE NỔI BẬT */}
+      <div className="absolute top-0.5 right-0.5 z-20">
+        {company.isOwner ? (
+          <div
+            className="
+        flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold 
+        bg-gradient-to-r from-teal-400 to-emerald-500 
+        text-white shadow-[0_0_12px_rgba(16,185,129,0.8)] 
+        border border-white/40 backdrop-blur-sm
+      "
+          >
+            OWNER
+          </div>
+        ) : (
+          <div
+            className="
+        flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold 
+        bg-gradient-to-r from-fuchsia-500 to-purple-600 
+        text-white shadow-[0_0_12px_rgba(217,70,239,0.8)] 
+        border border-white/40 backdrop-blur-sm
+      "
+          >
+            MEMBER
+          </div>
+        )}
+      </div>
+
       <img src={company.imageCompany} alt="cover" className="w-full h-32 object-cover" />
 
       <div className="p-4 w-25 flex flex-col justify-between flex-1">
@@ -33,7 +60,6 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company, onClick }) => {
                   {company.name}
                 </h3>
               </Tooltip>
-
               <Tooltip title={company.detail} placement="topLeft">
                 <p className="text-sm text-gray-500 line-clamp-1 cursor-pointer">
                   {company.detail}
@@ -47,6 +73,7 @@ const CardCompany: React.FC<CardCompanyProps> = ({ company, onClick }) => {
           <span className="text-sm text-gray-500 whitespace-nowrap">
             Create Date: {new Date(company.createAt).toLocaleDateString('vi-VN')}
           </span>
+
           <div className="flex justify-between text-sm text-gray-500">
             <span className="flex items-center gap-1">
               <Users className="w-4 h-4 mb-0.5" /> {company.totalMember} Members

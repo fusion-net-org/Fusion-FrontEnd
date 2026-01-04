@@ -26,6 +26,8 @@ export interface Project {
 export interface ProjectDetailResponse {
   id: string;
   companyId: string | null;
+  closedBy: string;
+  isClosed: boolean;
   isHired: boolean;
   companyRequestId: string | null;
   projectRequestId: string | null;
@@ -42,6 +44,8 @@ export interface ProjectDetailResponse {
   createByName: string;
   createAt: string; // ISO datetime string
   updateAt: string; // ISO datetime string
+  contractBudget: number | null;
+  ticketTotalBudget: number | null;
 }
 // Generic cho ResponseModel<T> backend đang trả về (nếu cần)
 export interface ApiResponse<T> {
@@ -50,7 +54,6 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
 }
-
 
 // ========= Overview
 
@@ -71,7 +74,6 @@ export interface ProjectGrowthOverview {
   newProjectsLast30Days: number;
   growth: ProjectGrowthPoint[];
 }
-
 
 // ===== 2. Execution overview (tasks & sprints) =====
 

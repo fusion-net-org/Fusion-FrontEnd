@@ -137,14 +137,13 @@ const NavLeft: React.FC<NavLeftProps> = ({ isCollapsed }) => {
       path: '/invitation',
       children: [{ name: 'Invitation', path: '/invitation' }],
     },
-    { name: t('menu_item.analytics'), icon: BarChart2, path: '/analytics' },
-    {
-      name: t('menu_item.invoice'),
-      icon: Ticket,
-      path: '/invoice',
-      children: [{ name: 'Invoice', path: '/invoice' }],
-    },
-    { name: t('menu_item.schedule'), icon: FileText, path: '/schedule' },
+    // { name: t('menu_item.analytics'), icon: BarChart2, path: '/analytics' },
+    // {
+    //   name: t('menu_item.invoice'),
+    //   icon: Ticket,
+    //   path: '/invoice',
+    //   children: [{ name: 'Invoice', path: '/invoice' }],
+    // },
     {
       name: t('menu_item.calendar'),
       icon: CalendarDays,

@@ -7,7 +7,7 @@ import {
   KanbanSquare, CalendarDays, CircleSlash2, TrendingUp, Search,
 } from "lucide-react";
 import {
-  DragDropContext, Droppable, Draggable, type DropResult,
+  DragDropContext, Droppable, Draggable, type DropResult,  type DragStart, 
 } from "@hello-pangea/dnd";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -17,9 +17,12 @@ import TaskCard from "@/components/Company/Projects/TaskCard";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import {  useNavigate, useParams } from "react-router-dom";
+import { Can, usePermissions } from "@/permission/PermissionProvider";
+import SprintKpiTable from "./SprintKpiTable";
+import { getUserIdFromToken } from "@/utils/token";
 
 type Id = string;
-
+const userId = getUserIdFromToken();
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
@@ -256,30 +259,69 @@ function isDark(hex?: string) {
 
 /* ========= Board atoms ========= */
 function BoardColumnShell({
-  title, tone, colorHex, right, children, 
+  title,
+  tone,
+  colorHex,
+  right,
+  children,
+  highlightType,
+  labels,
 }: {
   title: string;
   tone: "amber" | "blue" | "purple" | "green";
-  colorHex?: string;                // <— màu từ API
+  colorHex?: string;
   right?: React.ReactNode;
   children?: React.ReactNode;
+  highlightType?: "success" | "optional" | "failure";
+  labels?: string[];
 }) {
   const fallback: Record<string, string> = {
-    amber: "#F59E0B", blue: "#2563EB", purple: "#7C3AED", green: "#059669",
+    amber: "#F59E0B",
+    blue: "#2563EB",
+    purple: "#7C3AED",
+    green: "#059669",
   };
+
   const accent = colorHex || fallback[tone];
-  const labelBg = hexToRgba(accent, 0.08);
-  const labelBd = hexToRgba(accent, 0.25);
+  const isHighlighted = !!highlightType;
+
+  const labelBg = hexToRgba(accent, isHighlighted ? 0.16 : 0.08);
+  const labelBd = hexToRgba(accent, isHighlighted ? 0.4 : 0.25);
   const labelTx = accent;
+
+  // 🌟 Glow màu + ring khi highlight
+  const glowClass =
+    highlightType === "success"
+      ? "ring-2 ring-emerald-300/80 shadow-[0_16px_40px_rgba(34,197,94,0.35)]"
+      : highlightType === "optional"
+      ? "ring-2 ring-sky-300/80 shadow-[0_16px_40px_rgba(56,189,248,0.35)]"
+      : highlightType === "failure"
+      ? "ring-2 ring-rose-300/80 shadow-[0_16px_40px_rgba(239,68,68,0.35)]"
+      : "";
+
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white overflow-hidden ring-1 h-full flex flex-col",
+        "rounded-2xl border bg-white overflow-hidden h-full flex flex-col transition-all duration-200",
+        // 🟩 Base shadow dày hơn – luôn có khung nổi
+        "border-slate-200 shadow-[0_10px_30px_rgba(15,23,42,0.12)]",
+        glowClass,
       )}
-      style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}
+      style={{
+        willChange: isHighlighted ? "transform, box-shadow" : undefined,
+      }}
     >
-      <div className="h-2 w-full" style={{ backgroundColor: accent }} />
-      <div className="p-4 pb-3 flex items-center justify-between">
+      {/* top stripe */}
+      <div
+        className="h-2 w-full"
+        style={{
+          backgroundColor: accent,
+          opacity: isHighlighted ? 0.95 : 0.8,
+        }}
+      />
+
+      {/* header */}
+      <div className="p-4 pb-2 flex items-center justify-between">
         <span
           className="inline-flex items-center text-[12px] font-semibold px-2 py-0.5 rounded-full border"
           style={{
@@ -292,17 +334,345 @@ function BoardColumnShell({
         </span>
         {right}
       </div>
+
+      {/* nhãn dán transition */}
+      {labels && labels.length > 0 && (
+        <div className="px-4 pb-2 flex flex-wrap gap-1">
+          {labels.map((lb, i) => {
+            const base =
+              "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium";
+            const cls =
+              highlightType === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : highlightType === "failure"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : "border-sky-200 bg-sky-50 text-sky-700";
+
+            return (
+              <span key={`${lb}-${i}`} className={cn(base, cls)}>
+                {lb}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* body */}
       <div className="px-4 pb-4 flex-1 overflow-auto">{children}</div>
     </div>
   );
 }
 
+
+
+
+
+type ColumnsMap = {
+  order: string[];
+  byId: Record<string, TaskVm[]>;
+};
+
+type SprintBoardProps = {
+  activeSprint: SprintVm | null;
+  columns: ColumnsMap;
+
+  highlightTargets: Record<string, HighlightInfo>;
+
+  flashTaskId: string | null;
+  setFlashTaskId: (id: string | null) => void;
+
+  onDragStart: (start: DragStart) => void;
+  onDragEnd: (result: DropResult) => void;
+
+  onMarkDone: (t: TaskVm) => void;
+  onSplit: (t: TaskVm) => void;
+  onMoveToNextSprint: (t: TaskVm) => void;
+  onChangeStatus: (t: TaskVm, nextStatusId: string) => void;
+  toNextStatusId: (t: TaskVm, sp: SprintVm) => string | null;
+  onOpenTicket: (taskId: string) => void;
+   dragPolicy: { fromStatusId: string; allowed: string[] } | null;
+};
+
+
+function SprintBoard({
+  activeSprint,
+  columns,
+  highlightTargets,
+  flashTaskId,
+  setFlashTaskId,
+  onDragStart,
+  onDragEnd,
+  onMarkDone,
+  onSplit,
+  onMoveToNextSprint,
+  onChangeStatus,
+  toNextStatusId,
+  onOpenTicket,
+  dragPolicy,
+}: SprintBoardProps) {
+
+
+  if (!activeSprint) return null;
+
+  const COL_W =
+    "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
+  const BOARD_H = `calc(100vh - 260px)`;
+  const tones: Array<"amber" | "blue" | "purple" | "green"> = [
+    "amber",
+    "blue",
+    "purple",
+    "green",
+  ];
+
+const renderCol = (statusId: string, idx: number) => {
+  const items = columns.byId[statusId] ?? [];
+  const meta = activeSprint.statusMeta[statusId];
+  const tone = tones[idx % 4];
+  const wip = meta?.wipLimit ?? 9999;
+  const over = items.length > wip;
+
+  const highlight = highlightTargets[statusId]; // HighlightInfo | undefined
+  const targetType = highlight?.kind;           // "success" | "optional" | "failure" | undefined
+  const targetLabels = highlight?.labels ?? [];
+const dimmed =
+    !!dragPolicy &&
+    statusId !== dragPolicy.fromStatusId && // cột nguồn luôn được
+    !dragPolicy.allowed.includes(statusId); 
+  return (
+    <div
+      key={statusId}
+      className={`shrink-0 h-full ${COL_W} relative group`}
+    >
+      <BoardColumnShell
+        title={meta?.name ?? meta?.code ?? statusId}
+        tone={tone}
+        colorHex={meta?.color}
+        highlightType={targetType}
+        labels={targetLabels}
+        right={
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-slate-500">{items.length} tasks</span>
+            {wip !== 9999 && (
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full border",
+                  over
+                    ? "text-rose-700 bg-rose-50 border-rose-200"
+                    : "text-slate-600 bg-slate-50 border-slate-200",
+                )}
+              >
+                WIP {items.length}/{wip}
+              </span>
+            )}
+          </div>
+        }
+      >
+      <Droppable droppableId={statusId} type="task" isDropDisabled={dimmed}>
+  {(provided, snapshot) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.droppableProps}
+      className={cn(
+        "relative h-full overflow-y-auto overscroll-contain pr-1",
+        snapshot.isDraggingOver && "bg-slate-50 rounded-xl",
+        dimmed && "opacity-40 grayscale", //  dim UI
+      )}
+      style={{ scrollbarWidth: "thin" }}
+    >
+      {dimmed && (
+        <div className="absolute inset-0 bg-slate-200/25 pointer-events-none rounded-xl" />
+      )}
+
+              <Can code='TASK_CREATE'>
+              <ColumnHoverCreate
+                sprint={activeSprint}
+                statusId={statusId}
+                onCreatedVM={(vm) => {
+                  setFlashTaskId(vm.id);
+                }}
+              />
+</Can>
+              <div className="space-y-4">
+                {items.map((t, index) => {
+                  const siblings = t.sourceTicketId
+                    ? items.filter(
+                        (x) =>
+                          x.id !== t.id &&
+                          x.sourceTicketId === t.sourceTicketId,
+                      ).length
+                    : 0;
+
+                  return (
+                    <Draggable
+                      key={t.id}
+                      draggableId={t.id}
+                      index={index}
+                    >
+                      {(drag, snap) => (
+                        <div
+                          ref={drag.innerRef}
+                          {...drag.draggableProps}
+                          {...drag.dragHandleProps}
+                          className={snap.isDragging ? "rotate-[0.5deg]" : ""}
+                        >
+                          <TaskCard
+                            t={t}
+                            ticketSiblingsCount={siblings}
+                            onMarkDone={onMarkDone}
+                            isNew={t.id === flashTaskId}
+                            onNext={(x) => {
+                              const nextId = toNextStatusId(x, activeSprint);
+                              if (nextId && nextId !== x.workflowStatusId) {
+                                onChangeStatus(x, nextId);
+                              }
+                            }}
+                            onSplit={onSplit}
+                            onMoveNext={onMoveToNextSprint}
+                            onOpenTicket={onOpenTicket}
+                          />
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
+              </div>
+
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </BoardColumnShell>
+    </div>
+  );
+};
+
+
+
+
+
+  return (
+    <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
+        <div
+          className="overflow-x-auto rounded-xl w-full"
+          style={{ height: BOARD_H, overflowY: "hidden" }}
+        >
+          <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
+            {columns.order.map((statusId, i) => renderCol(statusId, i))}
+          </div>
+        </div>
+      </div>
+    </DragDropContext>
+  );
+}
+
+type HighlightKind = "success" | "optional" | "failure";
+
+type HighlightInfo = {
+  kind: HighlightKind;
+  labels: string[];
+};
+
 /* ========= Page ========= */
 export default function SprintWorkspacePage() {
+   
+
   // ===== từ context =====
   const {
     sprints, tasks, changeStatus, moveToNextSprint, split, done, reorder,
   } = useProjectBoard();
+   // ===== Realtime clock =====
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    // update mỗi 30s cho “realtime” (nhẹ hơn mỗi giây)
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const toMs = (iso?: string | null) => {
+    if (!iso) return Number.NaN;
+    const d = new Date(iso);
+    const ms = d.getTime();
+    return Number.isNaN(ms) ? Number.NaN : ms;
+  };
+
+  const isInRange = (n: Date, start?: string | null, end?: string | null) => {
+    const s = toMs(start);
+    const e = toMs(end);
+    const x = n.getTime();
+    if (Number.isNaN(s) || Number.isNaN(e)) return false;
+    return x >= s && x <= e;
+  };
+    // ===== Current sprint resolver =====
+  const currentSprint: SprintVm | null = useMemo(() => {
+    if (!sprints.length) return null;
+
+    // 1) sprint đang diễn ra
+    const running = sprints.find((s) => isInRange(now, s.start, s.end));
+    if (running) return running;
+
+    // 2) nếu không có sprint đang chạy -> lấy sprint sắp tới gần nhất (start > now)
+    const upcoming = sprints
+      .filter((s) => {
+        const sMs = toMs(s.start);
+        return !Number.isNaN(sMs) && sMs > now.getTime();
+      })
+      .sort((a, b) => toMs(a.start) - toMs(b.start))[0];
+
+    if (upcoming) return upcoming;
+
+    // 3) nếu cũng không có upcoming -> lấy sprint gần nhất đã qua (end < now)
+    const latestPast = sprints
+      .filter((s) => {
+        const eMs = toMs(s.end);
+        return !Number.isNaN(eMs) && eMs < now.getTime();
+      })
+      .sort((a, b) => toMs(b.end) - toMs(a.end))[0];
+
+    return latestPast ?? sprints[0];
+  }, [sprints, now]);
+
+  const currentSprintId = currentSprint?.id ?? "";
+  const { can } = usePermissions();
+
+  // ✅ permission mới
+  const canViewAllSprintTasks = can("SPRINT_TASK_VIEW_ALL");
+
+  const myUserId =userId;
+
+  const isAssignedToMe = React.useCallback(
+    (t: TaskVm) => {
+      if (!myUserId) return true;
+
+      const anyT: any = t as any;
+      if (anyT.assigneeId && anyT.assigneeId === myUserId) return true;
+      if (anyT.assignedToId && anyT.assignedToId === myUserId) return true;
+
+      if (anyT.assignee?.id && anyT.assignee.id === myUserId) return true;
+
+      const arr =
+        anyT.assignees ||
+        anyT.assignedMembers ||
+        anyT.members ||
+        anyT.assignments ||
+        [];
+
+      if (Array.isArray(arr)) {
+        return arr.some((x: any) => (x?.id ?? x?.userId) === myUserId);
+      }
+
+      return false;
+    },
+    [myUserId],
+  );
+
+  // ✅ tasks hiển thị theo permission
+  const visibleTasks = React.useMemo(() => {
+    if (canViewAllSprintTasks) return tasks;
+    return tasks.filter(isAssignedToMe);
+  }, [tasks, canViewAllSprintTasks, isAssignedToMe]);
+
 const [flashTaskId, setFlashTaskId] = useState<Id | null>(null);
   const { companyId, projectId } = useParams();
   const navigate = useNavigate();
@@ -322,16 +692,33 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [flashTaskId]);
   // ===== UI State =====
-  const [activeSprintId, setActiveSprintId] = useState<Id>(sprints[0]?.id ?? "");
+  const [activeSprintId, setActiveSprintId] = useState<Id>("");
   const [view, setView] = useState<"Board" | "Analytics" | "Roadmap">("Board");
   const [closePanelOpen, setClosePanelOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [snapshots, setSnapshots] = useState<{ name: string; committed: number; completed: number }[]>([]);
-
+const [lastCrossMove, setLastCrossMove] = useState<{
+  taskId: string;
+  toStatusId: string;
+} | null>(null);
   // set sprint mặc định khi có dữ liệu
+  
   useEffect(() => {
-    if (!activeSprintId && sprints.length) setActiveSprintId(sprints[0].id);
-  }, [sprints, activeSprintId]);
+    if (!sprints.length) return;
+
+    // nếu chưa chọn sprint => auto chọn current sprint
+    if (!activeSprintId) {
+      setActiveSprintId(currentSprintId || sprints[0].id);
+      return;
+    }
+
+    // nếu sprint đang chọn không còn tồn tại => fallback về current sprint
+    const stillExists = sprints.some((s) => s.id === activeSprintId);
+    if (!stillExists) {
+      setActiveSprintId(currentSprintId || sprints[0].id);
+    }
+  }, [sprints, activeSprintId, currentSprintId]);
+
 
   const activeSprint: SprintVm | null = useMemo(
     () => sprints.find((s) => s.id === activeSprintId) ?? null,
@@ -347,36 +734,62 @@ useEffect(() => {
     const byCat  = sp.statusOrder.find(id => sp.statusMeta[id].category === t.statusCategory);
     return byCat || sp.statusOrder[0];
   }
+const normalizedStatusOrder = useMemo(() => {
+  if (!activeSprint) return [] as string[];
+
+  const raw = activeSprint.statusOrder ?? [];
+  const endIds = raw.filter((id) => {
+    const meta: any = activeSprint.statusMeta?.[id];
+    return meta?.isEnd === true || meta?.category === "DONE";
+  });
+
+  if (!endIds.length) return raw;
+
+  const endSet = new Set(endIds);
+  return [...raw.filter((id) => !endSet.has(id)), ...endIds];
+}, [activeSprint]);
 
   // ===== Columns động theo sprint đang chọn + search =====
-  const columns = useMemo(() => {
-    if (!activeSprint) return { order: [] as string[], byId: {} as Record<string, TaskVm[]> };
-    const order = activeSprint.statusOrder;
-    const byId: Record<string, TaskVm[]> = {};
-    const match = (t: TaskVm) =>
-      !keyword ||
-      t.title?.toLowerCase().includes(keyword.toLowerCase()) ||
-      (t.code ?? "").toLowerCase().includes(keyword.toLowerCase());
+const columns = useMemo(() => {
+  if (!activeSprint) return { order: [] as string[], byId: {} as Record<string, TaskVm[]> };
+  const order = normalizedStatusOrder;
 
-    for (const stId of order) byId[stId] = [];
+  const byId: Record<string, TaskVm[]> = {};
+  const match = (t: TaskVm) =>
+    !keyword ||
+    t.title?.toLowerCase().includes(keyword.toLowerCase()) ||
+    (t.code ?? "").toLowerCase().includes(keyword.toLowerCase());
 
-    const validSprintIds = new Set(sprints.map(s => s.id));
+  for (const stId of order) byId[stId] = [];
 
-    for (const t of tasks) {
-      // Nếu task có sprintId lạ (demo) → coi như thuộc sprint đang active
-      const belongToActive =
-        (t.sprintId ?? "") === activeSprint.id ||
-        !validSprintIds.has(t.sprintId ?? "");
+  const validSprintIds = new Set(sprints.map(s => s.id));
 
-      if (!belongToActive) continue;
-      if (!match(t)) continue;
+  for (const t of visibleTasks) {
+    const belongToActive =
+      (t.sprintId ?? "") === activeSprint.id ||
+      !validSprintIds.has(t.sprintId ?? "");
 
-      const stId = resolveStatusId(t, activeSprint);
-      if (!byId[stId]) byId[stId] = [];
-      byId[stId].push({ ...t, sprintId: activeSprint.id, workflowStatusId: stId });
+    if (!belongToActive) continue;
+    if (!match(t)) continue;
+
+    const stId = resolveStatusId(t, activeSprint);
+    if (!byId[stId]) byId[stId] = [];
+    byId[stId].push({ ...t, sprintId: activeSprint.id, workflowStatusId: stId });
+  }
+
+  // ✨ ÉP card vừa move cross-column lên đầu cột đích
+  if (lastCrossMove && byId[lastCrossMove.toStatusId]) {
+    const arr = byId[lastCrossMove.toStatusId];
+    const idx = arr.findIndex((x) => x.id === lastCrossMove.taskId);
+    if (idx > 0) {
+      const [moved] = arr.splice(idx, 1);
+      arr.unshift(moved);
     }
-    return { order, byId };
-  }, [tasks, activeSprint, keyword, sprints]);
+  }
+
+  return { order, byId };
+}, [visibleTasks, activeSprint, keyword, sprints, lastCrossMove]);
+
 
   // ===== Metrics =====
   const committedPoints = useMemo(() => {
@@ -388,7 +801,7 @@ useEffect(() => {
         !validSprintIds.has(t.sprintId ?? "")
       )
       .reduce((s, t) => s + Math.max(0, t.storyPoints || 0), 0);
-  }, [tasks, activeSprint, sprints]);
+  }, [visibleTasks, activeSprint, sprints]);
 
   const completedPoints = useMemo(() => {
     if (!activeSprint) return 0;
@@ -404,19 +817,91 @@ useEffect(() => {
 
   const completionPct = committedPoints > 0 ? Math.round((100 * completedPoints) / committedPoints) : 0;
  const burnupData = useMemo(
-    () => buildBurnupData(activeSprint, sprints, tasks),
+    () => buildBurnupData(activeSprint, sprints, visibleTasks),
     [activeSprint, sprints, tasks],
   );
 
   const velocityData = useMemo(
-    () => buildVelocityData(sprints, tasks),
+    () => buildVelocityData(sprints, visibleTasks),
     [sprints, tasks],
   );
 
   const workMixData = useMemo(
-    () => buildWorkMixData(sprints, tasks),
+    () => buildWorkMixData(sprints, visibleTasks),
     [sprints, tasks],
   );
+    // ===== Workflow transitions theo sprint (để highlight đích success) =====
+  type SprintTransition = {
+    id: string;
+    fromStatusId: string;
+    toStatusId: string;
+    type: string; // "success" | "failure" | "optional" | ...
+    label?: string | null;
+    enforceTransitions?: boolean;
+  };
+
+  // Lấy transitions từ sprint đang active
+  const activeTransitions: SprintTransition[] = useMemo(() => {
+  if (!activeSprint) return [];
+
+  const raw =
+    (activeSprint as any).transitions ??
+    (activeSprint as any).workflowTransitions ??
+    [];
+
+  return (raw as any[])
+    .map(
+      (x: any): SprintTransition => ({
+        id: String(x.id ?? `${x.fromStatusId}-${x.toStatusId}`),
+        fromStatusId:
+          x.fromStatusId ??
+          x.fromStatus ??
+          x.sourceStatusId ??
+          x.sourceId ??
+          x.from ??
+          "",
+        toStatusId:
+          x.toStatusId ??
+          x.toStatus ??
+          x.targetStatusId ??
+          x.targetId ??
+          x.to ??
+          "",
+        type: String(x.type ?? x.transitionType ?? "success").toLowerCase(),
+        label: x.label ?? null, // ⬅ lấy label "Go", "Complete", "Rework"
+        enforceTransitions: !!x.enforceTransitions,
+      }),
+    )
+    .filter((tr) => tr.fromStatusId && tr.toStatusId);
+}, [activeSprint]);
+
+const [dragPolicy, setDragPolicy] = useState<{
+  fromStatusId: string;
+  allowed: string[];
+} | null>(null);
+
+  // Map: fromStatusId -> list các toStatusId được phép move tới
+  const allowedTargetsByFromId = useMemo(() => {
+    const map = new Map<string, string[]>();
+
+    activeTransitions
+      .filter((tr) => tr.type === "success" || tr.type === "optional")
+      .forEach((tr) => {
+        const list = map.get(tr.fromStatusId) ?? [];
+        list.push(tr.toStatusId);
+        map.set(tr.fromStatusId, list);
+      });
+
+    return map;
+  }, [activeTransitions]);
+
+const [highlightTargets, setHighlightTargets] = useState<
+  Record<string, HighlightInfo>
+>({});
+
+
+
+
   // ===== Handlers =====
   function toNextStatusId(t: TaskVm, sp: SprintVm): string | null {
     const idx = sp.statusOrder.indexOf(resolveStatusId(t, sp));
@@ -436,17 +921,103 @@ useEffect(() => {
   function onMarkDone(t: TaskVm) {
     done((window as any).__projectId, t);
   }
+function onDragStart(start: DragStart) {
+  if (!activeSprint) return;
 
-  function onDragEnd(result: DropResult) {
-    const { source, destination, draggableId } = result;
-    if (!destination || !activeSprint) return;
-    const [, s1, st1] = source.droppableId.split(":");
-    const [, s2, st2] = destination.droppableId.split(":");
-    if (s1 !== s2) return;
-    if (st1 === st2 && source.index === destination.index) return;
-    const t = tasks.find((x) => x.id === draggableId);
-    if (t) reorder((window as any).__projectId, activeSprint.id, t, st2, destination.index);
+  const task = visibleTasks.find((x) => x.id === start.draggableId);
+  if (!task) return;
+
+  const fromStatusId = resolveStatusId(task, activeSprint);
+
+  //  policy chỉ bật khi có enforceTransitions=true ở source này
+  const enforcedTargets = Array.from(
+    new Set(
+      activeTransitions
+        .filter((tr) => tr.fromStatusId === fromStatusId && tr.enforceTransitions)
+        .map((tr) => tr.toStatusId),
+    ),
+  );
+
+  setDragPolicy(
+    enforcedTargets.length ? { fromStatusId, allowed: enforcedTargets } : null,
+  );
+
+  // (giữ highlightTargets như bạn đang làm - muốn highlight hết transition hay chỉ enforce tùy bạn)
+  const next: Record<string, HighlightInfo> = {};
+  const priority: Record<HighlightKind, number> = { success: 3, failure: 2, optional: 1 };
+
+  activeTransitions.forEach((tr) => {
+    if (tr.fromStatusId !== fromStatusId) return;
+
+    let kind: HighlightKind;
+    if (tr.type === "success") kind = "success";
+    else if (tr.type === "failure") kind = "failure";
+    else kind = "optional";
+
+    const rawLabel = (tr.label || "").trim();
+    const label =
+      rawLabel || (kind === "success" ? "Success" : kind === "failure" ? "Rework" : "Optional");
+
+    const prev = next[tr.toStatusId];
+    if (!prev) next[tr.toStatusId] = { kind, labels: [label] };
+    else {
+      const bestKind = priority[kind] > priority[prev.kind] ? kind : prev.kind;
+      const labels = prev.labels.includes(label) ? prev.labels : [...prev.labels, label];
+      next[tr.toStatusId] = { kind: bestKind, labels };
+    }
+  });
+
+  setHighlightTargets(next);
+}
+
+
+
+
+
+function onDragEnd(result: DropResult) {
+  setHighlightTargets({});
+  setDragPolicy(null);
+
+  const { source, destination, draggableId } = result;
+  if (!destination || !activeSprint) return;
+
+  const fromStatusId = source.droppableId;
+  const toStatusId = destination.droppableId;
+
+  const task = visibleTasks.find((x) => x.id === draggableId);
+  if (!task) return;
+
+  const isSameColumn = fromStatusId === toStatusId;
+
+  if (!isSameColumn && dragPolicy) {
+    const allowed = dragPolicy.allowed.includes(toStatusId);
+    if (!allowed) {
+      //  drop vào cột không cho phép => bỏ qua
+      return;
+    }
   }
+
+  if (isSameColumn) {
+    if (source.index === destination.index) return;
+
+    reorder((window as any).__projectId, activeSprint.id, task, toStatusId, destination.index);
+    setLastCrossMove(null);
+    return;
+  }
+
+  reorder(
+    (window as any).__projectId,
+    activeSprint.id,
+    { ...task, workflowStatusId: toStatusId, sprintId: activeSprint.id },
+    toStatusId,
+    0,
+  );
+
+  setLastCrossMove({ taskId: task.id, toStatusId });
+}
+
+
+
 
   // Close sprint (demo)
   function closeSprint() {
@@ -474,8 +1045,16 @@ useEffect(() => {
   /* ===== Header ===== */
   const Header = (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="text-2xl font-semibold">Sprint</div>
-      <div className="flex items-center gap-2">
+ <div>
+        <div className="text-2xl font-semibold">Sprint</div>
+
+        <div className="mt-1 text-xs text-slate-600 flex flex-wrap items-center gap-2">
+         
+          <span className="px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+            Current sprint: {currentSprint?.name ?? "N/A"}
+          </span>
+        </div>
+      </div>      <div className="flex items-center gap-2">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -503,15 +1082,7 @@ useEffect(() => {
         >
           <TrendingUp className="w-4 h-4" /> Analytics
         </button>
-        <button
-          onClick={() => setView("Roadmap")}
-          className={cn(
-            "px-3 h-9 rounded-full border text-sm flex items-center gap-1",
-            view === "Roadmap" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-700 hover:bg-slate-50"
-          )}
-        >
-          <CalendarDays className="w-4 h-4" /> Roadmap
-        </button>
+       
       </div>
     </div>
   );
@@ -561,7 +1132,7 @@ useEffect(() => {
     const hasData = sprint && data.length > 0;
     const totalScope = hasData ? data[data.length - 1].scope : 0;
     const totalCompleted = hasData ? data[data.length - 1].completed : 0;
-
+console.log(hasData)
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
@@ -659,15 +1230,7 @@ useEffect(() => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <MetricCard label="Committed pts" value={committedPoints} />
           <MetricCard label="Done pts" value={completedPoints} />
-          <MetricCard
-            label="Team capacity"
-            value={`${activeSprint?.capacityHours ?? 160}h`}
-            sub={`Estimate sum: ${
-              tasks
-                .filter((t) => (t.sprintId ?? "") === activeSprintId)
-                .reduce((s, t) => s + (t.estimateHours || 0), 0)
-            }h`}
-          />
+      
           <MetricCard
             label="Completion"
             value={
@@ -691,108 +1254,157 @@ useEffect(() => {
 
 
   /* ===== Board ===== */
-  function Board() {
-    if (!activeSprint) return null;
+  //  function Board() {
+  //   if (!activeSprint) return null;
 
-    const COL_W = "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
-    const BOARD_H = `calc(100vh - 260px)`;
-    const tones: Array<"amber" | "blue" | "purple" | "green"> = ["amber", "blue", "purple", "green"];
+  //   const COL_W =
+  //     "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
+  //   const BOARD_H = `calc(100vh - 260px)`;
+  //   const tones: Array<"amber" | "blue" | "purple" | "green"> = [
+  //     "amber",
+  //     "blue",
+  //     "purple",
+  //     "green",
+  //   ];
 
-    const renderCol = (statusId: string, idx: number) => {
-      const items = columns.byId[statusId] ?? [];
-      const meta = activeSprint.statusMeta[statusId];
-      const tone = tones[idx % 4];
-      const wip = meta?.wipLimit ?? 9999;
-      const over = items.length > wip;
+  //   const renderCol = (statusId: string, idx: number) => {
+  //     const items = columns.byId[statusId] ?? [];
+  //     const meta = activeSprint.statusMeta[statusId];
+  //     const tone = tones[idx % 4];
+  //     const wip = meta?.wipLimit ?? 9999;
+  //     const over = items.length > wip;
 
-      return (
-        <div key={statusId} className={`shrink-0 h-full ${COL_W}  relative group`}>
-          <BoardColumnShell
-            title={meta?.name ?? meta?.code ?? statusId}
-            tone={tone}
-            colorHex={meta?.color}   // <— dùng màu API
-            right={
-              <div className="flex items-center gap-2 text-[12px]">
-                <span className="text-slate-500">{items.length} tasks</span>
-                {wip !== 9999 && (
-                  <span
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full border",
-                      over ? "text-rose-700 bg-rose-50 border-rose-200" : "text-slate-600 bg-slate-50 border-slate-200"
-                    )}
-                  >
-                    WIP {items.length}/{wip}
-                  </span>
-                )}
-              </div>
-            }
-          >
-           
-            <Droppable droppableId={`col:${activeSprint.id}:${statusId}`} type="task">
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={cn("h-full overflow-y-auto overscroll-contain pr-1", snapshot.isDraggingOver && "bg-slate-50 rounded-xl")}
-                  style={{ scrollbarWidth: "thin" }}
-                >
-                  <ColumnHoverCreate
-  sprint={activeSprint}
-  statusId={statusId}
-  onCreatedVM={(vm) => {
-    setFlashTaskId(vm.id);   
-  }}
-/>
+  //     const isSource = dragSourceStatusId === statusId;
+  //     const isTarget = successTargetStatusIds.includes(statusId);
 
-                  <div className="space-y-4">
-                    {items.map((t, index) => {
-                      const siblings = t.sourceTicketId
-                        ? items.filter(x => x.id !== t.id && x.sourceTicketId === t.sourceTicketId).length
-                        : 0;
-                      return (
-                        <Draggable key={t.id} draggableId={t.id} index={index}>
-                          {(drag, snap) => (
-                            <div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps} className={snap.isDragging ? "rotate-[0.5deg]" : ""}>
-                              <TaskCard
-                                t={t}
-                                ticketSiblingsCount={siblings}
-                                onMarkDone={onMarkDone}
-                                isNew={t.id === flashTaskId}
-                                onNext={(x) => {
-                                  const nextId = toNextStatusId(x, activeSprint);
-                                  if (nextId && nextId !== x.workflowStatusId) onChangeStatus(x, nextId);
-                                }}
-                                onSplit={onSplit}
-                                onMoveNext={onMoveToNextSprint}
-                                onOpenTicket={handleOpenTicket}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })}
-                  </div>
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </BoardColumnShell>
-        </div>
-      );
-    };
+  //     return (
+  //       <div
+  //         key={statusId}
+  //         className={`shrink-0 h-full ${COL_W} relative group`}
+  //       >
+  //         <BoardColumnShell
+  //           title={meta?.name ?? meta?.code ?? statusId}
+  //           tone={tone}
+  //           colorHex={meta?.color}
+  //           isSource={isSource}
+  //           isTarget={isTarget}
+  //           right={
+  //             <div className="flex items-center gap-2 text-[12px]">
+  //               <span className="text-slate-500">{items.length} tasks</span>
+  //               {wip !== 9999 && (
+  //                 <span
+  //                   className={cn(
+  //                     "text-[10px] px-1.5 py-0.5 rounded-full border",
+  //                     over
+  //                       ? "text-rose-700 bg-rose-50 border-rose-200"
+  //                       : "text-slate-600 bg-slate-50 border-slate-200",
+  //                   )}
+  //                 >
+  //                   WIP {items.length}/{wip}
+  //                 </span>
+  //               )}
+  //             </div>
+  //           }
+  //         >
+  //           <Droppable
+  //             droppableId={`col:${activeSprint.id}:${statusId}`}
+  //             type="task"
+  //           >
+  //             {(provided, snapshot) => (
+  //               <div
+  //                 ref={provided.innerRef}
+  //                 {...provided.droppableProps}
+  //                 className={cn(
+  //                   "h-full overflow-y-auto overscroll-contain pr-1",
+  //                   snapshot.isDraggingOver &&
+  //                     "bg-slate-50 rounded-xl",
+  //                 )}
+  //                 style={{ scrollbarWidth: "thin" }}
+  //               >
+  //                 <ColumnHoverCreate
+  //                   sprint={activeSprint}
+  //                   statusId={statusId}
+  //                   onCreatedVM={(vm) => {
+  //                     setFlashTaskId(vm.id);
+  //                   }}
+  //                 />
 
-    return (
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
-          <div className="overflow-x-auto rounded-xl w-full" style={{ height: BOARD_H, overflowY: "hidden" }}>
-            <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
-              {columns.order.map((statusId, i) => renderCol(statusId, i))}
-            </div>
-          </div>
-        </div>
-      </DragDropContext>
-    );
-  }
+  //                 <div className="space-y-4">
+  //                   {items.map((t, index) => {
+  //                     const siblings = t.sourceTicketId
+  //                       ? items.filter(
+  //                           (x) =>
+  //                             x.id !== t.id &&
+  //                             x.sourceTicketId === t.sourceTicketId,
+  //                         ).length
+  //                       : 0;
+  //                     return (
+  //                       <Draggable
+  //                         key={t.id}
+  //                         draggableId={t.id}
+  //                         index={index}
+  //                       >
+  //                         {(drag, snap) => (
+  //                           <div
+  //                             ref={drag.innerRef}
+  //                             {...drag.draggableProps}
+  //                             {...drag.dragHandleProps}
+  //                             className={snap.isDragging ? "rotate-[0.5deg]" : ""}
+  //                           >
+  //                             <TaskCard
+  //                               t={t}
+  //                               ticketSiblingsCount={siblings}
+  //                               onMarkDone={onMarkDone}
+  //                               isNew={t.id === flashTaskId}
+  //                               onNext={(x) => {
+  //                                 const nextId = toNextStatusId(
+  //                                   x,
+  //                                   activeSprint,
+  //                                 );
+  //                                 if (
+  //                                   nextId &&
+  //                                   nextId !== x.workflowStatusId
+  //                                 )
+  //                                   onChangeStatus(x, nextId);
+  //                               }}
+  //                               onSplit={onSplit}
+  //                               onMoveNext={onMoveToNextSprint}
+  //                               onOpenTicket={handleOpenTicket}
+  //                             />
+  //                           </div>
+  //                         )}
+  //                       </Draggable>
+  //                     );
+  //                   })}
+  //                 </div>
+  //                 {provided.placeholder}
+  //               </div>
+  //             )}
+  //           </Droppable>
+  //         </BoardColumnShell>
+  //       </div>
+  //     );
+  //   };
+
+  //   return (
+  //     <DragDropContext
+  //       onDragStart={onDragStart}
+  //       onDragEnd={onDragEnd}
+  //     >
+  //       <div className="px-8 mt-5 pb-4 min-w-0 max-w-[100vw]">
+  //         <div
+  //           className="overflow-x-auto rounded-xl w-full"
+  //           style={{ height: BOARD_H, overflowY: "hidden" }}
+  //         >
+  //           <div className="inline-flex gap-4 h-full min-w-max pr-6 pb-5">
+  //             {columns.order.map((statusId, i) => renderCol(statusId, i))}
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </DragDropContext>
+  //   );
+  // }
+
 
   /* ===== Roadmap (nhẹ) ===== */
   function Roadmap() {
@@ -812,7 +1424,6 @@ useEffect(() => {
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="text-[15px] font-semibold">Roadmap by Sprint</div>
-          <div className="text-xs text-slate-500">độ đậm = tổng story points</div>
         </div>
 
         <div className="grid" style={{ gridTemplateColumns: `220px repeat(${sprintIds.length}, minmax(120px,1fr))` }}>
@@ -850,143 +1461,96 @@ useEffect(() => {
       {SprintTabs}
       {SummaryAndChart}
 
-      {view === "Board" && (
-        <>
-          <div className="flex items-center justify-between mt-2">
-            <div className="text-slate-600 text-sm">Sprint – {activeSprint?.name ?? "..."}</div>
-            <button onClick={() => setClosePanelOpen(true)} className="px-3 h-9 rounded-full border text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1">
-              <CircleSlash2 className="w-4 h-4" /> Close sprint
-            </button>
-          </div>
-          <Board />
-        </>
-      )}
+ {view === "Board" && (
+  <>
+    <div className="flex items-center justify-between mt-2">
+      <div className="text-slate-600 text-sm">
+      </div>
+     
+    </div>
 
-           {view === "Analytics" && (
-        <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {/* Velocity per sprint */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
-              {velocityData.length > 0 && (
-                <div className="text-[11px] text-slate-500">
-                  Avg done:&nbsp;
-                  <span className="font-semibold">
-                    {Math.round(
-                      velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
-                        Math.max(1, velocityData.length),
-                    )}
-                  </span>{" "}
-                  pts / sprint
-                </div>
+    <SprintBoard
+      activeSprint={activeSprint}
+      columns={columns}
+      highlightTargets={highlightTargets}
+      flashTaskId={flashTaskId}
+      setFlashTaskId={setFlashTaskId}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onMarkDone={onMarkDone}
+      onSplit={onSplit}
+      onMoveToNextSprint={onMoveToNextSprint}
+      onChangeStatus={onChangeStatus}
+      toNextStatusId={toNextStatusId}
+      onOpenTicket={handleOpenTicket}
+       dragPolicy={dragPolicy}
+    />
+  </>
+)}
+
+
+
+
+
+         {view === "Analytics" && (
+  <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+    {/* Velocity per sprint */}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm min-w-0">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-slate-600 text-sm">Velocity (per sprint)</div>
+        {velocityData.length > 0 && (
+          <div className="text-[11px] text-slate-500">
+            Avg done:&nbsp;
+            <span className="font-semibold">
+              {Math.round(
+                velocityData.reduce((s, d) => s + (d.completed || 0), 0) /
+                  Math.max(1, velocityData.length),
               )}
-            </div>
-
-            <div className="h-[260px]">
-              {velocityData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={velocityData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value, key) => {
-                        if (key === "committed") return [value, "Committed"];
-                        if (key === "completed") return [value, "Completed"];
-                        return [value, key];
-                      }}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="committed"
-                      name="Committed"
-                      stroke="#60A5FA"
-                      dot
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="completed"
-                      name="Completed"
-                      stroke="#22C55E"
-                      dot
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                  No story points data across sprints yet.
-                </div>
-              )}
-            </div>
+            </span>{" "}
+            pts / sprint
           </div>
+        )}
+      </div>
 
-          {/* Work mix by type */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-slate-600 text-sm">Work mix (story points by type)</div>
-              <div className="text-[11px] text-slate-500">
-                Feature / Bug / Chore / Other
-              </div>
-            </div>
-
-            <div className="h-[260px]">
-              {workMixData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={workMixData} stackOffset="expand">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} />
-                    <Tooltip
-                      formatter={(value, key) => {
-                        const pct = typeof value === "number" ? `${Math.round(value * 100)}%` : value;
-                        return [pct, key];
-                      }}
-                    />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="Feature"
-                      name="Feature"
-                      stackId="1"
-                      stroke="#60A5FA"
-                      fill="#BFDBFE"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Bug"
-                      name="Bug"
-                      stackId="1"
-                      stroke="#F97316"
-                      fill="#FED7AA"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Chore"
-                      name="Chore"
-                      stackId="1"
-                      stroke="#A855F7"
-                      fill="#E9D5FF"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Other"
-                      name="Other"
-                      stackId="1"
-                      stroke="#6B7280"
-                      fill="#E5E7EB"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                  Not enough typed tasks to show work mix.
-                </div>
-              )}
-            </div>
+      <div className="h-[260px]">
+        {velocityData.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={velocityData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip
+                formatter={(value, key) => {
+                  if (key === "committed") return [value, "Committed"];
+                  if (key === "completed") return [value, "Completed"];
+                  return [value, key];
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="committed" name="Committed" stroke="#60A5FA" dot />
+              <Line type="monotone" dataKey="completed" name="Completed" stroke="#22C55E" dot />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-sm text-slate-500">
+            No story points data across sprints yet.
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+
+    {/* KPI table (same row on xl) */}
+    <SprintKpiTable
+      className="min-w-0"
+      sprints={sprints}
+      tasks={tasks}
+    />
+
+    {/* Nếu muốn thêm chart khác thì để ở dưới: */}
+    {/* <div className="xl:col-span-2">...</div> */}
+  </div>
+)}
+
 
 
 

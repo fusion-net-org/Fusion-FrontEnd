@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Trash2, Eye } from "lucide-react";
 import { deleteWorkflow, getWorkflowPreviews } from "@/services/workflowService.js";
 import type { WorkflowPreviewVm } from "@/types/workflow";
 import WorkflowMini from "@/components/Workflow/WorkflowMini";
 import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
+import { Can } from "@/permission/PermissionProvider";
 
 export default function WorkflowListPage() {
   const { companyId = "" } = useParams();
@@ -15,28 +16,71 @@ export default function WorkflowListPage() {
   const [q, setQ] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await getWorkflowPreviews(companyId);
-        setItems(data || []);
-      } finally {
-        setLoading(false);
-      }
-    })();
+  // popup delete
+  const [deleteTarget, setDeleteTarget] = useState<WorkflowPreviewVm | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // ===== load list =====
+  const loadWorkflows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getWorkflowPreviews(companyId);
+      setItems(data || []);
+    } finally {
+      setLoading(false);
+    }
   }, [companyId]);
+
+  useEffect(() => {
+    loadWorkflows();
+  }, [loadWorkflows]);
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return items;
-    return items.filter(i => i.name.toLowerCase().includes(t));
+    return items.filter((i) => i.name.toLowerCase().includes(t));
   }, [items, q]);
 
-  const onDelete = async (w: WorkflowPreviewVm) => {
-    if (!confirm(`Delete workflow "${w.name}"?`)) return;
-    await deleteWorkflow(companyId, w.id);
-    setItems(prev => prev.filter(x => x.id !== w.id));
+  // mở popup delete
+  const onDeleteClick = (w: WorkflowPreviewVm) => {
+    setDeleteError(null);
+    setDeleteTarget(w);
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setDeleteError(null);
+    setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await deleteWorkflow(companyId, deleteTarget.id);
+
+      // đóng popup + reload list từ server
+      setDeleteTarget(null);
+      await loadWorkflows();
+    } catch (err: any) {
+      // cố gắng lấy message chi tiết từ BE
+      let msg = "Cannot delete workflow because it is referenced by Projects.";
+      const res = err?.response?.data;
+
+      if (res) {
+        if (typeof res.errorData === "string" && res.errorData.trim()) {
+          msg = res.errorData;
+        } else if (typeof res.message === "string" && res.message.trim()) {
+          msg = res.errorData;
+        }
+      } 
+      setDeleteError(msg);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const goCreate = () => nav(`/companies/${companyId}/workflows/new`);
@@ -55,12 +99,16 @@ export default function WorkflowListPage() {
             placeholder="Search workflows…"
             className="border rounded-lg px-3 py-2 text-sm w-[260px]"
           />
+          <Can code="WORKFLOW_CREATE">
+
           <button
             onClick={goCreate}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700"
           >
             <Plus size={16} /> New workflow
           </button>
+          </Can>
+
         </div>
       </div>
 
@@ -84,6 +132,7 @@ export default function WorkflowListPage() {
               <div className="px-3 py-2 flex items-center justify-between border-b">
                 <div className="font-medium truncate">{w.name || "Workflow"}</div>
                 <div className="flex items-center gap-1">
+                  <Can code="WORKFLOW_UPDATE">
                   <button
                     onClick={() => goEdit(w)}
                     className="p-1 rounded hover:bg-gray-100"
@@ -91,13 +140,19 @@ export default function WorkflowListPage() {
                   >
                     <Pencil size={16} />
                   </button>
+                  </Can>
+
+                  <Can code="WORKFLOW_DELETE">
+
                   <button
-                    onClick={() => onDelete(w)}
+                    onClick={() => onDeleteClick(w)}
                     className="p-1 rounded hover:bg-gray-100 text-red-600"
                     title="Delete"
                   >
                     <Trash2 size={16} />
                   </button>
+                  </Can>
+
                 </div>
               </div>
 
@@ -108,13 +163,25 @@ export default function WorkflowListPage() {
               <div className="px-3 pb-2 flex items-center justify-between text-xs text-gray-600">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full" style={{ background: "#10b981" }} /> Success
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ background: "#10b981" }}
+                    />{" "}
+                    Success
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full" style={{ background: "#ef4444" }} /> Fail
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ background: "#ef4444" }}
+                    />{" "}
+                    Fail
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full" style={{ background: "#111827" }} /> Optional
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ background: "#111827" }}
+                    />{" "}
+                    Optional
                   </span>
                 </div>
               </div>
@@ -126,12 +193,14 @@ export default function WorkflowListPage() {
                 >
                   <Eye size={16} /> Preview
                 </button>
+                <Can code="WORKFLOW_UPDATE">
                 <button
                   onClick={() => goEdit(w)}
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-sm hover:bg-black"
                 >
                   <Pencil size={16} /> Edit
                 </button>
+                </Can>
               </div>
             </div>
           ))}
@@ -145,6 +214,49 @@ export default function WorkflowListPage() {
           open={!!previewId}
           onClose={() => setPreviewId(null)}
         />
+      )}
+
+      {/* Delete Popup Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-lg">
+            <div className="px-4 py-3 border-b">
+              <h2 className="text-base font-semibold">Delete workflow</h2>
+            </div>
+            <div className="px-4 py-3 text-sm space-y-2">
+              <p>
+                Are you sure you want to delete workflow{" "}
+                <span className="font-semibold">
+                  {deleteTarget.name || "this workflow"}
+                </span>
+                ? This action cannot be undone.
+              </p>
+              {deleteError && (
+                <p className="text-sm text-red-600">
+                  {deleteError}
+                </p>
+              )}
+            </div>
+            <div className="px-4 py-3 flex justify-end gap-2 border-t">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

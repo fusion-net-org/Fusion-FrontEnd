@@ -54,6 +54,7 @@ const Company: React.FC = () => {
         sortDescending,
       );
       const data: CompanyResponse = res.data;
+      console.log(data.items);
       setCompanies(data.items);
       setPagination({
         pageNumber: data.pageNumber,

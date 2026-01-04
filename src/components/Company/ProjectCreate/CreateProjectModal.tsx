@@ -29,7 +29,7 @@ import { getWorkflowPreviews, postWorkflowWithDesigner } from '@/services/workfl
 import type { WorkflowPreviewVm, DesignerDto } from '@/types/workflow';
 import { toast } from 'react-toastify';
 
-/* ========= Types ========= */
+import { Can } from '@/permission/PermissionProvider';
 export type Id = string;
 type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
 
@@ -604,35 +604,40 @@ const makeInitialDto = (name = 'New Workflow'): DesignerDto => {
     typeof crypto !== 'undefined' && (crypto as any).randomUUID
       ? (crypto as any).randomUUID()
       : Math.random().toString(36).slice(2);
-  const s1 = {
-    id: uidLocal(),
-    name: 'Start',
+
+   const s1 = {
+    id: uid(),
+    name: "To Do",
     isStart: true,
     isEnd: false,
     x: 200,
     y: 350,
-    roles: ['Reporter'],
-    color: '#10b981',
+    roles: ["Developer"],
+    color: "#6b7280",
   };
+
   const s2 = {
-    id: uidLocal(),
-    name: 'Work',
+
+    id: uid(),
+    name: "In Review",
     isStart: false,
     isEnd: false,
     x: 520,
     y: 350,
-    roles: ['Developer'],
-    color: '#4f46e5',
+    roles: ["Reviewer"],
+    color: "#4f46e5",
   };
+
   const s3 = {
-    id: uidLocal(),
-    name: 'Done',
+
+    id: uid(),
+    name: "Done",
     isStart: false,
     isEnd: true,
     x: 840,
     y: 350,
-    roles: ['Reviewer', 'QA'],
-    color: '#111827',
+    roles: ["QA"],
+    color: "#16a34a",
   };
   return {
     workflow: { id: uidLocal(), name },
@@ -1649,6 +1654,8 @@ export default function CreateProjectModal({
                   </div>
                 )}
 
+<Can code="WORKFLOW_CREATE">
+                {/* New Mode */}
                 <label className="mt-3 flex items-center gap-2">
                   <input
                     type="radio"
@@ -1659,7 +1666,7 @@ export default function CreateProjectModal({
                   />
                   <span className="text-slate-800">Create new workflow</span>
                 </label>
-
+</Can>
                 {form.workflowMode === 'new' && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">

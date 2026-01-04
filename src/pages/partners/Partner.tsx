@@ -1,7 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Users, Check, X, Ban, Eye, Search, Inbox } from 'lucide-react';
+import {
+  UserPlus,
+  Users,
+  Check,
+  X,
+  Ban,
+  Eye,
+  Search,
+  Inbox,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import InvitePartners from '@/components/Partner/InvitePartner';
 import {
   GetCompanyPartnersByCompanyID,
@@ -20,6 +31,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { debounce } from 'lodash';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import { Paging } from '@/components/Paging/Paging';
+import { Can } from '@/permission/PermissionProvider';
 
 const Partners: React.FC = () => {
   const { RangePicker } = DatePicker;
@@ -42,6 +54,10 @@ const Partners: React.FC = () => {
   const [summaryStatusPartner, setSummaryStatusPartner] = useState<SummaryStatusPartner>();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  // const [sortColumn, setSortColumn] = useState<string | null>(null);
+  // const [sortDescending, setSortDescending] = useState<boolean | null>(null);
+    const [sortColumn, setSortColumn] = useState<string>('CreatedAt');
+    const [sortDescending, setSortDescending] = useState<boolean>(true);
   //#endregion
 
   const getStatusBadge = (status: string) => {
@@ -103,8 +119,8 @@ const Partners: React.FC = () => {
         null,
         pageNumber,
         pagination.pageSize,
-        null,
-        null,
+        sortColumn,
+        sortDescending,
       );
       const data: PartnerResponse = response.data;
       const enrichedPartners = await enrichPartnerInfo(data.items);
@@ -118,6 +134,14 @@ const Partners: React.FC = () => {
       console.error('Error fetching partners:', error);
     } finally {
       setLoading(false);
+    }
+  };
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDescending((prev) => !prev);
+    } else {
+      setSortColumn(column);
+      setSortDescending(true);
     }
   };
 
@@ -304,6 +328,11 @@ const Partners: React.FC = () => {
     fetchSummaryStatusPartners();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
+  useEffect(() => {
+    if (sortColumn !== null) {
+      fetchPartners(currentPage);
+    }
+  }, [sortColumn, sortDescending]);
 
   //#region UI (member-like style)
   return (
@@ -319,12 +348,14 @@ const Partners: React.FC = () => {
                 Connect businesses to open project rights and share personnel
               </p>
             </div>
+            <Can code="PARTNER_INVITE_SEND" >
             <button
               onClick={() => setIsInviteOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
             >
               <UserPlus className="w-4 h-4" /> Invite Partner
             </button>
+            </Can>
           </div>
         </div>
 
@@ -437,9 +468,41 @@ const Partners: React.FC = () => {
                 <th className="px-6 py-3 text-center w-[20%]">Company</th>
                 <th className="px-6 py-3 text-center w-[15%]">Owner</th>
                 <th className="px-6 py-3 text-center w-[10%]">Status</th>
-                <th className="px-6 py-3 text-center w-[10%]">Since</th>
-                <th className="px-6 py-3 text-center w-[10%]">Response Date</th>
-                <th className="px-6 py-3 text-center w-[20%]">Action</th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer w-[5%]"
+                  onClick={() => handleSort('CreatedAt')}
+                >
+                  <div className="flex items-center gap-1">
+                    Create At{' '}
+                    {sortColumn === 'CreatedAt' ? (
+                      sortDescending ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronUp className="w-4 h-4" />
+                      )
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer w-[5%]"
+                  onClick={() => handleSort('RespondedAt')}
+                >
+                  <div className="flex items-center gap-1">
+                    Response Date
+                    {sortColumn === 'RespondedAt' ? (
+                      sortDescending ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronUp className="w-4 h-4" />
+                      )
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-blue-700" />
+                    )}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-center w-[15%]">Action</th>
                 <th className="px-6 py-3 text-center w-[5%]">Details</th>
               </tr>
             </thead>
@@ -521,6 +584,7 @@ const Partners: React.FC = () => {
                       {p.status?.toLowerCase() === 'pending' &&
                       userIdFromLogin !== p.requesterId ? (
                         <div className="flex justify-center gap-2">
+                          <Can code="PARTNER_INVITE_ACCEPT">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -530,6 +594,8 @@ const Partners: React.FC = () => {
                           >
                             <Check className="w-4 h-4" /> Accept
                           </button>
+                          </Can>
+                          <Can code="PARTNER_INVITE_REJECT">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -539,6 +605,7 @@ const Partners: React.FC = () => {
                           >
                             <X className="w-4 h-4" /> Reject
                           </button>
+                          </Can>
                         </div>
                       ) : p.companyInfo?.isDeleted || p.status?.toLowerCase() === 'inactive' ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 border border-red-200 rounded-full text-sm text-red-600">

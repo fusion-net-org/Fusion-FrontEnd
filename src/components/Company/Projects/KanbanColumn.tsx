@@ -19,22 +19,44 @@ export default function KanbanColumn({
         </div>
         <span className="text-xs text-slate-500">{items.length}</span>
       </div>
+
       <div className="space-y-3">
-        {items.map(p => (
-          <button
-            key={p.id}
-            onClick={() => onOpen(p)}
-            className={[
-              "w-full rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:shadow",
-              selectedId === p.id ? "ring-2 ring-blue-200" : ""
-            ].join(" ")}
-          >
-            <div className="text-[11px] font-semibold tracking-wide text-blue-600">{p.code}</div>
-            <div className="text-sm font-semibold text-slate-800">{p.name}</div>
-            <div className="mt-1 text-xs text-slate-600">{p.ownerCompany}</div>
-            {p.startDate && <div className="mt-1 text-xs text-slate-500">{p.startDate}</div>}
-          </button>
-        ))}
+        {items.map(p => {
+          const closed = !!p.isClosed;
+
+          return (
+            <button
+              key={p.id}
+              onClick={() => onOpen(p)}
+              className={[
+                "w-full rounded-xl border p-3 text-left shadow-sm hover:shadow transition",
+                closed
+                  ? "border-slate-200 bg-slate-100/80 text-slate-600"
+                  : "border-slate-200 bg-white",
+                selectedId === p.id ? "ring-2 ring-blue-200" : ""
+              ].join(" ")}
+            >
+              <div className={["text-[11px] font-semibold tracking-wide", closed ? "text-slate-600" : "text-blue-600"].join(" ")}>
+                {p.code}
+              </div>
+
+              <div className={["text-sm font-semibold", closed ? "text-slate-700 line-through" : "text-slate-800"].join(" ")}>
+                {p.name}
+              </div>
+
+              <div className={["mt-1 text-xs", closed ? "text-slate-500" : "text-slate-600"].join(" ")}>
+                {p.ownerCompany}
+              </div>
+
+              {p.startDate && (
+                <div className={["mt-1 text-xs", closed ? "text-slate-500" : "text-slate-500"].join(" ")}>
+                  {p.startDate}
+                </div>
+              )}
+            </button>
+          );
+        })}
+
         {items.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
             No project

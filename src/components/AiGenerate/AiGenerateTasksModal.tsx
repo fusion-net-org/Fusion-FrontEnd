@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   X,
   Target,
@@ -8,17 +8,18 @@ import {
   ListChecks,
   Settings2,
   ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import type { AiTaskGenerateRequest } from "@/types/aiTaskGenerate";
-import {
-  generateAndSaveAiTasks,
-} from "@/services/AITaskService.js";
+import { generateAndSaveAiTasksBySprint} from "@/services/AITaskService.js";
 
-const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
+
+// Giới hạn tổng số task AI cho 1 lần gen (quantity × số sprint)
+const MAX_AI_TASKS_PER_CALL = 50;
 
 type Props = {
   open: boolean;
@@ -39,12 +40,13 @@ type Props = {
       order: number;
     }[]
   >;
-  // onGenerated: thêm meta chứa sprint mặc định
-  onGenerated?: (tasks: any[], meta: { defaultSprintId: string }) => void;
-    onGeneratingChange?: (isGenerating: boolean) => void;
-
+  // meta giữ lại defaultSprintId (cũ) + thêm selectedSprintIds (mới)
+  onGenerated?: (
+    tasks: TaskVm[],
+    meta: { defaultSprintId: string; selectedSprintIds?: string[] },
+  ) => void;
+  onGeneratingChange?: (isGenerating: boolean) => void;
 };
-
 
 export default function AiGenerateTasksModal({
   open,
@@ -60,8 +62,9 @@ export default function AiGenerateTasksModal({
 }: Props) {
   if (!open) return null;
 
-  const [selectedSprintId, setSelectedSprintId] = useState<string>(
-    sprints[0]?.id ?? "",
+  // Multi-sprint: chọn nhiều sprint
+  const [selectedSprintIds, setSelectedSprintIds] = useState<string[]>(
+    sprints[0]?.id ? [sprints[0].id] : [],
   );
 
   const [goal, setGoal] = useState("");
@@ -98,6 +101,7 @@ export default function AiGenerateTasksModal({
     "Each task should include bullet-point acceptance criteria that are clear and testable.",
   );
 
+
   const [outputConfig, setOutputConfig] = useState({
     includeTitle: true,
     includeDescription: true,
@@ -119,19 +123,24 @@ export default function AiGenerateTasksModal({
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  const selectedSprint = useMemo(
-    () => sprints.find((x) => x.id === selectedSprintId) ?? sprints[0],
-    [sprints, selectedSprintId],
+  const selectedSprints = useMemo(
+    () => sprints.filter((sp) => selectedSprintIds.includes(sp.id)),
+    [sprints, selectedSprintIds],
   );
 
+  // Sprint chính để show workflow / capacity
+  const primarySprint = useMemo(
+    () => selectedSprints[0] ?? sprints[0],
+    [selectedSprints, sprints],
+  );
+
+  // Task thuộc các sprint đang chọn
   const sprintTasks = useMemo(
     () =>
       existingTasks.filter(
-        (t) =>
-          t.sprintId === selectedSprint?.id ||
-          t.sprintId === selectedSprintId,
+        (t) => t.sprintId && selectedSprintIds.includes(t.sprintId),
       ),
-    [existingTasks, selectedSprint, selectedSprintId],
+    [existingTasks, selectedSprintIds],
   );
 
   const sprintStats = useMemo(() => {
@@ -160,57 +169,66 @@ export default function AiGenerateTasksModal({
     setDuplicateStrategy((prev) => ({ ...prev, [k]: !prev[k] }));
   };
 
-  const canSubmit = goal.trim().length > 0 && !!selectedSprint?.id;
-  const boardSprintContext = useMemo(
-    () =>
-      sprints.map((sp) => ({
-        id: sp.id,
-        name: sp.name,
-        start: sp.start ?? null,
-        end: sp.end ?? null,
-        state: (sp as any).state ?? null,
-        capacityHours: sp.capacityHours ?? null,
-        committedPoints: (sp as any).committedPoints ?? null,
-      })),
-    [sprints],
-  );
+  const canSubmit =
+    goal.trim().length > 0 &&
+    (selectedSprints.length > 0 || sprints.length > 0);
 
-  const boardTasksContext = useMemo(() => {
-    if (!existingTasks || existingTasks.length === 0) return [];
+ const boardSprintContext = useMemo(
+  () =>
+    sprints.map((sp) => ({
+      id: sp.id,
+      name: sp.name,
+      start: sp.start ?? null,
+      end: sp.end ?? null,
+      state: (sp as any).state ?? null,
+      capacityHours: sp.capacityHours ?? null,
+      committedPoints: (sp as any).committedPoints ?? null,
+    })),
+  [sprints],
+);
 
-    // giới hạn cho prompt khỏi quá dài
-    const slice = existingTasks.slice(0, 80);
+const boardTasksContext = useMemo(() => {
+  if (!existingTasks || existingTasks.length === 0) return [];
 
-    return slice.map((t) => {
-      const sprintName =
-        sprints.find((sp) => sp.id === t.sprintId)?.name ?? undefined;
+  // sample tối đa 120 task toàn board
+  const slice = existingTasks.slice(0, 120);
 
-      return {
-        id: t.id,
-        code: (t as any).code ?? null,
-        title: t.title,
-        type: t.type,
-        priority: t.priority,
-        severity: t.severity ?? null,
-        sprintId: t.sprintId ?? null,
-        sprintName: sprintName ?? null,
-        statusCode: (t as any).statusCode ?? null,
-        statusCategory: t.statusCategory ?? null,
-        estimateHours: (t as any).estimateHours ?? null,
-        storyPoints:
-          (t as any).storyPoints ??
-          (t as any).point ??
-          null,
-      };
-    });
-  }, [existingTasks, sprints]);
+  return slice.map((t) => {
+    const sprintName =
+      sprints.find((sp) => sp.id === t.sprintId)?.name ?? undefined;
+
+    return {
+      id: t.id,
+      code: (t as any).code ?? null,
+      title: t.title,
+      type: t.type,
+      priority: t.priority,
+      severity: t.severity ?? null,
+      sprintId: t.sprintId ?? null,
+      sprintName: sprintName ?? null,
+      statusCode: (t as any).statusCode ?? null,
+      statusCategory: t.statusCategory ?? null,
+      estimateHours: (t as any).estimateHours ?? null,
+      storyPoints: (t as any).storyPoints ?? (t as any).point ?? null,
+    };
+  });
+}, [existingTasks, sprints]);
+
 
   const buildRequest = (): AiTaskGenerateRequest | null => {
-    if (!selectedSprint) return null;
+    const targetSprints =
+      selectedSprints.length > 0
+        ? selectedSprints
+        : sprints.length > 0
+        ? [sprints[0]]
+        : [];
 
-    const wf = workflowMetaBySprint[selectedSprint.id] ?? [];
+    if (targetSprints.length === 0) return null;
 
-    // teamContext: dùng members đã chọn, nếu không chọn thì dùng toàn bộ
+    const mainSprint = targetSprints[0];
+
+    const wf = workflowMetaBySprint[mainSprint.id] ?? [];
+
     const selectedMembers = members.filter((m) =>
       selectedMemberIds.includes(m.id),
     );
@@ -229,18 +247,27 @@ export default function AiGenerateTasksModal({
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-
+const ids =
+  selectedSprints.length > 0
+    ? selectedSprints.map((sp) => sp.id)
+    : sprints[0]
+    ? [sprints[0].id]
+    : [];
     const req: AiTaskGenerateRequest = {
       projectId,
       projectName,
 
       sprint: {
-        id: selectedSprint.id,
-        name: selectedSprint.name,
-        start: selectedSprint.start ?? null,
-        end: selectedSprint.end ?? null,
-        capacityHours: selectedSprint.capacityHours ?? null,
+        id: mainSprint.id,
+        name: mainSprint.name,
+        start: mainSprint.start ?? null,
+        end: mainSprint.end ?? null,
+        capacityHours: mainSprint.capacityHours ?? null,
       },
+  targetSprintIds: ids,
+
+      // nếu BE có thêm field targetSprintIds thì truyền luôn,
+      // nếu không sẽ bị bỏ qua, không sao.
 
       workflow: {
         statuses: wf.map((x, idx) => ({
@@ -255,7 +282,6 @@ export default function AiGenerateTasksModal({
           wf.find((x) => !x.isDone)?.id ?? wf[0]?.id ?? undefined,
       },
 
-      // 👇 NEW: toàn bộ board (tất cả sprint + tất cả task)
       boardContext:
         boardSprintContext.length || boardTasksContext.length
           ? {
@@ -313,46 +339,63 @@ export default function AiGenerateTasksModal({
     return req;
   };
 
-
-const handleSubmit = async () => {
-  const req = buildRequest();
-  if (!req) return;
-
-  setSubmitting(true);
-  setErrorText(null);
-  onGeneratingChange?.(true); // 👈 bật overlay ở parent
-
-  try {
-    console.log("[AI TASK GENERATE] request DTO = ", req);
-
-    // Gọi BE generate + save
-    const res = await generateAndSaveAiTasks(req);
-
-    // BE đang trả: List<ProjectTaskResponse> → TS là array
-    const tasks = Array.isArray(res)
-      ? res
-      : Array.isArray((res as any)?.items)
-      ? (res as any).items
-      : [];
-
-    if (onGenerated && selectedSprint?.id) {
-      onGenerated(tasks, { defaultSprintId: selectedSprint.id });
+  const handleSubmit = async () => {
+    const req = buildRequest();
+    if (!req) {
+      setErrorText("Please select at least one target sprint.");
+      return;
     }
 
-    onClose();
-  } catch (err: any) {
-    console.error("[AI TASK GENERATE] failed", err);
-    setErrorText(
-      err?.message ||
-        "Failed to generate & save tasks with AI. Please try again.",
-    );
-  } finally {
-    setSubmitting(false);
-    onGeneratingChange?.(false); // 👈 tắt overlay
-  }
-};
+    const sprintCountForLimit =
+      selectedSprints.length > 0 ? selectedSprints.length : 1;
+    const totalRequested = quantity * sprintCountForLimit;
+
+    if (
+      MAX_AI_TASKS_PER_CALL > 0 &&
+      totalRequested > MAX_AI_TASKS_PER_CALL
+    ) {
+      setErrorText(
+        `You are requesting ${totalRequested} tasks (${quantity} × ${sprintCountForLimit} sprints). ` +
+          `The system limit is ${MAX_AI_TASKS_PER_CALL} tasks per generation. ` +
+          "Please reduce the quantity or deselect some sprints.",
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorText(null);
+    onGeneratingChange?.(true);
+
+    try {
+      console.log("[AI TASK GENERATE] request DTO = ", req);
+
+const res = await generateAndSaveAiTasksBySprint(req);
+
+const flat: TaskVm[] = Array.isArray(res?.sprints)
+  ? res.sprints.flatMap((x: { tasks?: TaskVm[] | null }) => x.tasks ?? [])
+  : [];
+
+const tasks: TaskVm[] = flat;
 
 
+onGenerated?.(tasks, {
+  defaultSprintId: primarySprint?.id ?? (selectedSprints[0]?.id ?? ""),
+  selectedSprintIds,
+});
+
+onClose();
+
+    } catch (err: any) {
+      console.error("[AI TASK GENERATE] failed", err);
+      setErrorText(
+        err?.message ||
+          "Failed to generate & save tasks with AI. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+      onGeneratingChange?.(false);
+    }
+  };
 
   const outputFieldLabels: Record<keyof typeof outputConfig, string> = {
     includeTitle: "Title",
@@ -388,9 +431,7 @@ const handleSubmit = async () => {
                 <h2 className="text-[15px] font-semibold text-slate-900">
                   Generate sprint tasks with AI
                 </h2>
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-[2px] text-[10px] font-medium text-slate-600">
-                  Experimental
-                </span>
+              
               </div>
               <p className="mt-1 text-xs text-slate-500">
                 Describe your goal, scope, and constraints. AI will break it
@@ -427,28 +468,56 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
+              {/* Multi-select sprint */}
               <div className="mb-2">
                 <label className="mb-1 block text-[11px] text-slate-500">
-                  Sprint
+                  Target sprints
                 </label>
-                <select
-                  value={selectedSprint?.id ?? ""}
-                  onChange={(e) => setSelectedSprintId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {sprints.map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedSprint && (
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    {selectedSprint.start?.slice(0, 10)} →{" "}
-                    {selectedSprint.end?.slice(0, 10)} · Capacity:{" "}
-                    {selectedSprint.capacityHours ?? "—"}h
-                  </p>
-                )}
+                <div className="max-h-32 space-y-1 overflow-auto rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                  {sprints.map((sp) => {
+                    const checked = selectedSprintIds.includes(sp.id);
+                    return (
+                      <label
+                        key={sp.id}
+                        className="flex items-center justify-between gap-2 cursor-pointer rounded-md px-1 py-[2px] text-[11px] text-slate-700 hover:bg-slate-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-slate-300"
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedSprintIds((prev) =>
+                                prev.includes(sp.id)
+                                  ? prev.filter((x) => x !== sp.id)
+                                  : [...prev, sp.id],
+                              )
+                            }
+                          />
+                          <span className="font-medium">{sp.name}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500">
+                          {sp.start?.slice(0, 10)} → {sp.end?.slice(0, 10)}
+                        </span>
+                      </label>
+                    );
+                  })}
+
+                  {sprints.length === 0 && (
+                    <p className="text-[11px] text-slate-400">
+                      This project has no sprints yet.
+                    </p>
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  AI will generate approximately{" "}
+                  <span className="font-semibold">{quantity}</span> tasks per
+                  selected sprint.
+                </p>
+                <p className="mt-0.5 text-[10px] text-slate-500">
+                  {selectedSprints.length} sprint(s) selected ·{" "}
+                  {sprintStats.total} tasks currently in those sprints.
+                </p>
               </div>
 
               {/* Sprint stats */}
@@ -474,8 +543,8 @@ const handleSubmit = async () => {
               </div>
             </section>
 
-            {/* Workflow summary */}
-            <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+            {/* Workflow summary (primary sprint) */}
+            {/* <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
               <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-700">
                 <ListChecks className="h-3.5 w-3.5 text-blue-500" />
                 <span>Workflow</span>
@@ -486,7 +555,7 @@ const handleSubmit = async () => {
                 done.
               </p>
               <div className="flex flex-wrap gap-1">
-                {(workflowMetaBySprint[selectedSprint?.id ?? ""] ?? []).map(
+                {(workflowMetaBySprint[primarySprint?.id ?? ""] ?? []).map(
                   (st) => (
                     <span
                       key={st.id}
@@ -502,7 +571,7 @@ const handleSubmit = async () => {
                   ),
                 )}
               </div>
-            </section>
+            </section> */}
 
             {/* Duplicate strategy */}
             <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
@@ -670,12 +739,12 @@ const handleSubmit = async () => {
                   />
                 </div>
 
-                <div>
+                <div className="hidden">
                   <div className="mb-1 text-[11px] text-slate-600">
                     Task size / granularity
                   </div>
                   <div className="space-y-1">
-                    {[  
+                    {[
                       ["Epic", "Epic-level (fewer but larger items)"],
                       ["Task", "Task-level (recommended)"],
                       ["SubTask", "Sub-task level (very detailed)"],
@@ -698,7 +767,7 @@ const handleSubmit = async () => {
                   </div>
                 </div>
 
-                <div>
+                <div className="hidden">
                   <div className="mb-1 text-[11px] text-slate-600">
                     Estimate per task
                   </div>
@@ -767,8 +836,8 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 hidden">
+                <div className="hidden">
                   <label className="mb-1 block text-[11px] text-slate-600">
                     Total development effort for this sprint (hours) – optional
                   </label>
@@ -788,7 +857,7 @@ const handleSubmit = async () => {
                   />
                 </div>
 
-                <div>
+                <div className="hidden">
                   <label className="mb-1 block text-[11px] text-slate-600">
                     Business deadline (if any)
                   </label>
@@ -803,7 +872,7 @@ const handleSubmit = async () => {
             </section>
 
             {/* Team & assignment */}
-            <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            {/* <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <div className="mb-2 flex items-center gap-2">
                 <Users className="h-4 w-4 text-blue-500" />
                 <div>
@@ -907,11 +976,11 @@ const handleSubmit = async () => {
                   </div>
                 </div>
               </div>
-            </section>
+            </section> */}
 
             {/* Requirements & output format */}
             <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2 flex items-ceznter gap-2">
                 <ShieldCheck className="h-4 w-4 text-blue-500" />
                 <div>
                   <h3 className="text-xs font-semibold text-slate-900">
@@ -971,16 +1040,16 @@ const handleSubmit = async () => {
                     ))}
                   </div>
 
-                  <label className="mb-1 block text-[11px] text-slate-600">
+                  <label className="mb-1 block text-[11px] text-slate-600 hidden">
                     Guidance for writing Acceptance Criteria
                   </label>
                   <textarea
                     value={acceptanceHint}
                     onChange={(e) => setAcceptanceHint(e.target.value)}
                     rows={2}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 hidden"
                   />
-                  <p className="mt-1 text-[10px] text-slate-500">
+                  <p className="mt-1 text-[10px] text-slate-500 hidden">
                     AI will follow this guidance when generating acceptance
                     criteria for each task.
                   </p>
@@ -990,16 +1059,11 @@ const handleSubmit = async () => {
           </div>
         </div>
 
+
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
           <div className="flex flex-col items-start gap-1 text-[11px] text-slate-500">
-            <div className="flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
-              <span>
-                AI will generate a draft list of tasks. You can review and edit
-                them before adding them to the board.
-              </span>
-            </div>
+          
             {errorText && (
               <span className="text-[11px] text-red-500">{errorText}</span>
             )}

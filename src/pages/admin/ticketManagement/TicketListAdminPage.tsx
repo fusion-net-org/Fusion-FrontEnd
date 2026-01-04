@@ -12,7 +12,7 @@ import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import { Input, Select, Button, DatePicker, Tag } from 'antd';
 import { toast } from 'react-toastify';
-import { GetTicketPagedByAdmin } from '@/services/ticketService.js';
+import { GetTicketPagedByAdmin } from '@/services/TicketService.js';
 
 const { RangePicker } = DatePicker;
 
@@ -245,6 +245,9 @@ export default function TicketListAdminPage() {
                     Project
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                    Budget (VND)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                     Priority
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
@@ -265,6 +268,9 @@ export default function TicketListAdminPage() {
                       </td>
 
                       <td className="px-6 py-4 text-sm text-gray-600">{t.projectName}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {t.budget?.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' })}
+                      </td>
 
                       <td className="px-6 py-4 text-sm text-gray-600">
                         <Tag color={STATUS_COLOR[t.priority] || 'default'} style={{ fontSize: 13 }}>

@@ -334,54 +334,61 @@ export default function CompanyListPage() {
             </div>
 
             {/* Filters Row */}
-            <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  className="w-full pl-10 pr-3 h-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  placeholder="Search by name or tax code..."
-                  value={q}
-                  onChange={(e) => patchParams({ q: e.target.value, page: 1 })}
-                />
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    className="w-[250px] pl-10 pr-3 h-10 rounded-lg border border-gray-300 
+                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    placeholder="Search by name or tax code..."
+                    value={q}
+                    onChange={(e) => patchParams({ q: e.target.value, page: 1 })}
+                  />
+                </div>
+
+                {/* Sort column */}
+                <select
+                  className="h-9 px-3 pr-8 rounded-lg border border-gray-300 
+                 focus:ring-2 focus:ring-blue-500 text-sm w-[180px]"
+                  value={sort}
+                  onChange={(e) => patchParams({ sort: e.target.value, page: 1 })}
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Sort direction */}
+                <button
+                  className="h-9 px-4 rounded-lg border border-gray-300 bg-white 
+                 hover:bg-gray-50 flex items-center gap-2 text-sm font-medium transition-colors"
+                  onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
+                  aria-label="Toggle sort direction"
+                  title={dirDesc ? 'Descending' : 'Ascending'}
+                >
+                  {dirDesc ? (
+                    <ArrowDownIcon className="w-4 h-4 text-gray-600" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4 text-gray-600" />
+                  )}
+                  {dirDesc ? 'Descending' : 'Ascending'}
+                </button>
+
+                {/* Reset */}
+                <button
+                  className="h-9 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 
+                 flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors"
+                  onClick={resetFilters}
+                  title="Reset filters"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Reset
+                </button>
               </div>
-
-              {/* Sort column */}
-              <select
-                className="h-10 px-3 pr-8 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
-                value={sort}
-                onChange={(e) => patchParams({ sort: e.target.value, page: 1 })}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-
-              {/* Sort direction */}
-              <button
-                className="w-10 h-10 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center justify-center transition-colors"
-                onClick={() => patchParams({ dir: dirDesc ? 'asc' : 'desc', page: 1 })}
-                aria-label="Toggle sort direction"
-                title={dirDesc ? 'Descending' : 'Ascending'}
-              >
-                {dirDesc ? (
-                  <ArrowDownIcon className="w-4 h-4 text-gray-600" />
-                ) : (
-                  <ArrowUp className="w-4 h-4 text-gray-600" />
-                )}
-              </button>
-
-              {/* Reset */}
-              <button
-                className="h-10 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors"
-                onClick={resetFilters}
-                title="Reset filters"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Reset
-              </button>
             </div>
           </div>
 

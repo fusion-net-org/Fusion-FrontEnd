@@ -64,6 +64,7 @@ import { toast } from 'react-toastify';
 import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
 import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
+import { Can } from '@/permission/PermissionProvider';
 
 const { confirm } = Modal;
 
@@ -94,7 +95,6 @@ const TicketDetailPage: React.FC = () => {
     (location.state as { viewMode?: 'AsRequester' | 'AsExecutor' } | undefined) ?? {};
   // const viewMode = vw ?? 'AsRequester';
   console.log('viewMode Ticketdetail:', viewMode);
-  console.log('ticket:', ticket);
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       const res = await AcceptTicket(ticketId);
@@ -355,14 +355,16 @@ const TicketDetailPage: React.FC = () => {
           <div className="flex flex-wrap gap-2 items-start lg:items-center">
             {/* Edit button (Requester) */}
             {ticket.status === 'Pending' && !ticket.isDeleted && viewMode === 'AsRequester' && (
-              <Button
-                type="primary"
-                icon={<Edit size={16} />}
-                className="flex items-center gap-1"
-                onClick={() => setIsEditModalOpen(true)}
-              >
-                Edit
-              </Button>
+              <Can code="TICKET_UPDATE">
+                <Button
+                  type="primary"
+                  icon={<Edit size={16} />}
+                  className="flex items-center gap-1"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  Edit
+                </Button>
+              </Can>
             )}
 
             {/* Accept / Reject buttons (Executor) */}
@@ -399,14 +401,16 @@ const TicketDetailPage: React.FC = () => {
                 Restore
               </Button>
             ) : (
-              <Button
-                danger
-                icon={<Trash2 size={16} />}
-                className="flex items-center gap-1"
-                onClick={() => setIsDeleteModalOpen(true)}
-              >
-                Delete
-              </Button>
+              <Can code="TICKET_DELETE">
+                <Button
+                  danger
+                  icon={<Trash2 size={16} />}
+                  className="flex items-center gap-1"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                >
+                  Delete
+                </Button>
+              </Can>
             )}
           </div>
         </div>
@@ -632,7 +636,9 @@ const TicketDetailPage: React.FC = () => {
           </div>
         </Card>
       </div>
-      {ticket && <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId} />}
+      {ticket && viewMode === 'AsExecutor' && (
+        <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId} />
+      )}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <MessageSquare size={18} className="text-indigo-500" /> Comments

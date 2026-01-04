@@ -10,7 +10,6 @@ export const createCompany = async (data) => {
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
-
 export const updateCompany = async (id, data) => {
   try {
     const response = await axiosInstance.put(`/company/${id}`, data, {
@@ -158,6 +157,7 @@ export const filterAndSortCompanies = async (
     throw new Error(error.response?.data?.message || 'Error!');
   }
 };
+
 export const getCompanyById = async (id) => {
   try {
     const { data } = await axiosInstance.get(`/company/${id}`);
@@ -271,5 +271,21 @@ export const getAllCompaniesByAdmin = async (
   } catch (error) {
     console.error('Error fetching companies:', error);
     throw new Error(error.response?.data?.message || 'Error fetching companies!');
+  }
+};
+
+export const getProjectsOfCompanyByAdmin = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        query.append(key, value);
+      }
+    });
+
+    const { data } = await axiosInstance.get(`/admin/projects?${query.toString()}`);
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
   }
 };

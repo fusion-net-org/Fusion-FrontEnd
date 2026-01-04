@@ -8,9 +8,38 @@ import { toast } from "react-toastify";
 
 const makeInitialDto = (name = "New Workflow"): DesignerDto => {
   const uid = () => (typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2));
-  const s1 = { id: uid(), name: "Start", isStart: true,  isEnd: false, x: 200, y: 350, roles: ["Reporter"],  color: "#10b981" };
-  const s2 = { id: uid(), name: "Work",  isStart: false, isEnd: false, x: 520, y: 350, roles: ["Developer"], color: "#4f46e5" };
-  const s3 = { id: uid(), name: "Done",  isStart: false, isEnd: true,  x: 840, y: 350, roles: ["Reviewer","QA"], color: "#111827" };
+  const s1 = {
+    id: uid(),
+    name: "To Do",
+    isStart: true,
+    isEnd: false,
+    x: 200,
+    y: 350,
+    roles: ["Developer"],
+    color: "#6b7280",
+  };
+
+  const s2 = {
+    id: uid(),
+    name: "In Review",
+    isStart: false,
+    isEnd: false,
+    x: 520,
+    y: 350,
+    roles: ["Reviewer"],
+    color: "#4f46e5",
+  };
+
+  const s3 = {
+    id: uid(),
+    name: "Done",
+    isStart: false,
+    isEnd: true,
+    x: 840,
+    y: 350,
+    roles: ["QA"],
+    color: "#16a34a",
+  };
   return {
     workflow: { id: uid(), name },
     statuses: [s1, s2, s3],

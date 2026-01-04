@@ -1,7 +1,8 @@
+// src/components/Company/Task/QuickTaskCreateCard.tsx
 import React, { useMemo, useState } from "react";
 import { CalendarDays, UserRound, CheckSquare, Plus, ChevronDown } from "lucide-react";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
-import { createTaskQuick } from "@/services/taskService.js"; 
+import { createTaskQuick } from "@/services/taskService.js";
 import { useProjectBoard } from "@/context/ProjectBoardContext";
 import { toast } from "react-toastify";
 
@@ -12,16 +13,24 @@ const isoFromDateInput = (v?: string) => {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 };
 
+// id local tạm cho draft
+const makeLocalId = () =>
+  (globalThis as any)?.crypto?.randomUUID?.()
+    ? `LOCAL-${(globalThis as any).crypto.randomUUID()}`
+    : `LOCAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 export default function QuickTaskCreateCard({
   sprint,
   statusId,
   allowStatusPicker = false,
+  createAsDraft = false,         // 👈 NEW
   onCreated,
   onCancel,
 }: {
   sprint: SprintVm;
   statusId: string;
   allowStatusPicker?: boolean;
+  createAsDraft?: boolean;       // 👈 NEW
   onCreated?: (t?: TaskVm) => void;
   onCancel?: () => void;
 }) {
@@ -30,9 +39,15 @@ export default function QuickTaskCreateCard({
   const [due, setDue] = useState<string>("");
   const [assigneeName, setAssigneeName] = useState<string>(""); // chỉ hiển thị UI, không gửi BE
   const [isSaving, setIsSaving] = useState(false);
-const { attachTaskVm } = useProjectBoard();
+
+  const { attachTaskVm } = useProjectBoard();
+
   const statusOptions = useMemo(
-    () => sprint.statusOrder.map((id) => ({ id, name: sprint.statusMeta[id]?.name ?? sprint.statusMeta[id]?.code ?? id })),
+    () =>
+      sprint.statusOrder.map((id) => ({
+        id,
+        name: sprint.statusMeta[id]?.name ?? sprint.statusMeta[id]?.code ?? id,
+      })),
     [sprint],
   );
   const [pickedStatusId, setPickedStatusId] = useState<string>(statusId);
@@ -45,7 +60,46 @@ const { attachTaskVm } = useProjectBoard();
 
   const canCreate = title.trim().length > 0;
 
-   async function handleCreate() {
+  // Tạo TaskVm local (draft, chưa lưu DB)
+  const buildLocalDraftVm = (stId: string): TaskVm => {
+    const meta = sprint.statusMeta[stId];
+    const now = new Date().toISOString();
+    const dueIso = isoFromDateInput(due) ?? undefined;
+
+    const vm: TaskVm & { isLocalDraft?: boolean } = {
+      id: makeLocalId(),
+      code: "TMP-BOARD",
+      title: title.trim(),
+      type: "Feature",
+      priority,
+      storyPoints: 0,
+      estimateHours: 0,
+      remainingHours: 0,
+      dueDate: dueIso,
+      sprintId: sprint.id,
+      workflowStatusId: stId,
+      statusCode: meta?.code ?? "todo",
+      statusCategory: meta?.category ?? "TODO",
+      StatusName: meta?.name ?? "",
+
+      assignees: [], // assigneeName chỉ là hiển thị tạm
+      dependsOn: [],
+      parentTaskId: null,
+      carryOverCount: 0,
+
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+
+      sourceTicketId: null,
+      sourceTicketCode: "",
+    };
+
+    (vm as any).isLocalDraft = true; // 👈 flag để Save board biết đây là task mới tạo trên FE
+    return vm;
+  };
+
+  async function handleCreate() {
     if (!canCreate || isSaving) return;
 
     const stId = sprint.statusMeta[pickedStatusId] ? pickedStatusId : sprint.statusOrder[0];
@@ -53,9 +107,18 @@ const { attachTaskVm } = useProjectBoard();
 
     try {
       setIsSaving(true);
+
+      // ====== 1. UPDATE MODE: chỉ tạo draft local, KHÔNG gọi API ======
+      if (createAsDraft) {
+        const vm = buildLocalDraftVm(stId);
+        resetForm();
+        onCreated?.(vm);
+        return;
+      }
+
+      // ====== 2. NORMAL MODE: gọi API createTaskQuick như cũ ======
       const projectId = (window as any).__projectId as string;
 
-      // gọi BE
       const api = await createTaskQuick(projectId, {
         title: title.trim(),
         sprintId: sprint.id,
@@ -66,11 +129,11 @@ const { attachTaskVm } = useProjectBoard();
         type: "Feature",
         estimateHours: null,
       });
-const openedAt = api.createAt ?? api.createdAt ?? new Date().toISOString();
-const createdAt = api.createAt ?? api.createdAt ?? openedAt;
-const updatedAt = api.updateAt ?? api.updatedAt ?? createdAt;
 
-      // map tối thiểu đủ field bắt buộc của TaskVm
+      const openedAt = api.createAt ?? api.createdAt ?? new Date().toISOString();
+      const createdAt = api.createAt ?? api.createdAt ?? openedAt;
+      const updatedAt = api.updateAt ?? api.updatedAt ?? createdAt;
+
       const vm: TaskVm = {
         id: api.id,
         code: api.code ?? "",
@@ -86,19 +149,18 @@ const updatedAt = api.updateAt ?? api.updatedAt ?? createdAt;
         statusCode: api.status ?? (meta?.code ?? ""),
         statusCategory: sprint.statusMeta[stId]?.category ?? "TODO",
         StatusName: sprint.statusMeta[stId]?.name ?? "",
-        // các field FE yêu cầu phải có để khỏi lỗi TS
         assignees: [],
         dependsOn: [],
         parentTaskId: api.parentTaskId ?? null,
         carryOverCount: api.carryOverCount ?? 0,
-
-         openedAt,               
-  createdAt,               
-  updatedAt,      
+        openedAt,
+        createdAt,
+        updatedAt,
         sourceTicketId: api.sourceTaskId ?? null,
         sourceTicketCode: api.code ?? "",
       };
-attachTaskVm(vm);
+
+      attachTaskVm(vm);
       resetForm();
       onCreated?.(vm);
     } catch (err: any) {
@@ -141,7 +203,7 @@ attachTaskVm(vm);
         rows={2}
         className={cn(
           "w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none",
-          "border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          "border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100",
         )}
         placeholder="What needs to be done?"
       />
@@ -158,7 +220,9 @@ attachTaskVm(vm);
                 className="bg-transparent text-xs outline-none"
               >
                 {statusOptions.map((o) => (
-                  <option key={o.id} value={o.id}>{o.name}</option>
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
                 ))}
               </select>
             ) : (
@@ -180,7 +244,7 @@ attachTaskVm(vm);
         </label>
 
         {/* Assignee quick (chỉ UI) */}
-        <label className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs border-slate-300 text-slate-700">
+        {/* <label className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs border-slate-300 text-slate-700">
           <UserRound className="h-3.5 w-3.5" />
           <input
             value={assigneeName}
@@ -189,13 +253,13 @@ attachTaskVm(vm);
             placeholder="Assignee"
             onKeyDown={onKeyDown}
           />
-        </label>
+        </label> */}
 
         {/* Priority */}
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskVm["priority"])}
-          className="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700"
+          className="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 ml-0"
           title="Priority"
           disabled={isSaving}
         >
@@ -205,6 +269,8 @@ attachTaskVm(vm);
           <option>Low</option>
         </select>
 
+      </div>
+      <div className="flex">
         {/* Cancel + Create */}
         <button
           type="button"
@@ -220,13 +286,14 @@ attachTaskVm(vm);
           onClick={handleCreate}
           className={cn(
             "ml-2 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm",
-            canCreate && !isSaving ? "bg-slate-900 text-white hover:bg-slate-800"
-                                   : "bg-slate-200 text-slate-500 cursor-not-allowed"
+            canCreate && !isSaving
+              ? "bg-slate-900 text-white hover:bg-slate-800"
+              : "bg-slate-200 text-slate-500 cursor-not-allowed",
           )}
         >
           <Plus className="h-4 w-4" /> {isSaving ? "Creating..." : "Create"}
         </button>
-      </div>
+        </div>
     </div>
   );
 }

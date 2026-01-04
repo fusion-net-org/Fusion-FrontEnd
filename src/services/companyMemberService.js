@@ -5,6 +5,7 @@ export const GetMemberByCompanyId = async (
   KeyWord = '',
   DateRangeFrom,
   DateRangeTo,
+  Gender,
   PageNumber = 1,
   PageSize = 10,
   SortColumn = null,
@@ -16,12 +17,14 @@ export const GetMemberByCompanyId = async (
         KeyWord,
         'DateRange.From': DateRangeFrom,
         'DateRange.To': DateRangeTo,
+        Gender,
         PageNumber,
         PageSize,
         SortColumn,
         SortDescending,
       },
     });
+
     return response.data.data;
   } catch (error) {
     console.error('Error in GetMemberByCompanyId:', error);
@@ -141,7 +144,7 @@ export const GetCompanyMemberByUserId = async (
         SortDescending: SortDescending,
       },
     });
-
+    console.log('response data:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error in GetCompanyMemberByUserId:', error);
@@ -192,5 +195,21 @@ export const RemoveUserRolesFromCompany = async (companyId, payload) => {
   } catch (error) {
     console.error('Error removing user roles:', error.response?.data || error.message);
     throw new Error(error.response?.data?.message || 'Failed to Remove Role member');
+  }
+};
+
+export const getMembersOfCompanyByAdmin = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        query.append(key, value);
+      }
+    });
+
+    const { data } = await axiosInstance.get(`/companymember/admin/paged?${query.toString()}`);
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
   }
 };

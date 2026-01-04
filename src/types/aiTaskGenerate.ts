@@ -48,8 +48,8 @@ export type AiTaskGenerateRequest = {
     }>;
     defaultStatusId?: string;
   };
+  targetSprintIds?: string[];
 
-  // 👇 NEW: toàn bộ board context
   boardContext?: {
     sprints: AiBoardSprintContext[];
     tasks: AiBoardTaskContext[];

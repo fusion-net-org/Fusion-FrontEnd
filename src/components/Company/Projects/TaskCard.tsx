@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom"; // 👈 THÊM
 import type { TaskVm, MemberRef } from "@/types/projectBoard";
+import { Can } from "@/permission/PermissionProvider";
 
 /** ==== Local helpers ==== */
 type TaskType = "Feature" | "Bug" | "Chore";
@@ -111,11 +112,13 @@ type Props = {
   onNext: (t: TaskVm) => void;
   onSplit: (t: TaskVm) => void;
   onMoveNext: (t: TaskVm) => void;
-  onOpenTicket?: (ticketId: string) => void; // giữ lại cho type, không dùng nữa
+  onOpenTicket?: (ticketId: string) => void;
   isNew?: boolean;
   statusColorHex?: string;
   statusLabel?: string;
+  isAiNew?: boolean;
 };
+
 
 function hexToRgba(hex?: string, a = 1) {
   if (!hex) return `rgba(148,163,184,${a})`; // slate-400 fallback
@@ -134,13 +137,14 @@ export default function TaskCard({
   onNext,
   onSplit,
   onMoveNext,
-  // onOpenTicket, // ⛔ không dùng nữa
   isNew,
   statusColorHex,
   statusLabel,
+  isAiNew,
 }: Props) {
   const navigate = useNavigate();
   const { companyId, projectId } = useParams();
+
 
   const isAiDraft =
     (t as any).isAiDraft ||
@@ -148,6 +152,9 @@ export default function TaskCard({
     ((t as any).source === "AI" && !isGuid(t.id));
 
   const isPersisted = isGuid(t.id);
+  const isAiPersisted = !isAiDraft && (t as any).source === "AI";
+
+
   const nowIso = new Date().toISOString();
   const slaTarget = getSlaTarget(t.type, t.priority);
 
@@ -313,7 +320,6 @@ export default function TaskCard({
 
         cardBorderClass,
         !isNew && urgent && "ring-1 ring-rose-200",
-        isAiDraft && "opacity-95"
       )}
       style={{
         ...(isNew
@@ -364,11 +370,25 @@ export default function TaskCard({
               Blocked
             </span>
           )}
-          {isAiDraft && (
+                  {isAiDraft && (
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-sky-400 bg-sky-50 text-sky-700">
               AI draft
             </span>
           )}
+
+          {isAiPersisted && (
+            <span
+              className={cn(
+                "text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wide",
+                isAiNew
+                  ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                  : "border-sky-400 bg-sky-50 text-sky-700",
+              )}
+            >
+              AI
+            </span>
+          )}
+
           <span
             className={cn(
               "text-[10px] px-2 py-0.5 rounded-full border bg-white",
@@ -433,7 +453,7 @@ export default function TaskCard({
           <TimerReset className="w-3 h-3" /> {Math.max(0, points ?? 0)} pts
         </div>
         <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours ?? 0)}/
+          <Clock className="w-3 h-3" /> 
           {t.estimateHours ?? 0}h
         </div>
         <div className="flex items-center gap-1">
@@ -478,31 +498,27 @@ export default function TaskCard({
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         {isAiDraft || !isPersisted ? (
           <span className="text-[11px] text-slate-500 italic">
-            AI draft – will be created when you Save board.
+            AI Draft
           </span>
         ) : (
           <>
-            {!isDone && (
-              <button
-                className="text-[11px] px-2 py-1 rounded-lg border hover:bg-emerald-50 border-emerald-300 text-emerald-700 flex items-center gap-1"
-                onClick={() => onMarkDone(t)}
-              >
-                <Check className="w-3 h-3" /> Mark done
-              </button>
-            )}
-
+           
+<Can code='TASK_SPLIT'>
             <button
               className="text-[11px] px-2 py-1 rounded-lg border hover:bg-violet-50 border-violet-300 text-violet-700 flex items-center gap-1"
               onClick={() => onSplit(t)}
             >
               <SplitSquareHorizontal className="w-3 h-3" /> Split
             </button>
+            </Can>
+            <Can code="TASK_MOVE_SPRINT">
             <button
               className="text-[11px] px-2 py-1 rounded-lg border hover:bg-slate-50 border-slate-300 text-slate-600 flex items-center gap-1"
               onClick={() => onMoveNext(t)}
             >
               <MoveDown className="w-3 h-3" /> Move next
             </button>
+            </Can>
           </>
         )}
       </div>

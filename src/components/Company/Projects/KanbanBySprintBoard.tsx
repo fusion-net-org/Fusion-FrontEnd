@@ -1,3 +1,4 @@
+// src/components/Company/Projects/KanbanBySprintBoard.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useState } from "react";
@@ -12,7 +13,12 @@ import {
 import { Edit3, Trash2, Plus, X } from "lucide-react";
 
 import TaskCard from "@/components/Company/Projects/TaskCard";
-import type { SprintVm, TaskVm, StatusCategory, MemberRef } from "@/types/projectBoard";
+import type {
+  SprintVm,
+  TaskVm,
+  StatusCategory,
+  MemberRef,
+} from "@/types/projectBoard";
 import ColumnHoverCreate from "../Task/ColumnHoverCreate";
 import { useNavigate, useParams } from "react-router-dom";
 import AiGenerateTasksModal from "@/components/AiGenerate/AiGenerateTasksModal";
@@ -27,19 +33,21 @@ import QuickDraftPool, {
 } from "@/components/Company/Projects/QuickDraftPool";
 import {
   getDraftTasks,
-  materializeDraftTask, // NEW: dùng materialize thay vì createTaskQuick
+  materializeDraftTask,
 } from "@/services/taskService.js";
-import TaskFilterBar, {
-  type SimpleOption,
-} from "./TaskFilterBar";
+import TaskFilterBar, { type SimpleOption } from "./TaskFilterBar";
+import { Can, usePermissions } from "@/permission/PermissionProvider";
+
 const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
+
 const isGuid = (s?: string | null) =>
   !!s &&
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
     s,
   );
+
 const prettyStatusCategory = (cat?: string | null) => {
   if (!cat) return "";
   const u = cat.toUpperCase();
@@ -61,7 +69,6 @@ const PRIORITY_OPTIONS: SimpleOption[] = [
   { value: "Low", label: "Low" },
 ];
 
-// format ngày sprint: 11/16/2025
 const formatSprintDate = (value?: string | Date | null) => {
   if (!value) return "";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -97,7 +104,6 @@ function useFuseKanbanStyles() {
   100% { transform: scale(.9); opacity: 0; max-height: 0; margin-bottom: 0; }
 }
 
-/* ==== card xuất hiện mượt, pop-in ==== */
 @keyframes fuseCardPopIn {
   0% {
     transform: translateY(10px) scale(.97);
@@ -147,22 +153,6 @@ function useFuseKanbanStyles() {
   animation: fuseCardShrinkOut .18s cubic-bezier(.2,.8,.3,1) forwards;
 }
 
-/* card mới sinh ra */
-@keyframes fuseCardPopIn {
-  0% {
-    transform: translateY(10px) scale(.97);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(0) scale(1.02);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-}
-
 .fuse-card-enter {
   animation: fuseCardPopIn .32s cubic-bezier(.2,.8,.2,1);
 }
@@ -174,9 +164,9 @@ function useFuseKanbanStyles() {
   }, []);
 }
 
+
 /* === helpers === */
 
-// Lấy toàn bộ task trong sprint theo thứ tự statusOrder + filter category
 const flattenSprintTasks = (
   s: SprintVm,
   filter: "ALL" | StatusCategory = "ALL",
@@ -186,7 +176,6 @@ const flattenSprintTasks = (
 
   for (const stId of order) {
     const arr = (s.columns?.[stId] as TaskVm[]) ?? [];
-
     const withStatus = arr.map((t) => ({
       ...t,
       workflowStatusId: t.workflowStatusId ?? stId,
@@ -202,10 +191,25 @@ const flattenSprintTasks = (
 };
 
 const computeSprintStatsFromTasks = (allTasks: TaskVm[]) => {
-  const total = allTasks.length;
-  const done = allTasks.filter((t) => t.statusCategory === "DONE").length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  return { total, pct };
+  const totalTasks = allTasks.length;
+  const doneTasks = allTasks.filter((t) => t.statusCategory === "DONE").length;
+
+  const committedPts = allTasks.reduce(
+    (s, t) => s + Math.max(0, Number(t.storyPoints) || 0),
+    0,
+  );
+  const donePts = allTasks
+    .filter((t) => t.statusCategory === "DONE")
+    .reduce((s, t) => s + Math.max(0, Number(t.storyPoints) || 0), 0);
+
+  const pct =
+    committedPts > 0
+      ? Math.round((donePts / committedPts) * 100)
+      : totalTasks
+      ? Math.round((doneTasks / totalTasks) * 100)
+      : 0;
+
+  return { totalTasks, doneTasks, committedPts, donePts, pct };
 };
 
 
@@ -215,7 +219,6 @@ const getSprintIdFromDroppable = (id: string): string | null => {
   return id;
 };
 
-// chuẩn hoá priority từ AI về 4 mức chuẩn
 const normalizePriority = (raw: any): any => {
   const k = String(raw ?? "Medium").toLowerCase();
   if (k === "urgent") return "Urgent";
@@ -231,38 +234,54 @@ const BoardColumn = ({
   subtitle,
   right,
   children,
+  isCurrent,
+  badge,
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
   children?: React.ReactNode;
-}) => {
-  return (
+  isCurrent?: boolean;
+  badge?: React.ReactNode;
+}) => (
+  <div
+    className={cn(
+      "rounded-2xl border overflow-hidden h-full flex flex-col group transition-all duration-200",
+      isCurrent
+        ? "border-emerald-200 ring-2 ring-emerald-300 shadow-[0_18px_50px_rgba(16,185,129,0.25)]"
+        : "border-gray-200 ring-1 ring-blue-200",
+    )}
+    style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)", background: "#f8f8f8" }}
+  >
     <div
-      className={cn(
-        "rounded-2xl border border-gray-200 bg-white overflow-hidden ring-1 ring-blue-200 h-full flex flex-col group ",
-      )}
-      style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)", background: "#f8f8f8" }}
-    >
-      {/* top bar 1 màu xanh */}
-      <div className="h-2 w-full" style={{ backgroundColor: brand }} />
+      className="h-2 w-full"
+      style={{
+        backgroundColor: isCurrent ? "#10B981" : brand,
+        opacity: isCurrent ? 0.95 : 1,
+      }}
+    />
 
-      <div className="p-4 pb-3 flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <span className="fuse-pill fuse-pill--sheen">{title}</span>
-          {subtitle && (
-            <span className="text-[11px] text-slate-600 font-medium">
-              {subtitle}
-            </span>
-          )}
+    <div className="p-4 pb-3 flex items-center justify-between">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className={cn("fuse-pill fuse-pill--sheen", isCurrent && "bg-emerald-500")}>
+            {title}
+          </span>
+
+          {badge}
         </div>
-        {right}
-      </div>
 
-      <div className="px-4 pb-4 flex-1 overflow-auto">{children}</div>
+        {subtitle && (
+          <span className="text-[11px] text-slate-600 font-medium">{subtitle}</span>
+        )}
+      </div>
+      {right}
     </div>
-  );
-};
+
+    <div className="px-4 pb-4 flex-1 overflow-auto">{children}</div>
+  </div>
+);
+
 
 type Props = {
   sprints: SprintVm[];
@@ -273,22 +292,13 @@ type Props = {
   onSplit?: (t: TaskVm) => void;
   onMoveNext?: (t: TaskVm) => void;
   onOpenTicket?: (ticketId: string) => void;
-  // parent xử lý gọi API delete + reload board
   onDeleteTask?: (t: TaskVm) => Promise<void> | void;
-  // optional: nếu muốn BE nhận 1 payload tổng, dùng cái này thay vì replay onDragEnd
   onSaveBoard?: (payload: {
     moves: DropResult[];
     deletions: TaskVm[];
     draftBySprint: Record<string, TaskVm[]>;
   }) => Promise<void> | void;
-  // khi tạo sprint xong thì refetch board
   onReloadBoard?: () => void | Promise<void>;
-  /**
-   * khi user kéo 1 quick draft từ pool sang sprint.
-   * Parent có thể:
-   *  - Gọi API materializeDraftTask (convert backlog -> sprint)
-   *  - Refetch board
-   */
   onDropDraftToSprint?: (args: {
     draft: QuickDraft;
     sprintId: string;
@@ -296,26 +306,23 @@ type Props = {
   }) => Promise<void | TaskVm> | void;
 };
 
-/* ====== Kiểu draft từ AI ====== */
-type AiDraft = {
-  title: string;
-  description?: string | null;
-  type?: TaskVm["type"];
-  priority?: string | null;
-  severity?: string | null;
-  sprintId?: string | null;
-  sprintName?: string | null;
-  statusCategory?: string | null;
-  statusCode?: string | null;
-  estimateHours?: number | null;
-  storyPoints?: number | null;
-  dueDate?: string | null;
-  module?: string | null;
-  checklist?: string[] | null;
-};
+// type AiDraft = {
+//   title: string;
+//   description?: string | null;
+//   type?: TaskVm["type"];
+//   priority?: string | null;
+//   severity?: string | null;
+//   sprintId?: string | null;
+//   sprintName?: string | null;
+//   statusCategory?: string | null;
+//   statusCode?: string | null;
+//   estimateHours?: number | null;
+//   storyPoints?: number | null;
+//   dueDate?: string | null;
+//   module?: string | null;
+//   checklist?: string[] | null;
+// };
 
-// Map ProjectTaskResponse (backlog) -> QuickDraft dùng cho pool
-// Map ProjectTaskResponse (backlog) -> QuickDraft dùng cho pool
 const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
   if (!dto) {
     return {
@@ -331,8 +338,7 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
   const rawType = String(dto.type ?? dto.taskType ?? "Feature").toLowerCase();
   let type: QuickDraftType = "Feature";
   if (rawType.includes("bug")) type = "Bug";
-  else if (rawType.includes("chore") || rawType.includes("task"))
-    type = "Chore";
+  else if (rawType.includes("chore") || rawType.includes("task")) type = "Chore";
 
   const rawPrio = String(dto.priority ?? "Medium").toLowerCase();
   let priority: QuickDraftPriority = "Medium";
@@ -354,13 +360,8 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
     dto.createdOn ??
     new Date().toISOString();
 
-  // 🔴 QUAN TRỌNG: lấy thông tin ticket gốc
   const ticketId =
-    dto.ticketId ??
-    dto.ticket_id ??
-    dto.sourceTicketId ??
-    dto.source_ticket_id ??
-    null;
+    dto.ticketId ?? dto.ticket_id ?? dto.sourceTicketId ?? dto.source_ticket_id ?? null;
 
   const ticketCode =
     dto.ticketCode ??
@@ -382,7 +383,6 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
   };
 };
 
-
 export default function KanbanBySprintBoard({
   sprints,
   filterCategory = "ALL",
@@ -398,22 +398,70 @@ export default function KanbanBySprintBoard({
   onDropDraftToSprint,
 }: Props) {
   useFuseKanbanStyles();
+  // ===== Realtime + Current sprint marker =====
+  const [now, setNow] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const toMs = (iso?: string | null) => {
+    if (!iso) return Number.NaN;
+    const ms = new Date(iso).getTime();
+    return Number.isNaN(ms) ? Number.NaN : ms;
+  };
+
+  const isInRange = (n: Date, start?: string | null, end?: string | null) => {
+    const s = toMs(start);
+    const e = toMs(end);
+    const x = n.getTime();
+    if (Number.isNaN(s) || Number.isNaN(e)) return false;
+    return x >= s && x <= e;
+  };
+
+  const currentSprintId = React.useMemo(() => {
+    if (!sprints.length) return "";
+
+    const running = sprints.find((sp) =>
+      isInRange(now, (sp as any).start ?? sp.start, (sp as any).end ?? sp.end),
+    );
+    if (running) return running.id;
+
+    const upcoming = sprints
+      .filter((sp) => {
+        const sMs = toMs((sp as any).start ?? sp.start);
+        return !Number.isNaN(sMs) && sMs > now.getTime();
+      })
+      .sort((a, b) => toMs((a as any).start ?? a.start) - toMs((b as any).start ?? b.start))[0];
+    if (upcoming) return upcoming.id;
+
+    const past = sprints
+      .filter((sp) => {
+        const eMs = toMs((sp as any).end ?? sp.end);
+        return !Number.isNaN(eMs) && eMs < now.getTime();
+      })
+      .sort((a, b) => toMs((b as any).end ?? b.end) - toMs((a as any).end ?? a.end))[0];
+
+    return past?.id ?? sprints[0].id;
+  }, [sprints, now]);
 
   const [flashTaskId, setFlashTaskId] = useState<string | null>(null);
-
   const [bumpedOrder, setBumpedOrder] = useState<Record<string, number>>({});
   const bumpSeqRef = React.useRef(0);
+
   const [kw, setKw] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusCategory | "ALL">(
+  const [statusFilter, setStatusFilter] = useState<string | "ALL">(
     filterCategory ?? "ALL",
   );
-
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueFrom, setDueFrom] = useState<string | null>(null);
   const [dueTo, setDueTo] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
   const [tagFilter, setTagFilter] = useState<string>("ALL");
+const { can, loading: permLoading } = usePermissions();
+const canMoveSprint = !permLoading && can("TASK_MOVE_SPRINT");
 
   const hasAnyFilterActive =
     kw.trim() !== "" ||
@@ -424,6 +472,7 @@ export default function KanbanBySprintBoard({
     tagFilter !== "ALL" ||
     dueFrom !== null ||
     dueTo !== null;
+
   const bumpTask = React.useCallback((taskId?: string | null) => {
     if (!taskId) return;
     setBumpedOrder((prev) => ({
@@ -432,23 +481,29 @@ export default function KanbanBySprintBoard({
     }));
   }, []);
 
-  // update / cleanup mode
   const [updateMode, setUpdateMode] = useState(false);
-  // track card đang animate remove
   const [removingIds, setRemovingIds] = useState<Record<string, boolean>>({});
-
-  // draft: sprintId -> list TaskVm theo thứ tự (bao gồm tất cả status)
   const [draftTasksBySprint, setDraftTasksBySprint] = useState<
     Record<string, TaskVm[]> | null
   >(null);
+  const [baseTaskIdsBySprint, setBaseTaskIdsBySprint] = useState<
+  Record<string, Set<string>>
+>({});
+  const [aiNewIds, setAiNewIds] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const keys = Object.keys(aiNewIds);
+    if (!keys.length) return;
 
-  // các lần drag trong phiên update (để Save replay / gửi BE)
+    const timer = setTimeout(() => {
+      setAiNewIds({});
+    }, 8000); // sau 8s thì tắt highlight AI
+
+    return () => clearTimeout(timer);
+  }, [aiNewIds]);
   const [stagedMoves, setStagedMoves] = useState<DropResult[]>([]);
-  // các task bị đánh dấu xoá trong phiên update
   const [stagedDeletes, setStagedDeletes] = useState<TaskVm[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Có task AI draft (id không phải GUID hoặc isAiDraft) thì cũng coi như có thay đổi
   const hasAiDrafts =
     draftTasksBySprint != null &&
     Object.values(draftTasksBySprint).some((list) =>
@@ -457,11 +512,13 @@ export default function KanbanBySprintBoard({
 
   const hasStagedChanges =
     stagedMoves.length > 0 || stagedDeletes.length > 0 || hasAiDrafts;
+
   useEffect(() => {
     if (!updateMode) {
       setStatusFilter(filterCategory ?? "ALL");
     }
   }, [filterCategory, updateMode]);
+
   const [enteringIds, setEnteringIds] = useState<Record<string, number>>({});
   const prevTaskIdsRef = React.useRef<Set<string>>(new Set());
   const firstRenderRef = React.useRef(true);
@@ -472,7 +529,6 @@ export default function KanbanBySprintBoard({
     return () => clearTimeout(t);
   }, [flashTaskId]);
 
-  // dọn các entry bumpOrder cho task đã không còn trên board
   useEffect(() => {
     setBumpedOrder((prev) => {
       if (!Object.keys(prev).length) return prev;
@@ -506,7 +562,6 @@ export default function KanbanBySprintBoard({
     });
   }, [sprints, updateMode, draftTasksBySprint]);
 
-  // detect các task mới xuất hiện (từ AI create, Quick create, refetch board...)
   useEffect(() => {
     const current = new Set<string>();
 
@@ -530,7 +585,6 @@ export default function KanbanBySprintBoard({
 
     const prevSet = prevTaskIdsRef.current;
 
-    // lần render đầu tiên: không animate
     if (firstRenderRef.current) {
       firstRenderRef.current = false;
       prevSet.clear();
@@ -547,7 +601,6 @@ export default function KanbanBySprintBoard({
 
     if (!newIds.length) return;
 
-    // set delay index để stagger từng card
     setEnteringIds((prev) => {
       const next: Record<string, number> = { ...prev };
       newIds.forEach((id, idx) => {
@@ -566,7 +619,7 @@ export default function KanbanBySprintBoard({
         });
         return copy;
       });
-    }, 400); // lâu hơn tí so với .32s animation
+    }, 400);
 
     return () => clearTimeout(timeout);
   }, [sprints, draftTasksBySprint, updateMode]);
@@ -597,45 +650,114 @@ export default function KanbanBySprintBoard({
     },
     [onOpenTicket, navigate, companyId, projectId],
   );
+
   const handleOpenBacklogTicket = React.useCallback(
     (ticketId: string) => {
-      // nếu parent truyền onOpenTicket thì ưu tiên
       if (onOpenTicket) {
         onOpenTicket(ticketId);
         return;
       }
-
-      if (!companyId) return;
-      // TODO: sửa route đúng với màn ticket của bạn
+      if (!companyId || !projectId) return;
       navigate(`/companies/${companyId}/project/${projectId}/tickets/${ticketId}`);
     },
-    [onOpenTicket, navigate, companyId],
+    [onOpenTicket, navigate, companyId, projectId],
   );
+
   const [aiOpen, setAiOpen] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
 
-  // ====== Tạo sprint: modal popup ======
   const [createSprintOpen, setCreateSprintOpen] = useState(false);
   const [creatingSprint, setCreatingSprint] = useState(false);
   const [newSprintName, setNewSprintName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
+    const [deleteTask, setDeleteTask] = useState<TaskVm | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const openCreateSprintModal = () => {
     const defaultName = `Sprint ${sprints.length + 1}`;
     setNewSprintName(defaultName);
     setCreateError(null);
     setCreateSprintOpen(true);
   };
+  const [optimisticAiBySprint, setOptimisticAiBySprint] = React.useState<
+    Record<string, TaskVm[]>
+  >({});
+  const aiTimersRef = React.useRef<number[]>([]);
 
+  React.useEffect(() => {
+    return () => {
+      aiTimersRef.current.forEach((id) => window.clearTimeout(id));
+      aiTimersRef.current = [];
+    };
+  }, []);
+
+  const viewSprints = React.useMemo(() => {
+    if (!Object.keys(optimisticAiBySprint).length) return sprints;
+
+    return sprints.map((sp) => {
+      const extra = optimisticAiBySprint[sp.id] ?? [];
+      if (!extra.length) return sp;
+
+      const cols: Record<string, TaskVm[]> = { ...(sp.columns ?? {}) };
+
+      for (const t of extra) {
+        const stId =
+          t.workflowStatusId ??
+          sp.statusOrder?.[0] ??
+          Object.keys(cols)[0];
+
+        if (!stId) continue;
+
+        const arr = Array.isArray(cols[stId]) ? [...cols[stId]] : [];
+        if (!arr.some((x) => x.id === t.id)) arr.unshift(t);
+        cols[stId] = arr;
+      }
+
+      return { ...sp, columns: cols };
+    });
+  }, [sprints, optimisticAiBySprint]);
   const closeCreateSprintModal = () => {
     if (creatingSprint) return;
     setCreateSprintOpen(false);
     setCreateError(null);
   };
+const enqueueAiTasks = React.useCallback(
+  (tasks: TaskVm[], sprintOrder?: string[]) => {
+    const list = (tasks ?? []).filter((t) => t?.id && t?.sprintId);
 
-  const handleSubmitCreateSprint = async (
-    e?: React.FormEvent<HTMLFormElement>,
-  ) => {
+    if (sprintOrder?.length) {
+      const idxMap = new Map(sprintOrder.map((id, i) => [id, i]));
+      list.sort((a, b) => (idxMap.get(a.sprintId!) ?? 9999) - (idxMap.get(b.sprintId!) ?? 9999));
+    }
+
+    aiTimersRef.current.forEach((id) => window.clearTimeout(id));
+    aiTimersRef.current = [];
+
+    const STEP_MS = 450; 
+
+    list.forEach((t, i) => {
+      const timerId = window.setTimeout(() => {
+        // add optimistic
+        setOptimisticAiBySprint((prev) => {
+          const sid = t.sprintId!;
+          const curr = prev[sid] ?? [];
+          if (curr.some((x) => x.id === t.id)) return prev;
+          return { ...prev, [sid]: [t, ...curr] };
+        });
+
+        // highlight AI + pop like new task
+        setAiNewIds((prev) => ({ ...prev, [t.id]: true }));
+        setFlashTaskId(t.id);
+        bumpTask(t.id);
+      }, i * STEP_MS);
+
+      aiTimersRef.current.push(timerId);
+    });
+  },
+  [bumpTask],
+);
+
+  const handleSubmitCreateSprint = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
     if (!projectId) return;
 
@@ -649,7 +771,6 @@ export default function KanbanBySprintBoard({
       setCreatingSprint(true);
       setCreateError(null);
 
-      // BE tự tính StartDate / EndDate theo logic (sau sprint cuối cùng)
       await createSprint({
         projectId,
         name,
@@ -659,7 +780,6 @@ export default function KanbanBySprintBoard({
       setCreateSprintOpen(false);
 
       if (onReloadBoard) {
-        // cho parent refetch board, không reload full page
         await onReloadBoard();
       }
     } catch (err: any) {
@@ -675,7 +795,6 @@ export default function KanbanBySprintBoard({
     }
   };
 
-  // Tất cả task trên board (mọi sprint, mọi status) – dùng cho AI tránh trùng
   const allTasksFlat = React.useMemo(() => {
     const acc: TaskVm[] = [];
     for (const sp of sprints) {
@@ -684,7 +803,6 @@ export default function KanbanBySprintBoard({
     return acc;
   }, [sprints]);
 
-  // Map sprintId -> list status meta (cho AI + materialize)
   const workflowMetaBySprint = React.useMemo(() => {
     const result: Record<
       string,
@@ -716,9 +834,9 @@ export default function KanbanBySprintBoard({
 
     return result;
   }, [sprints]);
+
   const matchesFilters = React.useCallback(
     (t: TaskVm): boolean => {
-      // Trong update mode: luôn hiển thị full board, bỏ filter
       if (updateMode) return true;
 
       const k = kw.trim().toLowerCase();
@@ -727,27 +845,32 @@ export default function KanbanBySprintBoard({
         if (!haystack.includes(k)) return false;
       }
 
-      // ===== status filter: lấy category từ workflow giống TaskList =====
       if (statusFilter !== "ALL") {
-        let cat = t.statusCategory as StatusCategory | null;
+        let matched = false;
 
-        if (t.workflowStatusId && t.sprintId) {
-          const metaList = workflowMetaBySprint[t.sprintId] ?? [];
-          const meta = metaList.find((st) => st.id === t.workflowStatusId);
-          if (meta?.category) {
-            cat = meta.category as StatusCategory;
+        if (t.workflowStatusId && t.workflowStatusId === statusFilter) {
+          matched = true;
+        } else {
+          let cat = t.statusCategory as StatusCategory | null;
+
+          if (t.workflowStatusId && t.sprintId) {
+            const metaList = workflowMetaBySprint[t.sprintId] ?? [];
+            const meta = metaList.find((st) => st.id === t.workflowStatusId);
+            if (meta?.category) {
+              cat = meta.category as StatusCategory;
+            }
+          }
+
+          if (cat && cat === statusFilter) {
+            matched = true;
           }
         }
 
-        if (cat !== statusFilter) {
-          return false;
-        }
+        if (!matched) return false;
       }
 
       if (assigneeIds.length) {
-        const has = (t.assignees ?? []).some((m) =>
-          assigneeIds.includes(m.id),
-        );
+        const has = (t.assignees ?? []).some((m) => assigneeIds.includes(m.id));
         if (!has) return false;
       }
 
@@ -791,42 +914,37 @@ export default function KanbanBySprintBoard({
       tagFilter,
       dueFrom,
       dueTo,
-      workflowMetaBySprint, // ➕ nhớ thêm vào deps
+      workflowMetaBySprint,
     ],
   );
 
-  // Status dropdown trong filter bar (ghép tất cả category từ workflow)
   const statusFilterOptions: SimpleOption[] = React.useMemo(() => {
-    type Info = { label: string; order: number };
-
-    const byCategory = new Map<string, Info>();
+    const byId = new Map<string, { label: string; order: number }>();
 
     Object.values(workflowMetaBySprint).forEach((list) => {
       list.forEach((st, idx) => {
-        const cat = (st.category ?? "TODO") as StatusCategory;
-        const order = typeof st.order === "number" ? st.order : idx;
-        const label = st.name || st.code || prettyStatusCategory(cat);
+        const id = st.id;
+        if (!id) return;
 
-        const current = byCategory.get(cat);
-        if (!current || order < current.order) {
-          byCategory.set(cat, { label, order });
+        const order = typeof st.order === "number" ? st.order : idx;
+        const label =
+          st.name || st.code || prettyStatusCategory(st.category);
+
+        const existing = byId.get(id);
+        if (!existing || order < existing.order) {
+          byId.set(id, { label, order });
         }
       });
     });
 
-    return Array.from(byCategory.entries())
+    return Array.from(byId.entries())
       .sort((a, b) => a[1].order - b[1].order)
-      .map(([value, info]) => ({
-        value,          // "TODO" | "IN_PROGRESS" | ...
-        label: info.label, // tên theo workflow: "Open", "Doing", ...
+      .map(([id, info]) => ({
+        value: id,
+        label: info.label,
       }));
   }, [workflowMetaBySprint]);
 
-
-  // All tasks trên board – đã có sẵn:
-  // const allTasksFlat = React.useMemo(() => {...}, [sprints]);
-
-  // Assignee options
   const members: MemberRef[] = React.useMemo(() => {
     const map = new Map<string, MemberRef>();
     allTasksFlat.forEach((t) => {
@@ -846,7 +964,6 @@ export default function KanbanBySprintBoard({
     [members],
   );
 
-  // Severity options
   const severityOptions: SimpleOption[] = React.useMemo(() => {
     const set = new Set<string>();
     allTasksFlat.forEach((t) => {
@@ -859,7 +976,6 @@ export default function KanbanBySprintBoard({
     ];
   }, [allTasksFlat]);
 
-  // Tag options (nếu task có field tags: string[])
   const tagOptions: SimpleOption[] = React.useMemo(() => {
     const set = new Set<string>();
     allTasksFlat.forEach((t) => {
@@ -873,65 +989,56 @@ export default function KanbanBySprintBoard({
     ];
   }, [allTasksFlat]);
 
-  // Tổng số task sau filter (cho text “xx tasks” trên filter bar)
   const filteredGlobalCount = React.useMemo(() => {
     if (updateMode) return allTasksFlat.length;
     return allTasksFlat.filter(matchesFilters).length;
   }, [allTasksFlat, updateMode, matchesFilters]);
 
-  // helper: map status từ draft AI -> status thực trong workflow của sprint
-  const resolveStatusForAiDraft = React.useCallback(
-    (
-      sprintId: string,
-      draft: any,
-    ): { statusCategory: StatusCategory; workflowStatusId?: string } => {
-      const list = workflowMetaBySprint[sprintId] ?? [];
+  // const resolveStatusForAiDraft = React.useCallback(
+  //   (
+  //     sprintId: string,
+  //     draft: any,
+  //   ): { statusCategory: StatusCategory; workflowStatusId?: string } => {
+  //     const list = workflowMetaBySprint[sprintId] ?? [];
 
-      if (!list.length) {
-        return { statusCategory: "TODO", workflowStatusId: undefined };
-      }
+  //     if (!list.length) {
+  //       return { statusCategory: "TODO", workflowStatusId: undefined };
+  //     }
 
-      const rawCode = String(
-        draft.statusCode ?? draft.status_code ?? "",
-      ).trim();
-      const rawCat = String(
-        draft.statusCategory ?? draft.status_category ?? "",
-      )
-        .trim()
-        .toUpperCase();
+  //     const rawCode = String(draft.statusCode ?? draft.status_code ?? "").trim();
+  //     const rawCat = String(
+  //       draft.statusCategory ?? draft.status_category ?? "",
+  //     )
+  //       .trim()
+  //       .toUpperCase();
 
-      const statusMeta =
-        (rawCode &&
-          list.find(
-            (st) =>
-              st.code &&
-              st.code.toLowerCase() === rawCode.toLowerCase(),
-          )) ||
-        (rawCat &&
-          list.find(
-            (st) =>
-              st.category &&
-              st.category.toUpperCase() === rawCat,
-          )) ||
-        list.find((st) => !st.isDone) ||
-        list[0];
+  //     const statusMeta =
+  //       (rawCode &&
+  //         list.find(
+  //           (st) =>
+  //             st.code && st.code.toLowerCase() === rawCode.toLowerCase(),
+  //         )) ||
+  //       (rawCat &&
+  //         list.find(
+  //           (st) => st.category && st.category.toUpperCase() === rawCat,
+  //         )) ||
+  //       list.find((st) => !st.isDone) ||
+  //       list[0];
 
-      const statusCategory = (statusMeta?.category || "TODO") as StatusCategory;
-      const workflowStatusId = statusMeta?.id;
+  //     const statusCategory = (statusMeta?.category || "TODO") as StatusCategory;
+  //     const workflowStatusId = statusMeta?.id;
 
-      return { statusCategory, workflowStatusId };
-    },
-    [workflowMetaBySprint],
-  );
+  //     return { statusCategory, workflowStatusId };
+  //   },
+  //   [workflowMetaBySprint],
+  // );
 
   /* ====== Update mode controls ====== */
 
   const enterUpdateMode = () => {
-    // để tránh bug index khi filter != ALL
-   if (hasAnyFilterActive) {
-      return;
-    }
+    if (hasAnyFilterActive) return;
     const draft: Record<string, TaskVm[]> = {};
+    
     for (const sp of sprints) {
       draft[sp.id] = flattenSprintTasks(sp, "ALL");
     }
@@ -963,14 +1070,12 @@ export default function KanbanBySprintBoard({
     setSaving(true);
     try {
       if (onSaveBoard && draftTasksBySprint) {
-        // mode chuẩn: BE tự xử lý bulk theo layout
         await onSaveBoard({
           moves: stagedMoves,
           deletions: stagedDeletes,
           draftBySprint: draftTasksBySprint,
         });
       } else {
-        // fallback: replay onDragEnd + onDeleteTask như hiện tại
         for (const mv of stagedMoves) {
           await onDragEnd(mv);
         }
@@ -988,17 +1093,14 @@ export default function KanbanBySprintBoard({
     }
   };
 
-  /* ====== Quick draft pool state (BACKLOG thật ở DB) ====== */
+  /* ====== Quick draft pool state ====== */
 
   const [quickDraftOpen, setQuickDraftOpen] = useState(false);
   const [quickDrafts, setQuickDrafts] = useState<QuickDraft[]>([]);
-  const [draggingFromDraftPool, setDraggingFromDraftPool] =
-    useState(false);
-
+  const [draggingFromDraftPool, setDraggingFromDraftPool] = useState(false);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
   const [draftsInitialized, setDraftsInitialized] = useState(false);
 
-  // Load backlog từ BE: /projects/{projectId}/draft-tasks (IsBacklog = true, chưa gán sprint)
   const loadDraftTasks = React.useCallback(async () => {
     if (!projectId) return;
     try {
@@ -1030,65 +1132,81 @@ export default function KanbanBySprintBoard({
     }
   }, [projectId]);
 
-  // đảm bảo chỉ load 1 lần khi cần
   const ensureDraftsLoaded = React.useCallback(() => {
     if (!draftsInitialized && !loadingDrafts) {
       void loadDraftTasks();
     }
   }, [draftsInitialized, loadingDrafts, loadDraftTasks]);
 
-  // Nếu đang mở pool và đổi project -> load lại
   useEffect(() => {
     if (quickDraftOpen) {
       ensureDraftsLoaded();
     }
   }, [quickDraftOpen, ensureDraftsLoaded]);
-  // Task có match tất cả filter / search không
- 
 
-  /* ====== Helper: lấy tasks của 1 sprint kèm sort bump để card mới ở top ====== */
+  /* ====== Helper: lấy tasks của 1 sprint ====== */
 
-  const getSprintTasks = React.useCallback(
-    (s: SprintVm): { allTasks: TaskVm[]; tasks: TaskVm[] } => {
-      const allTasks =
-        updateMode && draftTasksBySprint
-          ? draftTasksBySprint[s.id] ?? []
-          : flattenSprintTasks(s, "ALL");
+const getSprintTasks = React.useCallback(
+  (s: SprintVm): { allTasks: TaskVm[]; tasks: TaskVm[] } => {
+    const baseAll =
+      updateMode && draftTasksBySprint
+        ? draftTasksBySprint[s.id] ?? []
+        : flattenSprintTasks(s, "ALL");
 
-      // áp dụng search + filter khi KHÔNG ở update mode
-      let tasks = allTasks;
-      if (!updateMode) {
-        tasks = allTasks.filter(matchesFilters);
+    const optimistic = optimisticAiBySprint[s.id] ?? [];
+    const mergedAll = (() => {
+      if (!optimistic.length) return baseAll;
+      const seen = new Set<string>();
+      const out: TaskVm[] = [];
+      for (const t of [...optimistic, ...baseAll]) {
+        if (!t?.id) continue;
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
+        out.push(t);
       }
+      return out;
+    })();
 
-      // bump task mới / vừa move lên đầu
-      if (tasks.length) {
-        const decorated = tasks.map((t, idx) => ({
+    let tasks = mergedAll;
+    if (!updateMode) tasks = mergedAll.filter(matchesFilters);
+
+    // ... giữ nguyên phần decorated sort của bạn
+    // (bumpTask sẽ đẩy lên trên + giữ thứ tự ổn)
+    if (tasks.length) {
+      const decorated = tasks.map((t, idx) => {
+        const isDraft =
+          updateMode &&
+          ((t as any).isLocalDraft ||
+            (t as any).isAiDraft ||
+            (t as any).backlogDraftId);
+
+        return {
           t,
           idx,
           bump: bumpedOrder[t.id] ?? 0,
-        }));
-        const hasBump = decorated.some((d) => d.bump > 0);
+          isDraft,
+        };
+      });
 
-        if (hasBump) {
-          decorated.sort((a, b) => {
-            if (a.bump === b.bump) return a.idx - b.idx;
-            return b.bump - a.bump;
-          });
-          tasks = decorated.map((d) => d.t);
-        }
-      }
+      decorated.sort((a, b) => {
+        if (a.isDraft !== b.isDraft) return a.isDraft ? -1 : 1;
+        if (a.bump !== b.bump) return b.bump - a.bump;
+        return a.idx - b.idx;
+      });
 
-      return { allTasks, tasks };
-    },
-    [updateMode, draftTasksBySprint, matchesFilters, bumpedOrder],
-  );
+      tasks = decorated.map((d) => d.t);
+    }
+
+    return { allTasks: mergedAll, tasks };
+  },
+  [updateMode, draftTasksBySprint, matchesFilters, bumpedOrder, optimisticAiBySprint],
+);
 
 
-  /* ====== Drag handler: live vs draft + quick draft pool ====== */
+
+  /* ====== Drag handlers ====== */
 
   const handleDragStartInternal = (start: DragStart) => {
-    // Nếu bắt đầu kéo từ QuickDraftPool → đóng drawer + tắt overlay pool
     if (start.source.droppableId === "draftPool") {
       setDraggingFromDraftPool(true);
       setQuickDraftOpen(false);
@@ -1096,33 +1214,86 @@ export default function KanbanBySprintBoard({
   };
 
   const handleDragEndInternal = (result: DropResult) => {
-    // kết thúc bất kỳ drag nào, reset flag
     setDraggingFromDraftPool(false);
 
     const { source, destination } = result;
     if (!destination) return;
 
-    // 1) Kéo từ quick draft pool (BACKLOG) sang sprint
+    // 1) Kéo từ QuickDraftPool (BACKLOG)
     if (source.droppableId === "draftPool") {
-      const sprintId = getSprintIdFromDroppable(
-        destination.droppableId,
-      );
+      const sprintId = getSprintIdFromDroppable(destination.droppableId);
       if (!sprintId) return;
 
       const movedDraft = quickDrafts[source.index];
       if (!movedDraft) return;
 
-      // xoá draft khỏi pool ngay cho UX mượt
-      setQuickDrafts((prev) =>
-        prev.filter((_, idx) => idx !== source.index),
-      );
+      // ===== A. Trong UPDATE MODE: chỉ stage local, không gọi API =====
+      if (updateMode) {
+        const metaList = workflowMetaBySprint[sprintId] ?? [];
+        const defaultStatus =
+          metaList.find((st) => !st.isDone) || metaList[0] || null;
+        const now = new Date().toISOString();
 
-      // Xử lý nghiệp vụ async (convert backlog -> sprint, reload board)
+        const localId = `BL-${movedDraft.id}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`;
+
+        const localTask: TaskVm & {
+          isLocalDraft?: boolean;
+          backlogDraftId?: string;
+        } = {
+          id: localId,
+          code: movedDraft.ticketCode ?? "BACKLOG",
+          title: movedDraft.title,
+          type: movedDraft.type as any,
+          priority: movedDraft.priority as any,
+          storyPoints: 0,
+          estimateHours: movedDraft.estimateHours ?? 0,
+          remainingHours: movedDraft.estimateHours ?? 0,
+          sprintId,
+          workflowStatusId: defaultStatus?.id,
+          statusCode: defaultStatus?.code ?? "todo",
+          statusCategory: (defaultStatus?.category as any) ?? "TODO",
+          StatusName: defaultStatus?.name ?? "",
+          assignees: [],
+          dependsOn: [],
+          parentTaskId: null,
+          carryOverCount: 0,
+          openedAt: movedDraft.createdAt ?? now,
+          createdAt: movedDraft.createdAt ?? now,
+          updatedAt: now,
+          sourceTicketId: movedDraft.ticketId ?? null,
+          sourceTicketCode: movedDraft.ticketCode ?? "",
+        };
+
+        (localTask as any).isLocalDraft = true;
+        (localTask as any).backlogDraftId = movedDraft.id;
+
+        setDraftTasksBySprint((prev) => {
+          const base = prev ?? {};
+          const current = base[sprintId] ?? [];
+          const nextList = [...current];
+          const insertAt = Math.min(
+            Math.max(destination.index, 0),
+            nextList.length,
+          );
+          nextList.splice(insertAt, 0, localTask);
+          return { ...base, [sprintId]: nextList };
+        });
+
+        setFlashTaskId(localTask.id);
+        bumpTask(localTask.id);
+        // backlog pool vẫn giữ nguyên, đến khi Save xong sẽ reload lại
+        return;
+      }
+
+      // ===== B. Bình thường: materialize ngay (logic cũ) =====
+      setQuickDrafts((prev) => prev.filter((_, idx) => idx !== source.index));
+
       void (async () => {
         let createdVm: TaskVm | null = null;
 
         try {
-          // 1. Nếu FE cha muốn custom -> dùng onDropDraftToSprint
           if (onDropDraftToSprint) {
             const resultVm: any = await onDropDraftToSprint({
               draft: movedDraft,
@@ -1133,14 +1304,10 @@ export default function KanbanBySprintBoard({
             if (resultVm && resultVm.id) {
               createdVm = resultVm as TaskVm;
             }
-          }
-          // 2. Fallback mặc định: gọi materializeDraftTask
-          else if (projectId) {
+          } else if (projectId) {
             const metaList = workflowMetaBySprint[sprintId] ?? [];
             const defaultStatus =
-              metaList.find((st) => !st.isDone) ||
-              metaList[0] ||
-              null;
+              metaList.find((st) => !st.isDone) || metaList[0] || null;
 
             createdVm = await materializeDraftTask(movedDraft.id, {
               sprintId,
@@ -1149,18 +1316,12 @@ export default function KanbanBySprintBoard({
               orderInSprint: destination.index,
             });
 
-            // Refetch lại board (sprint) nhưng vẫn trong SPA
             if (onReloadBoard) {
               await onReloadBoard();
             }
-
-            // Reload lại backlog để đồng bộ (draft đó đã không còn IsBacklog)
             await loadDraftTasks();
           } else {
-            toast.error(
-              "Missing projectId – cannot materialize backlog task.",
-            );
-            // rollback draft về pool nếu thiếu projectId
+            toast.error("Missing projectId – cannot materialize backlog task.");
             setQuickDrafts((prev) => {
               const clone = [...prev];
               clone.splice(source.index, 0, movedDraft);
@@ -1169,49 +1330,29 @@ export default function KanbanBySprintBoard({
             return;
           }
 
-          // Nếu tạo / materialize thành công => flash & bump lên đầu cột (UI)
           if (createdVm) {
             setFlashTaskId(createdVm.id);
             bumpTask(createdVm.id);
 
-            // nếu đang ở update mode thì đẩy luôn vào draftTasksBySprint để nhìn thấy ngay
             if (updateMode && draftTasksBySprint) {
               setDraftTasksBySprint((prev) => {
                 if (!prev) return prev;
                 const current = prev[sprintId] ?? [];
-                const nextList = [...current];
-
-                const insertAt = Math.min(
-                  Math.max(destination.index, 0),
-                  nextList.length,
-                );
-
-                // tránh double nếu refetch board cũng trả về task này
-                if (!nextList.some((t) => t.id === createdVm!.id)) {
-                  nextList.splice(insertAt, 0, createdVm!);
-                }
-
-                return {
-                  ...prev,
-                  [sprintId]: nextList,
-                };
+                if (current.some((t) => t.id === createdVm!.id)) return prev;
+                return { ...prev, [sprintId]: [...current, createdVm!] };
               });
             }
 
             toast.success("Moved backlog task into sprint.");
           }
         } catch (err: any) {
-          console.error(
-            "[Kanban] materialize backlog task failed",
-            err,
-          );
+          console.error("[Kanban] materialize backlog task failed", err);
           toast.error(
             err?.response?.data?.message ||
               err?.message ||
               "Failed to move backlog task into sprint.",
           );
 
-          // rollback draft về pool nếu lỗi
           setQuickDrafts((prev) => {
             const clone = [...prev];
             clone.splice(source.index, 0, movedDraft);
@@ -1220,16 +1361,18 @@ export default function KanbanBySprintBoard({
         }
       })();
 
-      // Không cho logic drag board xử lý nữa
       return;
     }
 
-    // 2) Drag task bình thường trên board
+    // 2) Drag task trên board
     const fromSprintId = getSprintIdFromDroppable(source.droppableId);
     const toSprintId = getSprintIdFromDroppable(destination.droppableId);
     if (!fromSprintId || !toSprintId) return;
-
-    // Bump task vừa di chuyển để UI render nó lên đầu cột đích
+const isCrossSprint = fromSprintId !== toSprintId;
+if (isCrossSprint && !canMoveSprint) {
+  toast.error("You don't have permission to move tasks across sprints.");
+  return; // không update state => task tự snap về chỗ cũ
+}
     const fromSprint = sprints.find((sp) => sp.id === fromSprintId);
     if (fromSprint) {
       const { tasks: visibleTasks } = getSprintTasks(fromSprint);
@@ -1239,7 +1382,6 @@ export default function KanbanBySprintBoard({
       }
     }
 
-    // Không ở update mode: hành vi cũ – bắn thẳng ra ngoài cho parent xử lý BE
     if (!updateMode || !draftTasksBySprint) {
       onDragEnd(result);
       return;
@@ -1265,28 +1407,28 @@ export default function KanbanBySprintBoard({
       };
     });
 
-    // lưu move để lúc Save mới gọi API
     setStagedMoves((prev) => [...prev, result]);
   };
 
-  // xoá 1 ticket trong update mode (draft delete)
-  const handleRequestDelete = async (task: TaskVm) => {
+   const handleRequestDelete = (task: TaskVm) => {
     if (!updateMode) return;
+    setDeleteTask(task);
+  };
+  const confirmDeleteTask = () => {
+    if (!updateMode || !deleteTask) {
+      setDeleteTask(null);
+      return;
+    }
 
-    const label = (task as any).code || task.title || "this ticket";
-    const ok = window.confirm(
-      `Delete "${label}"?\nThis action cannot be undone and will remove the ticket from this board.`,
-    );
-    if (!ok) return;
-
-    // animate thu nhỏ
+    const task = deleteTask;
+    setDeleteBusy(true);
     setRemovingIds((prev) => ({ ...prev, [task.id]: true }));
 
     setTimeout(() => {
-      // cập nhật draft: remove task khỏi sprint chứa nó
       setDraftTasksBySprint((prev) => {
         if (!prev) return prev;
         const next: Record<string, TaskVm[]> = { ...prev };
+
         for (const spId of Object.keys(next)) {
           const list = next[spId];
           const idx = list.findIndex((t) => t.id === task.id);
@@ -1297,10 +1439,10 @@ export default function KanbanBySprintBoard({
             break;
           }
         }
+
         return next;
       });
 
-      // flag delete để Save sau này bắn API
       setStagedDeletes((prev) =>
         prev.some((t) => t.id === task.id) ? prev : [...prev, task],
       );
@@ -1310,10 +1452,12 @@ export default function KanbanBySprintBoard({
         delete clone[task.id];
         return clone;
       });
+
+      setDeleteBusy(false);
+      setDeleteTask(null);
     }, 180);
   };
 
-  // full-screen overlay khi bật update mode (để nền mờ, board nổi bật)
   const overlay =
     updateMode && typeof document !== "undefined"
       ? createPortal(
@@ -1322,18 +1466,13 @@ export default function KanbanBySprintBoard({
         )
       : null;
 
-  // overlay AI loading (đè lên hết mọi thứ)
   const aiLoadingOverlay =
     aiGenerating && typeof document !== "undefined"
       ? createPortal(
           <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
               <div className="w-48 h-48">
-                <Lottie
-                  animationData={aiLoadingAnimation}
-                  loop
-                  autoplay
-                />
+                <Lottie animationData={aiLoadingAnimation} loop autoplay />
               </div>
               <p className="text-sm font-medium text-white/90">
                 AI is generating tasks…
@@ -1344,99 +1483,103 @@ export default function KanbanBySprintBoard({
         )
       : null;
 
-  /* ====== NHẬN TASK TỪ AI & ĐƯA VÀO TỪNG SPRINT (DRAFT, KHÔNG LƯU DB) ====== */
+  const handleAiGenerated = async (
+    generatedTasks: TaskVm[],
+    meta: { defaultSprintId: string; selectedSprintIds?: string[] },
+  ) => {
+    if (!Array.isArray(generatedTasks) || generatedTasks.length === 0) return;
 
-  const handleAiGenerated = React.useCallback(
-    (aiDrafts: AiDraft[], meta: { defaultSprintId: string }) => {
-      if (!Array.isArray(aiDrafts) || aiDrafts.length === 0) return;
+    // Đánh dấu id để TaskCard show badge AI to hơn lần đầu
+    setAiNewIds((prev) => {
+      const next: Record<string, boolean> = { ...prev };
+      for (const t of generatedTasks) {
+        if (t.id && isGuid(t.id)) {
+          next[t.id] = true;
+        }
+      }
+      return next;
+    });
 
-      // Bật update mode nếu chưa bật
-      setUpdateMode(true);
+    resetStaging();
+    setUpdateMode(false);
+  enqueueAiTasks(generatedTasks, meta.selectedSprintIds);
 
-      setDraftTasksBySprint((prev) => {
-        // base = board hiện tại nếu chưa có draft
-        const base: Record<string, TaskVm[]> =
-          prev ??
-          sprints.reduce<Record<string, TaskVm[]>>((acc, sp) => {
-            acc[sp.id] = flattenSprintTasks(sp, "ALL");
-            return acc;
-          }, {});
+const STEP_MS = 450;
+const totalMs = Math.max(0, generatedTasks.length - 1) * STEP_MS + 600;
 
-        const next: Record<string, TaskVm[]> = { ...base };
-        const now = Date.now();
+window.setTimeout(async () => {
+  if (onReloadBoard) await onReloadBoard();
+  setOptimisticAiBySprint({}); 
+}, totalMs);
+  };
 
-        aiDrafts.forEach((draft, idx) => {
-          // 1. Chọn sprint target
-          const aiSprintId = draft.sprintId ?? meta?.defaultSprintId ?? null;
-          const sprintId =
-            (aiSprintId && sprints.some((sp) => sp.id === aiSprintId)
-              ? aiSprintId
-              : meta?.defaultSprintId) || sprints[0]?.id;
 
-          if (!sprintId) return;
+const deleteConfirmModal =
+    deleteTask && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[998] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Delete task
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    This will remove the task from this board in the current update session.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !deleteBusy && setDeleteTask(null)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-100 text-slate-500"
+                  disabled={deleteBusy}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
-          // 2. Map status từ draft -> workflow thật
-          const { statusCategory, workflowStatusId } = resolveStatusForAiDraft(
-            sprintId,
-            draft,
-          );
+              <div className="mb-4">
+                <p className="text-xs text-slate-600">
+                  Are you sure you want to delete&nbsp;
+                  <span className="font-semibold text-slate-900">
+                    “{(deleteTask as any).code || deleteTask.title || "this task"}”
+                  </span>
+                  ?
+                </p>
+              </div>
 
-          // 3. Tạo id giả + gán cờ draft
-          const fakeId = `AI-${now}-${idx}-${Math.random()
-            .toString(36)
-            .slice(2, 8)}`;
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTask(null)}
+                  disabled={deleteBusy}
+                  className={cn(
+                    "inline-flex items-center px-3 h-8 rounded-full border text-xs font-medium",
+                    "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+                    deleteBusy && "opacity-60 cursor-not-allowed",
+                  )}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteTask}
+                  disabled={deleteBusy}
+                  className={cn(
+                    "inline-flex items-center px-4 h-8 rounded-full border text-xs font-medium shadow-sm",
+                    "border-red-600 bg-red-600 text-white hover:bg-red-700",
+                    deleteBusy && "opacity-60 cursor-not-allowed",
+                  )}
+                >
+                  {deleteBusy ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
-          const vm: TaskVm & { isAiDraft?: boolean } = {
-            // bắt buộc
-            id: fakeId,
-            sprintId,
-            title: draft.title,
-            description: draft.description ?? "",
-            type: (draft.type as any) ?? "Feature",
-            priority: normalizePriority(draft.priority),
-            severity: (draft.severity as any) ?? null,
-            statusCategory,
-            workflowStatusId,
-
-            // các field khác để TaskCard không bị lỗi
-            projectId: (sprints[0] as any)?.projectId ?? "",
-            statusCode: draft.statusCode ?? undefined,
-            sourceTicketId: undefined,
-            source: "AI_DRAFT",
-            code: "AI generate",
-            estimateHours: draft.estimateHours ?? null,
-            remainingHours: draft.estimateHours ?? null,
-            point:
-              (draft as any).storyPoints ??
-              draft.storyPoints ??
-              null,
-            dueDate: draft.dueDate ?? null,
-            module: (draft as any).module ?? null,
-
-            // cho UI checklist (nếu có)
-            checklist:
-              draft.checklist && Array.isArray(draft.checklist)
-                ? draft.checklist
-                : [],
-
-            // flag để TaskCard biết là task giả
-            isAiDraft: true,
-          } as any;
-
-          const list = next[sprintId] ?? [];
-          next[sprintId] = [...list, vm];
-
-          // bump để AI task nằm top cột
-          bumpTask(fakeId);
-        });
-
-        return next;
-      });
-    },
-    [resolveStatusForAiDraft, sprints, bumpTask],
-  );
-
-  // ===== Modal tạo sprint (portal) =====
   const createSprintModal =
     createSprintOpen && typeof document !== "undefined"
       ? createPortal(
@@ -1520,19 +1663,17 @@ export default function KanbanBySprintBoard({
       {overlay}
       {createSprintModal}
       {aiLoadingOverlay}
-           <div
+{deleteConfirmModal}
+      <div
         className={cn(
-          " pb-4 min-w-0 max-w-[100vw]",
+          "pb-4 min-w-0 max-w-[100vw]",
           updateMode && "relative z-40",
         )}
       >
-        {/* FILTER BAR: search + status + filters + actions */}
         <TaskFilterBar
           search={kw}
           onSearchChange={(val) => setKw(val)}
           totalText={`${filteredGlobalCount} tasks`}
-          // Kanban không sort để giữ thứ tự drag, nên không truyền sortOptions
-
           primaryFilterLabel="Status"
           primaryFilterValue={statusFilter}
           primaryFilterOptions={[
@@ -1540,30 +1681,24 @@ export default function KanbanBySprintBoard({
             ...statusFilterOptions,
           ]}
           onPrimaryFilterChange={(v) =>
-            setStatusFilter(v as StatusCategory | "ALL")
+            setStatusFilter(v as string | "ALL")
           }
-
           assigneeOptions={assigneeOptions}
           assigneeValues={assigneeIds}
           onAssigneeValuesChange={(vals) => setAssigneeIds(vals)}
-
           dateFrom={dueFrom}
           dateTo={dueTo}
           onDateFromChange={setDueFrom}
           onDateToChange={setDueTo}
-
           priorityOptions={PRIORITY_OPTIONS}
           priorityValue={priorityFilter}
           onPriorityChange={setPriorityFilter}
-
           severityOptions={severityOptions}
           severityValue={severityFilter}
           onSeverityChange={setSeverityFilter}
-
           tagOptions={tagOptions}
           tagValue={tagFilter}
           onTagChange={setTagFilter}
-
           onClearAllFilters={
             hasAnyFilterActive
               ? () => {
@@ -1580,7 +1715,6 @@ export default function KanbanBySprintBoard({
           }
           rightExtra={
             <div className="flex items-center gap-2">
-              {/* Quick draft pool toggle */}
               <button
                 type="button"
                 onClick={() =>
@@ -1600,8 +1734,7 @@ export default function KanbanBySprintBoard({
                 </span>
                 Draft pool
               </button>
-
-              {/* New sprint */}
+<Can code='SPRINT_CREATE'>
               <button
                 type="button"
                 onClick={openCreateSprintModal}
@@ -1615,9 +1748,9 @@ export default function KanbanBySprintBoard({
                 <Plus className="w-3 h-3" />
                 New sprint
               </button>
-
-              {/* Nút AI chỉ hiện khi đang Update mode */}
+</Can>
               {updateMode && (
+                <Can code='SPRINT_AI_GENERATE'>
                 <button
                   type="button"
                   onClick={() => setAiOpen(true)}
@@ -1628,6 +1761,7 @@ export default function KanbanBySprintBoard({
                   </span>
                   Generate tasks
                 </button>
+                </Can>
               )}
 
               {updateMode && (
@@ -1692,214 +1826,243 @@ export default function KanbanBySprintBoard({
         />
 
         {/* BOARD */}
-       {/* BOARD */}
-<div className="relative w-full min-w-0 max-w-[100vw] mt-3">
-  <div
-    className={cn(
-      "overflow-x-auto overscroll-x-contain rounded-xl w-full min-w-0 max-w-[100vw] bg-white/80 overflow-y-hidden",
-      updateMode &&
-        "ring-2 ring-blue-500/70 shadow-[0_0_0_1px_rgba(37,99,235,0.25)]",
-    )}
-    style={{ height: BOARD_H }}
-  >
-    <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5">
-      {sprints.map((s) => {
-        // lấy tasks theo sprint + filter + bump (task mới/move lên đầu)
-        const { allTasks, tasks } = getSprintTasks(s);
-        const stats = computeSprintStatsFromTasks(allTasks);
-        const dateLabel =
-          (s as any).start && (s as any).end
-            ? `${formatSprintDate((s as any).start)} - ${formatSprintDate(
-                (s as any).end,
-              )}`
-            : (s as any).start
-            ? formatSprintDate((s as any).start)
-            : "";
+        <div className="relative w-full min-w-0 max-w-[100vw] mt-3">
+          <div
+            className={cn(
+              "overflow-x-auto overscroll-x-contain rounded-xl w-full min-w-0 max-w-[100vw] bg-white/80 overflow-y-hidden",
+              updateMode &&
+                "ring-2 ring-blue-500/70 shadow-[0_0_0_1px_rgba(37,99,235,0.25)]",
+            )}
+            style={{ height: BOARD_H }}
+          >
+            <div className="inline-flex gap-4 h-full pr-8 min-w-max pb-5">
+              {sprints.map((s) => {
+                 const { allTasks, tasks } = getSprintTasks(s);
+  const stats = computeSprintStatsFromTasks(allTasks);
 
-        return (
-          <div key={s.id} className={`shrink-0 h-full ${COL_W} relative`}>
-            <BoardColumn
-              title={s.name}
-              subtitle={dateLabel}
-              right={
-                <div className="flex items-center gap-2 text-[12px]">
-                  <span className="text-gray-600">{stats.total} tasks</span>
-                  <span className="font-semibold text-green-700">
-                    {stats.pct}%
-                  </span>
-                </div>
-              }
-            >
-              {/* prefix spr: để khớp onDragEndKanban */}
-              <Droppable
-                droppableId={`spr:${s.id}`}
-                type="task"
-                renderClone={(provided, snapshot, rubric) => {
-                  const t = tasks[rubric.source.index];
-                  const meta = s.statusMeta?.[t.workflowStatusId ?? ""];
+  const startIso = (s as any).start ?? s.start;
+  const endIso = (s as any).end ?? s.end;
 
-                  return createPortal(
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      style={{
-                        ...provided.draggableProps.style,
-                        zIndex: 9999,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      <TaskCard
-                        t={t}
-                        ticketSiblingsCount={
-                          t.sourceTicketId
-                            ? tasks.filter(
-                                (x) =>
-                                  x.id !== t.id &&
-                                  x.sourceTicketId === t.sourceTicketId,
-                              ).length
-                            : 0
-                        }
-                        onMarkDone={_onMarkDone}
-                        onNext={_onNext}
-                        onSplit={_onSplit}
-                        onMoveNext={_onMoveNext}
-                        onOpenTicket={handleOpenTicket}
-                        isNew={t.id === flashTaskId}
-                        statusColorHex={meta?.color}
-                        statusLabel={meta?.name ?? meta?.code ?? ""}
-                      />
-                    </div>,
-                    document.body,
-                  );
-                }}
-              >
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={cn(
-                      "h-full overflow-y-auto overscroll-contain pr-1 fuse-dropzone",
-                      snapshot.isDraggingOver && "is-over rounded-xl",
-                    )}
-                    style={{ scrollbarWidth: "thin" }}
-                  >
-                    {/* progress bar (animated width) */}
-                    <div className="fuse-progress mb-2">
-                      <i style={{ width: `${stats.pct}%` }} />
-                    </div>
+  const isCurrent = !!currentSprintId && s.id === currentSprintId;
 
-                    {/* Quick create – luôn hiện trên mỗi cột */}
-                    <ColumnHoverCreate
-                      sprint={s}
-                      statusId={
-                        s.statusOrder?.[0] ??
-                        Object.keys(s.columns ?? {})[0]
-                      }
-                      allowStatusPicker
-                      onCreatedVM={(vm) => {
-                        setFlashTaskId(vm.id);
-                        bumpTask(vm.id);
-                        // nếu đang update mode thì push vào draft để layout nhất quán
-                        if (updateMode && draftTasksBySprint) {
-                          setDraftTasksBySprint((prev) => {
-                            if (!prev) return prev;
-                            const curr = prev[s.id] ?? [];
-                            if (curr.some((t) => t.id === vm.id)) return prev;
-                            return { ...prev, [s.id]: [...curr, vm] };
-                          });
-                        }
-                      }}
-                    />
+  const dateLabel =
+    startIso && endIso
+      ? `${formatSprintDate(startIso)} - ${formatSprintDate(endIso)}`
+      : startIso
+      ? formatSprintDate(startIso)
+      : "";
 
-                    <div className="space-y-4">
-                      {tasks.map((task, idx, arr) => {
-                        const sibs = task.sourceTicketId
-                          ? arr.filter(
-                              (x) =>
-                                x.id !== task.id &&
-                                x.sourceTicketId === task.sourceTicketId,
-                            ).length
-                          : 0;
+  return (
+    <div key={s.id} className={`shrink-0 h-full ${COL_W} relative`}>
+      <BoardColumn
+        title={s.name}
+        subtitle={dateLabel}
+        isCurrent={isCurrent}
+        badge={
+          isCurrent ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700">
+              Current
+            </span>
+          ) : null
+        }
+        right={
+          <div className="flex items-center gap-2 text-[12px]">
+       <span className="text-gray-600">
+  {stats.committedPts > 0
+    ? `${stats.donePts}/${stats.committedPts} pts`
+    : `${stats.doneTasks}/${stats.totalTasks} tasks`}
+</span>
 
-                        const meta =
-                          s.statusMeta?.[task.workflowStatusId ?? ""];
-                        const delayIndex = enteringIds[task.id];
-                        const isEntering = typeof delayIndex === "number";
-
-                        return (
-                          <Draggable key={task.id} draggableId={task.id} index={idx}>
-                            {(drag, snap) => (
-                              <div
-                                ref={drag.innerRef}
-                                {...drag.draggableProps}
-                                {...drag.dragHandleProps}
-                                style={{
-                                  ...drag.draggableProps.style,
-                                  zIndex: snap.isDragging ? 9999 : undefined,
-                                  animationDelay:
-                                    !snap.isDragging && isEntering
-                                      ? `${delayIndex * 60}ms`
-                                      : undefined,
-                                }}
-                                className={cn(
-                                  "group",
-                                  snap.isDragging && "rotate-[0.5deg]",
-                                  isRemoving(task.id) && "fuse-card-removing",
-                                  !snap.isDragging &&
-                                    isEntering &&
-                                    "fuse-card-enter",
-                                )}
-                              >
-                                <div className="relative">
-                                  {updateMode && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleRequestDelete(task)
-                                      }
-                                      className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-500 shadow-sm opacity-0 transition group-hover:opacity-100"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  )}
-
-                                  <TaskCard
-                                    t={task}
-                                    ticketSiblingsCount={sibs}
-                                    onMarkDone={_onMarkDone}
-                                    onNext={_onNext}
-                                    onSplit={_onSplit}
-                                    onMoveNext={_onMoveNext}
-                                    onOpenTicket={handleOpenTicket}
-                                    isNew={task.id === flashTaskId}
-                                    statusColorHex={meta?.color}
-                                    statusLabel={meta?.name ?? meta?.code ?? ""}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        );
-                      })}
-                    </div>
-
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </BoardColumn>
+            <span className="font-semibold text-green-700">{stats.pct}%</span>
           </div>
-        );
-      })}
-    </div>
-  </div>
-</div>
+        }
+      >
+                      <Droppable
+                        droppableId={`spr:${s.id}`}
+                        type="task"
+                     renderClone={(provided, snapshot, rubric) => {
+  const t = tasks[rubric.source.index];
+  const meta = s.statusMeta?.[t.workflowStatusId ?? ""];
 
+  return createPortal(
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      {...provided.dragHandleProps}
+      style={{
+        ...provided.draggableProps.style,
+        zIndex: 9999,
+        pointerEvents: "none",
+      }}
+    >
+      <TaskCard
+        t={t}
+        ticketSiblingsCount={
+          t.sourceTicketId
+            ? tasks.filter(
+                (x) =>
+                  x.id !== t.id &&
+                  x.sourceTicketId ===
+                    t.sourceTicketId,
+              ).length
+            : 0
+        }
+        onMarkDone={_onMarkDone}
+        onNext={_onNext}
+        onSplit={_onSplit}
+        onMoveNext={_onMoveNext}
+        onOpenTicket={handleOpenTicket}
+        isNew={t.id === flashTaskId}
+        statusColorHex={meta?.color}
+        statusLabel={meta?.name ?? meta?.code ?? ""}
+        isAiNew={!!aiNewIds[t.id]}
+      />
+    </div>,
+    document.body,
+  );
+}}
+
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              "h-full overflow-y-auto overscroll-contain pr-1 fuse-dropzone",
+                              snapshot.isDraggingOver && "is-over rounded-xl",
+                            )}
+                            style={{ scrollbarWidth: "thin" }}
+                          >
+                            <div className="fuse-progress mb-2">
+                              <i style={{ width: `${stats.pct}%` }} />
+                            </div>
+
+                            {/* QUICK CREATE – khi updateMode thì chỉ tạo draft local */}
+                            <Can code='TASK_CREATE'>
+                            <ColumnHoverCreate
+                              sprint={s}
+                              statusId={
+                                s.statusOrder?.[0] ??
+                                Object.keys(s.columns ?? {})[0]
+                              }
+                              allowStatusPicker
+                              createAsDraft={updateMode}
+                              onCreatedVM={(vm) => {
+                                setFlashTaskId(vm.id);
+                                bumpTask(vm.id);
+                                if (updateMode && draftTasksBySprint) {
+                                  setDraftTasksBySprint((prev) => {
+                                    if (!prev) return prev;
+                                    const curr = prev[s.id] ?? [];
+                                    if (curr.some((t) => t.id === vm.id))
+                                      return prev;
+                                   return { ...prev, [s.id]: [vm, ...curr] };
+                                  });
+                                }
+                              }}
+                            />
+</Can>
+                            <div className="space-y-4">
+                              {tasks.map((task, idx, arr) => {
+                                const sibs = task.sourceTicketId
+                                  ? arr.filter(
+                                      (x) =>
+                                        x.id !== task.id &&
+                                        x.sourceTicketId ===
+                                          task.sourceTicketId,
+                                    ).length
+                                  : 0;
+
+                                const meta =
+                                  s.statusMeta?.[task.workflowStatusId ?? ""];
+                                const delayIndex = enteringIds[task.id];
+                                const isEntering =
+                                  typeof delayIndex === "number";
+
+                                return (
+                                  <Draggable
+                                    key={task.id}
+                                    draggableId={task.id}
+                                    index={idx}
+                                  >
+                                    {(drag, snap) => (
+                                      <div
+                                        ref={drag.innerRef}
+                                        {...drag.draggableProps}
+                                        {...drag.dragHandleProps}
+                                        style={{
+                                          ...drag.draggableProps.style,
+                                          zIndex: snap.isDragging
+                                            ? 9999
+                                            : undefined,
+                                          animationDelay:
+                                            !snap.isDragging && isEntering
+                                              ? `${delayIndex * 60}ms`
+                                              : undefined,
+                                        }}
+                                        className={cn(
+                                          "group",
+                                          snap.isDragging &&
+                                            "rotate-[0.5deg]",
+                                          isRemoving(task.id) &&
+                                            "fuse-card-removing",
+                                          !snap.isDragging &&
+                                            isEntering &&
+                                            "fuse-card-enter",
+                                        )}
+                                      >
+                                        <div className="relative">
+                                          {updateMode && (
+                                            <Can code='TASK_DELETE'>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                handleRequestDelete(task)
+                                              }
+                                              className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-500 shadow-sm opacity-0 transition group-hover:opacity-100"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </button>
+                                            </Can>
+                                          )}
+
+                                          <TaskCard
+                                            t={task}
+                                            ticketSiblingsCount={sibs}
+                                            onMarkDone={_onMarkDone}
+                                            onNext={_onNext}
+                                            onSplit={_onSplit}
+                                            onMoveNext={_onMoveNext}
+                                            onOpenTicket={handleOpenTicket}
+                                            isNew={task.id === flashTaskId}
+                                            statusColorHex={meta?.color}
+                                            statusLabel={
+                                              meta?.name ?? meta?.code ?? ""
+                                            }
+                                              isAiNew={!!aiNewIds[task.id]}
+
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                );
+                              })}
+                            </div>
+
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </BoardColumn>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
-
-      {/* Quick draft pool – dùng chung DragDropContext, hiển thị backlog từ BE */}
       <QuickDraftPool
         open={quickDraftOpen}
         setOpen={setQuickDraftOpen}
@@ -1910,7 +2073,6 @@ export default function KanbanBySprintBoard({
         loading={loadingDrafts}
         onReloadDrafts={loadDraftTasks}
         onOpenTicket={handleOpenBacklogTicket}
-
       />
 
       {aiOpen && (
@@ -1918,11 +2080,11 @@ export default function KanbanBySprintBoard({
           open={aiOpen}
           onClose={() => setAiOpen(false)}
           projectId={projectId!}
-          projectName={"FUSION - Project Board"}
+          projectName="FUSION - Project Board"
           sprints={sprints}
           existingTasks={allTasksFlat}
           workflowMetaBySprint={workflowMetaBySprint}
-          onGenerated={handleAiGenerated} // nhận AiDraft[], meta.defaultSprintId
+          onGenerated={handleAiGenerated}
           onGeneratingChange={setAiGenerating}
         />
       )}

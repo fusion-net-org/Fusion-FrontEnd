@@ -26,7 +26,6 @@ import MonthlyRevenueChart from '@/pages/admin/transactionManagement/Chart/Month
 import MonthlyRevenueCompareChart from '@/pages/admin/transactionManagement/Chart/MonthlyRevenueCompareChart';
 import PaymentHealthChart from '@/pages/admin/transactionManagement/Chart/PaymentHealthChart';
 import DailyCashflowChart from '@/pages/admin/transactionManagement/Chart/DailyCashflowChart';
-import InstallmentAgingChart from '@/pages/admin/transactionManagement/Chart/InstallmentAgingChart';
 import TopCustomersChart from '@/pages/admin/transactionManagement/Chart/TopCustomersChart';
 
 const { Option } = Select;
@@ -194,7 +193,6 @@ const TransactionOverviewPage: React.FC = () => {
 
       {/* Row 3: installment aging + top customers */}
       <div className="grid gap-5 md:grid-cols-2">
-        <InstallmentAgingChart data={agingData} loading={loadingAging} />
         <TopCustomersChart data={topData} loading={loadingTop} topN={topN} onTopNChange={setTopN} />
       </div>
     </div>

@@ -78,8 +78,8 @@ const mapItemToProject = (r, currentCompanyId) => {
       : hasCompanyRequest &&
         String(companyRequestId).toLowerCase() === String(currentCompanyId).toLowerCase();
 
-  const isMaintenance = !!(r.isMaintenance ?? r.is_maintenance ?? false);
-
+const isMaintenance = !!(r.isMaintenance ?? r.isMaintenace ?? r.is_maintenance ?? false);
+console.log(isMaintenance)
   // backend có thể trả maintenanceComponentCount / componentCount / totalComponents...
   const maintenanceComponentCount = toInt(
     r.maintenanceComponentCount ?? r.componentCount ?? r.totalComponents ?? 0,
@@ -103,6 +103,7 @@ const mapItemToProject = (r, currentCompanyId) => {
     endDate: toDateStr(r.endDate),
     status: normStatus(r.status),
 
+    isClosed: r.isClosed,
     ptype,
     isRequest: !!isRequest,
 
@@ -207,7 +208,6 @@ export async function loadProjects({
     : Array.isArray(payload)
     ? payload
     : [];
-
   return {
     items: items.map((r) => mapItemToProject(r, companyId)),
     totalCount: payload.totalCount ?? items.length,
@@ -359,6 +359,15 @@ export const GetProjectByCompanyRequest = async (id) => {
   }
 };
 
+export const GetProjectProcess = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/projects/${id}/progress`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error!');
+  }
+};
+
 export const getAllProjectByAdmin = async ({
   CompanyName = '',
   PageNumber = 1,
@@ -367,7 +376,7 @@ export const getAllProjectByAdmin = async ({
   SortDescending = false,
 }) => {
   try {
-    const response = await axiosInstance.get('/admin', {
+    const response = await axiosInstance.get('/admin/projects', {
       params: {
         CompanyName,
         PageNumber,
@@ -454,3 +463,20 @@ export async function deleteProject(projectId) {
   const res = await axiosInstance.delete(`/projects/${projectId}`);
   return res.data;
 }
+export async function closeProject(projectId) {
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+  const { data } = await axiosInstance.post(`/projects/${projectId}/close`);
+  return data?.data ?? data;
+}
+
+export async function reopenProject(projectId) {
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+  const { data } = await axiosInstance.post(`/projects/${projectId}/reopen`);
+  return data?.data ?? data;
+}
+export const checkProjectAccess = async (projectId) => {
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+
+  const { data } = await axiosInstance.get(`/projects/${projectId}/access`);
+  return data?.data ?? data;
+};
