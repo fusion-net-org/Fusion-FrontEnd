@@ -292,7 +292,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/my-profile" element={<UserProfile />} />
         <Route
-          path="/live-chat"
+          path="/chat"
           element={
             <RequireAuth>
               <ChatPage />

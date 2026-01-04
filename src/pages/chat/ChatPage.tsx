@@ -1,3 +1,8 @@
+import { useEffect, useState } from 'react';
+import { Plus, MessageSquarePlus, UsersRound } from 'lucide-react';
+import { connection } from '@/pages/chat/signalR';
+import { useAppSelector, useAppDispatch } from '@/redux/hooks';
+
 const chats = [
   { id: 1, name: 'Nhóm Test', members: 3, time: '22m' },
   { id: 2, name: 'group2', members: 3, time: '15h' },
@@ -20,7 +25,62 @@ const messages = [
   { id: 6, text: 'doi ty', time: '14:09', mine: true },
 ];
 
+export interface UserInfo {
+  name: string;
+  email: string;
+  avatar?: string;
+  initials?: string;
+}
+
+type Message = {
+  id: number;
+  text: string;
+  time: string;
+  mine: boolean;
+};
+
 export default function ChatPage() {
+  const [activeChat, setActiveChat] = useState<number | null>(null);
+  const dispatch = useAppDispatch();
+  const userFromRedux = useAppSelector((state) => state.user.user);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [text, setText] = useState('');
+
+  //User Info
+  const currentUser: UserInfo = userFromRedux
+    ? {
+        name: userFromRedux.username || 'Unknown',
+        email: userFromRedux.email,
+      }
+    : { name: 'Unknown', email: 'user@company.com' };
+
+  const getInitials = () =>
+    currentUser.name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+  // Tạo connection
+  useEffect(() => {
+    connection
+      .start()
+      .then(() => {
+        console.log('SignalR connected');
+
+        connection.on('ReceiveMessage', (message: Message) => {
+          setMessages((prev) => [...prev, message]);
+        });
+      })
+      .catch(console.error);
+
+    return () => {
+      connection.off('ReceiveMessage');
+      connection.stop();
+    };
+  }, []);
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -37,15 +97,27 @@ export default function ChatPage() {
           </button>
         </div>
 
-        <div className="px-4 text-xs text-gray-400 font-semibold">GROUP CHAT</div>
+        <div className="px-4 flex items-center justify-between text-xs text-gray-400 font-semibold">
+          <span>GROUP CHAT</span>
+
+          <button
+            className="p-1 rounded hover:bg-gray-200 transition"
+            title="Add group"
+            onClick={() => {
+              console.log('Add group');
+            }}
+          >
+            <MessageSquarePlus size={16} className="text-gray-500" />
+          </button>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
           {chats.map((c) => (
             <div
               key={c.id}
+              onClick={() => setActiveChat(c.id)}
               className={`p-3 rounded-xl cursor-pointer flex justify-between items-center ${
-                c.name === 'Nhóm Frontend Dev'
-                  ? 'border border-purple-400 bg-purple-50'
-                  : 'hover:bg-gray-100'
+                activeChat === c.id ? 'border border-purple-400 bg-purple-50' : 'hover:bg-gray-100'
               }`}
             >
               <div>
@@ -57,7 +129,19 @@ export default function ChatPage() {
           ))}
         </div>
 
-        <div className="px-4 text-xs text-gray-400 font-semibold mt-2">FRIENDS</div>
+        <div className="px-4 flex items-center justify-between text-xs text-gray-400 font-semibold">
+          <span>FRIENDS</span>
+
+          <button
+            className="p-1 rounded hover:bg-gray-200 transition"
+            title="Add group"
+            onClick={() => {
+              console.log('Add friend');
+            }}
+          >
+            <UsersRound size={16} className="text-gray-500" />
+          </button>
+        </div>
         <div className="p-2 space-y-2">
           {friends.map((f) => (
             <div
@@ -81,10 +165,12 @@ export default function ChatPage() {
         </div>
 
         <div className="mt-auto p-3 border-t flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-300" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-semibold text-white">
+            {getInitials()}
+          </div>
           <div className="flex-1">
-            <div className="text-sm font-semibold">cong-bang</div>
-            <div className="text-xs text-gray-400">congbang@gmail.com</div>
+            <div className="text-sm font-semibold">{currentUser.name}</div>
+            <div className="text-xs text-gray-400">{currentUser.email}</div>
           </div>
         </div>
       </aside>
@@ -117,9 +203,11 @@ export default function ChatPage() {
         {/* Input */}
         <div className="p-4 bg-white border-t flex items-center gap-3">
           <input
-            placeholder="Soạn tin nhắn..."
-            className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+            disabled={!activeChat}
+            placeholder={activeChat ? 'Soạn tin nhắn...' : 'Chọn group để chat'}
+            className="flex-1 px-4 py-2 border rounded-full disabled:bg-gray-100"
           />
+
           <button className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center">
             ➤
           </button>
