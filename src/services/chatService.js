@@ -20,9 +20,9 @@ export const sendAddFriend = async (email) => {
   }
 };
 
-export const getMyGroupChatList = async () => {
+export const getMyGroupChatList = async (keyword = '') => {
   try {
-    const response = await axiosInstance.get('/Chat/conversations/paged');
+    const response = await axiosInstance.get(`/Chat/conversations/paged?Keyword=${keyword}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Error!' };

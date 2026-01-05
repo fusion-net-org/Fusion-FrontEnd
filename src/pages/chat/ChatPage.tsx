@@ -36,6 +36,8 @@ export type ChatMessage = {
   senderAvatar?: string;
   senderName?: string;
   mine: boolean;
+  nameSender?: string;
+  avatarSender?: string;
 };
 
 type Friend = {
@@ -93,6 +95,8 @@ export default function ChatPage() {
 
   // conversation
   const [chats, setChats] = useState<Conversation[]>([]);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const searchTimeoutRef = useRef<any>(null);
 
   // Create group modal
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -139,11 +143,13 @@ export default function ChatPage() {
 
           if (currentChat?.type !== 2) return;
           if (msg.conversationId !== currentChat.id) return;
-
+          console.log(msg);
           setMessages((prev) => [
             ...prev,
             {
               id: msg.id,
+              senderName: msg.nameSender,
+              senderAvatar: msg.avatarSender,
               conversationId: msg.conversationId,
               senderId: msg.senderId,
               content: msg.content,
@@ -165,6 +171,8 @@ export default function ChatPage() {
             ...prev,
             {
               id: msg.id,
+              senderName: msg.nameSender,
+              senderAvatar: msg.avatarSender,
               conversationId: msg.conversationId,
               senderId: msg.senderId,
               content: msg.content,
@@ -224,17 +232,17 @@ export default function ChatPage() {
   };
 
   // get group chat
-  const fetchChats = async () => {
+  const fetchChats = async (keyword = '') => {
     try {
       setLoadingChats(true);
-      const res = await getMyGroupChatList();
+      const res = await getMyGroupChatList(keyword);
 
       const mappedChats: Conversation[] = res.data.items.map((item: any) => {
         if (item.type === 1) {
           return {
             id: item.id,
             type: 1,
-            name: item.peerEmail?.split('@')[0] || 'Unknown',
+            name: item.peerUserName || 'Unknown',
             time: item.lastMessageAt ? new Date(item.lastMessageAt).toLocaleTimeString() : '',
             avatar: item.peerAvatar,
             peerUserId: item.peerUserId,
@@ -426,17 +434,44 @@ export default function ChatPage() {
     <>
       <div className="flex h-screen bg-gray-100">
         {/* Sidebar */}
-        <aside className="w-80 bg-white border-r flex flex-col">
+        <aside className="w-80 bg-white border-r-black flex flex-col">
           <div className="p-3">
             <div className="p-4 bg-gradient-to-r from-blue-500 to-pink-400 text-white font-bold text-lg rounded-2xl">
               Fusion Chat
             </div>
           </div>
 
-          <div className="p-3">
-            <button className="w-full py-2 rounded-lg bg-purple-100 text-purple-700 font-medium">
-              New Message
-            </button>
+          <div className="m-4 relative">
+            <input
+              value={searchKeyword}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchKeyword(value);
+
+                if (searchTimeoutRef.current) {
+                  clearTimeout(searchTimeoutRef.current);
+                }
+
+                searchTimeoutRef.current = setTimeout(() => {
+                  fetchChats(value);
+                }, 400);
+              }}
+              placeholder="Search conversations..."
+              className="w-full pl-9 pr-3 py-2 rounded-lg border text-sm
+               focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="7" cy="7" r="5" />
+              <line x1="11" y1="11" x2="15" y2="15" />
+            </svg>
           </div>
 
           <div className="px-4 flex items-center justify-between text-xs text-gray-400 font-semibold">
@@ -501,11 +536,11 @@ export default function ChatPage() {
                         <div className="min-w-0">
                           <div className="font-medium text-sm">{c.name}</div>
 
-                          {c.lastMessage && (
+                          {/* {c.lastMessage && (
                             <div className="text-xs text-gray-400 truncate max-w-[160px]">
                               {c.lastMessage}
                             </div>
-                          )}
+                          )} */}
                         </div>
                       </div>
 
@@ -778,12 +813,14 @@ export default function ChatPage() {
                         >
                           <input
                             type="checkbox"
-                            checked={selectedFriendIds.includes(f.id)}
+                            checked={selectedFriendIds.includes(f.friendshipId)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedFriendIds((prev) => [...prev, f.id]);
+                                setSelectedFriendIds((prev) => [...prev, f.friendshipId]);
                               } else {
-                                setSelectedFriendIds((prev) => prev.filter((id) => id !== f.id));
+                                setSelectedFriendIds((prev) =>
+                                  prev.filter((id) => id !== f.friendshipId),
+                                );
                               }
                             }}
                           />
