@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, MessageSquarePlus, UsersRound, X } from 'lucide-react';
+import { MessageSquarePlus, UsersRound, X, UserPlus, MoreVertical, UserMinus } from 'lucide-react';
 import { connection, joinGroup, leaveGroup } from '@/pages/chat/signalR';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import {
@@ -8,33 +8,15 @@ import {
   getMyGroupChatList,
   createGroupChat,
   getMessages,
+  getFriendInvitationList,
+  acceptFriendInvitation,
+  rejectFriendInvitation,
+  unfriend,
 } from '@/services/chatService.js';
 import { toast } from 'react-toastify';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatListSkeleton } from './ChatSkeleton';
 import { MessageSkeleton } from './MessageSkeleton';
-
-// const chats = [
-//   { id: 1, name: 'Nhóm Test', members: 3, time: '22m' },
-//   { id: 2, name: 'group2', members: 3, time: '15h' },
-//   { id: 3, name: 'Nhóm Backend Dev', members: 3, time: '22h' },
-//   { id: 4, name: 'KienMinh', members: 2, time: '' },
-// ];
-
-// const friends = [
-//   { id: 1, name: 'NguyenDuy', status: 'nguyenduy@gmail.com', online: true },
-//   { id: 2, name: 'CaoDung', status: 'kienminh@gmail.com', online: false },
-//   { id: 3, name: 'KienMinh', status: 'kienminh@gmail.com', online: false },
-// ];
-
-// const messages = [
-//   { id: 1, text: 'e lô', time: '29/9 15:46', mine: false },
-//   { id: 2, text: 'looo', time: '29/9 15:47', mine: false },
-//   { id: 3, text: '???', time: '29/9 15:49', mine: false },
-//   { id: 4, text: 'làm xong chưa', time: '29/9 15:49', mine: false },
-//   { id: 5, text: 'chưa', time: '13:50', mine: true },
-//   { id: 6, text: 'doi ty', time: '14:09', mine: true },
-// ];
 
 export interface UserInfo {
   name: string;
@@ -58,6 +40,7 @@ export type ChatMessage = {
 
 type Friend = {
   id: string;
+  friendshipId: string;
   name: string;
   email: string;
   avatar?: string;
@@ -76,6 +59,14 @@ type Conversation = {
   lastMessage?: string;
   hasUnread?: boolean;
   title?: string;
+};
+
+type FriendRequest = {
+  id: string;
+  requesterId: string;
+  requesterName?: string;
+  requesterAvatar?: string;
+  requestedAt: string;
 };
 
 export default function ChatPage() {
@@ -108,6 +99,16 @@ export default function ChatPage() {
   const [groupTitle, setGroupTitle] = useState('');
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+
+  //friend req
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [showRequestDrawer, setShowRequestDrawer] = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  //unfriend
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [confirmFriend, setConfirmFriend] = useState<Friend | null>(null);
+  const [unfriending, setUnfriending] = useState(false);
 
   //User Info
   const currentUser: UserInfo = userFromRedux
@@ -193,7 +194,8 @@ export default function ChatPage() {
       const res = await getMyFriendList();
 
       const mappedFriends: Friend[] = res.data.items.map((item: any) => ({
-        id: item.friendshipId,
+        id: item.id,
+        friendshipId: item.friendshipId,
         name: item.userName,
         email: item.email,
         avatar: item.avatar,
@@ -205,6 +207,19 @@ export default function ChatPage() {
       console.error('Fetch friends failed', err);
     } finally {
       setLoadingFriends(false);
+    }
+  };
+
+  //get friend req list
+  const fetchFriendRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const res = await getFriendInvitationList();
+      setFriendRequests(res.data);
+    } catch (err) {
+      console.error('Fetch friend requests failed', err);
+    } finally {
+      setLoadingRequests(false);
     }
   };
 
@@ -244,6 +259,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     fetchFriends();
+    fetchFriendRequests();
     fetchChats();
   }, []);
 
@@ -364,6 +380,48 @@ export default function ChatPage() {
     setText('');
   };
 
+  // handle friend reqs
+  const handleAcceptRequest = async (requestId: string) => {
+    try {
+      console.log(requestId);
+      await acceptFriendInvitation(requestId);
+      setFriendRequests((prev) => prev.filter((r) => r.id !== requestId));
+      fetchFriends();
+      toast.success('Friend added');
+    } catch {
+      toast.error('Accept failed');
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      await rejectFriendInvitation(requestId);
+      setFriendRequests((prev) => prev.filter((r) => r.id !== requestId));
+      toast.info('Request rejected');
+    } catch {
+      toast.error('Reject failed');
+    }
+  };
+
+  // handle unfriend
+  const handleConfirmUnfriend = async () => {
+    if (!confirmFriend) return;
+
+    try {
+      console.log(confirmFriend.id);
+      setUnfriending(true);
+      await unfriend(confirmFriend.id);
+
+      setFriends((prev) => prev.filter((f) => f.id !== confirmFriend.id));
+      toast.success(`Unfriended ${confirmFriend.name}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Unfriend failed');
+    } finally {
+      setUnfriending(false);
+      setConfirmFriend(null);
+    }
+  };
+
   return (
     <>
       <div className="flex h-screen bg-gray-100">
@@ -466,14 +524,33 @@ export default function ChatPage() {
           <div className="px-4 flex items-center justify-between text-xs text-gray-400 font-semibold">
             <span>FRIENDS</span>
 
-            <button
-              className="p-1 rounded hover:bg-gray-200 transition"
-              title="Add friend"
-              onClick={() => setShowAddFriend(true)}
-            >
-              <UsersRound size={16} className="text-gray-500" />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Add friend */}
+              <button
+                className="p-1 rounded hover:bg-gray-200 transition"
+                title="Add friend"
+                onClick={() => setShowAddFriend(true)}
+              >
+                <UserPlus size={16} className="text-gray-500" />
+              </button>
+
+              {/* Friend requests */}
+              <button
+                className="relative p-1 rounded hover:bg-gray-200 transition"
+                title="Friend requests"
+                onClick={() => setShowRequestDrawer(true)}
+              >
+                <UsersRound size={16} className="text-gray-500" />
+
+                {friendRequests.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                    {friendRequests.length}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
+
           {showAddFriend && (
             <div className="mx-2 mt-2 p-3 rounded-xl border bg-white shadow-md space-y-2">
               <div className="flex items-center justify-between">
@@ -508,8 +585,9 @@ export default function ChatPage() {
               friends.map((f) => (
                 <div
                   key={f.id}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100"
                 >
+                  {/* Avatar */}
                   <div className="relative">
                     {f.avatar ? (
                       <img
@@ -528,9 +606,35 @@ export default function ChatPage() {
                     )}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{f.name}</div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{f.name}</div>
                     <div className="text-xs text-gray-400 truncate">{f.email}</div>
+                  </div>
+
+                  {/* More */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === f.id ? null : f.id)}
+                      className="p-1 rounded hover:bg-gray-200"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+
+                    {openMenuId === f.id && (
+                      <div className="absolute right-0 mt-1 w-32 rounded-lg bg-white border shadow-lg z-10">
+                        <button
+                          onClick={() => {
+                            setConfirmFriend(f);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <UserMinus size={14} />
+                          Unfriend
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -556,7 +660,7 @@ export default function ChatPage() {
               ? activeChat.type === 2
                 ? activeChat.title || activeChat.name
                 : activeChat.name
-              : 'Select a chat'}
+              : 'Fusion chat'}
           </header>
 
           {/* Messages */}
@@ -631,6 +735,7 @@ export default function ChatPage() {
               ➤
             </button>
           </div>
+          {/* MODALS */}
           {showCreateGroup && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -659,23 +764,49 @@ export default function ChatPage() {
                   <span>FRIEND LIST</span>
                 </div>
                 {/* Friend list */}
-                <div className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
-                  {friends.map((f) => (
-                    <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedFriendIds.includes(f.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedFriendIds((prev) => [...prev, f.id]);
-                          } else {
-                            setSelectedFriendIds((prev) => prev.filter((id) => id !== f.id));
-                          }
-                        }}
-                      />
-                      <span>{f.name}</span>
-                    </label>
-                  ))}
+                <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border p-3">
+                  {friends.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-gray-400">
+                      You don’t have any friends yet
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {friends.map((f) => (
+                        <label
+                          key={f.id}
+                          className="flex items-center gap-3 rounded-lg p-2 hover:bg-gray-100 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedFriendIds.includes(f.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedFriendIds((prev) => [...prev, f.id]);
+                              } else {
+                                setSelectedFriendIds((prev) => prev.filter((id) => id !== f.id));
+                              }
+                            }}
+                          />
+
+                          {/* Avatar */}
+                          {f.avatar ? (
+                            <img
+                              src={f.avatar}
+                              alt={f.name}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-xs font-semibold text-purple-700">
+                              {f.name?.[0]?.toUpperCase()}
+                            </div>
+                          )}
+
+                          {/* Name */}
+                          <span className="text-sm">{f.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer */}
@@ -687,11 +818,102 @@ export default function ChatPage() {
                     Cancel
                   </button>
                   <button
-                    disabled={creatingGroup}
+                    disabled={creatingGroup || friends.length === 0 || selectedFriendIds.length < 2}
                     onClick={handleCreateGroup}
                     className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
                     {creatingGroup ? 'Creating...' : 'Create Group'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showRequestDrawer && (
+            <div className="fixed inset-0 z-50">
+              {/* Overlay */}
+              <div
+                className="absolute inset-0 bg-black/30"
+                onClick={() => setShowRequestDrawer(false)}
+              />
+
+              {/* Drawer */}
+              <div className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl flex flex-col">
+                {/* Header */}
+                <div className="p-4 border-b flex items-center justify-between">
+                  <h3 className="font-semibold">Friend Requests</h3>
+                  <button onClick={() => setShowRequestDrawer(false)}>
+                    <X size={18} className="text-gray-400 hover:text-gray-600" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                  {loadingRequests ? (
+                    <div className="text-center text-sm text-gray-400">Loading...</div>
+                  ) : friendRequests.length === 0 ? (
+                    <div className="text-center text-sm text-gray-400">No pending requests</div>
+                  ) : (
+                    friendRequests.map((r) => (
+                      <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center font-semibold text-purple-700">
+                          {r.requesterName?.[0]?.toUpperCase()}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">
+                            {r.requesterName || 'Unknown'}
+                          </div>
+                          <div className="text-xs text-gray-400">Wants to be your friend!!!</div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleAcceptRequest(r.id)}
+                            className="px-2 py-1 text-xs rounded bg-green-500 text-white"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleRejectRequest(r.id)}
+                            className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-600"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {confirmFriend && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+              <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+                <h3 className="text-lg font-semibold mb-2">Unfriend</h3>
+
+                <p className="text-sm text-gray-600 mb-4">
+                  Are you sure you want to unfriend{' '}
+                  <span className="font-medium">{confirmFriend.name}</span>?
+                </p>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setConfirmFriend(null)}
+                    className="px-4 py-2 text-sm rounded-lg border"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    disabled={unfriending}
+                    onClick={handleConfirmUnfriend}
+                    className="px-4 py-2 text-sm rounded-lg bg-red-500 text-white disabled:opacity-50"
+                  >
+                    {unfriending ? 'Removing...' : 'Unfriend'}
                   </button>
                 </div>
               </div>
