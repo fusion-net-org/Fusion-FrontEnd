@@ -32,3 +32,15 @@ export const getProjectComponentsByProjectRequestId = async (projectRequestId) =
     throw new Error(error.response?.data?.message || error.response?.data?.error || 'Error!');
   }
 };
+
+export const getProjectComponentsByProjectId = async (projectId) => {
+  try {
+    const response = await axiosInstance.get(`/project-components/projects/${projectId}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || error.response?.data?.error || 'Error!');
+  }
+};

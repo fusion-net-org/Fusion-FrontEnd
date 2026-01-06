@@ -83,8 +83,9 @@ const ProjectRequestPage: React.FC = () => {
     | 'Project.Name'
     | 'ExecutorCompany.Name'
     | 'RequesterCompany.Name'
+    | 'createAt'
     | null
-  >('StartDate');
+  >('createAt');
   const [sortDescending, setSortDescending] = useState(true);
 
   const handleSort = (

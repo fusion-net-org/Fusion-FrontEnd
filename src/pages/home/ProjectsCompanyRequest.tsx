@@ -12,6 +12,8 @@ import {
   XCircle,
   Lock,
   FileSpreadsheet,
+  Wrench,
+  Code2,
 } from 'lucide-react';
 import { Progress } from '@/components/Project/progress';
 import { toast } from 'react-toastify';
@@ -369,7 +371,29 @@ const ProjectCompanyRequest = () => {
                   {project.status}
                 </span>
               )}
-
+              {/* Project Type */}
+              {project && (
+                <span
+                  className={`flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-full border ${
+                    project.isMaintenance
+                      ? 'bg-orange-50 text-orange-600 border-orange-300'
+                      : 'bg-blue-50 text-blue-600 border-blue-300'
+                  }
+      `}
+                >
+                  {project.isMaintenance ? (
+                    <>
+                      <Wrench size={14} />
+                      Maintenance
+                    </>
+                  ) : (
+                    <>
+                      <Code2 size={14} />
+                      Development
+                    </>
+                  )}
+                </span>
+              )}
               {/* Closed Badge */}
               {project?.isClosed && (
                 <span className="flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">
@@ -463,10 +487,13 @@ const ProjectCompanyRequest = () => {
             />
             <InfoRow label="Company Request" value={project?.companyRequestName} />
             <InfoRow label="Company Executor" value={project?.companyExecutorName} />
-            <InfoRow label="Budget Contract" value={formatCurrency(project?.contractBudget)} />
+            <InfoRow
+              label="Budget Contract"
+              value={formatCurrency(project?.contractBudget) + ' VND'}
+            />
             <InfoRow
               label="Total Budget Ticket"
-              value={formatCurrency(project?.ticketTotalBudget)}
+              value={formatCurrency(project?.ticketTotalBudget) + ' VND'}
             />
           </div>
         </div>

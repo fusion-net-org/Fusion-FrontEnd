@@ -36,7 +36,10 @@ interface InviteProjectRequestModalProps {
   effectiveDate?: string;
   expiredDate?: string;
 }
-
+interface MaintenanceComponent {
+  name: string;
+  description: string;
+}
 const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
   open,
   onClose,
@@ -63,8 +66,7 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
   //state executor company
   const [executorSearch, setExecutorSearch] = useState('');
   const [executorOptions, setExecutorOptions] = useState<{ label: string; value: string }[]>([]);
-  const [maintenanceComponents, setMaintenanceComponents] = useState<string[]>([]);
-
+  const [maintenanceComponents, setMaintenanceComponents] = useState<MaintenanceComponent[]>([]);
   //state loading
   const [loading, setLoading] = useState(false);
 
@@ -155,10 +157,10 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
       const res = await CreateProjectRequest(payload);
       const projectRequestId = res.data?.id;
       if (formData.IsMaintenance && maintenanceComponents.length > 0) {
-        const componentsPayload = maintenanceComponents.map((name) => ({
+        const componentsPayload = maintenanceComponents.map((c) => ({
           ProjectRequestId: projectRequestId,
-          Name: name,
-          Description: `Maintenance for ${name}`,
+          Name: c.name,
+          Description: c.description || null,
         }));
 
         await createProjectComponentsBulk(componentsPayload);
@@ -320,20 +322,43 @@ const InviteProjectRequestModal: React.FC<InviteProjectRequestModalProps> = ({
             <label className="text-sm font-medium text-gray-700 pb-1 inline-block">
               Components to Maintain
             </label>
+
             <Select
               mode="tags"
               className="w-full"
-              placeholder="Select or type components (e.g. Login, Payment)"
-              value={maintenanceComponents}
-              onChange={(value) => setMaintenanceComponents(value)}
+              placeholder="Select or type components"
+              value={maintenanceComponents.map((c) => c.name)}
+              onChange={(values) => {
+                setMaintenanceComponents(
+                  values.map((v) => {
+                    const existing = maintenanceComponents.find((c) => c.name === v);
+                    return existing ?? { name: v, description: '' };
+                  }),
+                );
+              }}
               options={MAINTENANCE_COMPONENT_OPTIONS.map((item) => ({
                 label: item,
                 value: item,
               }))}
-              tokenSeparators={[',']}
             />
+
+            <div className="mt-3 flex flex-col gap-2">
+              {maintenanceComponents.map((component, index) => (
+                <Input
+                  key={component.name}
+                  placeholder={`Description for ${component.name}`}
+                  value={component.description}
+                  onChange={(e) => {
+                    const updated = [...maintenanceComponents];
+                    updated[index].description = e.target.value;
+                    setMaintenanceComponents(updated);
+                  }}
+                />
+              ))}
+            </div>
+
             <p className="text-xs text-gray-500 mt-1">
-              Select from suggestions or type your own components.
+              Each component can have its own description.
             </p>
           </div>
         )}
