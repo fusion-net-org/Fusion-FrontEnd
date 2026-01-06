@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // src/mappers/projectBoardMapper.ts
-import type { SprintVm, TaskVm, MemberRef, StatusCategory } from "@/types/projectBoard";
+import type { SprintVm, TaskVm, MemberRef, StatusCategory, ComponentVm } from "@/types/projectBoard";
 
 type Any = any;
 
@@ -127,6 +127,13 @@ export const getStartStatusId = (s: SprintVm): string => {
   const byFlag = s.statusOrder.find(id => s.statusMeta?.[id]?.isStart === true);
   return byFlag ?? s.statusOrder[0] ?? Object.keys(s.columns ?? {})[0] ?? "";
 };
+const mapComponent = (c: Any): ComponentVm => ({
+  id: String(c?.id ?? rid()),
+  name: String(c?.name ?? "Component"),
+  description: c?.description ?? null,
+  createdAt: c?.createdAt ? iso(c.createdAt) : null,
+  createdBy: c?.createdBy ? String(c.createdBy) : null,
+});
 
 /* ===========================================================
  * Sprint DTO -> SprintVm (workflow động)
@@ -281,7 +288,8 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
     dto?.createdAt ??
     dto?.createAt ??
     null;
-
+ const componentId: string | null =
+    dto?.componentId ?? dto?.component?.id ?? null;
   const createdAtRaw = dto?.createdAt ?? dto?.createAt ?? openedAtRaw;
   const updatedAtRaw =
     dto?.updatedAt ??
@@ -327,6 +335,8 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
     ticketName: ticketCode,
     sourceTicketId: ticketId,
     sourceTicketCode: ticketId ? ticketCode : null,
+     componentId,      
+   componentName: dto?.componentName ?? dto?.component?.name ?? null,
   };
 
   return vm;
@@ -337,13 +347,16 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
  * =========================================================== */
 export function normalizeBoardInput(
   input: Any
-): { sprints: SprintVm[]; tasks: TaskVm[] } {
+): { sprints: SprintVm[]; tasks: TaskVm[] ; components: ComponentVm[];} {
   const rawSprints: Any[] = input?.sprints ?? input?.weeks ?? [];
   const rawTasks: Any[] = input?.tasks ?? [];
+  const root = input?.data ?? input ?? {};
 
   // 🔹 workflow board trả ở root
   const wf: Any | undefined = input?.workflow;
-
+ const rawComponents: Any[] = root?.components ?? [];
+  const components: ComponentVm[] = rawComponents.map(mapComponent);
+  const compById = new Map<string, ComponentVm>(components.map(c => [c.id, c]));
   // map sprint trước (có workflow)
   const sprints: SprintVm[] = rawSprints.map((dto: Any) => {
     // Nếu sprint chưa có statusOrder/statusMeta riêng
@@ -401,10 +414,10 @@ export function normalizeBoardInput(
         } as SprintVm);
       }
     }
-    return { sprints: [...fakeMap.values()], tasks };
+    return { sprints: [...fakeMap.values()], tasks, components  };
   }
 
-  return { sprints, tasks };
+  return { sprints, tasks, components  };
 }
 
 /* ===========================================================

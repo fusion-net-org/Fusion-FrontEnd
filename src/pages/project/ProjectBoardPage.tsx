@@ -573,7 +573,6 @@ export default function ProjectBoardPage() {
       } catch (err) {
         console.error("Failed to check access/load sprint board", err);
         // nếu check fail (401/403/404) => coi như không vào được
-        kickOutWithToast("You can't access this project.");
         if (!dead) setInit({ sprints: [], tasks: [] });
       }
     })();
