@@ -12,6 +12,8 @@ import {
   ChevronUp,
   ChevronDown,
   Briefcase,
+  Wrench,
+  Code2,
 } from 'lucide-react';
 import { DatePicker } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -46,7 +48,7 @@ const TicketPage: React.FC = () => {
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string | null>('CreatedAt');
   const [sortDescending, setSortDescending] = useState<boolean | null>(true);
-
+  console.log('projects', projects);
   const handleSort = (column: string) => {
     setSortColumn(column);
 
@@ -97,6 +99,14 @@ const TicketPage: React.FC = () => {
         {status}
       </span>
     );
+  };
+  const getProjectType = (projectId?: string) => {
+    if (!projectId) return '-';
+
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return '-';
+
+    return project.isMaintenance ? 'Maintenance' : 'Development';
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -316,7 +326,7 @@ const TicketPage: React.FC = () => {
                 ) : (
                   projects.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} outsrc
+                      {p.name}
                     </option>
                   ))
                 )}
@@ -413,6 +423,23 @@ const TicketPage: React.FC = () => {
                 </th>{' '}
                 <th
                   className="px-4 py-3 font-medium text-center cursor-pointer select-none"
+                  onClick={() => handleSort('Project.Type')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Project Type
+                    {sortColumn !== 'Project.Type' && (
+                      <ChevronDown size={16} className="text-gray-400" />
+                    )}
+                    {sortColumn === 'Project.Type' && sortDescending === false && (
+                      <ChevronUp size={16} className="text-blue-600" />
+                    )}
+                    {sortColumn === 'Project.Type' && sortDescending === true && (
+                      <ChevronDown size={16} className="text-blue-600" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 font-medium text-center cursor-pointer select-none"
                   onClick={() => handleSort('CreatedAt')}
                 >
                   <div className="flex items-center justify-center gap-1">
@@ -492,6 +519,20 @@ const TicketPage: React.FC = () => {
                   >
                     <td className="px-4 py-3 text-gray-800 text-center">{item.ticketName}</td>
                     <td className="px-4 py-3 text-gray-700 text-center">{item.projectName}</td>
+                    <td className="px-4 py-3 text-center">
+                      {getProjectType(item.projectId) === 'Maintenance' ? (
+                        <span className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-xs font-medium border border-orange-300 text-orange-600 bg-orange-50">
+                          <Wrench className="w-3.5 h-3.5" />
+                          Maintenance
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-xs font-medium border border-blue-300 text-blue-600 bg-blue-50">
+                          <Code2 className="w-3.5 h-3.5" />
+                          Development
+                        </span>
+                      )}
+                    </td>
+
                     <td className="px-4 py-3 text-gray-700 text-center">
                       {new Date(item.createdAt).toLocaleDateString('en-CA', {
                         year: 'numeric',
@@ -569,14 +610,18 @@ const TicketPage: React.FC = () => {
                       </td>
                     )}
 
-                    <td className="px-4 py-3 text-center">
-                      <Eye
-                        className="w-5 h-5 text-gray-500 hover:text-blue-600 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigateToDetail(item);
-                        }}
-                      />
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center h-full">
+                        <button
+                          className="p-1 rounded-full hover:bg-blue-50 transition"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateToDetail(item);
+                          }}
+                        >
+                          <Eye className="w-5 h-5 text-gray-500 hover:text-blue-600" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
