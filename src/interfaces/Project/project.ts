@@ -36,6 +36,7 @@ export interface ProjectDetailResponse {
   code: string | null;
   name: string | null;
   description: string | null;
+  isMaintenance: boolean | null;
   status: string | null;
   workflowId: string | null;
   startDate: string | null; // ISO date string

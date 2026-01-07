@@ -1,6 +1,5 @@
-// src/components/Company/Task/QuickTaskCreateCard.tsx
 import React, { useMemo, useState } from "react";
-import { CalendarDays, UserRound, CheckSquare, Plus, ChevronDown } from "lucide-react";
+import { CalendarDays, UserRound, CheckSquare, Plus, ChevronDown, Boxes } from "lucide-react";
 import type { SprintVm, TaskVm } from "@/types/projectBoard";
 import { createTaskQuick } from "@/services/taskService.js";
 import { useProjectBoard } from "@/context/ProjectBoardContext";
@@ -26,6 +25,11 @@ export default function QuickTaskCreateCard({
   createAsDraft = false,         // 👈 NEW
   onCreated,
   onCancel,
+
+  // ✅ NEW: chỉ dùng khi project maintenance
+  maintenanceEnabled = false,
+  components = [],
+  defaultComponentId = null,
 }: {
   sprint: SprintVm;
   statusId: string;
@@ -33,12 +37,40 @@ export default function QuickTaskCreateCard({
   createAsDraft?: boolean;       // 👈 NEW
   onCreated?: (t?: TaskVm) => void;
   onCancel?: () => void;
+
+  // ✅ NEW: chỉ dùng khi project maintenance
+  maintenanceEnabled?: boolean;
+  components?: { id: string; name: string }[];
+  defaultComponentId?: string | null;
 }) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<TaskVm["priority"]>("Medium");
   const [due, setDue] = useState<string>("");
   const [assigneeName, setAssigneeName] = useState<string>(""); // chỉ hiển thị UI, không gửi BE
   const [isSaving, setIsSaving] = useState(false);
+
+  // ✅ NEW: component picker state (chỉ dùng khi maintenanceEnabled)
+  const componentOptions = useMemo(() => components ?? [], [components]);
+
+  const initialComponentId = useMemo(() => {
+    if (!maintenanceEnabled) return "";
+    if (defaultComponentId && componentOptions.some((c) => c.id === defaultComponentId)) {
+      return defaultComponentId;
+    }
+    return componentOptions[0]?.id ?? "";
+  }, [maintenanceEnabled, defaultComponentId, componentOptions]);
+
+  const [componentId, setComponentId] = useState<string>(initialComponentId);
+
+  React.useEffect(() => {
+    // khi load components xong / đổi default thì sync lại
+    setComponentId(initialComponentId);
+  }, [initialComponentId]);
+
+  const componentName = useMemo(() => {
+    if (!maintenanceEnabled) return "";
+    return componentOptions.find((c) => c.id === componentId)?.name ?? "";
+  }, [maintenanceEnabled, componentOptions, componentId]);
 
   const { attachTaskVm } = useProjectBoard();
 
@@ -95,7 +127,14 @@ export default function QuickTaskCreateCard({
       sourceTicketCode: "",
     };
 
-    (vm as any).isLocalDraft = true; // 👈 flag để Save board biết đây là task mới tạo trên FE
+    (vm as any).isLocalDraft = true;
+
+    // ✅ NEW: chỉ attach component khi maintenanceEnabled
+    if (maintenanceEnabled) {
+      (vm as any).componentId = componentId || null;
+      (vm as any).componentName = componentName || "";
+    }
+
     return vm;
   };
 
@@ -104,6 +143,12 @@ export default function QuickTaskCreateCard({
 
     const stId = sprint.statusMeta[pickedStatusId] ? pickedStatusId : sprint.statusOrder[0];
     const meta = sprint.statusMeta[stId];
+const selectedComponentId =
+  maintenanceEnabled
+    ? (componentId && componentId.trim()
+        ? componentId
+        : (componentOptions?.[0]?.id ?? ""))
+    : "";
 
     try {
       setIsSaving(true);
@@ -128,6 +173,8 @@ export default function QuickTaskCreateCard({
         dueDate: isoFromDateInput(due) ?? null,
         type: "Feature",
         estimateHours: null,
+
+       ...(maintenanceEnabled ? { componentId: selectedComponentId } : {}),
       });
 
       const openedAt = api.createAt ?? api.createdAt ?? new Date().toISOString();
@@ -160,6 +207,14 @@ export default function QuickTaskCreateCard({
         sourceTicketCode: api.code ?? "",
       };
 
+      // ✅ NEW: attach vào VM (FE dùng) chỉ khi maintenance
+      if (maintenanceEnabled) {
+        (vm as any).componentId =
+          api.componentId ?? api.component?.id ?? componentId ?? null;
+        (vm as any).componentName =
+          api.componentName ?? api.component?.name ?? componentName ?? "";
+      }
+
       attachTaskVm(vm);
       resetForm();
       onCreated?.(vm);
@@ -177,6 +232,11 @@ export default function QuickTaskCreateCard({
     setAssigneeName("");
     setPriority("Medium");
     setPickedStatusId(sprint.statusMeta[statusId] ? statusId : sprint.statusOrder[0]);
+
+    // ✅ NEW: reset component (chỉ maintenance)
+    if (maintenanceEnabled) {
+      setComponentId(initialComponentId);
+    }
   }
 
   function handleCancel() {
@@ -243,17 +303,29 @@ export default function QuickTaskCreateCard({
           />
         </label>
 
-        {/* Assignee quick (chỉ UI) */}
-        {/* <label className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs border-slate-300 text-slate-700">
-          <UserRound className="h-3.5 w-3.5" />
-          <input
-            value={assigneeName}
-            onChange={(e) => setAssigneeName(e.target.value)}
-            className="bg-transparent text-xs outline-none placeholder:text-slate-400"
-            placeholder="Assignee"
-            onKeyDown={onKeyDown}
-          />
-        </label> */}
+        {/* ✅ NEW: Component picker (chỉ maintenanceEnabled) */}
+        {maintenanceEnabled && (
+          <label className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs border-slate-300 text-slate-700">
+            <Boxes className="h-3.5 w-3.5" />
+            <select
+              value={componentId}
+              onChange={(e) => setComponentId(e.target.value)}
+              className="bg-transparent text-xs outline-none"
+              disabled={!componentOptions.length || isSaving}
+              title="Component"
+            >
+              {!componentOptions.length ? (
+                <option value="">No component</option>
+              ) : (
+                componentOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        )}
 
         {/* Priority */}
         <select
@@ -268,8 +340,8 @@ export default function QuickTaskCreateCard({
           <option>Medium</option>
           <option>Low</option>
         </select>
-
       </div>
+
       <div className="flex">
         {/* Cancel + Create */}
         <button
@@ -293,7 +365,7 @@ export default function QuickTaskCreateCard({
         >
           <Plus className="h-4 w-4" /> {isSaving ? "Creating..." : "Create"}
         </button>
-        </div>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ export interface ITicket {
   priority?: string;
   isHighestUrgen?: boolean;
   ticketName?: string;
+  ticketType?: string;
   description?: string;
   statusId?: string;
   submittedBy?: string;
@@ -19,6 +20,16 @@ export interface ITicket {
   createdAt: string;
   updatedAt: string;
   process?: TicketProcess | null;
+  component?: IProjectComponent | null;
+}
+export interface IProjectComponent {
+  id: string;
+  projectId?: string;
+  projectRequestId?: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  createdBy?: string;
 }
 export interface TicketProcessItem {
   taskId: string;
@@ -109,6 +120,7 @@ export interface IProject {
   code: string;
   name: string;
   description: string;
+  isMaintenance: boolean;
   status: string;
   workflowId: string;
   startDate: string;

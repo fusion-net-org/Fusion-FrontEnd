@@ -304,6 +304,9 @@ type Props = {
     sprintId: string;
     destinationIndex: number;
   }) => Promise<void | TaskVm> | void;
+    maintenanceEnabled?: boolean;
+  components?: { id: string; name: string }[]; 
+  defaultComponentId?: string | null;
 };
 
 // type AiDraft = {
@@ -396,6 +399,9 @@ export default function KanbanBySprintBoard({
   onSaveBoard,
   onReloadBoard,
   onDropDraftToSprint,
+    maintenanceEnabled = false,
+  components = [],
+  defaultComponentId = null,
 }: Props) {
   useFuseKanbanStyles();
   // ===== Realtime + Current sprint marker =====
@@ -1907,6 +1913,7 @@ const deleteConfirmModal =
               ).length
             : 0
         }
+        components={components}
         onMarkDone={_onMarkDone}
         onNext={_onNext}
         onSplit={_onSplit}
@@ -1941,6 +1948,9 @@ const deleteConfirmModal =
                             <Can code='TASK_CREATE'>
                             <ColumnHoverCreate
                               sprint={s}
+                               maintenanceEnabled={maintenanceEnabled}
+  components={components}
+  defaultComponentId={defaultComponentId}
                               statusId={
                                 s.statusOrder?.[0] ??
                                 Object.keys(s.columns ?? {})[0]
@@ -2028,6 +2038,7 @@ const deleteConfirmModal =
 
                                           <TaskCard
                                             t={task}
+                                            components={components}
                                             ticketSiblingsCount={sibs}
                                             onMarkDone={_onMarkDone}
                                             onNext={_onNext}

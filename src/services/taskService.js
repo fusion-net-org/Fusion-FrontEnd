@@ -187,9 +187,12 @@ export const createTaskQuick = async (
     parentTaskId = null,
     sourceTaskId = null,
     assigneeIds = null, // optional: array<Guid>
+    componentId = null,
   } = {},
 ) => {
   try {
+        const cid = typeof componentId === "string" ? componentId.trim() : componentId;
+
     const payload = {
       projectId,
       sprintId,
@@ -205,6 +208,7 @@ export const createTaskQuick = async (
       parentTaskId,
       sourceTaskId,
       ...(Array.isArray(assigneeIds) && assigneeIds.length ? { assigneeIds } : {}),
+      ...(cid ? { componentId: cid } : {}), 
     };
 
     const res = await axiosInstance.post('/tasks', payload);
