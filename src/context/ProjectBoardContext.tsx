@@ -1,7 +1,7 @@
 // src/context/ProjectBoardContext.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from "react";
-import type { SprintVm, TaskVm } from "@/types/projectBoard";
+import type { ComponentVm, SprintVm, TaskVm } from "@/types/projectBoard";
 import {
   patchTaskStatusById,
   putReorderTask,
@@ -16,6 +16,7 @@ import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 type Ctx = {
   sprints: SprintVm[];
   tasks: TaskVm[];
+   components: ComponentVm[]; 
   loading: boolean;
 
   // dùng statusId (workflowStatusId), KHÔNG dùng StatusKey cứng
@@ -33,7 +34,7 @@ type Ctx = {
 
   createTask: (
     projectId: string,
-    draft: Partial<TaskVm> & { title: string; sprintId: string; workflowStatusId?: string }
+    draft: Partial<TaskVm> & { title: string; sprintId: string; workflowStatusId?: string; componentId?: string | null; componentName?: string | null; }
   ) => Promise<TaskVm>;
 
   attachTaskFromApi: (api: any) => void;
@@ -166,7 +167,7 @@ export function ProjectBoardProvider({
   children,
 }: {
   projectId: string;
-  initialData?: { sprints: SprintVm[]; tasks: TaskVm[] };
+  initialData?: { sprints: SprintVm[]; tasks: TaskVm[]; components?: ComponentVm[]  };
   children: React.ReactNode;
 }) {
   // Khởi tạo đã sync columns để tránh lỗi 'push' lúc mount
@@ -175,13 +176,15 @@ export function ProjectBoardProvider({
     () => syncColumns(initialData?.sprints ?? [], initialData?.tasks ?? [])
   );
   const [loading, setLoading] = useState<boolean>(false);
+  const [components, setComponents] = useState<ComponentVm[]>(initialData?.components ?? []); // ✅ NEW
 
   // giữ bản tham chiếu mới nhất để dùng trong handlers
   const sRef = useRef<SprintVm[]>(sprints);
   useEffect(() => {
     sRef.current = sprints;
   }, [sprints]);
-
+ const cRef = useRef<ComponentVm[]>(components);
+  useEffect(() => { cRef.current = components; }, [components]);
   /** dedupe task theo id */
   function dedupeById(arr: TaskVm[]) {
     const m = new Map<string, TaskVm>();
@@ -217,6 +220,7 @@ export function ProjectBoardProvider({
 
       setTasks(nextTasks);
       setSprints(nextSprints);
+      setComponents(normalized.components ?? []);
     } catch (err) {
       console.error("[ProjectBoard] reloadBoard error:", err);
     } finally {
@@ -273,7 +277,12 @@ export function ProjectBoardProvider({
         : sprint.statusOrder[0];
 
     const meta = sprint.statusMeta?.[statusId];
-
+ const componentId: string | null =
+      api.componentId ?? api.component?.id ?? null;
+        const componentName: string | null =
+      api.componentName ??
+      api.component?.name ??
+      (componentId ? cRef.current.find(c => c.id === String(componentId))?.name ?? null : null);
     const openedAt =
       api.openedAt ??
       api.createAt ??
@@ -345,6 +354,8 @@ export function ProjectBoardProvider({
         ticketName: ticketCode,
         sourceTicketId: ticketId,
         sourceTicketCode: ticketId ? ticketCode : null,
+          componentId,
+        componentName,
       };
 
       const others = prev.filter(x => x.id !== api.id);
@@ -576,6 +587,7 @@ export function ProjectBoardProvider({
     tasks,
     loading,
     changeStatus,
+     components,
     moveToNextSprint,
     reorder,
     done,

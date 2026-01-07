@@ -140,8 +140,8 @@ export default function ProjectsPage() {
         companyId,
         pageSize: 200,
       });
-      console.log(res)
       setAll(res.items);
+      console.log(res)
     } catch (err) {
       console.error('[Projects] load error:', err);
       setAll([]);
@@ -445,85 +445,105 @@ export default function ProjectsPage() {
                     <th className="px-4 py-2 pr-5 text-right">Action</th>
                   </tr>
                 </thead>
+           <tbody className="divide-y divide-slate-100">
+  {current.map((p) => {
+    const closed = !!p.isClosed;
 
-                <tbody className="divide-y divide-slate-100">
-                  {current.map((p) => {
-                    const isReq = isProjectRequest(p);
-                    const isExec = isOutsourceExecutor(p);
-                    const closed = !!p.isClosed;
+const toBool = (v: any) => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true";
+const isMaint = toBool(p.isMaintenance);
+    const compCount = Number(p.maintenanceComponentCount ?? 0);
 
-                    return (
-                      <tr
-                        key={p.id}
-                        className={[
-                          'hover:bg-slate-50',
-                          closed ? 'bg-slate-100/80 text-slate-500' : '',
-                          !closed && isReq ? 'bg-amber-50/40 ring-1 ring-amber-200' : '',
-                          !closed && !isReq && isExec ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : '',
-                        ].join(' ')}
-                      >
-                        <td className="px-4">
-                          <input
-                            type="radio"
-                            readOnly
-                            checked={selectedId === p.id}
-                            className="size-4 accent-blue-600"
-                          />
-                        </td>
+    // Chỉ coi là request/executor khi KHÔNG phải maintenance và KHÔNG closed
+    const isReq = !closed && !isMaint && p.isRequest === true;
+    const isExec = !closed && !isMaint && !p.isRequest && p.ptype === "Outsourced";
 
-                        <td
-                          className={[
-                            'px-4 py-2 font-semibold underline underline-offset-2',
-                            closed ? 'text-slate-600' : 'text-blue-600',
-                          ].join(' ')}
-                        >
-                          <button onClick={() => openProject(p)}>{p.code}</button>
+    return (
+      <tr
+        key={p.id}
+        className={[
+          "hover:bg-slate-50",
+          closed ? "bg-slate-100/80 text-slate-500" : "",
+          !closed && isMaint ? "bg-[#fbf6ef] ring-1 ring-[#d9b892]" : "",
+          !closed && !isMaint && isReq ? "bg-amber-50/40 ring-1 ring-amber-200" : "",
+          !closed && !isMaint && !isReq && isExec
+            ? "bg-emerald-50/40 ring-1 ring-emerald-200"
+            : "",
+        ].join(" ")}
+      >
+        <td className="px-4">
+          <input
+            type="radio"
+            readOnly
+            checked={selectedId === p.id}
+            className="size-4 accent-blue-600"
+          />
+        </td>
 
-                          {closed && (
-                            <span className="ml-2 align-middle rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                              Closed
-                            </span>
-                          )}
+        {/* ✅ Code cell: lấy style từ nhánh dưới + badge từ HEAD */}
+        <td
+          className={[
+            "px-4 py-2 font-semibold underline underline-offset-2",
+            closed ? "text-slate-600" : "text-blue-600",
+          ].join(" ")}
+        >
+          <button onClick={() => openProject(p)}>{p.code}</button>
 
-                          {!closed && isReq && (
-                            <span className="ml-2 align-middle rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                              Project Request
-                            </span>
-                          )}
+          {closed && (
+            <span className="ml-2 align-middle rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+              Closed
+            </span>
+          )}
 
-                          {!closed && !isReq && isExec && (
-                            <span className="ml-2 align-middle rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                              Outsourced (Executor)
-                            </span>
-                          )}
-                        </td>
+          {isMaint && (
+            <span className="ml-2 align-middle rounded-full border border-[#d9b892] bg-[#f4e7d7] px-2 py-0.5 text-[10px] font-medium text-[#7a4b21]">
+              Maintenance • {compCount} component{compCount === 1 ? "" : "s"}
+            </span>
+          )}
 
-                        <td className={['px-4 py-2', closed ? 'line-through text-slate-600' : ''].join(' ')}>
-                          {p.name}
-                        </td>
+          {!closed && !isMaint && isReq && (
+            <span className="ml-2 align-middle rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              Project Request
+            </span>
+          )}
 
-                        <td className="px-4 py-2">{p.ownerCompany}</td>
-                        <td className="px-4 py-2">{p.hiredCompany || '—'}</td>
-                        <td className="px-4 py-2">{p.workflow}</td>
-                        <td className="px-4 py-2">{p.startDate || '—'}</td>
-                        <td className="px-4 py-2"><span className="text-xs">{p.status}</span></td>
-                        <td className="px-4 py-2"><span className="text-xs">{p.ptype}</span></td>
+          {!closed && !isMaint && !isReq && isExec && (
+            <span className="ml-2 align-middle rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+              Outsourced (Executor)
+            </span>
+          )}
+        </td>
 
-                        <td className="px-4 py-2 pr-5 text-right">
-                          <button
-                            onClick={() => openProject(p)}
-                            className={[
-                              'rounded-lg px-3 py-1.5 text-white',
-                              closed ? 'bg-slate-600 hover:bg-slate-700' : 'bg-blue-600 hover:bg-blue-700',
-                            ].join(' ')}
-                          >
-                            Manage
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
+        <td className={["px-4 py-2", closed ? "line-through text-slate-600" : ""].join(" ")}>
+          {p.name}
+        </td>
+
+        <td className="px-4 py-2">{p.ownerCompany}</td>
+        <td className="px-4 py-2">{p.hiredCompany || "—"}</td>
+        <td className="px-4 py-2">{p.workflow}</td>
+        <td className="px-4 py-2">{p.startDate || "—"}</td>
+        <td className="px-4 py-2">
+          <span className="text-xs">{p.status}</span>
+        </td>
+        <td className="px-4 py-2">
+          <span className="text-xs">{p.ptype}</span>
+        </td>
+
+        <td className="px-4 py-2 pr-5 text-right">
+          <button
+            onClick={() => openProject(p)}
+            className={[
+              "rounded-lg px-3 py-1.5 text-white",
+              closed ? "bg-slate-600 hover:bg-slate-700" : "bg-blue-600 hover:bg-blue-700",
+            ].join(" ")}
+          >
+            Manage
+          </button>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
+
               </table>
             </div>
 

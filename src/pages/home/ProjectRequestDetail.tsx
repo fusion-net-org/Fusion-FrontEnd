@@ -163,6 +163,13 @@ export default function ProjectRequestDetail() {
     };
     load();
   }, [id, contractId]);
+const maintenancePrefill = (projectComponents ?? [])
+  .map((c: any) => ({
+    clientId: String(c.id ?? c.name),      
+    name: String(c.name ?? '').trim(),
+    note: String(c.description ?? '').trim(),
+  }))
+  .filter((x) => !!x.name);
 
   return (
     <>
@@ -544,12 +551,18 @@ export default function ProjectRequestDetail() {
               companyId: companyExecutor?.id,
               isHire: true,
               projectRequestId: id,
+                isMaintenance: !!projectRequest?.isMaintenance,
+    maintenanceComponents: maintenancePrefill,
+
+    lockProjectKind: true,
+    lockMaintenanceComponents: true,
             }}
             onSubmit={async (payload) => {
               console.log('Create Project Payload:', payload);
               toast.success('Project created successfully!');
               setProjectCreateModalOpen(false);
               navigate(`/companies/${companyId}/project`);
+              
             }}
           />
 

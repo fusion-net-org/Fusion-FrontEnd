@@ -1,4 +1,3 @@
-// src/pages/ProjectBoardPage.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from "react";
@@ -12,25 +11,30 @@ import {
   LayoutGrid,
   Flag,
   ListChecks,
+  Wrench,
+  Boxes,
+  Search,
+  X,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 
 import {
   ProjectBoardProvider,
   useProjectBoard,
 } from "@/context/ProjectBoardContext";
-import { SearchBar } from "@/components/Company/Projects/BoardNavBits";
+
 import KanbanBySprintBoard from "@/components/Company/Projects/KanbanBySprintBoard";
 import SprintBoard from "@/components/Company/Projects/SprintBoard";
 import ProjectTaskList from "@/components/Company/Projects/ProjectTaskList";
 
 import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
 
-import type { StatusCategory, SprintVm, TaskVm } from "@/types/projectBoard";
-import { checkProjectAccess } from "@/services/projectService.js";
+import type { StatusCategory, SprintVm, TaskVm, ComponentVm } from "@/types/projectBoard";
+import { checkProjectAccess, GetProjectByProjectId } from "@/services/projectService.js";
 
 import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
-import { GetProjectByProjectId } from "@/services/projectService.js";
 import TicketPopup from "@/components/ProjectSideCompanyRequest/TicketPopup";
 import type { JSX } from "@fullcalendar/core/preact.js";
 
@@ -47,8 +51,38 @@ const isGuid = (s?: string | null) =>
     s,
   );
 
+const cn = (...xs: Array<string | false | null | undefined>) =>
+  xs.filter(Boolean).join(" ");
+
+const toBool = (v: any) =>
+  v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true";
+
+const extractComponentsFromProjectDetail = (detail: any): ComponentVm[] => {
+  const list =
+    detail?.maintenanceComponents ??
+    detail?.components ??
+    detail?.projectComponents ??
+    detail?.maintenanceComponentResponses ??
+    [];
+
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((c: any) => ({
+      id: String(c?.id ?? c?.componentId ?? c?.name ?? ""),
+      name: String(c?.name ?? c?.componentName ?? "Component"),
+      description: c?.note ?? c?.description ?? null,
+      createdAt: c?.createdAt ?? null,
+      createdBy: c?.createdBy ?? null,
+    }))
+    .filter((x: any) => !!x.name);
+};
+
+const taskComponentId = (t: TaskVm) => String((t as any)?.componentId ?? "");
+const taskComponentName = (t: TaskVm) => String((t as any)?.componentName ?? "");
+
 /* ========== Inner: logic view board ========== */
-function Inner() {
+function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
   const {
     sprints,
     tasks,
@@ -77,23 +111,51 @@ function Inner() {
     React.useState<string | null>(null);
   const hasProjectRequest = !!projectRequestId;
 
-  const [view, setView] = React.useState<"Kanban" | "Sprint" | "List">(
-    "Kanban",
-  );
+  const [view, setView] = React.useState<"Kanban" | "Sprint" | "List">("Kanban");
   const [query, setQuery] = React.useState("");
   const [kanbanFilter, setKanbanFilter] =
     React.useState<"ALL" | StatusCategory>("ALL");
 
   const [openTicketPopup, setOpenTicketPopup] = useState(false);
 
-  const [projectTitle, setProjectTitle] =
-    React.useState<string>("Project board");
+  const [projectTitle, setProjectTitle] = React.useState<string>("Project board");
   const [workflowId, setWorkflowId] = React.useState<string | null>(null);
   const [workflowPreviewOpen, setWorkflowPreviewOpen] = React.useState(false);
-  const [projectDescription, setProjectDescription] =
-    React.useState<string>("");
+  const [projectDescription, setProjectDescription] = React.useState<string>("");
 
-  // Load meta project
+  // ✅ Maintenance states
+  const [isMaintenance, setIsMaintenance] = React.useState(false);
+  const [components, setComponents] = React.useState<ComponentVm[]>(props.componentsFromBoard ?? []);
+  const [selectedComponents, setSelectedComponents] = React.useState<string[]>([]);
+
+  // ✅ Dropdown state (no search, list all)
+  const [componentMenuOpen, setComponentMenuOpen] = React.useState(false);
+  const componentMenuRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!componentMenuOpen) return;
+
+    const onDown = (e: MouseEvent) => {
+      const el = componentMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setComponentMenuOpen(false);
+      }
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setComponentMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [componentMenuOpen]);
+
+  // Load meta project + maintenance components (detail)
   React.useEffect(() => {
     let alive = true;
 
@@ -107,9 +169,18 @@ function Inner() {
         setProjectTitle(detail.name ?? detail.code ?? "Project board");
         setProjectDescription(detail.description ?? "");
         setWorkflowId(detail.workflowId ? String(detail.workflowId) : null);
-        setProjectRequestId(
-          detail.projectRequestId ? String(detail.projectRequestId) : null,
+        setProjectRequestId(detail.projectRequestId ? String(detail.projectRequestId) : null);
+
+        const maint = toBool(
+          detail?.isMaintenance ??
+          detail?.isMaintenace ??
+          detail?.is_maintenance ??
+          false
         );
+        setIsMaintenance(maint);
+
+        const compsFromDetail = extractComponentsFromProjectDetail(detail);
+        if (compsFromDetail.length) setComponents(compsFromDetail);
       } catch (err) {
         console.error("Load project meta failed", err);
         if (!alive) return;
@@ -117,6 +188,7 @@ function Inner() {
         setProjectDescription("");
         setWorkflowId(null);
         setProjectRequestId(null);
+        setIsMaintenance(false);
       }
     })();
 
@@ -125,7 +197,13 @@ function Inner() {
     };
   }, [projectId]);
 
-  // Sprint view – drag trong cùng sprint
+  // Nếu board load có components mà detail chưa có → fill
+  React.useEffect(() => {
+    const fromBoard = props.componentsFromBoard ?? [];
+    if (!components.length && fromBoard.length) setComponents(fromBoard);
+  }, [props.componentsFromBoard, components.length]);
+
+  // ========= Drag handlers (giữ nguyên) =========
   const onDragEndSprint = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
@@ -134,8 +212,7 @@ function Inner() {
     const [, sprintIdDst, statusIdDst] = destination.droppableId.split(":");
 
     if (sprintIdSrc !== sprintIdDst) return;
-    if (statusIdSrc === statusIdDst && source.index === destination.index)
-      return;
+    if (statusIdSrc === statusIdDst && source.index === destination.index) return;
 
     const t = tasks.find((x) => x.id === draggableId);
     if (t)
@@ -148,7 +225,6 @@ function Inner() {
       );
   };
 
-  // Kanban view – drag cross-sprint (live mode, không phải updateMode)
   const onDragEndKanban = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
@@ -163,7 +239,167 @@ function Inner() {
     }
   };
 
-  // ===== SAVE BOARD (Update mode) – xử lý payload từ Kanban =====
+  // ✅ Maintenance filter helpers
+  const maintenanceEnabled = isMaintenance || (components?.length ?? 0) > 0;
+
+  const compIndex = React.useMemo(() => {
+    const idToName = new Map<string, string>();
+    const nameToId = new Map<string, string>();
+    for (const c of components ?? []) {
+      const id = String(c?.id ?? "");
+      const name = String(c?.name ?? "");
+      if (id) idToName.set(id, name);
+      if (name && id && isGuid(id)) nameToId.set(name, id);
+    }
+    return { idToName, nameToId };
+  }, [components]);
+
+  const compCounts = React.useMemo(() => {
+    const map = new Map<string, number>(); // key = componentId or componentName
+    let unassigned = 0;
+
+    for (const t of tasks) {
+      const cid = taskComponentId(t);
+      const cname = taskComponentName(t);
+      if (cid) {
+        map.set(cid, (map.get(cid) ?? 0) + 1);
+        continue;
+      }
+      if (cname) {
+        map.set(cname, (map.get(cname) ?? 0) + 1);
+        continue;
+      }
+      unassigned++;
+    }
+
+    return { map, unassigned };
+  }, [tasks]);
+
+  const componentOptions = React.useMemo(() => {
+    const list = (components ?? []).map((c) => {
+      const rawId = String(c?.id ?? "");
+      const key = rawId ? rawId : String(c?.name ?? ""); // key dùng cho filter
+      const name = String(c?.name ?? "Component");
+      const description = String(c?.description ?? "");
+      const count =
+        (rawId ? compCounts.map.get(rawId) ?? 0 : 0) +
+        (name ? compCounts.map.get(name) ?? 0 : 0);
+
+      return { key, id: rawId, name, description, count };
+    });
+
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [components, compCounts.map]);
+
+  const matchComponent = React.useCallback(
+    (t: TaskVm) => {
+      if (!maintenanceEnabled) return true;
+      if (!selectedComponents.length) return true;
+
+      const cid = taskComponentId(t);
+      const cname = taskComponentName(t);
+
+      if (!cid && !cname) return selectedComponents.includes("__UNASSIGNED__");
+
+      for (const sel of selectedComponents) {
+        if (sel === "__UNASSIGNED__") continue;
+
+        if (cid && sel === cid) return true;
+        if (cname && sel === cname) return true;
+
+        if (!cid && cname && isGuid(sel)) {
+          const nm = compIndex.idToName.get(sel);
+          if (nm && nm === cname) return true;
+        }
+
+        if (cid && !cname && !isGuid(sel)) {
+          const nm = compIndex.idToName.get(cid);
+          if (nm && nm === sel) return true;
+        }
+      }
+
+      return false;
+    },
+    [maintenanceEnabled, selectedComponents, compIndex.idToName],
+  );
+
+  const tasksByComponent = React.useMemo(() => {
+    if (!maintenanceEnabled) return tasks;
+    if (!selectedComponents.length) return tasks;
+    return tasks.filter(matchComponent);
+  }, [tasks, maintenanceEnabled, selectedComponents, matchComponent]);
+
+  const sprintsForView = React.useMemo(() => {
+    if (!maintenanceEnabled || !selectedComponents.length) return sprints;
+
+    const allowed = new Set(tasksByComponent.map((t) => t.id));
+
+    return (sprints ?? []).map((sp) => {
+      const cols: any = {};
+      const order = sp.statusOrder ?? [];
+      for (const stId of order) {
+        const arr = (sp.columns?.[stId] ?? []) as TaskVm[];
+        cols[stId] = arr.filter((t) => allowed.has(t.id));
+      }
+      return { ...sp, columns: cols };
+    });
+  }, [sprints, maintenanceEnabled, selectedComponents.length, tasksByComponent]);
+
+  const selectedInfoLabel = React.useMemo(() => {
+    if (!maintenanceEnabled) return "";
+    if (!selectedComponents.length) return "All components";
+
+    const names = selectedComponents
+      .map((k) => {
+        if (k === "__UNASSIGNED__") return "Unassigned";
+        const opt = componentOptions.find((x) => x.key === k);
+        if (opt?.name) return opt.name;
+        if (isGuid(k)) return compIndex.idToName.get(k) ?? k;
+        return k;
+      })
+      .slice(0, 2);
+
+    const more = selectedComponents.length > 2 ? ` +${selectedComponents.length - 2}` : "";
+    return `${names.join(", ")}${more}`;
+  }, [maintenanceEnabled, selectedComponents, componentOptions, compIndex.idToName]);
+
+  const clearComponents = () => setSelectedComponents([]);
+
+  // ✅ Pro UX:
+  // - normal click = single select (professional, simple)
+  // - Ctrl/⌘ click = multi toggle (power-user)
+  const selectComponentSmart = (key: string, e?: React.MouseEvent) => {
+    const multi = !!(e && (e.ctrlKey || e.metaKey));
+    setSelectedComponents((prev) => {
+      if (multi) {
+        const set = new Set(prev);
+        if (set.has(key)) set.delete(key);
+        else set.add(key);
+        return Array.from(set);
+      }
+      // single-select behavior
+      if (prev.length === 1 && prev[0] === key) return [];
+      return [key];
+    });
+  };
+
+  const isSelected = (key: string) => selectedComponents.includes(key);
+
+  // ✅ Auto componentId when creating tasks (if exactly 1 selected component)
+  const autoComponentId = React.useMemo(() => {
+    if (!maintenanceEnabled) return null;
+    const chosen = selectedComponents.filter((x) => x !== "__UNASSIGNED__");
+    if (chosen.length !== 1) return null;
+
+    const k = chosen[0];
+    if (isGuid(k)) return k;
+
+    const id = compIndex.nameToId.get(k);
+    return id && isGuid(id) ? id : null;
+  }, [maintenanceEnabled, selectedComponents, compIndex.nameToId]);
+
+  // ===== SAVE BOARD (Update mode) – giữ nguyên + add componentId =====
   const handleSaveBoard = async (payload: {
     moves: DropResult[];
     deletions: TaskVm[];
@@ -173,21 +409,16 @@ function Inner() {
 
     const { moves, deletions, draftBySprint } = payload;
 
-    // 1. Tìm task mới (id không phải GUID)
     const newDraftTasks: { sprintId: string; task: TaskVm }[] = [];
     Object.entries(draftBySprint).forEach(([sprintId, list]) => {
       (list ?? []).forEach((t) => {
-        if (!isGuid(t.id)) {
-          newDraftTasks.push({ sprintId, task: t });
-        }
+        if (!isGuid(t.id)) newDraftTasks.push({ sprintId, task: t });
       });
     });
 
     const localIds = new Set(newDraftTasks.map((x) => x.task.id));
 
-    // 2. Tạo task mới / materialize backlog
     for (const { sprintId, task } of newDraftTasks) {
-      // nếu user đã xoá draft này trước khi Save thì bỏ qua
       if (deletions.some((d) => d.id === task.id)) continue;
 
       const backlogDraftId =
@@ -195,16 +426,15 @@ function Inner() {
 
       try {
         if (backlogDraftId) {
-          // task từ QuickDraftPool
           await materializeDraftTask(backlogDraftId, {
             sprintId,
             workflowStatusId: task.workflowStatusId ?? null,
             statusCode: (task as any).statusCode ?? null,
             orderInSprint: null,
             assigneeIds: (task.assignees ?? []).map((a) => a.id),
+            ...(autoComponentId ? { componentId: autoComponentId } : {}),
           });
         } else {
-          // task mới tạo bằng quick create / AI draft
           await createTaskQuick(effectiveProjectId, {
             title: task.title,
             sprintId,
@@ -219,6 +449,7 @@ function Inner() {
             parentTaskId: task.parentTaskId ?? null,
             sourceTaskId: (task as any).sourceTicketId ?? null,
             assigneeIds: (task.assignees ?? []).map((a) => a.id),
+            ...(autoComponentId ? { componentId: autoComponentId } : {}),
           });
         }
       } catch (err) {
@@ -226,20 +457,14 @@ function Inner() {
       }
     }
 
-    // 3. Replay các move cho task đã tồn tại trên DB
     for (const mv of moves) {
       if (!mv.draggableId) continue;
-      if (localIds.has(mv.draggableId)) continue; // task local mới tạo -> đã được create đúng sprint
-
+      if (localIds.has(mv.draggableId)) continue;
       await onDragEndKanban(mv);
     }
 
-    // 4. Xoá các task thật đã bị đánh dấu delete
     for (const t of deletions) {
-      if (!isGuid(t.id)) {
-        // draft local mới, chưa lưu DB → không cần delete
-        continue;
-      }
+      if (!isGuid(t.id)) continue;
       try {
         await deleteTask(t.id);
       } catch (err) {
@@ -247,7 +472,6 @@ function Inner() {
       }
     }
 
-    // 5. Reload board từ BE cho chắc
     await reloadBoard();
   };
 
@@ -290,23 +514,16 @@ function Inner() {
 
   const listTasks = React.useMemo(() => {
     const k = query.trim().toLowerCase();
-    if (!k) return tasks;
-    return tasks.filter((t) =>
+    if (!k) return tasksByComponent;
+    return tasksByComponent.filter((t) =>
       `${t.code} ${t.title}`.toLowerCase().includes(k),
     );
-  }, [tasks, query]);
-const SLA_TOOLTIP = `SLA policies:
-Bug - Urgent: 24h | High: 48h | Medium: 72h
-Feature - Urgent: 72h | High: 120h | Medium: 168h | Low: 336h
-Chore - Low: 336h
-
-Note:
-- If task has Due date -> use Due date countdown (not SLA).
-- If no Due date -> SLA = target hours from openedAt.`;
+  }, [tasksByComponent, query]);
 
   return (
     <div className="w-full min-h-screen bg-50 overflow-x-hidden">
-      {/* HEADER */}
+      
+      {/* HEADER (giữ nguyên gradient cũ) */}
       <div className="relative mx-4 mt-4 mb-2 overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 text-white border border-blue-300/40">
         <div className="pointer-events-none absolute inset-0 opacity-35">
           <div className="h-full w-full bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.35),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(37,99,235,0.7),transparent_60%)]" />
@@ -314,27 +531,58 @@ Note:
 
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2 max-w-[50%]">
-            <h1 className="text-2xl font-semibold leading-tight">
-              {projectTitle}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold leading-tight">
+                {projectTitle}
+              </h1>
+
+              {maintenanceEnabled && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-semibold">
+                  <Wrench className="size-3.5" />
+                  Maintenance
+                </span>
+              )}
+
+              {loading && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
+                  Loading…
+                </span>
+              )}
+            </div>
+
             <p className="text-sm text-white/85 line-clamp-2">
               {projectDescription?.trim()
                 ? projectDescription
                 : "Connect sprints, tickets and workflows into one unified project board."}
             </p>
+
+            {maintenanceEnabled && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/90">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 border border-white/25">
+                  <Boxes className="size-3.5" />
+                  {components.length} component(s)
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 border border-white/25">
+                  Filter: <b className="ml-1">{selectedInfoLabel}</b>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 border border-white/25">
+                  Showing: <b className="ml-1">{tasksByComponent.length}</b> / {tasks.length}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
             {hasProjectRequest && (
-              <Can code='PROJECT_TICKET_LIST_REQUESTER'>
-              <button
-                type="button"
-                onClick={() => setOpenTicketPopup(true)}
-                className="inline-flex items-center gap-2 rounded-full bg-white/25 px-4 py-2 text-xs font-semibold text-white shadow-md backdrop-blur-sm transition hover:bg-white/35 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-              >
-                <TicketIcon className="size-4" />
-                <span>Tickets</span>
-              </button>
+              <Can code="PROJECT_TICKET_LIST_REQUESTER">
+                <button
+                  type="button"
+                  onClick={() => setOpenTicketPopup(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-white/25 px-4 py-2 text-xs font-semibold text-white shadow-md backdrop-blur-sm transition hover:bg-white/35 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                >
+                  <TicketIcon className="size-4" />
+                  <span>Tickets</span>
+                </button>
               </Can>
             )}
 
@@ -357,9 +605,7 @@ Note:
                 onClick={() => {
                   navigate(
                     `/company/${companyId}/project-request/${projectRequestId}`,
-                    {
-                      state: { viewMode: "AsExecutor" },
-                    },
+                    { state: { viewMode: "AsExecutor" } },
                   );
                 }}
               >
@@ -373,22 +619,18 @@ Note:
                 type="button"
                 className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/95 backdrop-blur-sm transition hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 onClick={() =>
-                  navigate(
-                    `/companies/${companyId}/project/${projectId}/detail`,
-                  )
+                  navigate(`/companies/${companyId}/project/${projectId}/detail`)
                 }
               >
                 <Info className="size-3.5" />
                 <span className="hidden sm:inline">Detail</span>
               </button>
             )}
-           
-
           </div>
         </div>
       </div>
 
-      {/* TAB BAR */}
+      {/* TAB BAR (giữ nguyên, chỉ thêm dropdown filter component bên phải) */}
       <div className="border-b border-slate-200 bg-white/90 flex justify-between">
         <nav className="flex gap-6 px-8 text-sm font-medium">
           {viewTabs.map((tab) => (
@@ -407,68 +649,245 @@ Note:
             </button>
           ))}
         </nav>
-        <div className="self-center">
-          {/* SLA tooltip icon (small) */}
-<span className="relative inline-flex group">
- <button
-  type="button"
-  className="inline-flex items-center justify-center w-5 h-5 rounded-full
-             border border-slate-300 bg-slate-100 text-slate-700 text-[11px] font-extrabold leading-none
-             hover:bg-slate-200 hover:border-slate-400 hover:text-slate-800 transition
-             focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-  aria-label="SLA policies"
->
-  !
-</button>
 
-  {/* tooltip box */}
-  <div
-    className="
-      pointer-events-none absolute right-0 top-7 z-50
-      w-[330px] rounded-xl border border-slate-200 bg-white text-slate-800
-      shadow-[0_18px_45px_rgba(15,23,42,0.18)]
-      p-3 text-[11px] leading-5
-      opacity-0 translate-y-1
-      group-hover:opacity-100 group-hover:translate-y-0
-      transition duration-150
-    "
-  >
-    <div className="font-semibold text-[12px] mb-1">SLA policies</div>
+        <div className="self-center flex items-center gap-2 pr-4">
+          {/* ✅ Component dropdown (no search, list all) */}
+          {maintenanceEnabled && (
+            <div className="relative" ref={componentMenuRef}>
+              <button
+                type="button"
+                onClick={() => setComponentMenuOpen((p) => !p)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
+                  componentMenuOpen
+                    ? "border-slate-300 bg-slate-100 text-slate-900"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                )}
+                title="Filter by component"
+              >
+                <Boxes className="size-4" />
+                <span className="max-w-[220px] truncate">
+                  Component: {selectedInfoLabel}
+                </span>
+                <ChevronDown className="size-4 opacity-70" />
+              </button>
 
-    <div className="space-y-1">
-      <div><span className="font-semibold">Bug</span> — Urgent: 24h · High: 48h · Medium: 72h</div>
-      <div><span className="font-semibold">Feature</span> — Urgent: 72h · High: 120h · Medium: 168h · Low: 336h</div>
-      <div><span className="font-semibold">Chore</span> — Low: 336h</div>
-    </div>
+              {componentMenuOpen && (
+                <div className="absolute right-0 mt-2 w-[360px] rounded-2xl border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] overflow-hidden z-50">
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <div className="text-sm font-semibold text-slate-900">
+                      Filter by component
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Click = single-select · Ctrl/⌘ + click = multi-select
+                    </div>
+                  </div>
 
-  
-  </div>
-</span>
+                  <div className="max-h-[320px] overflow-auto py-1">
+                    {/* All */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedComponents([])}
+                      className={cn(
+                        "w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50",
+                        selectedComponents.length === 0 ? "bg-slate-50" : "",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "inline-flex items-center justify-center size-5 rounded-md border",
+                          selectedComponents.length === 0 ? "border-blue-300 bg-blue-50" : "border-slate-200"
+                        )}>
+                          {selectedComponents.length === 0 && <Check className="size-3 text-blue-600" />}
+                        </span>
+                        <div className="text-sm font-medium text-slate-800">All components</div>
+                      </div>
+                      <span className="text-[11px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+                        {tasks.length}
+                      </span>
+                    </button>
 
+                    {/* Unassigned */}
+                    <button
+                      type="button"
+                      onClick={(e) => selectComponentSmart("__UNASSIGNED__", e)}
+                      className={cn(
+                        "w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50",
+                        isSelected("__UNASSIGNED__") ? "bg-slate-50" : "",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "inline-flex items-center justify-center size-5 rounded-md border",
+                          isSelected("__UNASSIGNED__") ? "border-blue-300 bg-blue-50" : "border-slate-200"
+                        )}>
+                          {isSelected("__UNASSIGNED__") && <Check className="size-3 text-blue-600" />}
+                        </span>
+                        <div className="text-sm font-medium text-slate-800">Unassigned</div>
+                      </div>
+                      <span className="text-[11px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+                        {compCounts.unassigned}
+                      </span>
+                    </button>
+
+                    <div className="my-1 border-t border-slate-100" />
+
+                    {/* Components list */}
+                    {componentOptions.map((c) => {
+                      const active = isSelected(c.key);
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={(e) => selectComponentSmart(c.key, e)}
+                          className={cn(
+                            "w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50",
+                            active ? "bg-slate-50" : "",
+                            c.count === 0 && !active ? "opacity-60" : "",
+                          )}
+                          title={c.description || c.name}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={cn(
+                              "inline-flex items-center justify-center size-5 rounded-md border flex-none",
+                              active ? "border-blue-300 bg-blue-50" : "border-slate-200"
+                            )}>
+                              {active && <Check className="size-3 text-blue-600" />}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-slate-800 truncate">
+                                {c.name}
+                              </div>
+                              {!!c.description?.trim() && (
+                                <div className="text-[11px] text-slate-500 truncate">
+                                  {c.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[11px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+                            {c.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-3 py-2 border-t border-slate-100 flex items-center justify-between">
+                    <div className="text-[11px] text-slate-500">
+                      Showing <b className="text-slate-700">{tasksByComponent.length}</b> / {tasks.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={clearComponents}
+                        className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        <X className="size-4" />
+                        Clear
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setComponentMenuOpen(false)}
+                        className="inline-flex items-center rounded-xl bg-slate-900 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-slate-800"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SLA tooltip icon (giữ nguyên) */}
+          <span className="relative inline-flex group">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full
+                         border border-slate-300 bg-slate-100 text-slate-700 text-[11px] font-extrabold leading-none
+                         hover:bg-slate-200 hover:border-slate-400 hover:text-slate-800 transition
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+              aria-label="SLA policies"
+            >
+              !
+            </button>
+
+            <div
+              className="
+                pointer-events-none absolute right-0 top-7 z-50
+                w-[330px] rounded-xl border border-slate-200 bg-white text-slate-800
+                shadow-[0_18px_45px_rgba(15,23,42,0.18)]
+                p-3 text-[11px] leading-5
+                opacity-0 translate-y-1
+                group-hover:opacity-100 group-hover:translate-y-0
+                transition duration-150
+              "
+            >
+              <div className="font-semibold text-[12px] mb-1">SLA policies</div>
+              <div className="space-y-1">
+                <div><span className="font-semibold">Bug</span> — Urgent: 24h · High: 48h · Medium: 72h</div>
+                <div><span className="font-semibold">Feature</span> — Urgent: 72h · High: 120h · Medium: 168h · Low: 336h</div>
+                <div><span className="font-semibold">Chore</span> — Low: 336h</div>
+              </div>
+            </div>
+          </span>
         </div>
       </div>
 
       {/* WRAPPER */}
       <section>
         <div className="rounded-3xl border border-slate-200/80 bg-50/90 p-3 sm:p-4 shadow-[0_18px_45px_rgba(15,23,42,0.12)]">
+          {/* List header with search (giữ nguyên) */}
           {view === "List" && (
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" />
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 size-4 text-slate-400" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search tasks..."
+                    className="h-10 w-[320px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                {query && (
+                  <button
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                    onClick={() => setQuery("")}
+                  >
+                    <X className="size-4" />
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {maintenanceEnabled && (
+                <div className="text-sm text-slate-600">
+                  Component filter: <b>{selectedInfoLabel}</b> · Showing{" "}
+                  <b>{listTasks.length}</b> task(s)
+                </div>
+              )}
+            </div>
           )}
 
           <div className="mt-1">
             {view === "Kanban" && (
               <KanbanBySprintBoard
-                sprints={sprints}
+                sprints={sprintsForView}
                 filterCategory={kanbanFilter}
                 onDragEnd={onDragEndKanban}
                 onSaveBoard={handleSaveBoard}
                 onReloadBoard={reloadBoard}
+                 maintenanceEnabled={maintenanceEnabled}
+    components={components}                 
+    defaultComponentId={autoComponentId} 
                 {...eventApi}
               />
             )}
 
             {view === "Sprint" && (
-              <SprintBoard onDragEnd={onDragEndSprint} {...eventApi} />
+              <SprintBoard sprints={sprintsForView} onDragEnd={onDragEndSprint} {...eventApi} />
             )}
 
             {view === "List" && (
@@ -502,7 +921,7 @@ export default function ProjectBoardPage() {
   const { projectId = "project-1", companyId } = useParams<{ projectId: string; companyId?: string }>();
   (window as any).__projectId = projectId;
 
-  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[] } | null>(null);
+  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[]; components: ComponentVm[] } | null>(null);
 
   React.useEffect(() => {
     let dead = false;
@@ -534,13 +953,11 @@ export default function ProjectBoardPage() {
 
     const kickOutWithToast = (msg: string) => {
       toastError(msg);
-      // cho toast kịp hiện 1 chút rồi mới redirect
       setTimeout(() => go(returnUrl), 600);
     };
 
     (async () => {
       try {
-        // 1) CHECK ACCESS + OPEN/CLOSED trước
         const access: any = await checkProjectAccess(projectId);
 
         const isCreator = !!(
@@ -554,27 +971,28 @@ export default function ProjectBoardPage() {
         const isClosed = !!access?.isClosed;
         const notMember = access?.isMember === false || access?.canAccess === false;
 
-        // 2) Nếu project đóng
         if (isClosed) {
           if (isCreator) return go(detailUrl);
           return kickOutWithToast("Project đã đóng.");
         }
 
-        // 3) Nếu không thuộc project / không có quyền
         if (notMember) {
           if (isCreator) return go(detailUrl);
           return kickOutWithToast("You not in project.");
         }
 
-        // 4) Project ok => mới fetch board
         const res = await fetchSprintBoard(projectId);
-        const normalized = normalizeBoardInput(res ?? {});
-        if (!dead) setInit(normalized);
+        const normalized: any = normalizeBoardInput(res ?? {});
+        if (!dead) {
+          setInit({
+            sprints: normalized?.sprints ?? [],
+            tasks: normalized?.tasks ?? [],
+            components: normalized?.components ?? [],
+          });
+        }
       } catch (err) {
         console.error("Failed to check access/load sprint board", err);
-        // nếu check fail (401/403/404) => coi như không vào được
-        kickOutWithToast("You can't access this project.");
-        if (!dead) setInit({ sprints: [], tasks: [] });
+        if (!dead) setInit({ sprints: [], tasks: [], components: [] });
       }
     })();
 
@@ -588,11 +1006,8 @@ export default function ProjectBoardPage() {
   }
 
   return (
-    <ProjectBoardProvider key={projectId} projectId={projectId} initialData={init}>
-      <Inner />
+    <ProjectBoardProvider key={projectId} projectId={projectId} initialData={init as any}>
+      <Inner componentsFromBoard={init.components} />
     </ProjectBoardProvider>
   );
 }
-
-
-

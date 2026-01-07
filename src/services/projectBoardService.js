@@ -18,7 +18,11 @@ export async function fetchSprintBoard(projectId) {
   }
 
   return {
-    // 👈 QUAN TRỌNG: trả workflow về cho normalizeBoardInput dùng
+     components: Array.isArray(payload.components)
+      ? payload.components
+      : Array.isArray(payload.maintenanceComponents)
+        ? payload.maintenanceComponents
+        : [],
     workflow: payload.workflow || null,
     sprints,
     tasks: Array.isArray(payload.tasks) ? payload.tasks : [],

@@ -21,6 +21,13 @@ export type StatusMeta = {
   isStart?: boolean;
   roles?: string[];    
 };
+export type ComponentVm = {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt?: string | null;
+  createdBy?: string | null;
+};
 
 export type SprintVm = {
   id: string;
@@ -66,6 +73,8 @@ ticketId?: string | null;
   ticketName?: string | null;
   sourceTicketId: string | null;
   sourceTicketCode: string | null;
+   componentId?: string | null;
+  componentName?: string | null;
 };
 
 
