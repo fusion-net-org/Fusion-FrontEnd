@@ -29,11 +29,23 @@ export type Project = {
   maintenanceComponentCount?: number;
 };
 
-// ✅ màu bạn đưa (bg-amber-800 trong ảnh): rgb(171 77 19)
+// ✅ Maintenance (Internal) - nâu
 const MAINT_RGB = 'rgb(171, 77, 19)'; // #AB4D13
-const MAINT_RGB_DARK = 'rgb(132, 57, 12)'; // hover/active nhẹ
-const MAINT_BG = 'rgb(255, 247, 237)'; // nền nhạt để card nổi (giống amber-50)
-const MAINT_BG_CHIP = 'rgb(253, 234, 215)'; // nền badge components nhạt hơn
+const MAINT_RGB_DARK = 'rgb(132, 57, 12)';
+const MAINT_BG = 'rgb(255, 247, 237)';
+const MAINT_BG_CHIP = 'rgb(253, 234, 215)';
+
+// ✅ Maintenance Request (maintenance + request) - rose
+const MAINT_REQ_RGB = 'rgb(190, 18, 60)'; // rose-700
+const MAINT_REQ_RGB_DARK = 'rgb(159, 18, 57)'; // rose-800
+const MAINT_REQ_BG = 'rgb(255, 241, 242)'; // rose-50
+const MAINT_REQ_BG_CHIP = 'rgb(254, 226, 226)'; // rose-100
+
+// ✅ NEW: Maintenance Outsourced (maintenance + outsourced + NOT request) - indigo
+const MAINT_OUT_RGB = 'rgb(67, 56, 202)'; // indigo-700
+const MAINT_OUT_RGB_DARK = 'rgb(55, 48, 163)'; // indigo-800
+const MAINT_OUT_BG = 'rgb(238, 242, 255)'; // indigo-50
+const MAINT_OUT_BG_CHIP = 'rgb(224, 231, 255)'; // indigo-100
 
 const StatusDot = ({ color }: { color: string }) => (
   <span className="inline-block size-2 rounded-full mr-1.5" style={{ backgroundColor: color }} />
@@ -87,7 +99,7 @@ export default function ProjectCard({
 }) {
   const open = () => onOpen?.(data);
 
-  // ✅ đọc maintenance chắc chắn (đỡ lệch key/typo + trường hợp BE trả "true")
+  // ✅ đọc maintenance chắc chắn
   const maint =
     data.isMaintenance === true ||
     String((data as any).isMaintenance).toLowerCase() === 'true' ||
@@ -100,18 +112,38 @@ export default function ProjectCard({
     ? Number(data.maintenanceComponentCount)
     : 0;
 
-  const req = !maint && !!data.isRequest;
+  // ✅ bool helper cho isRequest (tránh 1/"true")
+  const toBool = (v: any) => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+  const isReqFlag = toBool((data as any).isRequest ?? (data as any).is_request);
+
+  // ✅ 3 loại maintenance:
+  const maintReq = maint && isReqFlag; // maintenance + request
+  const maintOut = maint && !isReqFlag && data.ptype === 'Outsourced'; // maintenance + outsourced + NOT request
+  // còn lại: maint internal (maint && !maintReq && !maintOut)
+
+  // giữ nguyên logic cũ: Request/Execute chỉ khi KHÔNG phải maintenance
+  const req = !maint && isReqFlag;
   const exec = !maint && !req && data.ptype === 'Outsourced';
   const closed = !!data.isClosed;
 
   const cardBase =
     'group relative flex cursor-pointer flex-col rounded-2xl p-5 border transition backdrop-blur-sm';
 
-  // ✅ Maintenance: KHÔNG dùng /opacity. Màu sẽ set bằng inline-style để CHẮC CHẮN ra đúng rgb bạn chọn.
+  // shadow từng loại
   const maintVariant =
     'shadow-[0_1px_1px_rgba(69,26,3,0.10),0_10px_22px_-12px_rgba(69,26,3,0.28)] hover:shadow-[0_2px_6px_rgba(69,26,3,0.12),0_24px_32px_-12px_rgba(69,26,3,0.36)]';
 
-  const cardVariant = maint
+  const maintReqVariant =
+    'shadow-[0_1px_1px_rgba(136,19,55,0.10),0_10px_22px_-12px_rgba(136,19,55,0.28)] hover:shadow-[0_2px_6px_rgba(136,19,55,0.12),0_24px_32px_-12px_rgba(136,19,55,0.36)]';
+
+  const maintOutVariant =
+    'shadow-[0_1px_1px_rgba(55,48,163,0.10),0_10px_22px_-12px_rgba(55,48,163,0.28)] hover:shadow-[0_2px_6px_rgba(55,48,163,0.12),0_24px_32px_-12px_rgba(55,48,163,0.36)]';
+
+  const cardVariant = maintReq
+    ? maintReqVariant
+    : maintOut
+    ? maintOutVariant
+    : maint
     ? maintVariant
     : req
     ? 'border-amber-300 bg-amber-50 shadow-[0_1px_1px_rgba(146,64,14,0.08),0_10px_22px_-12px_rgba(217,119,6,0.35)] hover:shadow-[0_2px_6px_rgba(146,64,14,0.10),0_24px_32px_-12px_rgba(217,119,6,0.45)]'
@@ -124,22 +156,29 @@ export default function ProjectCard({
 
   const bgImage = closed
     ? 'radial-gradient(1200px 140px at 50% -50px, rgba(148,163,184,0.20), transparent 60%)'
+    : maintReq
+    ? 'radial-gradient(1200px 140px at 50% -50px, rgba(190,18,60,0.16), transparent 60%)'
+    : maintOut
+    ? 'radial-gradient(1200px 140px at 50% -50px, rgba(67,56,202,0.16), transparent 60%)'
     : maint
-    ? `radial-gradient(1200px 140px at 50% -50px, rgba(171,77,19,0.18), transparent 60%)`
+    ? 'radial-gradient(1200px 140px at 50% -50px, rgba(171,77,19,0.18), transparent 60%)'
     : req
     ? 'radial-gradient(1200px 140px at 50% -50px, rgba(245,158,11,0.16), transparent 60%)'
     : exec
     ? 'radial-gradient(1200px 140px at 50% -50px, rgba(37,99,235,0.16), transparent 60%)'
     : 'radial-gradient(1200px 140px at 50% -50px, rgba(59,130,246,0.12), transparent 60%)';
 
-  // ✅ style cho maintenance để không phụ thuộc Tailwind palette (đảm bảo ra đúng rgb bạn chọn)
-  const cardStyle: React.CSSProperties = maint && !closed
-    ? {
-        backgroundImage: bgImage,
-        backgroundColor: MAINT_BG,
-        borderColor: MAINT_RGB,
-      }
-    : { backgroundImage: bgImage };
+  const cardStyle: React.CSSProperties =
+    maintReq && !closed
+      ? { backgroundImage: bgImage, backgroundColor: MAINT_REQ_BG, borderColor: MAINT_REQ_RGB }
+      : maintOut && !closed
+      ? { backgroundImage: bgImage, backgroundColor: MAINT_OUT_BG, borderColor: MAINT_OUT_RGB }
+      : maint && !closed
+      ? { backgroundImage: bgImage, backgroundColor: MAINT_BG, borderColor: MAINT_RGB }
+      : { backgroundImage: bgImage };
+
+  const stripeColor = maintReq ? MAINT_REQ_RGB : maintOut ? MAINT_OUT_RGB : maint ? MAINT_RGB : undefined;
+  const chipBg = maintReq ? MAINT_REQ_RGB : maintOut ? MAINT_OUT_RGB : MAINT_RGB;
 
   return (
     <div
@@ -159,8 +198,7 @@ export default function ProjectCard({
             'pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-2xl',
             req ? 'bg-amber-500/80' : exec ? 'bg-blue-500/80' : '',
           ].join(' ')}
-          // ✅ maintenance: nâu đậm, không /opacity
-          style={maint ? { backgroundColor: MAINT_RGB } : undefined}
+          style={stripeColor ? { backgroundColor: stripeColor } : undefined}
         />
       )}
 
@@ -176,17 +214,38 @@ export default function ProjectCard({
             </span>
           )}
 
-          {/* ✅ Maintenance chip: FULL nâu (giống Request/Execute kiểu chip đậm) */}
-          {maint && (
+          {/* ✅ chips maintenance theo 3 loại */}
+          {maintReq && (
             <span
               className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
-              style={{ backgroundColor: MAINT_RGB }}
+              style={{ backgroundColor: chipBg }}
+              title="Maintenance request project"
+            >
+              Maintenance Request • {compCount} component{compCount === 1 ? '' : 's'}
+            </span>
+          )}
+
+          {!maintReq && maintOut && (
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+              style={{ backgroundColor: chipBg }}
+              title="Outsourced maintenance (executor side)"
+            >
+              Maintenance (Outsourced) • {compCount} component{compCount === 1 ? '' : 's'}
+            </span>
+          )}
+
+          {!maintReq && !maintOut && maint && (
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+              style={{ backgroundColor: chipBg }}
               title="Maintenance project"
             >
               Maintenance • {compCount} component{compCount === 1 ? '' : 's'}
             </span>
           )}
 
+          {/* giữ nguyên logic cũ */}
           {!maint && (req || exec) && (
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-medium text-white ${
@@ -243,17 +302,22 @@ export default function ProjectCard({
 
         {!maint && <TypeBadge type={data.ptype} dim={closed} />}
 
-        {/* ✅ Components badge: nâu rõ, không opacity */}
         {maint && (
           <span
             className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs"
             style={{
-              borderColor: MAINT_RGB,
-              backgroundColor: MAINT_BG_CHIP,
-              color: MAINT_RGB,
+              borderColor: maintReq ? MAINT_REQ_RGB : maintOut ? MAINT_OUT_RGB : MAINT_RGB,
+              backgroundColor: maintReq ? MAINT_REQ_BG_CHIP : maintOut ? MAINT_OUT_BG_CHIP : MAINT_BG_CHIP,
+              color: maintReq ? MAINT_REQ_RGB : maintOut ? MAINT_OUT_RGB : MAINT_RGB,
             }}
           >
-            Components: <span className="ml-1 font-semibold" style={{ color: MAINT_RGB }}>{compCount}</span>
+            Components:{' '}
+            <span
+              className="ml-1 font-semibold"
+              style={{ color: maintReq ? MAINT_REQ_RGB : maintOut ? MAINT_OUT_RGB : MAINT_RGB }}
+            >
+              {compCount}
+            </span>
           </span>
         )}
       </div>
@@ -263,7 +327,6 @@ export default function ProjectCard({
           {data.description || '—'}
         </p>
 
-        {/* ✅ Button: nâu đậm chuẩn, hover tối nhẹ (không opacity) */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -271,16 +334,28 @@ export default function ProjectCard({
           }}
           className={[
             'ml-3 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white shadow-sm',
-            closed ? 'bg-slate-600 hover:bg-slate-700' : maint ? 'hover:brightness-95 active:brightness-90' : req
+            closed
+              ? 'bg-slate-600 hover:bg-slate-700'
+              : maintReq || maintOut || maint
+              ? 'hover:brightness-95 active:brightness-90'
+              : req
               ? 'bg-amber-600 hover:bg-amber-700'
               : 'bg-blue-600 hover:bg-blue-700',
           ].join(' ')}
-          style={maint && !closed ? { backgroundColor: MAINT_RGB } : undefined}
+          style={
+            !closed && (maintReq || maintOut || maint)
+              ? { backgroundColor: maintReq ? MAINT_REQ_RGB : maintOut ? MAINT_OUT_RGB : MAINT_RGB }
+              : undefined
+          }
           onMouseEnter={(e) => {
-            if (maint && !closed) (e.currentTarget.style.backgroundColor = MAINT_RGB_DARK);
+            if (!closed && maintReq) e.currentTarget.style.backgroundColor = MAINT_REQ_RGB_DARK;
+            else if (!closed && maintOut) e.currentTarget.style.backgroundColor = MAINT_OUT_RGB_DARK;
+            else if (!closed && maint) e.currentTarget.style.backgroundColor = MAINT_RGB_DARK;
           }}
           onMouseLeave={(e) => {
-            if (maint && !closed) (e.currentTarget.style.backgroundColor = MAINT_RGB);
+            if (!closed && maintReq) e.currentTarget.style.backgroundColor = MAINT_REQ_RGB;
+            else if (!closed && maintOut) e.currentTarget.style.backgroundColor = MAINT_OUT_RGB;
+            else if (!closed && maint) e.currentTarget.style.backgroundColor = MAINT_RGB;
           }}
         >
           Open <ArrowRight className="size-4" />

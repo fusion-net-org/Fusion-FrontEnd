@@ -337,6 +337,11 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
       createdAt: new Date().toISOString(),
     };
   }
+  const componentId =
+    dto.componentId ?? dto.component_id ?? dto.component?.id ?? null;
+
+  const componentName =
+    dto.componentName ?? dto.component_name ?? dto.component?.name ?? null;
 
   const rawType = String(dto.type ?? dto.taskType ?? "Feature").toLowerCase();
   let type: QuickDraftType = "Feature";
@@ -383,6 +388,8 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
     createdAt,
     ticketId,
     ticketCode,
+    componentId,
+    componentName,
   };
 };
 
@@ -1275,6 +1282,11 @@ const getSprintTasks = React.useCallback(
         (localTask as any).isLocalDraft = true;
         (localTask as any).backlogDraftId = movedDraft.id;
 
+        if (maintenanceEnabled && (movedDraft as any).componentId) {
+          (localTask as any).componentId = (movedDraft as any).componentId;
+          (localTask as any).componentName = (movedDraft as any).componentName ?? "";
+        }
+
         setDraftTasksBySprint((prev) => {
           const base = prev ?? {};
           const current = base[sprintId] ?? [];
@@ -1320,6 +1332,9 @@ const getSprintTasks = React.useCallback(
               workflowStatusId: defaultStatus?.id ?? null,
               statusCode: defaultStatus?.code ?? null,
               orderInSprint: destination.index,
+               ...(maintenanceEnabled && (movedDraft as any).componentId
+    ? { componentId: (movedDraft as any).componentId }
+    : {}),
             });
 
             if (onReloadBoard) {
@@ -2084,6 +2099,9 @@ const deleteConfirmModal =
         loading={loadingDrafts}
         onReloadDrafts={loadDraftTasks}
         onOpenTicket={handleOpenBacklogTicket}
+         componentEnabled={maintenanceEnabled /* hoặc isProjectRequest */}
+  components={components}
+  defaultComponentId={defaultComponentId}
       />
 
       {aiOpen && (

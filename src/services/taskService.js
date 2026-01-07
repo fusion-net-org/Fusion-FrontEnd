@@ -518,16 +518,17 @@ export const createDraftTask = async (
     dueDate = null,
     parentTaskId = null,
     sourceTaskId = null,
+    componentId = null,
   } = {},
 ) => {
   try {
-    if (!projectId) {
-      throw new Error('projectId is required to create draft task');
-    }
+    if (!projectId) throw new Error('projectId is required to create draft task');
+
+    const cid = typeof componentId === 'string' ? componentId.trim() : componentId;
 
     const payload = {
       projectId,
-      sprintId: null, // bắt buộc null để BE set IsBacklog = true
+      sprintId: null,
       title: title?.trim() || '',
       type,
       priority,
@@ -536,14 +537,10 @@ export const createDraftTask = async (
       dueDate,
       parentTaskId,
       sourceTaskId,
-      // BE có thể tự set IsBacklog = true nếu sprintId == null
-      // nếu BE cho phép thì gửi luôn:
-      // isBacklog: true,
+      ...(cid ? { componentId: cid } : {}),
     };
 
     const res = await axiosInstance.post(`/projects/${projectId}/draft-tasks`, payload);
-
-    // response: ResponseModel<ProjectTaskResponse>
     return res?.data?.data ?? res?.data;
   } catch (error) {
     console.error('Error in createDraftTask:', error);
@@ -558,7 +555,7 @@ export const createDraftTask = async (
  */
 export const updateDraftTask = async (
   draftTaskId,
-  { title, type, priority, severity, estimateHours, dueDate, parentTaskId, sourceTaskId } = {},
+  { title, type, priority, severity, estimateHours, dueDate, parentTaskId, sourceTaskId , componentId = null } = {},
 ) => {
   try {
     if (!draftTaskId) {
@@ -578,6 +575,7 @@ export const updateDraftTask = async (
       // luôn giữ backlog – không gán sprint
       sprintId: null,
       // isBacklog: true,
+       ...(cid ? { componentId: cid } : {}),
     };
 
     const res = await axiosInstance.put(`/draft-tasks/${draftTaskId}`, payload);

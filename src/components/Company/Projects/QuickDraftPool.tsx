@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import {
@@ -10,6 +10,7 @@ import {
   Trash2,
   Clock,
   ExternalLink,
+  Boxes,
 } from "lucide-react";
 import { Modal } from "antd";
 import { createDraftTask, deleteDraftTaskApi } from "@/services/taskService.js";
@@ -32,6 +33,9 @@ export type QuickDraft = {
   // highlight nếu được sinh từ ticket
   ticketId?: string | null;
   ticketCode?: string | null;
+
+  componentId?: string | null;
+  componentName?: string | null;
 };
 
 type Props = {
@@ -48,6 +52,10 @@ type Props = {
 
   // callback mở màn ticket
   onOpenTicket?: (ticketId: string) => void;
+
+  componentEnabled?: boolean;
+  components?: { id: string; name: string }[];
+  defaultComponentId?: string | null;
 };
 
 const priorityBadgeClass = (p: QuickDraftPriority) => {
@@ -79,19 +87,44 @@ const QuickDraftPool: React.FC<Props> = ({
   loading,
   onReloadDrafts,
   onOpenTicket,
+  componentEnabled = false,
+  components = [],
+  defaultComponentId = null,
 }) => {
   const [addingDraft, setAddingDraft] = useState(false);
+
+  const componentOptions = useMemo(() => components ?? [], [components]);
+
+  const initialComponentId = useMemo(() => {
+    if (!componentEnabled) return "";
+    if (
+      defaultComponentId &&
+      componentOptions.some((c) => c.id === defaultComponentId)
+    ) {
+      return defaultComponentId;
+    }
+    return componentOptions[0]?.id ?? "";
+  }, [componentEnabled, defaultComponentId, componentOptions]);
+
   const [draftForm, setDraftForm] = useState<{
     title: string;
     type: QuickDraftType;
     priority: QuickDraftPriority;
     estimate: string;
+    componentId: string;
   }>({
     title: "",
     type: "Feature",
     priority: "Medium",
     estimate: "",
+    componentId: initialComponentId,
   });
+
+  React.useEffect(() => {
+    if (!componentEnabled) return;
+    setDraftForm((x) => ({ ...x, componentId: initialComponentId }));
+  }, [componentEnabled, initialComponentId]);
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -106,9 +139,17 @@ const QuickDraftPool: React.FC<Props> = ({
     }
     if (creating) return;
 
-    const estimateVal = draftForm.estimate
-      ? Number(draftForm.estimate)
-      : undefined;
+    const estimateVal = draftForm.estimate ? Number(draftForm.estimate) : undefined;
+
+    // ✅ NEW: lấy componentId gửi lên (nếu enabled)
+    const selectedComponentId =
+      componentEnabled && draftForm.componentId ? draftForm.componentId : null;
+
+    // ✅ NEW: lấy componentName từ list components (nếu có)
+    const selectedComponentName =
+      selectedComponentId
+        ? componentOptions.find((c) => c.id === selectedComponentId)?.name ?? null
+        : null;
 
     try {
       setCreating(true);
@@ -121,14 +162,15 @@ const QuickDraftPool: React.FC<Props> = ({
           Number.isFinite(estimateVal as number) && estimateVal !== undefined
             ? estimateVal
             : null,
+        // ✅ NEW: gửi componentId lên API (nếu có)
+        componentId: selectedComponentId,
       });
 
       const newDraft: QuickDraft = {
         id: String(apiDraft.id ?? apiDraft.taskId),
         title: apiDraft.title ?? title,
         type: (apiDraft.type as QuickDraftType) ?? draftForm.type,
-        priority:
-          (apiDraft.priority as QuickDraftPriority) ?? draftForm.priority,
+        priority: (apiDraft.priority as QuickDraftPriority) ?? draftForm.priority,
         estimateHours:
           typeof apiDraft.estimateHours === "number"
             ? apiDraft.estimateHours
@@ -147,6 +189,20 @@ const QuickDraftPool: React.FC<Props> = ({
           apiDraft.ticket_code ??
           apiDraft.ticket?.code ??
           null,
+
+        // ✅ NEW: map component info từ API hoặc fallback theo selected
+        componentId:
+          apiDraft.componentId ??
+          apiDraft.component_id ??
+          apiDraft.component?.id ??
+          selectedComponentId ??
+          null,
+        componentName:
+          apiDraft.componentName ??
+          apiDraft.component_name ??
+          apiDraft.component?.name ??
+          selectedComponentName ??
+          null,
       };
 
       setDrafts((prev) => [newDraft, ...prev]);
@@ -155,14 +211,16 @@ const QuickDraftPool: React.FC<Props> = ({
         await onReloadDrafts();
       }
 
+      // ✅ FIX: reset form phải có componentId (tránh TS error + giữ default)
       setDraftForm({
         title: "",
         type: "Feature",
         priority: "Medium",
         estimate: "",
+        componentId: initialComponentId,
       });
-      setAddingDraft(false);
 
+      setAddingDraft(false);
       toast.success("Backlog item created.");
     } catch (err: any) {
       console.error("[QuickDraftPool] create draft failed", err);
@@ -214,9 +272,11 @@ const QuickDraftPool: React.FC<Props> = ({
 
   const overlayActive = open && !draggingFromPool;
   const { can, loading: permLoading } = usePermissions();
-  const canUpdateTask = !permLoading && can("MOVE_BACKLOG_TO_SPRINT");
 
-const dragDisabled = !canUpdateTask;
+  // ✅ (giữ logic cũ) - nếu bạn dùng code khác thì đổi tại đây
+  const canUpdateTask = !permLoading && can("MOVE_BACKLOG_TO_SPRINT");
+  const dragDisabled = !canUpdateTask;
+
   return (
     <>
       {/* Dimmed background */}
@@ -278,15 +338,16 @@ const dragDisabled = !canUpdateTask;
             {/* Add button row */}
             <div className="mb-3 flex items-center justify-between gap-3">
               <Can code="BACKLOG_CREATE">
-              <button
-                type="button"
-                onClick={() => setAddingDraft(true)}
-                className="inline-flex items-center gap-2 rounded-full bg-[#2E8BFF] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-[#1f6fd6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2E8BFF]/40"
-              >
-                <Plus className="w-3 h-3" />
-                Add backlog item
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setAddingDraft(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#2E8BFF] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-[#1f6fd6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2E8BFF]/40"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add backlog item
+                </button>
               </Can>
+
               <span className="text-[11px] text-slate-400">
                 Total:{" "}
                 <span className="font-medium text-slate-700">
@@ -340,6 +401,7 @@ const dragDisabled = !canUpdateTask;
                       <option value="Chore">Chore / housekeeping</option>
                     </select>
                   </div>
+
                   <div>
                     <label className="mb-1 block text-[11px] font-medium text-slate-600">
                       Priority
@@ -362,24 +424,36 @@ const dragDisabled = !canUpdateTask;
                   </div>
                 </div>
 
-                {/* <div>
-                  <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                    Estimate (hours)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.5"
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none placeholder:text-slate-300 focus:border-[#2E8BFF] focus:ring-2 focus:ring-[#2E8BFF]/12"
-                    value={draftForm.estimate}
-                    onChange={(e) =>
-                      setDraftForm((x) => ({
-                        ...x,
-                        estimate: e.target.value,
-                      }))
-                    }
-                  />
-                </div> */}
+                {componentEnabled && (
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-slate-600">
+                      Component
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Boxes className="h-3.5 w-3.5" />
+                      </span>
+                      <select
+                        className="w-full rounded-lg border border-slate-200 bg-white pl-7 pr-2.5 py-1.5 text-[11px] outline-none focus:border-[#2E8BFF] focus:ring-2 focus:ring-[#2E8BFF]/12 disabled:opacity-60"
+                        value={draftForm.componentId}
+                        onChange={(e) =>
+                          setDraftForm((x) => ({ ...x, componentId: e.target.value }))
+                        }
+                        disabled={!componentOptions.length || creating}
+                      >
+                        {!componentOptions.length ? (
+                          <option value="">No component</option>
+                        ) : (
+                          componentOptions.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <button
@@ -446,6 +520,16 @@ const dragDisabled = !canUpdateTask;
                           >
                             {d.priority}
                           </span>
+
+                          {!!d.componentName && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                              <Boxes className="h-3 w-3 text-slate-400" />
+                              <span className="truncate max-w-[140px]">
+                                {d.componentName}
+                              </span>
+                            </span>
+                          )}
+
                           {hasTicket && (
                             <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-sky-500 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
                               <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
@@ -529,9 +613,7 @@ const dragDisabled = !canUpdateTask;
                                     }}
                                   />
                                   <span className="truncate">{d.type}</span>
-                                  <span className="mx-1 text-slate-300">
-                                    •
-                                  </span>
+                                  <span className="mx-1 text-slate-300">•</span>
                                   <span
                                     className={[
                                       "inline-flex items-center px-1.5 py-0.5 rounded-full border",
@@ -540,6 +622,16 @@ const dragDisabled = !canUpdateTask;
                                   >
                                     {d.priority}
                                   </span>
+
+                                  {!!d.componentName && (
+                                    <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                      <Boxes className="h-3 w-3 text-slate-400" />
+                                      <span className="truncate max-w-[140px]">
+                                        {d.componentName}
+                                      </span>
+                                    </span>
+                                  )}
+
                                   {hasTicket && (
                                     <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-sky-500 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
                                       <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
@@ -547,15 +639,18 @@ const dragDisabled = !canUpdateTask;
                                     </span>
                                   )}
                                 </div>
+
                                 <div className="mt-0.5 truncate text-[13px] font-semibold text-slate-900">
                                   {d.title}
                                 </div>
+
                                 {d.estimateHours != null && (
                                   <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
                                     <Clock className="h-3 w-3" />
                                     <span>{d.estimateHours}h estimate</span>
                                   </div>
                                 )}
+
                                 <p className="mt-1 text-[10px] text-slate-400">
                                   {hasTicket
                                     ? "Created from a ticket – drag into a sprint column to plan it."
@@ -564,29 +659,28 @@ const dragDisabled = !canUpdateTask;
                               </div>
 
                               <div className="mt-0.5 flex flex-col items-end gap-1">
-                                {hasTicket &&
-                                  onOpenTicket &&
-                                  d.ticketId && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onOpenTicket(d.ticketId!)}
-                                      className="inline-flex items-center gap-1 rounded-full border border-sky-500 bg-white px-2.5 py-1 text-[10px] font-semibold text-sky-700 shadow-sm hover:bg-sky-50"
-                                      title="View ticket"
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                      <span>Ticket</span>
-                                    </button>
-                                  )}
-<Can code='BACKLOG_DELETE'>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveDraft(d.id)}
-                                  disabled={deletingId === d.id}
-                                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                                  title="Remove backlog item"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
+                                {hasTicket && onOpenTicket && d.ticketId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenTicket(d.ticketId!)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-sky-500 bg-white px-2.5 py-1 text-[10px] font-semibold text-sky-700 shadow-sm hover:bg-sky-50"
+                                    title="View ticket"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    <span>Ticket</span>
+                                  </button>
+                                )}
+
+                                <Can code="BACKLOG_DELETE">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveDraft(d.id)}
+                                    disabled={deletingId === d.id}
+                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                                    title="Remove backlog item"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
                                 </Can>
                               </div>
                             </div>
@@ -613,9 +707,7 @@ const dragDisabled = !canUpdateTask;
         className={`fixed top-1/2 -translate-y-1/2 z-50 flex h-16 w-9 items-center justify-center rounded-l-2xl border bg-white shadow-lg transition-[right,background-color,box-shadow] duration-300 hover:bg-slate-50 ${
           open ? "right-[380px]" : "right-0"
         } ${
-          draggingFromPool
-            ? "border-blue-400 shadow-xl"
-            : "border-slate-200"
+          draggingFromPool ? "border-blue-400 shadow-xl" : "border-slate-200"
         }`}
       >
         {open ? (

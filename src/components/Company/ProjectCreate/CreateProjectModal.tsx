@@ -958,24 +958,31 @@ export default function CreateProjectModal({
   const canUseCompany = isGuid(companyId);
 
   const [companyLabel, setCompanyLabel] = React.useState(companyName ?? '');
-  const [companyRequestProject, setCompanyRequestProject] = React.useState('');
+const [companyRequestProject, setCompanyRequestProject] = React.useState('');
 
-  const fetchGetCompanyByIdFromProjectRequest = async () => {
-    try {
-      if (!canUseCompany) return;
-      const result = await getCompanyById(companyId);
-      setCompanyRequestProject(result?.data?.name || '(Unknown Company)');
-    } catch (err: any) {
-      console.error('Error fetching company:', err);
-      setCompanyLabel('(Error loading company)');
+// ✅ hired company phải lấy theo companyRequestId (từ project request)
+const hiredCompanyId: string | null = defaultValues?.companyRequestId ?? null;
+const canUseHiredCompany = isGuid(hiredCompanyId);
+
+const fetchHiredCompanyName = async () => {
+  try {
+    if (!canUseHiredCompany || !hiredCompanyId) {
+      setCompanyRequestProject('');
+      return;
     }
-  };
+    const result = await getCompanyById(hiredCompanyId);
+    setCompanyRequestProject(result?.data?.name || '(Unknown Company)');
+  } catch (err: any) {
+    console.error('Error fetching hired company:', err);
+    setCompanyRequestProject('(Error loading company)');
+  }
+};
 
-  // ✅ FIX: tránh gọi liên tục mỗi render
-  React.useEffect(() => {
-    fetchGetCompanyByIdFromProjectRequest();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, canUseCompany]);
+React.useEffect(() => {
+  fetchHiredCompanyName();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [hiredCompanyId, canUseHiredCompany]);
+
 
   // Lấy tên company khi mở modal / đổi companyId
   React.useEffect(() => {
@@ -1075,11 +1082,14 @@ export default function CreateProjectModal({
     workflowName: '',
     memberIds: [],
 
-    // ✅ Maintenance init
     isMaintenance: defaultValues?.isMaintenance ?? false,
     maintenanceForProjectId: defaultValues?.maintenanceForProjectId ?? null,
     maintenanceComponents: defaultValues?.maintenanceComponents ?? [],
   });
+  console.log(defaultValues)
+const fromRequest = !!defaultValues?.projectRequestId;
+const lockProjectKind = fromRequest || !!defaultValues?.lockProjectKind;
+const lockMaintenanceComponents = fromRequest || !!defaultValues?.lockMaintenanceComponents;
 
   const canEditType = false;
 
@@ -1193,6 +1203,17 @@ export default function CreateProjectModal({
       return copy;
     });
   };
+React.useEffect(() => {
+  if (!open) return;
+
+  setForm((prev) => ({
+    ...prev,
+    projectRequestId: defaultValues?.projectRequestId ?? prev.projectRequestId ?? null,
+    companyRequestId: defaultValues?.companyRequestId ?? prev.companyRequestId ?? null,
+    isHired: (defaultValues?.isHire ?? defaultValues?.isHired ?? prev.isHired) as any,
+  }));
+}, [open, defaultValues?.projectRequestId, defaultValues?.companyRequestId, defaultValues?.isHire, defaultValues?.isHired]);
+
 
   /* ===== Validate per step ===== */
   const validate1 = () => {
@@ -1252,6 +1273,7 @@ export default function CreateProjectModal({
         const payloadToPost: any = {
           ...form,
           workflowId: form.workflowId!,
+            projectRequestId: form.projectRequestId ?? defaultValues?.projectRequestId ?? null,
         };
         delete payloadToPost.workflowMode;
         delete payloadToPost.workflowName;
@@ -1472,21 +1494,36 @@ export default function CreateProjectModal({
                   </Field>
                 )}
 
-                {/* ✅ Maintenance section */}
-                <Field label="Project kind">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Chip active={!form.isMaintenance} onClick={() => toggleMaintenance(false)}>
-                      Standard
-                    </Chip>
-                    <Chip active={form.isMaintenance} onClick={() => toggleMaintenance(true)}>
-                      Maintenance
-                    </Chip>
-                  <span className="text-xs text-slate-500">
-  Use Maintenance for post-release fixes and improvements. You’ll pick the original project and define the scope.
-</span>
+               <Field label="Project kind">
+  <div className="flex flex-wrap items-center gap-2">
+    <Chip
+      active={!form.isMaintenance}
+      onClick={!lockProjectKind ? () => toggleMaintenance(false) : undefined}
+      disabled={lockProjectKind}
+    >
+      Standard
+    </Chip>
 
-                  </div>
-                </Field>
+    <Chip
+      active={form.isMaintenance}
+      onClick={!lockProjectKind ? () => toggleMaintenance(true) : undefined}
+      disabled={lockProjectKind}
+    >
+      Maintenance
+    </Chip>
+
+    <span className="text-xs text-slate-500">
+      Use Maintenance for post-release fixes and improvements...
+    </span>
+  </div>
+
+  {lockProjectKind && (
+    <div className="mt-2 text-xs text-slate-500">
+      Locked by Project Request
+    </div>
+  )}
+</Field>
+
 
         {form.isMaintenance && (
   <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-4">
@@ -1498,11 +1535,13 @@ export default function CreateProjectModal({
     </div>
 
     <Field label="Work areas" required>
-      <ComponentAdder
-        options={DEFAULT_MAINT_COMPONENTS}
-        onAdd={(name) => addMaintComponent(name)}
-        placeholder="Search or type a work area… (UI, Backend API, Database, …)"
-      />
+     <ComponentAdder
+  options={DEFAULT_MAINT_COMPONENTS}
+  onAdd={(name) => addMaintComponent(name)}
+  placeholder="Search or type a work area…"
+  disabled={lockMaintenanceComponents}
+/>
+
 
       {(errors as any).maintenanceComponents && (
         <p className="mt-2 text-xs text-rose-500">{(errors as any).maintenanceComponents}</p>
@@ -1514,13 +1553,15 @@ export default function CreateProjectModal({
             Added areas ({form.maintenanceComponents.length})
           </div>
 
-          <button
-            type="button"
-            onClick={() => set('maintenanceComponents', [])}
-            className="text-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50"
-          >
-            Clear all
-          </button>
+       <button
+  type="button"
+  disabled={lockMaintenanceComponents}
+  onClick={() => set('maintenanceComponents', [])}
+  className="text-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
+>
+  Clear all
+</button>
+
         </div>
 
         {/* ✅ scroll list */}
@@ -1531,14 +1572,13 @@ export default function CreateProjectModal({
             </div>
           ) : (
             <div className="divide-y">
-          {form.maintenanceComponents.map((c) => (
+        {form.maintenanceComponents.map((c) => (
   <div key={c.clientId} className="p-3 relative">
     <button
       type="button"
+      disabled={lockMaintenanceComponents}
       onClick={() => removeMaintComponent(c.clientId)}
-      className="absolute right-3 top-3 inline-flex items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-      title="Remove"
-      aria-label="Remove"
+      className="absolute right-3 top-3 inline-flex items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <X className="size-4" />
     </button>
@@ -1549,9 +1589,10 @@ export default function CreateProjectModal({
         <div className="text-xs font-medium text-slate-600 mb-1">Area</div>
         <input
           value={c.name}
+          disabled={lockMaintenanceComponents}
           onChange={(e) => updateMaintComponent(c.clientId, { name: e.target.value })}
           placeholder="e.g., UI / Frontend"
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
         />
       </div>
 
@@ -1559,14 +1600,16 @@ export default function CreateProjectModal({
         <div className="text-xs font-medium text-slate-600 mb-1">Notes (optional)</div>
         <input
           value={c.note ?? ''}
+          disabled={lockMaintenanceComponents}
           onChange={(e) => updateMaintComponent(c.clientId, { note: e.target.value })}
           placeholder="e.g., bug fixes, improvements, refactor…"
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
         />
       </div>
     </div>
   </div>
 ))}
+
 
             </div>
           )}

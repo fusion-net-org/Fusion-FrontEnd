@@ -313,7 +313,7 @@ export async function createProject(payload) {
     isHired: !!isHired,
     companyRequestId: isGuid(companyRequestId) ? companyRequestId : null,
 
-    projectRequestId: isMaintenance ? null : (isGuid(projectRequestId) ? projectRequestId : null),
+projectRequestId: isGuid(projectRequestId) ? projectRequestId : null,
 
     code: code?.trim(),
     name: name?.trim(),
