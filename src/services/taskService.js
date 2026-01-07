@@ -696,12 +696,14 @@ export const createTicketTask = async (
     severity = null,
     estimateHours = null,
     dueDate = null,
+    componentId = null,
   } = {},
 ) => {
   try {
     if (!ticketId) {
       throw new Error('ticketId is required to create ticket task');
     }
+    const cid = typeof componentId === 'string' ? componentId.trim() : componentId; 
 
     const payload = {
       projectId, // BE có thể tự lấy từ ticket, nhưng cho vào cho chắc
@@ -712,8 +714,9 @@ export const createTicketTask = async (
       severity,
       estimateHours,
       dueDate,
+      ...(cid ? { componentId: cid } : {}),
     };
-
+console.log(payload)
     const res = await axiosInstance.post(`/tickets/${ticketId}/tasks`, payload);
 
     // ResponseModel<ProjectTaskResponse>

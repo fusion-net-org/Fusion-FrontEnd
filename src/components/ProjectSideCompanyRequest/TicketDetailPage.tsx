@@ -708,7 +708,7 @@ const TicketDetailPage: React.FC = () => {
         </Card>
       </div>
       {ticket && viewMode === 'AsExecutor' && (
-        <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId} />
+        <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId}   componentId={ticket.component?.id ?? null} />
       )}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
