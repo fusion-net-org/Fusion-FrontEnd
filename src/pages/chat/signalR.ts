@@ -1,7 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 
 export const connection = new signalR.HubConnectionBuilder()
-  .withUrl('https://www.tuongnt14.xyz/chathub', {
+  .withUrl('https://localhost:7160/chathub', {
     accessTokenFactory: () => getAccessToken(),
   })
   .withAutomaticReconnect()

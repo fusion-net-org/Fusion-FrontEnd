@@ -436,7 +436,7 @@ export default function ChatPage() {
         {/* Sidebar */}
         <aside className="w-80 bg-white border-r-black flex flex-col">
           <div className="p-3">
-            <div className="p-4 bg-gradient-to-r from-blue-500 to-pink-400 text-white font-bold text-lg rounded-2xl">
+            <div className="p-4 bg-blue-500 text-white font-bold text-lg rounded-2xl">
               Fusion Chat
             </div>
           </div>
@@ -677,7 +677,7 @@ export default function ChatPage() {
           </div>
 
           <div className="mt-auto p-3 border-t flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-semibold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white">
               {getInitials()}
             </div>
             <div className="flex-1">
@@ -759,7 +759,7 @@ export default function ChatPage() {
               value={text}
               disabled={!activeChat}
               onChange={(e) => setText(e.target.value)}
-              placeholder={activeChat ? 'Compose a message...' : 'Choose a group to chat'}
+              placeholder={activeChat ? 'Type a message...' : 'Choose a group to chat'}
               className="flex-1 px-4 py-2 border rounded-full disabled:bg-gray-100"
             />
 

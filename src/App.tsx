@@ -79,14 +79,20 @@ import RequirePerm from '@/permission/RequirePerm';
 import CompanyRole from './pages/home/CompanyRole';
 import ProjectClosureReportPage from './pages/project/ProjectClosureReportPage';
 import ChatPage from './pages/chat/ChatPage';
+import ChatPopup from './pages/chat/ChatPopup';
+import { useAppSelector } from '@/redux/hooks';
+
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
   });
+  const user = useAppSelector((s) => s.user.user);
+
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />
       <ScrollToTop />
+      {user && <ChatPopup />}
 
       <Routes>
         {/* Route main layout */}
