@@ -1,4 +1,3 @@
-// src/components/Company/Task/ColumnHoverCreate.tsx
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
 import QuickTaskCreateCard from "@/components/Company/Task/QuickTaskCreateCard";
@@ -14,6 +13,11 @@ export default function ColumnHoverCreate({
   className = "",
   createAsDraft = false,         // 👈 NEW
   onCreatedVM,
+
+  // ✅ NEW: chỉ dùng cho maintenance
+  maintenanceEnabled = false,
+  components = [],
+  defaultComponentId = null,
 }: {
   sprint: SprintVm;
   statusId: string;
@@ -21,6 +25,11 @@ export default function ColumnHoverCreate({
   className?: string;
   createAsDraft?: boolean;       // 👈 NEW
   onCreatedVM?: (t: TaskVm) => void;
+
+  // ✅ NEW: chỉ dùng cho maintenance
+  maintenanceEnabled?: boolean;
+  components?: { id: string; name: string }[];
+  defaultComponentId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -47,6 +56,12 @@ export default function ColumnHoverCreate({
           statusId={statusId}
           allowStatusPicker={allowStatusPicker}
           createAsDraft={createAsDraft}        // 👈 NEW
+
+          // ✅ NEW: forward xuống (không ảnh hưởng nếu maintenanceEnabled=false)
+          maintenanceEnabled={maintenanceEnabled}
+          components={components}
+          defaultComponentId={defaultComponentId}
+
           onCreated={(vm) => {
             if (vm) onCreatedVM?.(vm);
             setOpen(false);

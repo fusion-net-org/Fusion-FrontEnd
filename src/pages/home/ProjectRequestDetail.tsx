@@ -15,6 +15,8 @@ import {
   Handshake,
   ChevronDown,
   X,
+  Wrench,
+  Code2,
 } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { GetProjectRequestById, AcceptProjectRequest } from '@/services/projectRequest.js';
@@ -31,6 +33,7 @@ import { RestoreProjectRequest } from '@/services/projectRequest.js';
 import DeleteProjectRequestModal from '@/components/ProjectRequest/DeleteProjectRequestModal';
 import { getContractById } from '@/services/contractService.js';
 import { Can } from '@/permission/PermissionProvider';
+import { getProjectComponentsByProjectRequestId } from '@/services/projectComponentService.js';
 export default function ProjectRequestDetail() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -56,6 +59,26 @@ export default function ProjectRequestDetail() {
   };
   const isDeleted = projectRequest?.isDeleted ?? false;
   const [contract, setContract] = useState<any>();
+  const [projectComponents, setProjectComponents] = useState<any[]>([]);
+  const [loadingComponents, setLoadingComponents] = useState(false);
+
+  const fetchProjectComponents = async (projectRequestId: string) => {
+    try {
+      setLoadingComponents(true);
+      const res = await getProjectComponentsByProjectRequestId(projectRequestId);
+
+      if (res?.succeeded) {
+        setProjectComponents(res.data || []);
+      } else {
+        setProjectComponents([]);
+      }
+    } catch (err) {
+      console.error('Failed to load project components', err);
+      setProjectComponents([]);
+    } finally {
+      setLoadingComponents(false);
+    }
+  };
 
   const handleAccept = async () => {
     try {
@@ -103,6 +126,10 @@ export default function ProjectRequestDetail() {
       const projectData = projectRes.data;
       setProjectRequest(projectData);
 
+      if (projectData?.isMaintenance) {
+        await fetchProjectComponents(projectData.id);
+      }
+
       const [reqRes, exeRes] = await Promise.all([
         getCompanyById(projectData.requesterCompanyId),
         getCompanyById(projectData.executorCompanyId),
@@ -136,6 +163,13 @@ export default function ProjectRequestDetail() {
     };
     load();
   }, [id, contractId]);
+const maintenancePrefill = (projectComponents ?? [])
+  .map((c: any) => ({
+    clientId: String(c.id ?? c.name),      
+    name: String(c.name ?? '').trim(),
+    note: String(c.description ?? '').trim(),
+  }))
+  .filter((x) => !!x.name);
 
   return (
     <>
@@ -193,10 +227,25 @@ export default function ProjectRequestDetail() {
               <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
                 {/* Overview Header */}
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <ClipboardList className="w-5 h-5 text-indigo-600" />
-                    Project Overview
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <ClipboardList className="w-5 h-5 text-gray-600" />
+                      Project Overview
+                    </h3>
+
+                    {/* PROJECT TYPE BADGE */}
+                    {projectRequest?.isMaintenance ? (
+                      <span className="flex items-center gap-1 px-3 py-1 mb-2 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                        <Wrench className="w-3.5 h-3.5" />
+                        Maintenance Project
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-3 py-1 mb-2 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border">
+                        <Code2 className="w-3.5 h-3.5" />
+                        Development Project
+                      </span>
+                    )}
+                  </div>
 
                   {viewMode === 'AsRequester' && projectRequest?.status === 'Pending' && (
                     <Can code="PRQ_UPDATE">
@@ -238,6 +287,51 @@ export default function ProjectRequestDetail() {
                   />
                 </div>
               </div>
+              {/* PROJECT COMPONENTS */}
+              {projectRequest?.isMaintenance && projectComponents.length > 0 && (
+                <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-gray-600" />
+                      Project Maintenance Components
+                    </h3>
+
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-200 text-gray-700">
+                      {projectComponents.length} Components
+                    </span>
+                  </div>
+
+                  {loadingComponents ? (
+                    <p className="italic text-gray-500 text-sm">Loading components...</p>
+                  ) : (
+                    <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-5">
+                      {projectComponents.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="relative rounded-xl bg-white border border-gray-200 p-5 shadow-sm hover:shadow transition"
+                        >
+                          {/* Index */}
+                          <span className="absolute top-3 right-3 text-xs font-bold text-gray-400">
+                            #{index + 1}
+                          </span>
+
+                          {/* Name */}
+                          <p className="text-base font-semibold text-gray-800 mb-2">{item.name}</p>
+
+                          {/* Divider */}
+                          <div className="h-px bg-gray-200 mb-3"></div>
+
+                          {/* Description */}
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {item.description || '—'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* CONTRACT INFORMATION - COMPACT MODE */}
               {contractId && contract && (
@@ -457,12 +551,18 @@ export default function ProjectRequestDetail() {
               companyId: companyExecutor?.id,
               isHire: true,
               projectRequestId: id,
+                isMaintenance: !!projectRequest?.isMaintenance,
+    maintenanceComponents: maintenancePrefill,
+
+    lockProjectKind: true,
+    lockMaintenanceComponents: true,
             }}
             onSubmit={async (payload) => {
               console.log('Create Project Payload:', payload);
               toast.success('Project created successfully!');
               setProjectCreateModalOpen(false);
               navigate(`/companies/${companyId}/project`);
+              
             }}
           />
 

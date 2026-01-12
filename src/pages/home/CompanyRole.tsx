@@ -64,7 +64,6 @@ const CompanyRole: React.FC = () => {
         sortDescending,
       );
 
-      //  (Optional) đẩy Owner xuống cuối
       const items = (data.items || []).slice().sort((a: any, b: any) => {
         const ao = isOwnerRole(a) ? 1 : 0;
         const bo = isOwnerRole(b) ? 1 : 0;
@@ -120,12 +119,12 @@ const CompanyRole: React.FC = () => {
             <p className="text-blue-100 text-sm">Manage and monitor company roles</p>
           </div>
           <Can code='ROLE_CREATE'>
-            <button
-              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
-              onClick={() => setOpenCreate(true)}
-            >
-              <UserPlus className="w-4 h-4" /> Create Role
-            </button>
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
+            onClick={() => setOpenCreate(true)}
+          >
+            <UserPlus className="w-4 h-4" /> Create Role
+          </button>
           </Can>
         </div>
       </div>
@@ -267,32 +266,34 @@ const CompanyRole: React.FC = () => {
                     <td className="px-6 py-4 flex items-center justify-center gap-3">
                       {/* EDIT */}
                       <Can code='ROLE_UPDATE'>
-                        <Edit
-                          className={`w-5 h-5 transition transform ${disabledAction
-                              ? 'text-gray-300 cursor-not-allowed'
-                              : 'text-blue-500 hover:text-blue-700 hover:scale-110 cursor-pointer'
-                            }`}
-                          onClick={() => {
-                            if (disabledAction) return;
-                            setSelectedRole(r);
-                            setOpenEdit(true);
-                          }}
-                        />
-                      </Can>
-                      <Can code='ROLE_DELETE'>
-                        {/* DELETE */}
-                        <Trash
-                          className={`w-5 h-5 transition transform ${disabledAction
-                              ? 'text-gray-300 cursor-not-allowed'
-                              : 'text-red-500 hover:text-red-700 hover:scale-110 cursor-pointer'
-                            }`}
-                          onClick={() => {
-                            if (disabledAction) return;
-                            setSelectedRole(r);
-                            setOpenDelete(true);
-                          }}
-                        />
-                      </Can>
+                    <Edit
+  className={`w-5 h-5 transition transform ${
+    disabledAction
+      ? 'text-gray-300 cursor-not-allowed'
+      : 'text-blue-500 hover:text-blue-700 hover:scale-110 cursor-pointer'
+  }`}
+  onClick={() => {
+    if (disabledAction) return;
+    setSelectedRole(r);
+    setOpenEdit(true);
+  }}
+/>
+</Can>
+<Can code='ROLE_DELETE'>
+                      {/* DELETE */}
+                     <Trash
+  className={`w-5 h-5 transition transform ${
+    disabledAction
+      ? 'text-gray-300 cursor-not-allowed'
+      : 'text-red-500 hover:text-red-700 hover:scale-110 cursor-pointer'
+  }`}
+  onClick={() => {
+    if (disabledAction) return;
+    setSelectedRole(r);
+    setOpenDelete(true);
+  }}
+/>
+</Can>
                     </td>
                   </tr>
                 );

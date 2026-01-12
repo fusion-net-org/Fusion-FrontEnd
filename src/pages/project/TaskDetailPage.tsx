@@ -2036,7 +2036,7 @@ const draftMeta =
 
             {/* Remaining & severity */}
             <div className="grid grid-cols-2 gap-3 mt-2">
-              <Field label="Remaining (h)">
+              <Field className="hidden" label="Remaining (h)">
                 <input  disabled={!canEditDetail} 
                   type="number"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"

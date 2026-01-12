@@ -14,12 +14,13 @@ const { confirm } = Modal;
 type Props = {
   ticketId: string;
   projectId?: string | null;
+  componentId?: string | null; 
 };
 
 type TaskType = 'Feature' | 'Bug' | 'Chore';
 type TaskPriority = 'Urgent' | 'High' | 'Medium' | 'Low';
 
-const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
+const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId, componentId }) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -46,15 +47,14 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
       const paged = await getTicketTasks(ticketId, {
         pageNumber: 1,
         pageSize: 100,
-        sortColumn: 'CreateAt', // match backend property
-        sortDescending: true, // newest first
+        sortColumn: 'CreateAt',
+        sortDescending: true,
       });
 
       const items = paged?.items ?? paged?.data?.items ?? [];
       setTasks(items);
     } catch (err: any) {
       console.error('[TicketTasksSection] load error', err);
-      // toast.error(err?.message || "Error loading ticket tasks");
     } finally {
       setLoading(false);
     }
@@ -73,6 +73,8 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
     const estimateRaw = form.estimate.trim();
     const estimateVal = estimateRaw ? Number(estimateRaw) : null;
 
+    const cid = typeof componentId === 'string' ? componentId.trim() : componentId;
+
     try {
       setCreating(true);
 
@@ -83,9 +85,9 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
         priority: form.priority,
         estimateHours:
           Number.isFinite(estimateVal as number) && estimateVal !== null ? estimateVal : null,
+        componentId: cid || null, // ✅ ADD
       });
-
-      // Backend returns ProjectTaskResponse – prepend to the list
+console.log(newTask)
       setTasks((prev) => [newTask, ...prev]);
 
       setForm({
@@ -126,7 +128,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
     });
   };
 
-  // 👉 mở Task Detail khi task đã được materialize (không còn backlog)
   const handleOpenTaskDetail = (taskId: string) => {
     if (!companyId || !effectiveProjectId) {
       console.warn('[TicketTasksSection] Missing companyId/projectId for navigation', {
@@ -172,7 +173,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
 
   return (
     <Card className="shadow-sm rounded-xl border border-gray-100">
-      {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Layers size={18} className="text-indigo-500" />
@@ -188,7 +188,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
         </Tag>
       </div>
 
-      {/* Quick create form (luôn là backlog) */}
       <div className="mb-3 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
         <div className="md:col-span-2">
           <label className="text-gray-900 text-sm font-semibold mb-1 block">Task title</label>
@@ -219,12 +218,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
           <div className="flex gap-2">
             <Select
               value={form.priority}
-              onChange={(v) =>
-                setForm((prev) => ({
-                  ...prev,
-                  priority: v as TaskPriority,
-                }))
-              }
+              onChange={(v) => setForm((prev) => ({ ...prev, priority: v as TaskPriority }))}
               className="w-24"
               disabled={!effectiveProjectId}
             >
@@ -259,22 +253,21 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
           }
         >
           <span>
-            <Can code='TICKET_TASK_CREATE'>
-            <Button
-              type="primary"
-              icon={<Plus size={14} />}
-              disabled={!effectiveProjectId || !form.title.trim() || creating}
-              loading={creating}
-              onClick={handleCreate}
-            >
-              Add task
-            </Button>
+            <Can code="TICKET_TASK_CREATE">
+              <Button
+                type="primary"
+                icon={<Plus size={14} />}
+                disabled={!effectiveProjectId || !form.title.trim() || creating}
+                loading={creating}
+                onClick={handleCreate}
+              >
+                Add task
+              </Button>
             </Can>
           </span>
         </Tooltip>
       </div>
 
-      {/* Task list */}
       {loading ? (
         <div className="flex justify-center py-6">
           <Spin />
@@ -287,11 +280,8 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
         <div className="space-y-2 max-h-[40vh] overflow-auto">
           {tasks.map((t: any) => {
             const estimate = t.estimateHours ?? t.estimate_hours ?? null;
+            const isBacklog = typeof t.isBacklog === 'boolean' ? t.isBacklog : !t.sprintId;
 
-            // ⭐ xác định backlog hay không
-            const isBacklog = typeof t.isBacklog === 'boolean' ? t.isBacklog : !t.sprintId; // fallback: sprintId null => backlog
-
-            // sprint & status label cho task đã ra khỏi backlog
             const sprintLabel =
               t.sprintName ??
               t.sprintCode ??
@@ -302,7 +292,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
               t.statusName ?? t.workflowStatusName ?? t.statusCode ?? t.workflowStatusCode ?? '—';
 
             if (isBacklog) {
-              //  BACKLOG: giữ UI đơn giản
               return (
                 <div
                   key={t.id}
@@ -317,9 +306,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                       <Tag className="rounded-full px-2 py-0.5 text-[11px] bg-slate-50 border border-slate-200 text-slate-600">
                         Backlog
                       </Tag>
-                      {t.type && (
-                        <Tag className="rounded-full px-2 py-0.5 text-[11px]">{t.type}</Tag>
-                      )}
+                      {t.type && <Tag className="rounded-full px-2 py-0.5 text-[11px]">{t.type}</Tag>}
                       {t.priority && (
                         <Tag
                           color={getPriorityColor(t.priority)}
@@ -336,28 +323,27 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                       )}
                     </div>
                   </div>
+
                   <div className="flex items-center gap-2">
-                    <Can code='TICKET_TASK_DELETE'>
-                    <Button
-                      type="text"
-                      danger
-                      icon={<Trash2 size={14} />}
-                      onClick={() => handleDelete(t.id)}
-                    />
+                    <Can code="TICKET_TASK_DELETE">
+                      <Button
+                        type="text"
+                        danger
+                        icon={<Trash2 size={14} />}
+                        onClick={() => handleDelete(t.id)}
+                      />
                     </Can>
                   </div>
                 </div>
               );
             }
 
-            //  KHÔNG CÒN BACKLOG: show full info + clickable + "On sprint"
             return (
               <div
                 key={t.id}
                 className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-3 py-2 rounded-xl border border-gray-100 bg-white hover:bg-gray-50"
               >
                 <div className="flex-1 min-w-0">
-                  {/* Code + Title clickable */}
                   <div className="flex items-center gap-2 min-w-0">
                     <button
                       type="button"
@@ -375,7 +361,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                     </button>
                   </div>
 
-                  {/* Tags: type, priority, On sprint, Status */}
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                     {t.type && <Tag className="rounded-full px-2 py-0.5 text-[11px]">{t.type}</Tag>}
                     {t.priority && (
@@ -387,7 +372,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                       </Tag>
                     )}
 
-                    {/* On sprint ... */}
                     {sprintLabel && (
                       <Tag
                         color="green-inverse"
@@ -397,7 +381,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                       </Tag>
                     )}
 
-                    {/* Status hiện tại */}
                     <Tag
                       color={getStatusColor(statusCategory)}
                       className="rounded-full px-2 py-0.5 text-[11px]"
@@ -406,7 +389,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                     </Tag>
                   </div>
 
-                  {/* Meta: due, est, remain */}
                   <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
                     <span>
                       <b>Due:</b> {formatDate(t.dueDate || t.due_date)}
@@ -425,7 +407,6 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId }) => {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-2">
                   <Button
                     type="text"

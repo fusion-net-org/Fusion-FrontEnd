@@ -30,6 +30,8 @@ import {
   XCircle,
   Info,
   AlertTriangle,
+  AlertCircle,
+  ClipboardList,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -67,6 +69,16 @@ import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
 import { Can } from '@/permission/PermissionProvider';
 
 const { confirm } = Modal;
+
+const TICKET_TYPE_COLOR_MAP: Record<string, string> = {
+  Bug: 'red',
+  Enhancement: 'blue',
+  NewFeature: 'green',
+  Task: 'default',
+  Hotfix: 'volcano',
+  Improvement: 'cyan',
+  Spike: 'purple',
+};
 
 const TicketDetailPage: React.FC = () => {
   const { ticketId } = useParams<{ ticketId: string }>();
@@ -112,7 +124,7 @@ const TicketDetailPage: React.FC = () => {
     setRejectTicketId(ticketId);
     setIsRejectModalOpen(true);
   };
-
+  console.log('ticket ', ticket);
   useEffect(() => {
     if (!ticketId) return;
 
@@ -300,6 +312,10 @@ const TicketDetailPage: React.FC = () => {
         return 'default';
     }
   };
+  const getTicketTypeColor = (type?: string) => {
+    if (!type) return 'default';
+    return TICKET_TYPE_COLOR_MAP[type] ?? 'default';
+  };
 
   const handleDeleteComment = (commentId: number) => {
     confirm({
@@ -337,15 +353,23 @@ const TicketDetailPage: React.FC = () => {
           <div className="flex items-center gap-1 mb-1">
             <h2 className="text-xl font-semibold text-gray-900">{ticket.ticketName}</h2>
             <div className="flex items-start lg:items-center gap-2">
-              <Tag
+              {/* <Tag
                 color={priorityColor}
                 className="text-sm font-medium px-3 py-1 rounded-md mb-2 ml-1"
               >
                 {ticket.priority}
               </Tag>
               <Tag
+                color={getTicketTypeColor(ticket.ticketType)}
+                className={`text-sm font-semibold px-3 py-1 rounded-md mb-2 ${
+                  ticket.ticketType === 'Bug' || ticket.ticketType === 'Hotfix' ? 'uppercase' : ''
+                }`}
+              >
+                {ticket.ticketType}
+              </Tag> */}
+              <Tag
                 color={getTicketStatusColor(ticket.status)}
-                className="text-sm font-medium px-3 py-1 rounded-md mb-2"
+                className="text-sm font-medium px-2 py-1 rounded-md mb-2"
               >
                 {ticket.status}
               </Tag>
@@ -454,6 +478,28 @@ const TicketDetailPage: React.FC = () => {
             <Calendar size={14} /> <b>Update Date:</b>{' '}
             {ticket.updatedAt ? dayjs(ticket.updatedAt).format('DD/MM/YYYY') : '-'}
           </span>
+          {/* Priority */}
+          <span className="flex items-center gap-2 text-gray-700">
+            <AlertCircle size={14} />
+            <b>Priority:</b>
+            <Tag color={priorityColor} className="font-medium">
+              {ticket.priority}
+            </Tag>
+          </span>
+
+          {/* Ticket Type */}
+          <span className="flex items-center gap-2 text-gray-700">
+            <ClipboardList size={14} />
+            <b>Type:</b>
+            <Tag
+              color={getTicketTypeColor(ticket.ticketType)}
+              className={`font-medium ${
+                ticket.ticketType === 'Bug' || ticket.ticketType === 'Hotfix' ? 'uppercase' : ''
+              }`}
+            >
+              {ticket.ticketType}
+            </Tag>
+          </span>
           <span className="flex items-center gap-2 text-gray-700">
             <Layers size={14} /> <b>Ticket Status:</b>
             <Tag color={getTicketStatusColor(ticket.status)} className="font-medium">
@@ -531,6 +577,28 @@ const TicketDetailPage: React.FC = () => {
           )}
         </div>
       </Card>
+      {ticket.component && (
+        <Card className="shadow-sm rounded-xl border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <Layers size={18} className="text-indigo-500" />
+            Component Project Maintence
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm text-gray-700">
+            <span>
+              <b>Name:</b> {ticket.component.name}
+            </span>
+
+            <span>
+              <b>Created At:</b> {dayjs(ticket.component.createdAt).format('DD/MM/YYYY')}
+            </span>
+
+            <span className="md:col-span-2">
+              <b>Description:</b> {ticket.component.description || '---'}
+            </span>
+          </div>
+        </Card>
+      )}
 
       {/* Project Info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -569,6 +637,9 @@ const TicketDetailPage: React.FC = () => {
             </span>
             <span>
               <b>Created:</b> {projects?.createAt && dayjs(projects.createAt).format('DD/MM/YYYY')}
+            </span>
+            <span>
+              <b>Project Type:</b> {projects?.isMaintenance ? 'Maintenance' : 'Development'}
             </span>
             <span className="col-span-2 mt-2 leading-relaxed">
               <b>Description:</b>{' '}
@@ -637,7 +708,7 @@ const TicketDetailPage: React.FC = () => {
         </Card>
       </div>
       {ticket && viewMode === 'AsExecutor' && (
-        <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId} />
+        <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId}   componentId={ticket.component?.id ?? null} />
       )}
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">

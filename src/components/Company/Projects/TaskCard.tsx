@@ -8,9 +8,9 @@ import {
   MoveDown,
   SplitSquareHorizontal,
   AlertTriangle,
-  Link as LinkIcon,
+  Link as LinkIcon,Boxes,
 } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom"; // 👈 THÊM
+import { useNavigate, useParams } from "react-router-dom"; 
 import type { TaskVm, MemberRef } from "@/types/projectBoard";
 import { Can } from "@/permission/PermissionProvider";
 
@@ -117,6 +117,7 @@ type Props = {
   statusColorHex?: string;
   statusLabel?: string;
   isAiNew?: boolean;
+   components?: { id: string; name: string }[];
 };
 
 
@@ -141,6 +142,7 @@ export default function TaskCard({
   statusColorHex,
   statusLabel,
   isAiNew,
+   components, 
 }: Props) {
   const navigate = useNavigate();
   const { companyId, projectId } = useParams();
@@ -284,13 +286,44 @@ export default function TaskCard({
       : null;
 
   const isTicketTask = !!ticketId;
+  const componentIdRaw =
+    (t as any).componentId ??
+    (t as any).projectComponentId ??
+    (t as any).maintenanceComponentId ??
+    null;
+
+  const componentNameRaw =
+    (t as any).componentName ??
+    (t as any).component?.name ??
+    (t as any).projectComponentName ??
+    null;
+
+  const componentId =
+    componentIdRaw && String(componentIdRaw).trim() !== ""
+      ? String(componentIdRaw)
+      : null;
+
+  const componentName =
+    (componentNameRaw && String(componentNameRaw).trim() !== ""
+      ? String(componentNameRaw)
+      : null) ??
+    (componentId ? components?.find((c) => c.id === componentId)?.name : null) ??
+    null;
+
+  const isComponentTask = !!componentId;
+  const isHybridTask = isTicketTask && isComponentTask;
 
   // border cho ticket task nổi hơn
-  const cardBorderClass = !isNew
-    ? isTicketTask
-      ? "border-2 border-sky-500 shadow-[0_0_0_1px_rgba(56,189,248,0.35)]"
-      : `border ${cardBorderColorClass}`
-    : "";
+const cardBorderClass = !isNew
+  ? isHybridTask
+    ? "border-2 border-fuchsia-500 shadow-[0_0_0_1px_rgba(217,70,239,0.30)]"
+    : isTicketTask
+    ? "border-2 border-sky-500 shadow-[0_0_0_1px_rgba(56,189,248,0.35)]"
+    : isComponentTask
+    ? "border-2 border-amber-500 shadow-[0_0_0_1px_rgba(245,158,11,0.25)]"
+    : `border ${cardBorderColorClass}`
+  : "";
+
 
   // ====== HANDLERS ĐIỀU HƯỚNG ======
 
@@ -335,9 +368,14 @@ export default function TaskCard({
         ...(urgent && !isNew
           ? { boxShadow: "0 1px 2px rgba(190,18,60,0.10)" }
           : {}),
-        ...(isTicketTask
-          ? { backgroundImage: "linear-gradient(to bottom, #f0f9ff, #ffffff)" }
-          : {}),
+   ...(isHybridTask
+  ? { backgroundImage: "linear-gradient(to bottom, #fdf4ff, #ffffff)" } // fuchsia-50
+  : isTicketTask
+  ? { backgroundImage: "linear-gradient(to bottom, #f0f9ff, #ffffff)" } // sky-50
+  : isComponentTask
+  ? { backgroundImage: "linear-gradient(to bottom, #fff7ed, #ffffff)" } // amber-50
+  : {}),
+
         transformOrigin: "center",
       }}
     >
@@ -427,22 +465,57 @@ export default function TaskCard({
       </button>
 
       {/* ⭐ Ticket pill (chỉ cần có ticketId là hiện) */}
-      {ticketId && (
-        <div className="mt-1 flex items-center gap-2">
-          <button
-            type="button"
-            className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-white border-sky-500 text-sky-700 hover:bg-slate-50"
-            onClick={handleOpenTicketDetail}
-            title="Open source ticket"
-          >
-            <LinkIcon className="w-3 h-3" />
-            <span className="truncate max-w-[160px]">
-              Ticket: {ticketCode ?? "—"}
-            </span>
-          </button>
-          {/* nếu sau này muốn show siblings thì dùng ticketSiblingsCount */}
-        </div>
-      )}
+  {(ticketId || componentId) && (
+  <div className="mt-1 flex items-center gap-2">
+    {isHybridTask ? (
+      <button
+        type="button"
+        onClick={handleOpenTicketDetail}
+        className="text-[11px] inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border bg-white
+                   border-fuchsia-500 text-fuchsia-700 hover:bg-fuchsia-50"
+        title="Open ticket (this task is linked to both ticket & component)"
+      >
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <Boxes className="w-3 h-3" />
+          <span className="truncate max-w-[170px]">
+            {componentName ? `Component: ${componentName}` : "Component: —"}
+          </span>
+        </span>
+
+        <span className="opacity-40">|</span>
+
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <LinkIcon className="w-3 h-3" />
+          <span className="truncate max-w-[170px]">
+            {ticketCode ? `Ticket: ${ticketCode}` : "Ticket: —"}
+          </span>
+        </span>
+      </button>
+    ) : ticketId ? (
+      <button
+        type="button"
+        className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-white
+                   border-sky-500 text-sky-700 hover:bg-slate-50"
+        onClick={handleOpenTicketDetail}
+        title="Open source ticket"
+      >
+        <LinkIcon className="w-3 h-3" />
+        <span className="truncate max-w-[200px]">Ticket: {ticketCode ?? "—"}</span>
+      </button>
+    ) : (
+      <span
+        className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-white
+                   border-amber-700 text-amber-800"
+        title={componentName ?? "Component"}
+      >
+        <Boxes className="w-3 h-3" />
+        <span className="truncate max-w-[200px]">
+          Component: {componentName ?? "—"}
+        </span>
+      </span>
+    )}
+  </div>
+)}
 
       {/* Meta rows */}
       <div className="mt-2 text-[11px] text-slate-600 flex items-center flex-wrap gap-x-4 gap-y-1">
@@ -453,7 +526,7 @@ export default function TaskCard({
           <TimerReset className="w-3 h-3" /> {Math.max(0, points ?? 0)} pts
         </div>
         <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" /> {Math.max(0, t.remainingHours ?? 0)}/
+          <Clock className="w-3 h-3" /> 
           {t.estimateHours ?? 0}h
         </div>
         <div className="flex items-center gap-1">

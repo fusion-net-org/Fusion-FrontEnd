@@ -6,11 +6,13 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  Code2,
   Eye,
   Inbox,
   Search,
   Send,
   UserPlus,
+  Wrench,
   X,
   XCircle,
 } from 'lucide-react';
@@ -81,8 +83,9 @@ const ProjectRequestPage: React.FC = () => {
     | 'Project.Name'
     | 'ExecutorCompany.Name'
     | 'RequesterCompany.Name'
+    | 'createAt'
     | null
-  >('StartDate');
+  >('createAt');
   const [sortDescending, setSortDescending] = useState(true);
 
   const handleSort = (
@@ -102,7 +105,6 @@ const ProjectRequestPage: React.FC = () => {
     }
     setPageNumber(1);
   };
-
   //handing open
   const openRejectModal = (id: string) => {
     setSelectedProjectId(id);
@@ -261,13 +263,13 @@ const ProjectRequestPage: React.FC = () => {
             </p>
           </div>
           <Can code="PRQ_CREATE">
-          <button
-            onClick={handleNewClick}
-            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
-          >
-            <UserPlus className="w-4 h-4" /> New Request
-          </button>
-           </Can>
+            <button
+              onClick={handleNewClick}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition text-sm"
+            >
+              <UserPlus className="w-4 h-4" /> New Request
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -528,13 +530,14 @@ const ProjectRequestPage: React.FC = () => {
                   )}
                 </div>
               </th>{' '}
-              <th className="px-4 py-3 font-medium text-center">Have Project</th>
-              <th className="px-4 py-3 font-medium text-center">Deleted</th>
-              <th className="px-4 py-3 font-medium text-center">IsClosed</th>
-              <th className="px-4 py-3 font-medium text-center">Contract</th>
+              <th className="px-4 py-3 font-semibold text-center">Project Type</th>
+              <th className="px-4 py-3 font-semibold text-center">Have Project</th>
+              <th className="px-4 py-3 font-semibold text-center">Deleted</th>
+              <th className="px-4 py-3 font-semibold text-center">IsClosed</th>
+              <th className="px-4 py-3 font-semibold text-center">Contract</th>
               {/* neu la executor company them cot action de thuc hien hanh dong */}
               {showActionColumn && <th className="px-4 py-3 font-medium text-center">Action</th>}
-              <th className="px-4 py-3 font-medium text-left">Detail</th>
+              <th className="px-4 py-3 font-semibold text-left">Detail</th>
             </tr>
           </thead>
 
@@ -573,6 +576,19 @@ const ProjectRequestPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-center">
                       {new Date(item.endDate).toLocaleDateString('vi-VN')}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.isMaintenance ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Wrench className="w-3.5 h-3.5" />
+                          Maintenance
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                          <Code2 className="w-3.5 h-3.5" />
+                          Development
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-4 py-3 text-center">

@@ -485,7 +485,7 @@ export default function ProjectTaskList({
                 <th className="px-3 py-2">Title / Tags</th>
                 <th className="px-3 py-2">Assigned</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 w-[160px]">Progress</th>
+                {/* <th className="px-3 py-2 w-[160px]">Progress</th> */}
                 <th className="px-3 py-2">Due / SLA</th>
                 <th className="px-3 py-2">Updated</th>
                 <th className="px-3 py-2 w-[260px]"></th>
@@ -625,13 +625,13 @@ export default function ProjectTaskList({
                     {/* status */}
                     <td className="px-3 py-3 align-top">
                       <div className="text-sm">{getStatusLabel(t)}</div>
-                      <div className="text-[11px] text-slate-500">
+                      {/* <div className="text-[11px] text-slate-500">
                         {prettyStatusCategory(cat)}
-                      </div>
+                      </div> */}
                     </td>
 
                     {/* progress */}
-                    <td className="px-3 py-3 align-top">
+                    {/* <td className="px-3 py-3 align-top">
                       <div className="h-2 w-[150px] bg-slate-100 rounded">
                         <div
                           className="h-2 rounded"
@@ -649,7 +649,7 @@ export default function ProjectTaskList({
                         )}
                         /{t.estimateHours ?? 0}h
                       </div>
-                    </td>
+                    </td> */}
 
                     {/* due / SLA */}
                     <td className="px-3 py-3 align-top">

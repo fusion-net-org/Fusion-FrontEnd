@@ -191,11 +191,27 @@ const flattenSprintTasks = (
 };
 
 const computeSprintStatsFromTasks = (allTasks: TaskVm[]) => {
-  const total = allTasks.length;
-  const done = allTasks.filter((t) => t.statusCategory === "DONE").length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  return { total, pct };
+  const totalTasks = allTasks.length;
+  const doneTasks = allTasks.filter((t) => t.statusCategory === "DONE").length;
+
+  const committedPts = allTasks.reduce(
+    (s, t) => s + Math.max(0, Number(t.storyPoints) || 0),
+    0,
+  );
+  const donePts = allTasks
+    .filter((t) => t.statusCategory === "DONE")
+    .reduce((s, t) => s + Math.max(0, Number(t.storyPoints) || 0), 0);
+
+  const pct =
+    committedPts > 0
+      ? Math.round((donePts / committedPts) * 100)
+      : totalTasks
+      ? Math.round((doneTasks / totalTasks) * 100)
+      : 0;
+
+  return { totalTasks, doneTasks, committedPts, donePts, pct };
 };
+
 
 const getSprintIdFromDroppable = (id: string): string | null => {
   if (!id) return null;
@@ -288,6 +304,9 @@ type Props = {
     sprintId: string;
     destinationIndex: number;
   }) => Promise<void | TaskVm> | void;
+    maintenanceEnabled?: boolean;
+  components?: { id: string; name: string }[]; 
+  defaultComponentId?: string | null;
 };
 
 // type AiDraft = {
@@ -318,6 +337,11 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
       createdAt: new Date().toISOString(),
     };
   }
+  const componentId =
+    dto.componentId ?? dto.component_id ?? dto.component?.id ?? null;
+
+  const componentName =
+    dto.componentName ?? dto.component_name ?? dto.component?.name ?? null;
 
   const rawType = String(dto.type ?? dto.taskType ?? "Feature").toLowerCase();
   let type: QuickDraftType = "Feature";
@@ -364,6 +388,8 @@ const mapDraftDtoToQuickDraft = (dto: any): QuickDraft => {
     createdAt,
     ticketId,
     ticketCode,
+    componentId,
+    componentName,
   };
 };
 
@@ -380,6 +406,9 @@ export default function KanbanBySprintBoard({
   onSaveBoard,
   onReloadBoard,
   onDropDraftToSprint,
+    maintenanceEnabled = false,
+  components = [],
+  defaultComponentId = null,
 }: Props) {
   useFuseKanbanStyles();
   // ===== Realtime + Current sprint marker =====
@@ -1253,6 +1282,11 @@ const getSprintTasks = React.useCallback(
         (localTask as any).isLocalDraft = true;
         (localTask as any).backlogDraftId = movedDraft.id;
 
+        if (maintenanceEnabled && (movedDraft as any).componentId) {
+          (localTask as any).componentId = (movedDraft as any).componentId;
+          (localTask as any).componentName = (movedDraft as any).componentName ?? "";
+        }
+
         setDraftTasksBySprint((prev) => {
           const base = prev ?? {};
           const current = base[sprintId] ?? [];
@@ -1298,6 +1332,9 @@ const getSprintTasks = React.useCallback(
               workflowStatusId: defaultStatus?.id ?? null,
               statusCode: defaultStatus?.code ?? null,
               orderInSprint: destination.index,
+               ...(maintenanceEnabled && (movedDraft as any).componentId
+    ? { componentId: (movedDraft as any).componentId }
+    : {}),
             });
 
             if (onReloadBoard) {
@@ -1851,7 +1888,12 @@ const deleteConfirmModal =
         }
         right={
           <div className="flex items-center gap-2 text-[12px]">
-            <span className="text-gray-600">{stats.total} tasks</span>
+       <span className="text-gray-600">
+  {stats.committedPts > 0
+    ? `${stats.donePts}/${stats.committedPts} pts`
+    : `${stats.doneTasks}/${stats.totalTasks} tasks`}
+</span>
+
             <span className="font-semibold text-green-700">{stats.pct}%</span>
           </div>
         }
@@ -1886,6 +1928,7 @@ const deleteConfirmModal =
               ).length
             : 0
         }
+        components={components}
         onMarkDone={_onMarkDone}
         onNext={_onNext}
         onSplit={_onSplit}
@@ -1920,6 +1963,9 @@ const deleteConfirmModal =
                             <Can code='TASK_CREATE'>
                             <ColumnHoverCreate
                               sprint={s}
+                               maintenanceEnabled={maintenanceEnabled}
+  components={components}
+  defaultComponentId={defaultComponentId}
                               statusId={
                                 s.statusOrder?.[0] ??
                                 Object.keys(s.columns ?? {})[0]
@@ -2007,6 +2053,7 @@ const deleteConfirmModal =
 
                                           <TaskCard
                                             t={task}
+                                            components={components}
                                             ticketSiblingsCount={sibs}
                                             onMarkDone={_onMarkDone}
                                             onNext={_onNext}
@@ -2052,6 +2099,9 @@ const deleteConfirmModal =
         loading={loadingDrafts}
         onReloadDrafts={loadDraftTasks}
         onOpenTicket={handleOpenBacklogTicket}
+         componentEnabled={maintenanceEnabled /* hoặc isProjectRequest */}
+  components={components}
+  defaultComponentId={defaultComponentId}
       />
 
       {aiOpen && (

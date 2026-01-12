@@ -199,7 +199,7 @@ export default function ChatPopup() {
 
       setChats(mapped);
     } catch {
-      toast.error('Cannot load chats');
+      //toast.error('Cannot load chats');
     } finally {
       setLoadingChats(false);
     }

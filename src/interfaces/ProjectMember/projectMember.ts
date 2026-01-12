@@ -6,6 +6,7 @@ export interface IProject {
   isHired: boolean;
   startDate: string;
   endDate: string;
+  isMaintenance: boolean;
   companyExecutorName: string;
   companyRequestName: string;
 }

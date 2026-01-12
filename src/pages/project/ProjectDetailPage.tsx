@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/rules-of-hooks */
 
-import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   MoreHorizontal,
@@ -20,8 +20,8 @@ import {
   Edit3,
   Eye,
   Lock,
-} from "lucide-react";
-import { toast } from "react-toastify";
+} from 'lucide-react';
+import { toast } from 'react-toastify';
 
 import {
   GetProjectByProjectId,
@@ -29,27 +29,27 @@ import {
   updateProject,
   closeProject,
   reopenProject,
-} from "@/services/projectService.js";
+} from '@/services/projectService.js';
 import {
   addProjectMember,
   removeProjectMember,
   getProjectMemberByProjectId,
-} from "@/services/projectMember.js";
-import { fetchSprintBoard } from "@/services/projectBoardService.js";
+} from '@/services/projectMember.js';
+import { fetchSprintBoard } from '@/services/projectBoardService.js';
 
-import { getSelfUser, getUserById } from "@/services/userService.js";
+import { getSelfUser, getUserById } from '@/services/userService.js';
 
 // === Workflow preview bits ===
-import WorkflowMini from "@/components/Workflow/WorkflowMini";
-import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
-import { getWorkflowPreviews } from "@/services/workflowService.js";
-import type { WorkflowPreviewVm } from "@/types/workflow";
-import { Can } from "@/permission/PermissionProvider";
-import ProjectActivityTimeline from "@/components/Company/Projects/ProjectActivityTimeline";
+import WorkflowMini from '@/components/Workflow/WorkflowMini';
+import WorkflowPreviewModal from '@/components/Workflow/WorkflowPreviewModal';
+import { getWorkflowPreviews } from '@/services/workflowService.js';
+import type { WorkflowPreviewVm } from '@/types/workflow';
+import { Can } from '@/permission/PermissionProvider';
+import ProjectActivityTimeline from '@/components/Company/Projects/ProjectActivityTimeline';
 
 // ===== Local types =====
 
-type ProjectStatus = "Planned" | "InProgress" | "OnHold" | "Completed";
+type ProjectStatus = 'Planned' | 'InProgress' | 'OnHold' | 'Completed';
 
 type ProjectMemberVm = {
   userId: string;
@@ -98,70 +98,62 @@ type ProjectDetailVm = {
 };
 
 type ConfirmState =
-  | { kind: "none" }
-  | { kind: "closeProject" }
-  | { kind: "reopenProject" }
-  | { kind: "kickMember"; member: ProjectMemberVm };
+  | { kind: 'none' }
+  | { kind: 'closeProject' }
+  | { kind: 'reopenProject' }
+  | { kind: 'kickMember'; member: ProjectMemberVm };
 
 // ===== Helpers =====
 
 const isGuid = (s?: string | null) =>
   !!s &&
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-    s || "",
-  );
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s || '');
 
 const sameId = (a?: string | null, b?: string | null) =>
   !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
 
 const formatDate = (iso?: string | null) => {
-  if (!iso) return "—";
+  if (!iso) return '—';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
   });
 };
 
 const initials = (name: string | null | undefined) => {
-  if (!name) return "?";
+  if (!name) return '?';
   const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? "?";
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? '?';
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
 const statusBadgeClass = (status: ProjectStatus) => {
   switch (status) {
-    case "Planned":
-      return "bg-sky-50 text-sky-700 border-sky-100";
-    case "InProgress":
-      return "bg-amber-50 text-amber-700 border-amber-100";
-    case "OnHold":
-      return "bg-slate-50 text-slate-700 border-slate-200";
-    case "Completed":
-      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    case 'Planned':
+      return 'bg-sky-50 text-sky-700 border-sky-100';
+    case 'InProgress':
+      return 'bg-amber-50 text-amber-700 border-amber-100';
+    case 'OnHold':
+      return 'bg-slate-50 text-slate-700 border-slate-200';
+    case 'Completed':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
     default:
-      return "bg-slate-50 text-slate-700 border-slate-200";
+      return 'bg-slate-50 text-slate-700 border-slate-200';
   }
 };
 
-const progressPercent = (stats: ProjectDetailVm["stats"]) => {
+const progressPercent = (stats: ProjectDetailVm['stats']) => {
   if (!stats.totalTasks) return 0;
   return Math.round((stats.doneTasks / stats.totalTasks) * 100);
 };
 
 // map member từ project DTO
 const mapProjectMember = (m: any): ProjectMemberVm => ({
-  userId: String(m.userId ?? m.memberId ?? m.id ?? ""),
-  name:
-    m.name ??
-    m.memberName ??
-    m.fullName ??
-    m.userName ??
-    m.email ??
-    "Unknown",
+  userId: String(m.userId ?? m.memberId ?? m.id ?? ''),
+  name: m.name ?? m.memberName ?? m.fullName ?? m.userName ?? m.email ?? 'Unknown',
   email: m.email ?? null,
   roleName: m.roleName ?? m.projectRoleName ?? m.companyRoleName ?? null,
   isPartner: !!(m.isPartner ?? m.isExternal ?? m.isOutsourced),
@@ -171,8 +163,8 @@ const mapProjectMember = (m: any): ProjectMemberVm => ({
 
 // map member từ companyMemberPaged DTO
 const mapCompanyMemberToVm = (m: any): ProjectMemberVm => ({
-  userId: String(m.memberId ?? m.userId ?? m.id ?? ""),
-  name: m.memberName ?? m.email ?? "Unknown",
+  userId: String(m.memberId ?? m.userId ?? m.id ?? ''),
+  name: m.memberName ?? m.email ?? 'Unknown',
   email: m.email ?? null,
   roleName: m.roleName ?? null,
   isPartner: false,
@@ -196,9 +188,7 @@ const InfoRow = ({
       {icon}
     </div>
     <div className="min-w-0">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-        {label}
-      </div>
+      <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
       <div className="text-sm text-slate-800 break-words">{value}</div>
     </div>
   </div>
@@ -207,7 +197,7 @@ const InfoRow = ({
 // stats from sprint-board
 type BoardPayload = { sprints: any[]; tasks: any[] };
 
-const buildStatsFromBoard = (board: BoardPayload): ProjectDetailVm["stats"] => {
+const buildStatsFromBoard = (board: BoardPayload): ProjectDetailVm['stats'] => {
   const sprints = Array.isArray(board.sprints) ? board.sprints : [];
   const tasks = Array.isArray(board.tasks) ? board.tasks : [];
 
@@ -215,37 +205,26 @@ const buildStatsFromBoard = (board: BoardPayload): ProjectDetailVm["stats"] => {
   const totalTasks = tasks.length;
 
   const doneTasks = tasks.filter(
-    (t) => t.statusCategory === "DONE" || t.statusName === "Done",
+    (t) => t.statusCategory === 'DONE' || t.statusName === 'Done',
   ).length;
 
-  const totalStoryPoints = tasks.reduce(
-    (sum, t) => sum + (t.storyPoints ?? 0),
-    0,
-  );
+  const totalStoryPoints = tasks.reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
 
   const activeSprints = sprints.filter((s) =>
-    ["Active", "InProgress", "Running"].includes(String(s.state)),
+    ['Active', 'InProgress', 'Running'].includes(String(s.state)),
   ).length;
 
   return { totalSprints, activeSprints, totalTasks, doneTasks, totalStoryPoints };
 };
 
 async function safeGetUserDisplayName(userId?: string | null) {
-  if (!userId || !isGuid(userId)) return "";
+  if (!userId || !isGuid(userId)) return '';
   try {
     const res: any = await getUserById(userId);
     const u: any = res?.data ?? res ?? {};
-    return (
-      u.fullName ??
-      u.name ??
-      u.userName ??
-      u.email ??
-      u.user?.fullName ??
-      u.user?.name ??
-      ""
-    );
+    return u.fullName ?? u.name ?? u.userName ?? u.email ?? u.user?.fullName ?? u.user?.name ?? '';
   } catch {
-    return "";
+    return '';
   }
 }
 
@@ -257,17 +236,17 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = React.useState<ProjectDetailVm | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<"overview" | "members" | "activity">("overview");
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'members' | 'activity'>('overview');
 
   const [meId, setMeId] = React.useState<string | null>(null);
 
-  const [memberSearch, setMemberSearch] = React.useState("");
+  const [memberSearch, setMemberSearch] = React.useState('');
   const [availableMembers, setAvailableMembers] = React.useState<ProjectMemberVm[]>([]);
 
   // edit basic info
   const [isEditing, setIsEditing] = React.useState(false);
-  const [editName, setEditName] = React.useState("");
-  const [editDescription, setEditDescription] = React.useState("");
+  const [editName, setEditName] = React.useState('');
+  const [editDescription, setEditDescription] = React.useState('');
   const [savingBasic, setSavingBasic] = React.useState(false);
 
   const [closing, setClosing] = React.useState(false);
@@ -280,7 +259,7 @@ export default function ProjectDetailPage() {
   const [workflowPreviewOpen, setWorkflowPreviewOpen] = React.useState(false);
 
   // confirm modal state
-  const [confirmState, setConfirmState] = React.useState<ConfirmState>({ kind: "none" });
+  const [confirmState, setConfirmState] = React.useState<ConfirmState>({ kind: 'none' });
 
   // Load detail
   React.useEffect(() => {
@@ -294,8 +273,7 @@ export default function ProjectDetailPage() {
         // self user (for permission: canClose)
         const selfRaw = await getSelfUser().catch(() => null);
         const selfData: any = selfRaw?.data ?? selfRaw ?? null;
-        const currentUserId =
-          selfData?.id ?? selfData?.userId ?? selfData?.data?.id ?? null;
+        const currentUserId = selfData?.id ?? selfData?.userId ?? selfData?.data?.id ?? null;
 
         if (alive) setMeId(currentUserId ? String(currentUserId) : null);
 
@@ -303,7 +281,7 @@ export default function ProjectDetailPage() {
         const [detailRaw, board, memberPaged] = await Promise.all<any>([
           GetProjectByProjectId(projectId),
           fetchSprintBoard(projectId),
-          getProjectMemberByProjectId(projectId, "", "", "", 1, 200),
+          getProjectMemberByProjectId(projectId, '', '', '', 1, 200),
         ]);
         if (!alive) return;
 
@@ -311,13 +289,14 @@ export default function ProjectDetailPage() {
         const memberPayload: any = memberPaged?.data ?? memberPaged ?? {};
 
         // createdBy + createdAt
-        const createdById: string | null = String(
-          detail.createdBy ??
-          detail.createdById ??
-          detail.createdByUserId ??
-          detail.createdByUser ??
-          "",
-        ) || null;
+        const createdById: string | null =
+          String(
+            detail.createdBy ??
+              detail.createdById ??
+              detail.createdByUserId ??
+              detail.createdByUser ??
+              '',
+          ) || null;
 
         const createdAt: string =
           detail.createdAt ??
@@ -332,7 +311,7 @@ export default function ProjectDetailPage() {
           detail.createByName ??
           detail.createdByUserName ??
           detail.createdByDisplayName ??
-          "";
+          '';
 
         if ((!createdByName || isGuid(createdByName)) && createdById) {
           const nameFromApi = await safeGetUserDisplayName(createdById);
@@ -346,8 +325,8 @@ export default function ProjectDetailPage() {
         const memberItems: any[] = Array.isArray(memberPayload.items)
           ? memberPayload.items
           : Array.isArray(memberPayload)
-            ? memberPayload
-            : [];
+          ? memberPayload
+          : [];
 
         const rawMembers: any[] = memberItems.length > 0 ? memberItems : rawMembersFromProject;
         const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
@@ -356,16 +335,18 @@ export default function ProjectDetailPage() {
 
         // stats
         const rawStats = detail.stats ?? detail.boardSnapshot ?? detail.boardStats ?? {};
-        const statsFromDetail: ProjectDetailVm["stats"] = {
+        const statsFromDetail: ProjectDetailVm['stats'] = {
           totalSprints: rawStats.totalSprints ?? rawStats.sprintCount ?? detail.totalSprints ?? 0,
-          activeSprints: rawStats.activeSprints ?? rawStats.activeSprintCount ?? detail.activeSprints ?? 0,
+          activeSprints:
+            rawStats.activeSprints ?? rawStats.activeSprintCount ?? detail.activeSprints ?? 0,
           totalTasks: rawStats.totalTasks ?? rawStats.taskCount ?? detail.totalTasks ?? 0,
           doneTasks: rawStats.doneTasks ?? rawStats.doneTaskCount ?? detail.doneTasks ?? 0,
-          totalStoryPoints: rawStats.totalStoryPoints ?? rawStats.storyPoints ?? detail.totalStoryPoints ?? 0,
+          totalStoryPoints:
+            rawStats.totalStoryPoints ?? rawStats.storyPoints ?? detail.totalStoryPoints ?? 0,
         };
 
         const statsFromBoard = buildStatsFromBoard(board);
-        const stats: ProjectDetailVm["stats"] = {
+        const stats: ProjectDetailVm['stats'] = {
           totalSprints: statsFromBoard.totalSprints || statsFromDetail.totalSprints,
           activeSprints: statsFromBoard.activeSprints || statsFromDetail.activeSprints,
           totalTasks: statsFromBoard.totalTasks || statsFromDetail.totalTasks,
@@ -382,7 +363,7 @@ export default function ProjectDetailPage() {
           const assignedIds = new Set(mappedMembers.map((x) => x.userId.toLowerCase()));
           pool = (res.items || [])
             .filter((m: any) => {
-              const mid = String(m.memberId ?? m.userId ?? m.id ?? "").toLowerCase();
+              const mid = String(m.memberId ?? m.userId ?? m.id ?? '').toLowerCase();
               return mid && !assignedIds.has(mid);
             })
             .map(mapCompanyMemberToVm);
@@ -390,24 +371,24 @@ export default function ProjectDetailPage() {
 
         const vm: ProjectDetailVm = {
           id: String(detail.id ?? projectId),
-          code: detail.code ?? "",
-          name: detail.name ?? "",
-          description: detail.description ?? "",
-          status: (detail.status as ProjectStatus) ?? "Planned",
+          code: detail.code ?? '',
+          name: detail.name ?? '',
+          description: detail.description ?? '',
+          status: (detail.status as ProjectStatus) ?? 'Planned',
           isHired: !!detail.isHired,
 
-          companyId: String(detail.companyId ?? companyId ?? ""),
+          companyId: String(detail.companyId ?? companyId ?? ''),
           companyName:
             detail.companyName ??
             detail.companyExecutorName ??
             detail.ownerCompany ??
             detail.company ??
-            "",
+            '',
           companyHiredId: detail.companyHiredId ?? null,
           companyHiredName: detail.companyHiredName ?? detail.hiredCompanyName ?? null,
 
-          workflowId: String(detail.workflowId ?? ""),
-          workflowName: detail.workflowName ?? detail.workflow ?? "",
+          workflowId: String(detail.workflowId ?? ''),
+          workflowName: detail.workflowName ?? detail.workflow ?? '',
 
           sprintLengthWeeks: detail.sprintLengthWeeks ?? 1,
           startDate: detail.startDate ?? null,
@@ -416,7 +397,7 @@ export default function ProjectDetailPage() {
           isClosed: !!detail.isClosed,
           createdById: createdById,
           createdAt,
-          createdByName: createdByName || "",
+          createdByName: createdByName || '',
 
           stats,
           members: mappedMembers,
@@ -425,7 +406,7 @@ export default function ProjectDetailPage() {
         setProject(vm);
         setAvailableMembers(pool);
       } catch (err) {
-        console.error("Load project detail failed", err);
+        console.error('Load project detail failed', err);
         if (alive) {
           setProject(null);
           setAvailableMembers([]);
@@ -461,7 +442,7 @@ export default function ProjectDetailPage() {
         const found = (list ?? []).find((x) => x.id === project.workflowId) ?? null;
         setWorkflowPreview(found);
       } catch (err) {
-        console.error("Load workflow preview failed", err);
+        console.error('Load workflow preview failed', err);
         if (alive) setWorkflowPreview(null);
       } finally {
         if (alive) setLoadingWorkflowPreview(false);
@@ -478,7 +459,7 @@ export default function ProjectDetailPage() {
   React.useEffect(() => {
     if (project) {
       setEditName(project.name);
-      setEditDescription(project.description ?? "");
+      setEditDescription(project.description ?? '');
     }
   }, [project]);
 
@@ -498,7 +479,7 @@ export default function ProjectDetailPage() {
 
   const handleOpenBoard = () => {
     if (!companyId || !projectId) return;
-    navigate(`/companies/${companyId}/projects/${projectId}/board`);
+    navigate(`/companies/${companyId}/project/${projectId}`);
   };
 
   const handleViewWorkflow = () => {
@@ -509,7 +490,7 @@ export default function ProjectDetailPage() {
   const handleStartEditBasic = () => {
     if (!project) return;
     setEditName(project.name);
-    setEditDescription(project.description ?? "");
+    setEditDescription(project.description ?? '');
     setIsEditing(true);
     setActionsOpen(false);
   };
@@ -517,7 +498,7 @@ export default function ProjectDetailPage() {
   const handleCancelEditBasic = () => {
     if (!project) return;
     setEditName(project.name);
-    setEditDescription(project.description ?? "");
+    setEditDescription(project.description ?? '');
     setIsEditing(false);
   };
 
@@ -526,7 +507,7 @@ export default function ProjectDetailPage() {
 
     const trimmedName = editName.trim();
     if (!trimmedName) {
-      toast.error("Project name is required.");
+      toast.error('Project name is required.');
       return;
     }
 
@@ -545,18 +526,18 @@ export default function ProjectDetailPage() {
       setProject((prev) =>
         prev
           ? {
-            ...prev,
-            name: updated.name ?? trimmedName,
-            description: updated.description ?? (editDescription.trim() || null),
-          }
+              ...prev,
+              name: updated.name ?? trimmedName,
+              description: updated.description ?? (editDescription.trim() || null),
+            }
           : prev,
       );
 
       setIsEditing(false);
-      toast.success("Project updated.");
+      toast.success('Project updated.');
     } catch (err) {
-      console.error("Update project failed", err);
-      toast.error("Failed to update project.");
+      console.error('Update project failed', err);
+      toast.error('Failed to update project.');
     } finally {
       setSavingBasic(false);
     }
@@ -566,16 +547,15 @@ export default function ProjectDetailPage() {
     navigate(`/companies/${companyId}/project/${projectId}/closue`);
   }, [companyId, projectId, navigate]);
 
-
   const handleReopenProject = async () => {
     if (!project) return;
 
     if (!canCloseProject) {
-      toast.error("Only the creator can reopen this project.");
+      toast.error('Only the creator can reopen this project.');
       return;
     }
     if (!project.isClosed) {
-      toast.info("Project is not closed.");
+      toast.info('Project is not closed.');
       return;
     }
 
@@ -584,10 +564,10 @@ export default function ProjectDetailPage() {
       await reopenProject(project.id);
 
       setProject((prev) => (prev ? { ...prev, isClosed: false } : prev));
-      toast.success("Project reopened.");
+      toast.success('Project reopened.');
     } catch (err: any) {
-      console.error("Reopen project failed", err);
-      toast.error(err?.response?.data?.message || err?.message || "Failed to reopen project.");
+      console.error('Reopen project failed', err);
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to reopen project.');
     } finally {
       setReopening(false);
       setActionsOpen(false);
@@ -598,11 +578,11 @@ export default function ProjectDetailPage() {
     if (!project) return;
 
     if (!canCloseProject) {
-      toast.error("Only the creator can close this project.");
+      toast.error('Only the creator can close this project.');
       return;
     }
     if (project.isClosed) {
-      toast.info("Project is already closed.");
+      toast.info('Project is already closed.');
       return;
     }
 
@@ -611,16 +591,15 @@ export default function ProjectDetailPage() {
       await closeProject(project.id);
 
       setProject((prev) => (prev ? { ...prev, isClosed: true } : prev));
-      toast.success("Project closed.");
+      toast.success('Project closed.');
     } catch (err: any) {
-      console.error("Close project failed", err);
-      toast.error(err?.response?.data?.message || err?.message || "Failed to close project.");
+      console.error('Close project failed', err);
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to close project.');
     } finally {
       setClosing(false);
       setActionsOpen(false);
     }
   };
-
 
   const projectStats = project ? project.stats : null;
   const progress = projectStats ? progressPercent(projectStats) : 0;
@@ -641,7 +620,7 @@ export default function ProjectDetailPage() {
     if (!project) return;
 
     if (!canKickMember(userId)) {
-      toast.info("You cannot kick the project owner or yourself.");
+      toast.info('You cannot kick the project owner or yourself.');
       return;
     }
 
@@ -659,12 +638,12 @@ export default function ProjectDetailPage() {
 
     try {
       await removeProjectMember(project.id, userId);
-      toast.success("Member removed.");
+      toast.success('Member removed.');
     } catch (err) {
-      console.error("Remove project member failed", err);
+      console.error('Remove project member failed', err);
       setProject(prevProject);
       setAvailableMembers(prevAvailable);
-      toast.error("Failed to remove member.");
+      toast.error('Failed to remove member.');
     }
   };
 
@@ -688,36 +667,36 @@ export default function ProjectDetailPage() {
         isPartner: m.isPartner ?? false,
         isViewAll: m.isViewAll ?? false,
       });
-      toast.success("Member added.");
+      toast.success('Member added.');
     } catch (err) {
-      console.error("Add project member failed", err);
+      console.error('Add project member failed', err);
       setProject(prevProject);
       setAvailableMembers(prevAvailable);
-      toast.error("Failed to add member.");
+      toast.error('Failed to add member.');
     }
   };
 
   const handleCancelConfirm = () => {
     if (closing) return;
-    setConfirmState({ kind: "none" });
+    setConfirmState({ kind: 'none' });
   };
 
   const handleConfirmAction = async () => {
     if (!project) return;
 
-    if (confirmState.kind === "closeProject") {
+    if (confirmState.kind === 'closeProject') {
       await handleCloseProject();
-      setConfirmState({ kind: "none" });
+      setConfirmState({ kind: 'none' });
       return;
     }
-    if (confirmState.kind === "reopenProject") {
+    if (confirmState.kind === 'reopenProject') {
       await handleReopenProject();
-      setConfirmState({ kind: "none" });
+      setConfirmState({ kind: 'none' });
       return;
     }
-    if (confirmState.kind === "kickMember") {
+    if (confirmState.kind === 'kickMember') {
       await handleRemoveMember(confirmState.member.userId);
-      setConfirmState({ kind: "none" });
+      setConfirmState({ kind: 'none' });
       return;
     }
   };
@@ -735,24 +714,24 @@ export default function ProjectDetailPage() {
   }
 
   const displayCreatorName =
-    project.createdByName && !isGuid(project.createdByName) ? project.createdByName : "Unknown user";
+    project.createdByName && !isGuid(project.createdByName)
+      ? project.createdByName
+      : 'Unknown user';
 
-  const isCloseProjectConfirm = confirmState.kind === "closeProject";
-  const isReopenProjectConfirm = confirmState.kind === "reopenProject";
+  const isCloseProjectConfirm = confirmState.kind === 'closeProject';
+  const isReopenProjectConfirm = confirmState.kind === 'reopenProject';
 
-  const isKickMemberConfirm = confirmState.kind === "kickMember";
-  const memberName = confirmState.kind === "kickMember" ? confirmState.member.name : undefined;
+  const isKickMemberConfirm = confirmState.kind === 'kickMember';
+  const memberName = confirmState.kind === 'kickMember' ? confirmState.member.name : undefined;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
-
-
       {/* Header */}
       <div
         className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.45)]"
         style={{
           backgroundImage:
-            "radial-gradient(900px 260px at 50% -120px, rgba(37,99,235,0.06), transparent 60%)",
+            'radial-gradient(900px 260px at 50% -120px, rgba(37,99,235,0.06), transparent 60%)',
         }}
       >
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -766,19 +745,19 @@ export default function ProjectDetailPage() {
 
               <span
                 className={
-                  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium " +
+                  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ' +
                   statusBadgeClass(project.status)
                 }
               >
-                {project.status === "InProgress"
-                  ? "In progress"
-                  : project.status === "OnHold"
-                    ? "On hold"
-                    : project.status}
+                {project.status === 'InProgress'
+                  ? 'In progress'
+                  : project.status === 'OnHold'
+                  ? 'On hold'
+                  : project.status}
               </span>
 
               <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700 border border-indigo-100">
-                {project.isHired ? "Outsourced project" : "Internal product"}
+                {project.isHired ? 'Outsourced project' : 'Internal product'}
               </span>
 
               {project.isClosed && (
@@ -912,14 +891,21 @@ export default function ProjectDetailPage() {
                     <span>{progress}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
+                    <div
+                      className="h-full rounded-full bg-blue-500 transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Info cards */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <InfoRow icon={<Building2 className="size-3.5" />} label="Owner company" value={project.companyName} />
+                <InfoRow
+                  icon={<Building2 className="size-3.5" />}
+                  label="Owner company"
+                  value={project.companyName}
+                />
 
                 {project.isHired && project.companyHiredName && (
                   <InfoRow
@@ -957,7 +943,9 @@ export default function ProjectDetailPage() {
                 <InfoRow
                   icon={<Flag className="size-3.5" />}
                   label="Sprint length"
-                  value={`${project.sprintLengthWeeks} week${project.sprintLengthWeeks > 1 ? "s" : ""}`}
+                  value={`${project.sprintLengthWeeks} week${
+                    project.sprintLengthWeeks > 1 ? 's' : ''
+                  }`}
                 />
 
                 <InfoRow
@@ -965,7 +953,8 @@ export default function ProjectDetailPage() {
                   label="Created by"
                   value={
                     <span>
-                      {displayCreatorName} <span className="text-slate-400">• {formatDate(project.createdAt)}</span>
+                      {displayCreatorName}{' '}
+                      <span className="text-slate-400">• {formatDate(project.createdAt)}</span>
                     </span>
                   }
                 />
@@ -984,7 +973,29 @@ export default function ProjectDetailPage() {
               <Activity className="size-4" />
               Open board
             </button> */}
-
+            <button
+              type="button"
+              onClick={project.isClosed ? handleOpenClosureReport : handleOpenBoard}
+              disabled={!companyId || !projectId}
+              className={
+                'inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm disabled:opacity-60 ' +
+                (project.isClosed
+                  ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  : 'bg-blue-600 text-white hover:bg-blue-700')
+              }
+            >
+              {project.isClosed ? (
+                <>
+                  <Lock className="size-4 text-slate-600" />
+                  Project closure
+                </>
+              ) : (
+                <>
+                  <Activity className="size-4" />
+                  Open board
+                </>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setActionsOpen((x) => !x)}
@@ -993,7 +1004,8 @@ export default function ProjectDetailPage() {
               <MoreHorizontal className="size-4" />
               Project actions
             </button>
-            {project.isClosed && (
+
+            {/* {project.isClosed && (
               <button
                 type="button"
                 onClick={handleOpenClosureReport}
@@ -1002,7 +1014,7 @@ export default function ProjectDetailPage() {
                 <Lock className="size-4 text-slate-600" />
                 Project closure
               </button>
-            )}
+            )} */}
 
             {actionsOpen && (
               <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -1032,13 +1044,17 @@ export default function ProjectDetailPage() {
                     type="button"
                     onClick={() => {
                       setActionsOpen(false);
-                      setConfirmState({ kind: "closeProject" });
+                      setConfirmState({ kind: 'closeProject' });
                     }}
                     disabled={!canCloseProject || closing}
-                    title={canCloseProject ? "Close this project" : "Only the creator can close this project"}
+                    title={
+                      canCloseProject
+                        ? 'Close this project'
+                        : 'Only the creator can close this project'
+                    }
                     className={
-                      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
-                      (canCloseProject ? "text-slate-700" : "text-slate-500")
+                      'flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 ' +
+                      (canCloseProject ? 'text-slate-700' : 'text-slate-500')
                     }
                   >
                     <Lock className="size-3.5" />
@@ -1049,21 +1065,23 @@ export default function ProjectDetailPage() {
                     type="button"
                     onClick={() => {
                       setActionsOpen(false);
-                      setConfirmState({ kind: "reopenProject" });
+                      setConfirmState({ kind: 'reopenProject' });
                     }}
                     disabled={!canCloseProject || reopening}
-                    title={canCloseProject ? "Reopen this project" : "Only the creator can reopen this project"}
+                    title={
+                      canCloseProject
+                        ? 'Reopen this project'
+                        : 'Only the creator can reopen this project'
+                    }
                     className={
-                      "flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 " +
-                      (canCloseProject ? "text-slate-700" : "text-slate-500")
+                      'flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 ' +
+                      (canCloseProject ? 'text-slate-700' : 'text-slate-500')
                     }
                   >
                     <Lock className="size-3.5" />
                     <span>Reopen project</span>
                   </button>
                 )}
-
-
               </div>
             )}
           </div>
@@ -1074,19 +1092,19 @@ export default function ProjectDetailPage() {
       <div className="mt-6 border-b border-slate-200">
         <nav className="-mb-px flex gap-4 text-sm">
           {[
-            { id: "overview", label: "Overview" },
-            { id: "members", label: "Members" },
-            { id: "activity", label: "Activity" },
+            { id: 'overview', label: 'Overview' },
+            { id: 'members', label: 'Members' },
+            { id: 'activity', label: 'Activity' },
           ].map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setActiveTab(t.id as any)}
               className={
-                "border-b-2 px-1.5 pb-2 text-sm font-medium transition " +
+                'border-b-2 px-1.5 pb-2 text-sm font-medium transition ' +
                 (activeTab === t.id
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300")
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300')
               }
             >
               {t.label}
@@ -1096,24 +1114,36 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === "overview" && (
+      {activeTab === 'overview' && (
         <div className="mt-5 grid gap-4 md:grid-cols-[2fr,1.4fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
             <div className="mb-2 text-sm font-semibold text-slate-800">About this project</div>
             <p className="text-sm text-slate-600">
               {project.description ||
-                "No description has been provided yet. Use the edit action to add more context for your team."}
+                'No description has been provided yet. Use the edit action to add more context for your team.'}
             </p>
 
             <div className="mt-4 grid gap-3 text-xs text-slate-600 sm:grid-cols-2">
-              <InfoRow icon={<CalendarDays className="size-3.5" />} label="Start date" value={formatDate(project.startDate)} />
-              <InfoRow icon={<CalendarDays className="size-3.5" />} label="End date" value={formatDate(project.endDate)} />
+              <InfoRow
+                icon={<CalendarDays className="size-3.5" />}
+                label="Start date"
+                value={formatDate(project.startDate)}
+              />
+              <InfoRow
+                icon={<CalendarDays className="size-3.5" />}
+                label="End date"
+                value={formatDate(project.endDate)}
+              />
               <InfoRow
                 icon={<Users2 className="size-3.5" />}
                 label="Current members"
-                value={`${project.members.length} member${project.members.length !== 1 ? "s" : ""}`}
+                value={`${project.members.length} member${project.members.length !== 1 ? 's' : ''}`}
               />
-              <InfoRow icon={<Activity className="size-3.5" />} label="Project type" value={project.isHired ? "Outsourced" : "Internal"} />
+              <InfoRow
+                icon={<Activity className="size-3.5" />}
+                label="Project type"
+                value={project.isHired ? 'Outsourced' : 'Internal'}
+              />
             </div>
           </div>
 
@@ -1129,7 +1159,10 @@ export default function ProjectDetailPage() {
                   <span className="font-medium text-slate-800">{progress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${progress}%` }} />
+                  <div
+                    className="h-full rounded-full bg-blue-500"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Done tasks</span>
@@ -1153,7 +1186,9 @@ export default function ProjectDetailPage() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <div className="rounded-lg border bg-white overflow-hidden">
                     <div className="px-3 py-2 flex items-center justify-between border-b">
-                      <div className="font-medium truncate">{project.workflowName || "Workflow"}</div>
+                      <div className="font-medium truncate">
+                        {project.workflowName || 'Workflow'}
+                      </div>
                       <button
                         type="button"
                         onClick={() => setWorkflowPreviewOpen(true)}
@@ -1199,7 +1234,7 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {activeTab === "members" && (
+      {activeTab === 'members' && (
         <div className="mt-5 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1208,7 +1243,8 @@ export default function ProjectDetailPage() {
                 Project members
               </div>
               <p className="text-xs text-slate-500">
-                Manage who can access this project. You can remove members or assign new members from the company.
+                Manage who can access this project. You can remove members or assign new members
+                from the company.
               </p>
             </div>
 
@@ -1259,7 +1295,9 @@ export default function ProjectDetailPage() {
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="truncate text-sm font-medium text-slate-900">{m.name}</div>
+                              <div className="truncate text-sm font-medium text-slate-900">
+                                {m.name}
+                              </div>
 
                               {isOwner && (
                                 <span className="shrink-0 inline-flex items-center rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -1278,7 +1316,7 @@ export default function ProjectDetailPage() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-2.5 text-xs text-slate-700">{m.roleName || "—"}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-700">{m.roleName || '—'}</td>
 
                       <td className="px-4 py-2.5 text-xs">
                         <div className="flex flex-wrap items-center gap-1">
@@ -1302,15 +1340,15 @@ export default function ProjectDetailPage() {
                       </td>
 
                       <td className="px-4 py-2.5 text-xs text-slate-600">
-                        {m.joinedAt ? formatDate(m.joinedAt) : "—"}
+                        {m.joinedAt ? formatDate(m.joinedAt) : '—'}
                       </td>
 
                       <td className="px-4 py-2.5 text-right text-xs">
                         {canKickMember(m.userId) ? (
-                          <Can code='PROJECT_KICK_MEMBER'>
+                          <Can code="PROJECT_KICK_MEMBER">
                             <button
                               type="button"
-                              onClick={() => setConfirmState({ kind: "kickMember", member: m })}
+                              onClick={() => setConfirmState({ kind: 'kickMember', member: m })}
                               className="inline-flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100"
                             >
                               <Trash2 className="size-3.5" />
@@ -1325,7 +1363,7 @@ export default function ProjectDetailPage() {
               </tbody>
             </table>
           </div>
-          <Can code='PROJECT_INVITE_MEMBER'>
+          <Can code="PROJECT_INVITE_MEMBER">
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -1355,7 +1393,9 @@ export default function ProjectDetailPage() {
                           {initials(m.name)}
                         </div>
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-slate-900">{m.name}</div>
+                          <div className="truncate text-sm font-medium text-slate-900">
+                            {m.name}
+                          </div>
                           <div className="truncate text-xs text-slate-500">{m.email}</div>
                           {m.roleName && (
                             <div className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
@@ -1366,7 +1406,7 @@ export default function ProjectDetailPage() {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                        <span>{m.isPartner ? "Partner" : "Company member"}</span>
+                        <span>{m.isPartner ? 'Partner' : 'Company member'}</span>
                         <button
                           type="button"
                           onClick={() => handleAddMember(m)}
@@ -1385,7 +1425,7 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {activeTab === "activity" && (
+      {activeTab === 'activity' && (
         <div className="mt-5">
           <ProjectActivityTimeline projectId={project.id} />
         </div>
@@ -1401,44 +1441,49 @@ export default function ProjectDetailPage() {
       )}
 
       {/* Confirm Modal */}
-      {confirmState.kind !== "none" && (
+      {confirmState.kind !== 'none' && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-slate-200 p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <div
                 className={
-                  "mt-1 flex h-8 w-8 items-center justify-center rounded-full " +
-                  (isCloseProjectConfirm ? "bg-slate-100 text-slate-700" : "bg-rose-50 text-rose-600")
+                  'mt-1 flex h-8 w-8 items-center justify-center rounded-full ' +
+                  (isCloseProjectConfirm
+                    ? 'bg-slate-100 text-slate-700'
+                    : 'bg-rose-50 text-rose-600')
                 }
               >
-                {isCloseProjectConfirm ? <Lock className="size-4" /> : <Trash2 className="size-4" />}
+                {isCloseProjectConfirm ? (
+                  <Lock className="size-4" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
               </div>
 
               <div className="flex-1">
                 <h2 className="text-sm font-semibold text-slate-900">
                   {isCloseProjectConfirm
-                    ? "Close project?"
+                    ? 'Close project?'
                     : isReopenProjectConfirm
-                      ? "Reopen project?"
-                      : "Remove member from project?"}
+                    ? 'Reopen project?'
+                    : 'Remove member from project?'}
                 </h2>
-
 
                 <p className="mt-1 text-xs text-slate-600">
                   {isCloseProjectConfirm && (
                     <>
-                      This will mark <span className="font-semibold">"{project.name}"</span> as{" "}
+                      This will mark <span className="font-semibold">"{project.name}"</span> as{' '}
                       <span className="font-semibold">Closed</span>. Only the creator can do this.
                     </>
                   )}
 
                   {isReopenProjectConfirm && (
                     <>
-                      This will mark <span className="font-semibold">"{project.name}"</span> as{" "}
-                      <span className="font-semibold">Open</span> again. Only the creator can do this.
+                      This will mark <span className="font-semibold">"{project.name}"</span> as{' '}
+                      <span className="font-semibold">Open</span> again. Only the creator can do
+                      this.
                     </>
                   )}
-
                 </p>
               </div>
             </div>
@@ -1461,10 +1506,10 @@ export default function ProjectDetailPage() {
                   (isReopenProjectConfirm && (reopening || !canCloseProject))
                 }
                 className={
-                  "inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 " +
+                  'inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 ' +
                   (isCloseProjectConfirm || isReopenProjectConfirm
-                    ? "bg-slate-800 hover:bg-slate-900"
-                    : "bg-rose-600 hover:bg-rose-700")
+                    ? 'bg-slate-800 hover:bg-slate-900'
+                    : 'bg-rose-600 hover:bg-rose-700')
                 }
               >
                 {(closing && isCloseProjectConfirm) || (reopening && isReopenProjectConfirm) ? (
@@ -1472,12 +1517,11 @@ export default function ProjectDetailPage() {
                 ) : null}
 
                 {isCloseProjectConfirm
-                  ? "Close project"
+                  ? 'Close project'
                   : isReopenProjectConfirm
-                    ? "Reopen project"
-                    : "Remove member"}
+                  ? 'Reopen project'
+                  : 'Remove member'}
               </button>
-
             </div>
           </div>
         </div>

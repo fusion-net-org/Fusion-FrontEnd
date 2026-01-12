@@ -337,7 +337,7 @@ const ProjectOverviewPage: React.FC = () => {
         </Card>
 
         {/* Sprint velocity */}
-        <Card
+        {/* <Card
           title={
             <div className="flex items-center gap-2">
               <KanbanSquare className="h-3.5 w-3.5 text-violet-500" />
@@ -349,7 +349,7 @@ const ProjectOverviewPage: React.FC = () => {
           bodyStyle={{ padding: 16 }}
         >
           <SprintVelocityChart overview={executionOverview} loading={loadingExecution} />
-        </Card>
+        </Card> */}
       </div>
     </div>
   );

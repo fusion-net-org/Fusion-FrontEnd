@@ -12,6 +12,8 @@ import {
   XCircle,
   Lock,
   FileSpreadsheet,
+  Wrench,
+  Code2,
 } from 'lucide-react';
 import { Progress } from '@/components/Project/progress';
 import { toast } from 'react-toastify';
@@ -64,6 +66,11 @@ const ProjectCompanyRequest = () => {
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
 
+  const formatCurrency = (value?: number | null) => {
+    if (value === null || value === undefined) return '—';
+    return value.toLocaleString('vi-VN');
+  };
+
   const handleCloseProject = async () => {
     if (!projectId) return;
 
@@ -109,6 +116,7 @@ const ProjectCompanyRequest = () => {
     const fetchProject = async () => {
       try {
         const res = await GetProjectByProjectId(projectId);
+        console.log('Project', res.data);
         setProject(res.data);
       } catch (error) {
         console.log(error);
@@ -196,6 +204,15 @@ const ProjectCompanyRequest = () => {
         Value: project.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '',
       },
       { Field: 'Progress', Value: '96%' },
+      {
+        Field: 'Budget Contract',
+        Value: formatCurrency(project.contractBudget),
+      },
+      {
+        Field: 'Total Budget Ticket',
+        Value: formatCurrency(project.ticketTotalBudget),
+      },
+
       { Field: 'Company Request', Value: project.companyRequestName },
       { Field: 'Company Executor', Value: project.companyExecutorName },
     ];
@@ -354,7 +371,29 @@ const ProjectCompanyRequest = () => {
                   {project.status}
                 </span>
               )}
-
+              {/* Project Type */}
+              {project && (
+                <span
+                  className={`flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-full border ${
+                    project.isMaintenance
+                      ? 'bg-orange-50 text-orange-600 border-orange-300'
+                      : 'bg-blue-50 text-blue-600 border-blue-300'
+                  }
+      `}
+                >
+                  {project.isMaintenance ? (
+                    <>
+                      <Wrench size={14} />
+                      Maintenance
+                    </>
+                  ) : (
+                    <>
+                      <Code2 size={14} />
+                      Development
+                    </>
+                  )}
+                </span>
+              )}
               {/* Closed Badge */}
               {project?.isClosed && (
                 <span className="flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">
@@ -448,6 +487,14 @@ const ProjectCompanyRequest = () => {
             />
             <InfoRow label="Company Request" value={project?.companyRequestName} />
             <InfoRow label="Company Executor" value={project?.companyExecutorName} />
+            <InfoRow
+              label="Budget Contract"
+              value={formatCurrency(project?.contractBudget) + ' VND'}
+            />
+            <InfoRow
+              label="Total Budget Ticket"
+              value={formatCurrency(project?.ticketTotalBudget) + ' VND'}
+            />
           </div>
         </div>
 

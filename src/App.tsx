@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Login from './pages/login/Login';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -86,13 +86,15 @@ function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
   });
+  const location = useLocation();
   const user = useAppSelector((s) => s.user.user);
+  const isChatPage = location.pathname.startsWith('/chat');
 
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />
       <ScrollToTop />
-      {user && <ChatPopup />}
+      {user && !isChatPage && <ChatPopup />}
 
       <Routes>
         {/* Route main layout */}
@@ -296,7 +298,14 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/request-reset-password" element={<RequestResetPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/my-profile" element={<UserProfile />} />
+        <Route
+          path="/my-profile"
+          element={
+            <RequireAuth>
+              <UserProfile />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/chat"
           element={

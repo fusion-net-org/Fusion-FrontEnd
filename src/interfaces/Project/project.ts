@@ -36,6 +36,7 @@ export interface ProjectDetailResponse {
   code: string | null;
   name: string | null;
   description: string | null;
+  isMaintenance: boolean | null;
   status: string | null;
   workflowId: string | null;
   startDate: string | null; // ISO date string
@@ -44,6 +45,8 @@ export interface ProjectDetailResponse {
   createByName: string;
   createAt: string; // ISO datetime string
   updateAt: string; // ISO datetime string
+  contractBudget: number | null;
+  ticketTotalBudget: number | null;
 }
 // Generic cho ResponseModel<T> backend đang trả về (nếu cần)
 export interface ApiResponse<T> {

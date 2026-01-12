@@ -377,7 +377,7 @@ const flat: TaskVm[] = Array.isArray(res?.sprints)
 
 const tasks: TaskVm[] = flat;
 
-//  THÊM DÒNG NÀY (đẩy task về board)
+
 onGenerated?.(tasks, {
   defaultSprintId: primarySprint?.id ?? (selectedSprints[0]?.id ?? ""),
   selectedSprintIds,
@@ -431,9 +431,7 @@ onClose();
                 <h2 className="text-[15px] font-semibold text-slate-900">
                   Generate sprint tasks with AI
                 </h2>
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-[2px] text-[10px] font-medium text-slate-600">
-                  Experimental
-                </span>
+              
               </div>
               <p className="mt-1 text-xs text-slate-500">
                 Describe your goal, scope, and constraints. AI will break it
@@ -546,7 +544,7 @@ onClose();
             </section>
 
             {/* Workflow summary (primary sprint) */}
-            <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+            {/* <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
               <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-700">
                 <ListChecks className="h-3.5 w-3.5 text-blue-500" />
                 <span>Workflow</span>
@@ -573,7 +571,7 @@ onClose();
                   ),
                 )}
               </div>
-            </section>
+            </section> */}
 
             {/* Duplicate strategy */}
             <section className="rounded-xl border border-slate-200 bg-white px-3 py-3">
@@ -741,7 +739,7 @@ onClose();
                   />
                 </div>
 
-                <div>
+                <div className="hidden">
                   <div className="mb-1 text-[11px] text-slate-600">
                     Task size / granularity
                   </div>
@@ -769,7 +767,7 @@ onClose();
                   </div>
                 </div>
 
-                <div>
+                <div className="hidden">
                   <div className="mb-1 text-[11px] text-slate-600">
                     Estimate per task
                   </div>
@@ -838,8 +836,8 @@ onClose();
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 hidden">
+                <div className="hidden">
                   <label className="mb-1 block text-[11px] text-slate-600">
                     Total development effort for this sprint (hours) – optional
                   </label>
@@ -859,7 +857,7 @@ onClose();
                   />
                 </div>
 
-                <div>
+                <div className="hidden">
                   <label className="mb-1 block text-[11px] text-slate-600">
                     Business deadline (if any)
                   </label>
@@ -1042,16 +1040,16 @@ onClose();
                     ))}
                   </div>
 
-                  <label className="mb-1 block text-[11px] text-slate-600">
+                  <label className="mb-1 block text-[11px] text-slate-600 hidden">
                     Guidance for writing Acceptance Criteria
                   </label>
                   <textarea
                     value={acceptanceHint}
                     onChange={(e) => setAcceptanceHint(e.target.value)}
                     rows={2}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 hidden"
                   />
-                  <p className="mt-1 text-[10px] text-slate-500">
+                  <p className="mt-1 text-[10px] text-slate-500 hidden">
                     AI will follow this guidance when generating acceptance
                     criteria for each task.
                   </p>
