@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, User, Settings, LogOut, Bell } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, Bell, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
@@ -75,6 +75,12 @@ export default function UserMenu({
       label: t('user_menu.notification'),
       href: '/notifications',
       color: 'text-yellow-600 dark:text-yellow-400',
+    },
+    {
+      icon: MessageCircle,
+      label: t('user_menu.chat'),
+      href: '/chat',
+      color: 'text-green-600 dark:text-green-400',
     },
     {
       icon: LogOut,

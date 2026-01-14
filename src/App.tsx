@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Login from './pages/login/Login';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -78,14 +78,23 @@ import RequirePerm from '@/permission/RequirePerm';
 
 import CompanyRole from './pages/home/CompanyRole';
 import ProjectClosureReportPage from './pages/project/ProjectClosureReportPage';
+import ChatPage from './pages/chat/ChatPage';
+import ChatPopup from './pages/chat/ChatPopup';
+import { useAppSelector } from '@/redux/hooks';
+
 function App() {
   useFCMListener((notif: any) => {
     console.log('Realtime FCM Notification:', notif);
   });
+  const location = useLocation();
+  const user = useAppSelector((s) => s.user.user);
+  const isChatPage = location.pathname.startsWith('/chat');
+
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />
       <ScrollToTop />
+      {user && !isChatPage && <ChatPopup />}
 
       <Routes>
         {/* Route main layout */}
@@ -294,6 +303,14 @@ function App() {
           element={
             <RequireAuth>
               <UserProfile />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <RequireAuth>
+              <ChatPage />
             </RequireAuth>
           }
         />
