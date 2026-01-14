@@ -20,6 +20,7 @@ import {  useNavigate, useParams } from "react-router-dom";
 import { Can, usePermissions } from "@/permission/PermissionProvider";
 import SprintKpiTable from "./SprintKpiTable";
 import { getUserIdFromToken } from "@/utils/token";
+import { toast } from "react-toastify";
 
 type Id = string;
 const userId = getUserIdFromToken();
@@ -438,6 +439,7 @@ const dimmed =
     !!dragPolicy &&
     statusId !== dragPolicy.fromStatusId && // cột nguồn luôn được
     !dragPolicy.allowed.includes(statusId); 
+    
   return (
     <div
       key={statusId}
@@ -929,20 +931,34 @@ function onDragStart(start: DragStart) {
 
   const fromStatusId = resolveStatusId(task, activeSprint);
 
-  //  policy chỉ bật khi có enforceTransitions=true ở source này
-  const enforcedTargets = Array.from(
+  const enforcedNonFailTargets = Array.from(
     new Set(
       activeTransitions
-        .filter((tr) => tr.fromStatusId === fromStatusId && tr.enforceTransitions)
+        .filter(
+          (tr) =>
+            tr.fromStatusId === fromStatusId &&
+            tr.enforceTransitions &&
+            tr.type !== "failure",
+        )
         .map((tr) => tr.toStatusId),
     ),
   );
 
-  setDragPolicy(
-    enforcedTargets.length ? { fromStatusId, allowed: enforcedTargets } : null,
+  const failureTargets = Array.from(
+    new Set(
+      activeTransitions
+        .filter((tr) => tr.fromStatusId === fromStatusId && tr.type === "failure")
+        .map((tr) => tr.toStatusId),
+    ),
   );
 
-  // (giữ highlightTargets như bạn đang làm - muốn highlight hết transition hay chỉ enforce tùy bạn)
+  const allowed = enforcedNonFailTargets.length
+    ? Array.from(new Set([...enforcedNonFailTargets, ...failureTargets]))
+    : [];
+
+  setDragPolicy(enforcedNonFailTargets.length ? { fromStatusId, allowed } : null);
+
+  // --- giữ nguyên phần highlightTargets như bạn đang làm ---
   const next: Record<string, HighlightInfo> = {};
   const priority: Record<HighlightKind, number> = { success: 3, failure: 2, optional: 1 };
 
@@ -971,10 +987,18 @@ function onDragStart(start: DragStart) {
 }
 
 
+function getErrMsg(err: any) {
+  const status = err?.response?.status;
+  const msg =
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message;
 
+  if (status === 403) return "You are not allowed to move this task from the current status.";
+  return msg || "Cannot move task. Please try again.";
+}
 
-
-function onDragEnd(result: DropResult) {
+async function onDragEnd(result: DropResult) {
   setHighlightTargets({});
   setDragPolicy(null);
 
@@ -984,38 +1008,42 @@ function onDragEnd(result: DropResult) {
   const fromStatusId = source.droppableId;
   const toStatusId = destination.droppableId;
 
+  if (fromStatusId === toStatusId && source.index === destination.index) return;
+
   const task = visibleTasks.find((x) => x.id === draggableId);
   if (!task) return;
 
   const isSameColumn = fromStatusId === toStatusId;
 
-  if (!isSameColumn && dragPolicy) {
-    const allowed = dragPolicy.allowed.includes(toStatusId);
-    if (!allowed) {
-      //  drop vào cột không cho phép => bỏ qua
-      return;
+  if (!isSameColumn && dragPolicy && dragPolicy.fromStatusId === fromStatusId) {
+    if (!dragPolicy.allowed.includes(toStatusId)) {
+      toast.info("Workflow does not allow moving to this status.");
+      return; 
     }
   }
 
-  if (isSameColumn) {
-    if (source.index === destination.index) return;
+  try {
+    const projectId = (window as any).__projectId;
 
-    reorder((window as any).__projectId, activeSprint.id, task, toStatusId, destination.index);
-    setLastCrossMove(null);
-    return;
+    if (isSameColumn) {
+      await reorder(projectId, activeSprint.id, task, toStatusId, destination.index);
+      setLastCrossMove(null);
+      return;
+    }
+
+    await reorder(
+      projectId,
+      activeSprint.id,
+      { ...task, workflowStatusId: toStatusId, sprintId: activeSprint.id },
+      toStatusId,
+      0
+    );
+
+    setLastCrossMove({ taskId: task.id, toStatusId });
+  } catch (err) {
+    toast.error(getErrMsg(err));
   }
-
-  reorder(
-    (window as any).__projectId,
-    activeSprint.id,
-    { ...task, workflowStatusId: toStatusId, sprintId: activeSprint.id },
-    toStatusId,
-    0,
-  );
-
-  setLastCrossMove({ taskId: task.id, toStatusId });
 }
-
 
 
 

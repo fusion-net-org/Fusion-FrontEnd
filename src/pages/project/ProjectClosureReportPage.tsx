@@ -1,6 +1,5 @@
 // src/pages/.../ProjectClosureReportPage.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/rules-of-hooks */
 
 import React from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -24,6 +23,7 @@ import {
   Handshake,
   Receipt,
   DollarSign,
+  ExternalLink,
 } from "lucide-react";
 
 import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
@@ -34,7 +34,7 @@ import { GetProjectRequestById } from "@/services/projectRequest.js";
 import { getContractById } from "@/services/contractService.js";
 import { GetTicketByProjectId, GetTicketPaged } from "@/services/TicketService.js";
 
-import type { SprintVm, TaskVm } from "@/types/projectBoard";
+import type { SprintVm, TaskVm, ComponentVm } from "@/types/projectBoard";
 
 /* ===================== Types ===================== */
 type ProjectMeta = {
@@ -42,6 +42,10 @@ type ProjectMeta = {
   code?: string;
   name?: string;
   description?: string;
+
+  // maintenance
+  isMaintenance?: boolean;
+  maintenanceComponentCount?: number | null;
 
   // optional links
   projectRequestId?: string | null;
@@ -80,7 +84,7 @@ type StatusMeta = {
   code?: string;
   name?: string;
   color?: string;
-  isFinal?: boolean; // ONLY source of "Completed"
+  isFinal?: boolean;
 };
 
 type ExportOptions = {
@@ -92,6 +96,7 @@ type ExportOptions = {
     tasks: boolean;
     members: boolean;
     statusCatalog: boolean;
+    components: boolean; // maintenance-only
     tickets: boolean;
     contract: boolean;
   };
@@ -106,6 +111,7 @@ const DEFAULT_EXPORT: ExportOptions = {
     tasks: true,
     members: true,
     statusCatalog: true,
+    components: true,
     tickets: true,
     contract: true,
   },
@@ -165,6 +171,21 @@ function toRgba(color: string, alpha: number) {
 /** legacy support: statusName vs StatusName */
 function getTaskStatusNameLegacy(t: TaskVm): string | undefined {
   return (t as any).statusName ?? (t as any).StatusName ?? undefined;
+}
+
+/** fallback final if status meta missing */
+function inferFinalFromText(t: TaskVm) {
+  const txt = safeStr((t as any).statusCode ?? getTaskStatusNameLegacy(t) ?? "")
+    .toLowerCase()
+    .replace(/[\s_-]/g, "");
+  return (
+    txt.includes("done") ||
+    txt.includes("closed") ||
+    txt.includes("complete") ||
+    txt.includes("completed") ||
+    txt.includes("resolve") ||
+    txt.includes("resolved")
+  );
 }
 
 /** basic debounce */
@@ -249,9 +270,7 @@ function Paginator(props: {
           {props.total ? (props.page - 1) * props.pageSize + 1 : 0}
         </span>
         {" - "}
-        <span className="font-semibold text-slate-700">
-          {Math.min(props.total, props.page * props.pageSize)}
-        </span>
+        <span className="font-semibold text-slate-700">{Math.min(props.total, props.page * props.pageSize)}</span>
         {" of "}
         <span className="font-semibold text-slate-700">{props.total}</span>
       </div>
@@ -392,7 +411,9 @@ function Pill(props: {
   return (
     <span
       style={style}
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${hasColor ? "" : cls}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+        hasColor ? "" : cls
+      }`}
     >
       {props.showDot && props.color ? (
         <span className="inline-block size-2 rounded-full" style={{ backgroundColor: props.color }} />
@@ -402,15 +423,28 @@ function Pill(props: {
   );
 }
 
-function Modal(props: { open: boolean; title: string; onClose: () => void; children: React.ReactNode; widthClass?: string }) {
+function Modal(props: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  widthClass?: string;
+}) {
   if (!props.open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/35" onClick={props.onClose} />
-      <div className={`relative w-full ${props.widthClass ?? "max-w-2xl"} rounded-3xl bg-white shadow-xl ring-1 ring-black/5`}>
+      <div
+        className={`relative w-full ${props.widthClass ?? "max-w-2xl"} rounded-3xl bg-white shadow-xl ring-1 ring-black/5`}
+      >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="text-sm font-semibold text-slate-800">{props.title}</div>
-          <button type="button" onClick={props.onClose} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Close">
+          <button
+            type="button"
+            onClick={props.onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+            aria-label="Close"
+          >
             <X className="size-4" />
           </button>
         </div>
@@ -427,6 +461,7 @@ function SearchSelect(props: {
   options: { value: string; label: string; meta?: string }[];
   placeholder?: string;
   widthClass?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
@@ -449,8 +484,11 @@ function SearchSelect(props: {
       <div className="relative">
         <button
           type="button"
+          disabled={!!props.disabled}
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+          className={`flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 ${
+            props.disabled ? "opacity-60 cursor-not-allowed" : ""
+          }`}
         >
           <span className={`truncate ${selected?.label ? "text-slate-800" : "text-slate-400"}`}>
             {selected?.label ?? props.placeholder ?? "Select..."}
@@ -458,7 +496,7 @@ function SearchSelect(props: {
           {open ? <ChevronUp className="size-4 text-slate-500" /> : <ChevronDown className="size-4 text-slate-500" />}
         </button>
 
-        {open && (
+        {open && !props.disabled && (
           <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
             <div className="p-2 border-b border-slate-100">
               <input
@@ -524,26 +562,11 @@ function buildStatusById(sprints: SprintVm[]) {
     for (const id of order) {
       const meta = metaMap?.[id];
       if (!m.has(id)) {
-        m.set(id, {
-          id,
-          code: meta?.code,
-          name: meta?.name,
-          color: meta?.color,
-          isFinal: meta?.isFinal,
-        });
+        m.set(id, { id, code: meta?.code, name: meta?.name, color: meta?.color, isFinal: meta?.isFinal });
       }
     }
-
     for (const [id, meta] of Object.entries(metaMap)) {
-      if (!m.has(id)) {
-        m.set(id, {
-          id,
-          code: meta?.code,
-          name: meta?.name,
-          color: meta?.color,
-          isFinal: meta?.isFinal,
-        });
-      }
+      if (!m.has(id)) m.set(id, { id, code: meta?.code, name: meta?.name, color: meta?.color, isFinal: meta?.isFinal });
     }
   }
   return m;
@@ -564,7 +587,9 @@ function getStatusColor(t: TaskVm, statusById: Map<string, StatusMeta>) {
 function isFinalTask(t: TaskVm, statusById: Map<string, StatusMeta>) {
   const sid = (t as any).workflowStatusId as string | undefined;
   const meta = sid ? statusById.get(sid) : undefined;
-  return meta?.isFinal === true;
+  if (meta?.isFinal === true) return true;
+  if (meta?.isFinal === false) return false;
+  return inferFinalFromText(t);
 }
 
 function compareNullable(a: any, b: any) {
@@ -575,7 +600,13 @@ function compareNullable(a: any, b: any) {
   return 0;
 }
 
-function sortTasks(items: TaskVm[], key: TaskSortKey, dir: SortDir, sprintNameById: Map<string, string>, statusById: Map<string, StatusMeta>) {
+function sortTasks(
+  items: TaskVm[],
+  key: TaskSortKey,
+  dir: SortDir,
+  sprintNameById: Map<string, string>,
+  statusById: Map<string, StatusMeta>
+) {
   const mul = dir === "asc" ? 1 : -1;
   const copy = [...items];
   copy.sort((ta, tb) => {
@@ -595,15 +626,15 @@ function sortTasks(items: TaskVm[], key: TaskSortKey, dir: SortDir, sprintNameBy
           sprintNameById.get(String(b.sprintId ?? "")) ?? ""
         )
       );
-
     return 0;
   });
   return copy;
 }
 
 /* ===================== Ticket Helpers (Business Logic) ===================== */
+type TicketAny = Record<string, any>;
+
 function extractItems(raw: any): any[] {
-  // supports: {data:{items:[]}}, {data:[]}, {items:[]}, []
   const d = raw?.data ?? raw;
   if (Array.isArray(d)) return d;
   if (Array.isArray(d?.items)) return d.items;
@@ -612,42 +643,28 @@ function extractItems(raw: any): any[] {
   return [];
 }
 
-function getTicketTitle(t: any) {
+function getTicketTitle(t: TicketAny) {
   return t?.title ?? t?.name ?? t?.ticketName ?? t?.TicketName ?? t?.subject ?? "—";
 }
 
-function getTicketCode(t: any) {
+function getTicketCode(t: TicketAny) {
   return t?.code ?? t?.ticketCode ?? t?.TicketCode ?? t?.no ?? t?.No ?? "";
 }
 
-function getTicketStatus(t: any) {
-  return (
-    t?.status ??
-    t?.Status ??
-    t?.ticketStatus ??
-    t?.ticketStatusName ??
-    t?.TicketStatus ??
-    t?.TicketStatusName ??
-    ""
-  );
+function getTicketStatus(t: TicketAny) {
+  return t?.status ?? t?.Status ?? t?.ticketStatus ?? t?.ticketStatusName ?? t?.TicketStatus ?? t?.TicketStatusName ?? "";
 }
 
-function getTicketPriority(t: any) {
+function getTicketPriority(t: TicketAny) {
   return t?.priority ?? t?.Priority ?? t?.ticketPriority ?? t?.TicketPriority ?? "";
 }
 
-function getTicketBudget(t: any) {
+function getTicketBudget(t: TicketAny) {
   return t?.budget ?? t?.Budget ?? t?.cost ?? t?.Cost ?? 0;
 }
 
-/**
- * ✅ Nghiệp vụ "ĐÃ GIAO" (delivered):
- * - Ticket đã được executor nhận / đang xử lý / đã resolve/close.
- * - Thực tế mỗi hệ thống đặt tên khác nhau -> normalize theo status text.
- */
-function isTicketDelivered(t: any) {
+function isTicketDelivered(t: TicketAny) {
   const s = safeStr(getTicketStatus(t)).toLowerCase();
-  // accepted/assigned/in progress/resolved/closed...
   return (
     s.includes("accept") ||
     s.includes("assigned") ||
@@ -661,17 +678,22 @@ function isTicketDelivered(t: any) {
   );
 }
 
-/**
- * ✅ Nghiệp vụ "HOÀN THÀNH" (completed):
- * - resolved/closed/done/completed.
- */
-function isTicketCompleted(t: any) {
+function isTicketCompleted(t: TicketAny) {
   const s = safeStr(getTicketStatus(t)).toLowerCase();
   return s.includes("resolve") || s.includes("closed") || s.includes("done") || s.includes("complete");
 }
 
-function ticketUpdatedAt(t: any) {
-  return t?.updatedAt ?? t?.UpdatedAt ?? t?.resolvedAt ?? t?.ResolvedAt ?? t?.closedAt ?? t?.ClosedAt ?? t?.createAt ?? t?.createdAt;
+function ticketUpdatedAt(t: TicketAny) {
+  return (
+    t?.updatedAt ??
+    t?.UpdatedAt ??
+    t?.resolvedAt ??
+    t?.ResolvedAt ??
+    t?.closedAt ??
+    t?.ClosedAt ??
+    t?.createAt ??
+    t?.createdAt
+  );
 }
 
 /* ===================== Excel Export ===================== */
@@ -692,13 +714,14 @@ function applyCommonSheetSetup(ws: any, colWidths?: number[]) {
   }
 }
 
-function taskColumns() {
-  return [
+function taskColumns(isMaintenance: boolean) {
+  const base = [
     { label: "Code", get: (t: TaskVm) => (t as any).code ?? "" },
     { label: "Title", get: (t: TaskVm) => (t as any).title ?? "" },
     { label: "Sprint", get: (t: TaskVm) => (t as any).__sprintName ?? "" },
     { label: "Workflow Status", get: (t: TaskVm) => (t as any).__statusLabel ?? "" },
     { label: "IsFinal", get: (t: TaskVm) => ((t as any).__isFinal ? "Yes" : "No") },
+    ...(isMaintenance ? [{ label: "Component", get: (t: TaskVm) => (t as any).__componentName ?? "" }] : []),
     { label: "Assignees", get: (t: TaskVm) => (t as any).__assignees ?? "" },
     { label: "Type", get: (t: TaskVm) => (t as any).type ?? "" },
     { label: "Priority", get: (t: TaskVm) => (t as any).priority ?? "" },
@@ -708,18 +731,20 @@ function taskColumns() {
     { label: "Updated", get: (t: TaskVm) => fmtDate((t as any).updatedAt ?? "") },
     { label: "CarryOver", get: (t: TaskVm) => (t as any).carryOverCount ?? 0 },
   ] as const;
+
+  return base;
 }
 
 function ticketColumns() {
   return [
-    { label: "Code", get: (t: any) => getTicketCode(t) },
-    { label: "Title", get: (t: any) => getTicketTitle(t) },
-    { label: "Status", get: (t: any) => safeStr(getTicketStatus(t)) },
-    { label: "Priority", get: (t: any) => safeStr(getTicketPriority(t)) },
-    { label: "Budget", get: (t: any) => safeNum(getTicketBudget(t)) },
-    { label: "Delivered", get: (t: any) => (isTicketDelivered(t) ? "Yes" : "No") },
-    { label: "Completed", get: (t: any) => (isTicketCompleted(t) ? "Yes" : "No") },
-    { label: "Updated", get: (t: any) => fmtDate(ticketUpdatedAt(t) ?? "") },
+    { label: "Code", get: (t: TicketAny) => getTicketCode(t) },
+    { label: "Title", get: (t: TicketAny) => getTicketTitle(t) },
+    { label: "Status", get: (t: TicketAny) => safeStr(getTicketStatus(t)) },
+    { label: "Priority", get: (t: TicketAny) => safeStr(getTicketPriority(t)) },
+    { label: "Budget", get: (t: TicketAny) => safeNum(getTicketBudget(t)) },
+    { label: "Delivered", get: (t: TicketAny) => (isTicketDelivered(t) ? "Yes" : "No") },
+    { label: "Completed", get: (t: TicketAny) => (isTicketCompleted(t) ? "Yes" : "No") },
+    { label: "Updated", get: (t: TicketAny) => fmtDate(ticketUpdatedAt(t) ?? "") },
   ] as const;
 }
 
@@ -735,8 +760,11 @@ async function exportClosureExcel(args: {
   tasksFiltered: TaskVm[];
   statusById: Map<string, StatusMeta>;
 
-  tickets: any[];
-  ticketsFiltered: any[];
+  tickets: TicketAny[];
+  ticketsFiltered: TicketAny[];
+
+  isMaintenance: boolean;
+  components: ComponentVm[];
 
   exportOptions: ExportOptions;
   filtersSnapshot: Record<string, any>;
@@ -771,16 +799,17 @@ async function exportClosureExcel(args: {
     const title = args.mode === "REQUEST" ? "PROJECT REQUEST CLOSURE REPORT" : "PROJECT CLOSURE REPORT";
     const name =
       args.mode === "REQUEST"
-        ? (args.projectRequest?.name ?? args.projectRequest?.code ?? "Project Request")
-        : (args.project?.name ?? args.project?.code ?? "Project");
+        ? args.projectRequest?.name ?? args.projectRequest?.code ?? "Project Request"
+        : args.project?.name ?? args.project?.code ?? "Project";
 
     const summaryAOA: any[][] = [
       [title],
       [nowLine],
       [],
       ["Name", name],
-      ["Code", args.mode === "REQUEST" ? (args.projectRequest?.code ?? "") : (args.project?.code ?? args.project?.id ?? "")],
+      ["Code", args.mode === "REQUEST" ? args.projectRequest?.code ?? "" : args.project?.code ?? args.project?.id ?? ""],
       ["Workflow", args.workflowName ?? ""],
+      ...(args.isMaintenance ? [["Maintenance", "Yes"], ["Components", args.components?.length ?? 0]] : []),
       [],
       ["TASKS (if any)"],
       ["Total tasks", totalTasks],
@@ -810,16 +839,18 @@ async function exportClosureExcel(args: {
 
   // ---- Filters snapshot
   if (opt.filters) {
-    const rows = Object.entries(args.filtersSnapshot).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]);
+    const rows = Object.entries(args.filtersSnapshot).map(([k, v]) => [
+      k,
+      typeof v === "string" ? v : JSON.stringify(v),
+    ]);
     const ws = XLSX.utils.aoa_to_sheet([["Filters snapshot"], [], ["Key", "Value"], ...rows]);
     ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
     applyCommonSheetSetup(ws, [26, 70, 14, 14]);
     XLSX.utils.book_append_sheet(wb, ws, "02_Filters");
   }
 
-  // ---- Project sheets (tasks/sprints/status...)
+  // ---- Project sheets
   if (args.mode === "PROJECT") {
-    // 03 Sprints
     if (opt.sprints) {
       const selectedTasks = args.exportOptions.exportScope === "FILTERED_ONLY" ? args.tasksFiltered : args.tasksAll;
       const sprintRows = args.sprints.map((sp) => {
@@ -846,25 +877,33 @@ async function exportClosureExcel(args: {
       XLSX.utils.book_append_sheet(wb, ws, "03_Sprints");
     }
 
-    // 04 Tasks
     if (opt.tasks) {
       const selectedTasks = args.exportOptions.exportScope === "FILTERED_ONLY" ? args.tasksFiltered : args.tasksAll;
 
       const sprintNameById = new Map(args.sprints.map((s) => [String((s as any).id), String((s as any).name ?? "")]));
+      const compNameById = new Map(args.components.map((c) => [String(c.id), String((c as any).name ?? "")]));
+
       const enriched = selectedTasks.map((t) => {
         const spName = sprintNameById.get(String((t as any).sprintId ?? "")) ?? "";
         const stLabel = getStatusLabel(t, args.statusById);
         const isFinal = isFinalTask(t, args.statusById);
-        const ass = dedupeAssignees(t).map((a) => a.name).join(", ");
+        const ass = dedupeAssignees(t)
+          .map((a) => a.name)
+          .join(", ");
+
+        const compId = String((t as any).componentId ?? "");
+        const compName = safeStr((t as any).componentName) || (compId ? compNameById.get(compId) ?? "" : "");
+
         return Object.assign({}, t, {
           __sprintName: spName,
           __statusLabel: stLabel,
           __isFinal: isFinal,
           __assignees: ass,
+          __componentName: compName,
         });
       });
 
-      const cols = taskColumns();
+      const cols = taskColumns(args.isMaintenance);
       const rows = enriched.map((t) => {
         const obj: Record<string, any> = {};
         cols.forEach((c) => (obj[c.label] = c.get(t)));
@@ -872,14 +911,19 @@ async function exportClosureExcel(args: {
       });
 
       const ws = XLSX.utils.json_to_sheet(rows);
-      applyCommonSheetSetup(ws, cols.map((c) => (c.label.length > 18 ? 24 : Math.max(12, c.label.length + 6))));
+      applyCommonSheetSetup(
+        ws,
+        cols.map((c) => (c.label.length > 18 ? 24 : Math.max(12, c.label.length + 6)))
+      );
       XLSX.utils.book_append_sheet(wb, ws, "04_Tasks");
     }
 
-    // 05 Members
     if (opt.members) {
       const selectedTasks = args.exportOptions.exportScope === "FILTERED_ONLY" ? args.tasksFiltered : args.tasksAll;
-      const peopleMap = new Map<string, { id: string; name: string; taskCount: number; completedCount: number; est: number; rem: number }>();
+      const peopleMap = new Map<
+        string,
+        { id: string; name: string; taskCount: number; completedCount: number; est: number; rem: number }
+      >();
 
       selectedTasks.forEach((t) => {
         dedupeAssignees(t).forEach((a) => {
@@ -907,7 +951,6 @@ async function exportClosureExcel(args: {
       XLSX.utils.book_append_sheet(wb, ws, "05_Members");
     }
 
-    // 06 Status catalog
     if (opt.statusCatalog) {
       const rows = [...args.statusById.values()]
         .map((s) => ({
@@ -922,6 +965,19 @@ async function exportClosureExcel(args: {
       const ws = XLSX.utils.json_to_sheet(rows);
       applyCommonSheetSetup(ws, [36, 18, 30, 10, 16]);
       XLSX.utils.book_append_sheet(wb, ws, "06_StatusCatalog");
+    }
+
+    if (args.isMaintenance && opt.components) {
+      const compRows = (args.components ?? []).map((c) => ({
+        Id: c.id,
+        Name: (c as any).name ?? (c as any).Name ?? "",
+        Description: (c as any).description ?? (c as any).Description ?? "",
+        CreatedAt: fmtDate((c as any).createdAt ?? (c as any).CreatedAt ?? ""),
+        CreatedBy: (c as any).createdBy ?? (c as any).CreatedBy ?? "",
+      }));
+      const ws = XLSX.utils.json_to_sheet(compRows);
+      applyCommonSheetSetup(ws, [36, 30, 60, 20, 20]);
+      XLSX.utils.book_append_sheet(wb, ws, "Components");
     }
   }
 
@@ -965,15 +1021,17 @@ async function exportClosureExcel(args: {
   }
 
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const blob = new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
 
-  const safeName =
-    (args.mode === "REQUEST"
-      ? (args.projectRequest?.code ?? args.projectRequest?.id ?? "ProjectRequest")
-      : (args.project?.code ?? args.project?.id ?? "Project")
-    ).replace(/[^\w\-]+/g, "_");
+  const safeName = (
+    args.mode === "REQUEST"
+      ? args.projectRequest?.code ?? args.projectRequest?.id ?? "ProjectRequest"
+      : args.project?.code ?? args.project?.id ?? "Project"
+  ).replace(/[^\w\-]+/g, "_");
 
   a.download = `ClosureReport_${safeName}.xlsx`;
   a.click();
@@ -985,22 +1043,17 @@ export default function ProjectClosureReportPage() {
   const navigate = useNavigate();
   const loc = useLocation();
 
-  // ✅ hỗ trợ cả:
-  // - /.../:projectId
-  // - /.../:projectRequestId
-  // - hoặc query ?projectRequestId=...
-  const {
-    projectId: projectIdParam,
-    projectRequestId: projectRequestIdParam,
-    companyId,
-  } = useParams<{ projectId?: string; projectRequestId?: string; companyId?: string }>();
+  const { projectId: projectIdParam, projectRequestId: projectRequestIdParam, companyId } = useParams<{
+    projectId?: string;
+    projectRequestId?: string;
+    companyId?: string;
+  }>();
 
   const projectRequestIdQuery =
     getQueryParam(loc, "projectRequestId") || getQueryParam(loc, "requestId") || getQueryParam(loc, "companyRequestId");
 
   const projectId = projectIdParam ?? "";
   const projectRequestId = projectRequestIdParam ?? projectRequestIdQuery ?? "";
-
   const mode: "PROJECT" | "REQUEST" = projectRequestId && !projectId ? "REQUEST" : "PROJECT";
 
   // ===== core states =====
@@ -1012,12 +1065,16 @@ export default function ProjectClosureReportPage() {
   const [tasks, setTasks] = React.useState<TaskVm[]>([]);
   const [workflowName, setWorkflowName] = React.useState<string | null>(null);
 
+  // maintenance-only
+  const [components, setComponents] = React.useState<ComponentVm[]>([]);
+  const [componentFilter, setComponentFilter] = React.useState<string>("ALL");
+
   // request + commercial
   const [projectRequestMeta, setProjectRequestMeta] = React.useState<ProjectRequestMeta | null>(null);
   const [contractMeta, setContractMeta] = React.useState<ContractMeta | null>(null);
 
   // tickets
-  const [tickets, setTickets] = React.useState<any[]>([]);
+  const [tickets, setTickets] = React.useState<TicketAny[]>([]);
 
   // ===== filters (tasks) =====
   const [query, setQuery] = React.useState("");
@@ -1069,9 +1126,10 @@ export default function ProjectClosureReportPage() {
         setSprints([]);
         setTasks([]);
         setWorkflowName(null);
+        setComponents([]);
+        setComponentFilter("ALL");
 
         if (mode === "REQUEST") {
-          // ---- REQUEST MODE ----
           const prRaw = await GetProjectRequestById(projectRequestId);
           if (!alive) return;
 
@@ -1107,39 +1165,47 @@ export default function ProjectClosureReportPage() {
             });
           }
 
-          // tickets by CompanyRequestId (project request)
-          // ✅ dùng GetTicketPaged để lọc theo CompanyRequestId
-          const tkRaw = await GetTicketPaged(
-            null,                 // Keyword
-            null,                 // ProjectId
-            prMeta.id,            // CompanyRequestId
-            prMeta.executorCompanyId ?? null, // CompanyExecutorId
-            null,                 // Status
-            null,                 // ViewMode
-            null,                 // CreatedFrom
-            null,                 // CreatedTo
-            false,                // IsDeleted
-            1,                    // PageNumber
-            500,                  // PageSize
-            null,                 // SortColumn
-            null                  // SortDescending
-          );
-          if (!alive) return;
-          setTickets(extractItems(tkRaw));
+          // tickets by CompanyRequestId
+          try {
+            const tkRaw = await GetTicketPaged(
+              null,
+              null,
+              prMeta.id,
+              prMeta.executorCompanyId ?? null,
+              null,
+              null,
+              null,
+              null,
+              false,
+              1,
+              500,
+              null,
+              null
+            );
+            if (!alive) return;
+            setTickets(extractItems(tkRaw));
+          } catch {
+            if (!alive) return;
+            setTickets([]);
+          }
         } else {
           // ---- PROJECT MODE ----
-          const [boardRaw, projRaw, tkRaw] = await Promise.all([
-            fetchSprintBoard(projectId),
-            GetProjectByProjectId(projectId),
-            // ✅ tickets by project id (closure cần tickets delivery)
-            GetTicketByProjectId(projectId, "", "", "", "", "", "", "", "", "", "", 1, 500, "", null),
-          ]);
+          const boardP = fetchSprintBoard(projectId);
+          const projP = GetProjectByProjectId(projectId);
+
+          const [boardRes, projRes] = await Promise.allSettled([boardP, projP]);
           if (!alive) return;
 
-          const normalized = normalizeBoardInput(boardRaw ?? {});
-          setSprints(normalized.sprints ?? []);
-          setTasks(normalized.tasks ?? []);
-          setWorkflowName((boardRaw as any)?.workflow?.name ?? null);
+          const boardRaw = boardRes.status === "fulfilled" ? boardRes.value : null;
+          const projRaw = projRes.status === "fulfilled" ? projRes.value : null;
+
+          if (boardRaw) {
+            const normalized = normalizeBoardInput(boardRaw ?? {});
+            setSprints(normalized.sprints ?? []);
+            setTasks(normalized.tasks ?? []);
+            setComponents(normalized.components ?? []);
+            setWorkflowName((boardRaw as any)?.workflow?.name ?? (boardRaw as any)?.data?.workflow?.name ?? null);
+          }
 
           const p = ((projRaw as any)?.data ?? projRaw ?? {}) as any;
           const pMeta: ProjectMeta = {
@@ -1147,6 +1213,10 @@ export default function ProjectClosureReportPage() {
             code: p?.code ?? p?.Code ?? "",
             name: p?.name ?? p?.Name ?? "",
             description: p?.description ?? p?.Description ?? "",
+
+            isMaintenance: !!(p?.isMaintenance ?? p?.IsMaintenance ?? p?.isMaintenanceProject ?? p?.IsMaintenanceProject ?? false),
+            maintenanceComponentCount: p?.maintenanceComponentCount ?? p?.MaintenanceComponentCount ?? null,
+
             projectRequestId: p?.projectRequestId ?? p?.ProjectRequestId ?? null,
             companyRequestId: p?.companyRequestId ?? p?.CompanyRequestId ?? null,
             contractId: p?.contractId ?? p?.ContractId ?? null,
@@ -1155,9 +1225,17 @@ export default function ProjectClosureReportPage() {
           };
           setProjectMeta(pMeta);
 
-          setTickets(extractItems(tkRaw));
+          // tickets: optional
+          try {
+            const tkRaw = await GetTicketByProjectId(projectId, "", "", "", "", "", "", "", "", "", "", 1, 500, "", null);
+            if (!alive) return;
+            setTickets(extractItems(tkRaw));
+          } catch {
+            if (!alive) return;
+            setTickets([]);
+          }
 
-          // ✅ nếu project có nguồn gốc từ Project Request -> load thêm contract + request info
+          // load linked request/contract if exists
           const linkReqId = pMeta.projectRequestId || pMeta.companyRequestId || "";
           if (linkReqId) {
             const prRaw = await GetProjectRequestById(linkReqId);
@@ -1206,6 +1284,8 @@ export default function ProjectClosureReportPage() {
         setSprints([]);
         setTasks([]);
         setWorkflowName(null);
+        setComponents([]);
+        setComponentFilter("ALL");
       } finally {
         if (alive) setLoading(false);
       }
@@ -1216,36 +1296,54 @@ export default function ProjectClosureReportPage() {
     };
   }, [mode, projectId, projectRequestId]);
 
+  // maintenance computed
+  const isMaintenance = mode === "PROJECT" && projectMeta?.isMaintenance === true;
+  const componentCount = isMaintenance ? projectMeta?.maintenanceComponentCount ?? components.length ?? 0 : 0;
+
   // ===== computed (tasks) =====
   const statusById = React.useMemo(() => buildStatusById(sprints), [sprints]);
-  const sprintNameById = React.useMemo(() => new Map(sprints.map((s) => [String((s as any).id), String((s as any).name ?? "")])), [sprints]);
+  const sprintNameById = React.useMemo(
+    () => new Map(sprints.map((s) => [String((s as any).id), String((s as any).name ?? "")])),
+    [sprints]
+  );
+  const compNameById = React.useMemo(
+    () => new Map(components.map((c) => [String(c.id), String((c as any).name ?? "")])),
+    [components]
+  );
 
   const sprintOptions = React.useMemo(
-    () => [
-      { value: "ALL", label: "All sprints" },
-      ...sprints.map((sp) => ({ value: String((sp as any).id), label: String((sp as any).name ?? "Sprint") })),
-    ],
+    () => [{ value: "ALL", label: "All sprints" }, ...sprints.map((sp) => ({ value: String((sp as any).id), label: String((sp as any).name ?? "Sprint") }))],
     [sprints]
   );
 
   const statusOptions = React.useMemo(() => {
     const base = [{ value: "ALL", label: "All workflow statuses" }];
     const rest = [...statusById.values()]
-      .map((s) => ({
-        value: s.id,
-        label: s.name ?? s.code ?? s.id,
-        meta: s.isFinal === true ? "final" : "",
-      }))
+      .map((s) => ({ value: s.id, label: s.name ?? s.code ?? s.id, meta: s.isFinal === true ? "final" : "" }))
       .sort((a, b) => a.label.localeCompare(b.label));
     return [...base, ...rest];
   }, [statusById]);
+
+  const componentOptions = React.useMemo(() => {
+    if (!isMaintenance) return [];
+    const base = [
+      { value: "ALL", label: "All components" },
+      { value: "UNASSIGNED", label: "Unassigned component" },
+    ];
+    const rest = (components ?? [])
+      .map((c) => ({ value: String(c.id), label: String((c as any).name ?? "Component") }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return [...base, ...rest];
+  }, [isMaintenance, components]);
 
   const assigneeOptions = React.useMemo(() => {
     const m = new Map<string, string>();
     (tasks ?? []).forEach((t) => {
       dedupeAssignees(t).forEach((a) => m.set(String(a.id), a.name));
     });
-    const people = [...m.entries()].map(([id, name]) => ({ value: id, label: name })).sort((a, b) => a.label.localeCompare(b.label));
+    const people = [...m.entries()]
+      .map(([id, name]) => ({ value: id, label: name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
     return [{ value: "ALL", label: "All assignees" }, { value: "UNASSIGNED", label: "Unassigned" }, ...people];
   }, [tasks]);
 
@@ -1255,7 +1353,9 @@ export default function ProjectClosureReportPage() {
       const v = safeStr((t as any).type);
       if (v) set.add(v);
     });
-    const arr = [...set.values()].sort((a, b) => a.localeCompare(b)).map((v) => ({ value: v, label: v }));
+    const arr = [...set.values()]
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }));
     return [{ value: "ALL", label: "All types" }, ...arr];
   }, [tasks]);
 
@@ -1265,7 +1365,9 @@ export default function ProjectClosureReportPage() {
       const v = safeStr((t as any).priority);
       if (v) set.add(v);
     });
-    const arr = [...set.values()].sort((a, b) => a.localeCompare(b)).map((v) => ({ value: v, label: v }));
+    const arr = [...set.values()]
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }));
     return [{ value: "ALL", label: "All priorities" }, ...arr];
   }, [tasks]);
 
@@ -1294,13 +1396,46 @@ export default function ProjectClosureReportPage() {
           ? dedupeAssignees(t).length === 0
           : hasAssignee(t, assigneeFilter);
 
-      return okQuery && okSprint && okStatus && okAssignee && okPriority && okType;
+      const compId = String((t as any).componentId ?? "");
+      const okComponent = !isMaintenance
+        ? true
+        : componentFilter === "ALL"
+        ? true
+        : componentFilter === "UNASSIGNED"
+        ? !compId
+        : compId === componentFilter;
+
+      return okQuery && okSprint && okStatus && okAssignee && okPriority && okType && okComponent;
     });
 
     return sortTasks(base, sortKey, sortDir, sprintNameById, statusById);
-  }, [tasks, qDebounced, sprintFilter, statusIdFilter, assigneeFilter, priorityFilter, typeFilter, sortKey, sortDir, sprintNameById, statusById]);
+  }, [
+    tasks,
+    qDebounced,
+    sprintFilter,
+    statusIdFilter,
+    assigneeFilter,
+    priorityFilter,
+    typeFilter,
+    sortKey,
+    sortDir,
+    sprintNameById,
+    statusById,
+    isMaintenance,
+    componentFilter,
+  ]);
 
-  React.useEffect(() => setListPage(1), [qDebounced, sprintFilter, statusIdFilter, assigneeFilter, priorityFilter, typeFilter, sortKey, sortDir]);
+  React.useEffect(() => setListPage(1), [
+    qDebounced,
+    sprintFilter,
+    statusIdFilter,
+    assigneeFilter,
+    priorityFilter,
+    typeFilter,
+    sortKey,
+    sortDir,
+    componentFilter,
+  ]);
   React.useEffect(() => {
     setCompletedPage(1);
     setMemberPage(1);
@@ -1398,8 +1533,8 @@ export default function ProjectClosureReportPage() {
 
   React.useEffect(() => setTicketPage(1), [tqDebounced, ticketStatusFilter, ticketPriorityFilter]);
 
-  const ticketsDelivered = React.useMemo(() => filteredTickets.filter(isTicketDelivered), [filteredTickets]);
-  const ticketsCompleted = React.useMemo(() => filteredTickets.filter(isTicketCompleted), [filteredTickets]);
+  const ticketsDeliveredFiltered = React.useMemo(() => filteredTickets.filter(isTicketDelivered), [filteredTickets]);
+  const ticketsCompletedFiltered = React.useMemo(() => filteredTickets.filter(isTicketCompleted), [filteredTickets]);
 
   const ticketTotal = tickets.length;
   const ticketDeliveredCount = tickets.filter(isTicketDelivered).length;
@@ -1415,13 +1550,10 @@ export default function ProjectClosureReportPage() {
 
   const headerName =
     mode === "REQUEST"
-      ? (projectRequestMeta?.name ?? projectRequestMeta?.code ?? "Project Request Closure")
-      : (projectMeta?.name ?? projectMeta?.code ?? "Project Closure");
+      ? projectRequestMeta?.name ?? projectRequestMeta?.code ?? "Project Request Closure"
+      : projectMeta?.name ?? projectMeta?.code ?? "Project Closure";
 
-  const headerDesc =
-    mode === "REQUEST"
-      ? (projectRequestMeta?.description ?? "")
-      : (projectMeta?.description ?? "");
+  const headerDesc = mode === "REQUEST" ? projectRequestMeta?.description ?? "" : projectMeta?.description ?? "";
 
   const filtersSnapshot = {
     // tasks
@@ -1433,6 +1565,7 @@ export default function ProjectClosureReportPage() {
     typeFilter,
     sortKey,
     sortDir,
+    ...(isMaintenance ? { componentFilter } : {}),
     // tickets
     ticketQuery: tqDebounced,
     ticketStatusFilter,
@@ -1441,6 +1574,9 @@ export default function ProjectClosureReportPage() {
 
   const canShowTaskArea = mode === "PROJECT";
   const hasCommercial = !!(projectRequestMeta || contractMeta || tickets.length);
+
+  const showProjectSheets = mode === "PROJECT";
+  const showComponentsSheet = showProjectSheets && isMaintenance;
 
   return (
     <div className="w-full min-h-screen bg-slate-50 overflow-x-hidden">
@@ -1457,6 +1593,12 @@ export default function ProjectClosureReportPage() {
               <span>{mode === "REQUEST" ? "Project Request Closure" : "Project Closure"}</span>
               <span className="opacity-80">•</span>
               <span className="opacity-90">Workflow: {workflowName ?? "—"}</span>
+              {isMaintenance ? (
+                <>
+                  <span className="opacity-80">•</span>
+                  <Pill tone="slate">Maintenance</Pill>
+                </>
+              ) : null}
               {contractMeta?.contractCode ? (
                 <>
                   <span className="opacity-80">•</span>
@@ -1483,7 +1625,14 @@ export default function ProjectClosureReportPage() {
 
             <button
               type="button"
-              onClick={() => setExportOpen(true)}
+              onClick={() => {
+                // auto: không maintenance thì tắt sheet components để khỏi dư
+                setExportOptions((s) => ({
+                  ...s,
+                  includeSheets: { ...s.includeSheets, components: showComponentsSheet ? s.includeSheets.components : false },
+                }));
+                setExportOpen(true);
+              }}
               className="inline-flex items-center gap-2 rounded-full bg-white text-blue-700 px-4 py-2 text-xs font-semibold shadow-md transition hover:shadow-lg"
             >
               <FileSpreadsheet className="size-4" />
@@ -1491,7 +1640,7 @@ export default function ProjectClosureReportPage() {
               <Download className="size-4 opacity-80" />
             </button>
 
-            {companyId && projectId && (
+            {companyId && projectId && mode === "PROJECT" && (
               <button
                 type="button"
                 className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/10 px-3 py-2 text-[11px] font-medium text-white/95 backdrop-blur-sm transition hover:bg-white/18"
@@ -1520,13 +1669,27 @@ export default function ProjectClosureReportPage() {
 
       {/* KPI GRID */}
       {canShowTaskArea ? (
-        <div className="mx-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard icon={<ListTodo className="size-5" />} label="Total tasks" value={totalTasks} sub={`Sprints: ${sprints.length}`} tone="blue" />
-          <StatCard icon={<CheckCircle2 className="size-5" />} label="Completed (final)" value={completedTasksCount} sub={`${completion}%`} tone="green" />
-          <StatCard icon={<Clock className="size-5" />} label="Estimated (hours)" value={estHours.toFixed(1)} sub={`Remaining: ${remHours.toFixed(1)}h`} tone="amber" />
-          <StatCard icon={<Users className="size-5" />} label="Participants" value={participants.length} sub="From task assignees" tone="slate" />
-          <StatCard icon={<AlertTriangle className="size-5" />} label="Open HIGH priority" value={openHighPriorityTasks.length} sub="Top 10 list below" tone="red" />
-        </div>
+        <>
+          <div className={`mx-4 grid grid-cols-1 gap-3 sm:grid-cols-2 ${isMaintenance ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
+            <StatCard icon={<ListTodo className="size-5" />} label="Total tasks" value={totalTasks} sub={`Sprints: ${sprints.length}`} tone="blue" />
+            <StatCard icon={<CheckCircle2 className="size-5" />} label="Completed (final)" value={completedTasksCount} sub={`${completion}%`} tone="green" />
+            <StatCard icon={<Clock className="size-5" />} label="Estimated (hours)" value={estHours.toFixed(1)} sub={`Remaining: ${remHours.toFixed(1)}h`} tone="amber" />
+            <StatCard icon={<Users className="size-5" />} label="Participants" value={participants.length} sub="From task assignees" tone="slate" />
+            <StatCard icon={<AlertTriangle className="size-5" />} label="Open HIGH priority" value={openHighPriorityTasks.length} sub="Top 10 list below" tone="red" />
+            {isMaintenance ? <StatCard icon={<FileText className="size-5" />} label="Components" value={componentCount} sub="Maintenance scope" tone="slate" /> : null}
+          </div>
+
+          {/* Optional tickets KPI when project mode but tickets exist */}
+          {tickets.length ? (
+            <div className="mx-4 mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StatCard icon={<Receipt className="size-5" />} label="Total tickets" value={ticketTotal} sub="All tickets in scope" tone="blue" />
+              <StatCard icon={<Handshake className="size-5" />} label="Delivered" value={ticketDeliveredCount} sub="Accepted / In progress / Resolved / Closed" tone="amber" />
+              <StatCard icon={<CheckCircle2 className="size-5" />} label="Completed" value={ticketCompletedCount} sub="Resolved / Closed / Done" tone="green" />
+              <StatCard icon={<DollarSign className="size-5" />} label="Ticket budget sum" value={fmtMoney(ticketBudgetSum)} sub="Sum of ticket budgets" tone="slate" />
+              <StatCard icon={<FileText className="size-5" />} label="Contract budget" value={fmtMoney(contractBudget)} sub={`Remaining: ${fmtMoney(remainingBudget)}`} tone="red" />
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className="mx-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard icon={<Receipt className="size-5" />} label="Total tickets" value={ticketTotal} sub="All tickets in scope" tone="blue" />
@@ -1537,12 +1700,10 @@ export default function ProjectClosureReportPage() {
         </div>
       )}
 
-      {/* COMMERCIAL + TICKETS (optional but recommended) */}
+      {/* COMMERCIAL + TICKETS */}
       {hasCommercial ? (
         <section className="mx-4 mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* LEFT (Commercial summary + Ticket filters/list) */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Commercial Summary */}
             {(projectRequestMeta || contractMeta) ? (
               <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -1551,9 +1712,21 @@ export default function ProjectClosureReportPage() {
                     <div className="text-sm font-semibold text-slate-800">Commercial / Project Request</div>
                   </div>
 
-                  {projectRequestMeta?.status ? (
-                    <Pill tone="slate">{projectRequestMeta.status}</Pill>
-                  ) : null}
+                  <div className="flex items-center gap-2">
+                    {projectRequestMeta?.status ? <Pill tone="slate">{projectRequestMeta.status}</Pill> : null}
+                    {contractMeta?.fileUrl ? (
+                      <a
+                        href={contractMeta.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        title="Open contract file"
+                      >
+                        <ExternalLink className="size-3.5" />
+                        File
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1578,29 +1751,15 @@ export default function ProjectClosureReportPage() {
                       Code: <span className="font-medium text-slate-700">{contractMeta?.contractCode ?? "—"}</span>
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      Effective:{" "}
-                      <span className="font-medium text-slate-700">{fmtShortDate(contractMeta?.effectiveDate ?? "")}</span>{" "}
-                      • Expired:{" "}
-                      <span className="font-medium text-slate-700">{fmtShortDate(contractMeta?.expiredDate ?? "")}</span>
+                      Effective: <span className="font-medium text-slate-700">{fmtShortDate(contractMeta?.effectiveDate ?? "")}</span> •
+                      Expired: <span className="font-medium text-slate-700">{fmtShortDate(contractMeta?.expiredDate ?? "")}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <StatCard
-                    icon={<DollarSign className="size-5" />}
-                    label="Contract budget"
-                    value={fmtMoney(contractBudget)}
-                    sub="From Contract"
-                    tone="blue"
-                  />
-                  <StatCard
-                    icon={<Receipt className="size-5" />}
-                    label="Ticket budget sum"
-                    value={fmtMoney(ticketBudgetSum)}
-                    sub="Sum of tickets"
-                    tone="amber"
-                  />
+                  <StatCard icon={<DollarSign className="size-5" />} label="Contract budget" value={fmtMoney(contractBudget)} sub="From Contract" tone="blue" />
+                  <StatCard icon={<Receipt className="size-5" />} label="Ticket budget sum" value={fmtMoney(ticketBudgetSum)} sub="Sum of tickets" tone="amber" />
                   <StatCard
                     icon={<Handshake className="size-5" />}
                     label="Remaining (est.)"
@@ -1610,112 +1769,192 @@ export default function ProjectClosureReportPage() {
                   />
                 </div>
 
-              
+                {(contractMeta?.appendices?.length ?? 0) > 0 ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 p-3">
+                    <div className="text-xs font-semibold text-slate-700 mb-2">Appendices</div>
+                    <div className="space-y-2">
+                      {contractMeta!.appendices!.slice(0, 5).map((a, idx) => (
+                        <div key={a.id ?? idx} className="rounded-xl bg-slate-50 p-2">
+                          <div className="text-sm font-semibold text-slate-800">{a.title ?? `Appendix #${idx + 1}`}</div>
+                          {a.description ? <div className="text-xs text-slate-600 mt-0.5">{a.description}</div> : null}
+                        </div>
+                      ))}
+                      {contractMeta!.appendices!.length > 5 ? (
+                        <div className="text-xs text-slate-500">+{contractMeta!.appendices!.length - 5} more… (see Export/Contract sheet)</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
             {/* Ticket Filters */}
-            {tickets.length ? (
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="size-4 text-slate-600" />
-                    <div className="text-sm font-semibold text-slate-800">Ticket Filters</div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTicketQuery("");
-                      setTicketStatusFilter("ALL");
-                      setTicketPriorityFilter("ALL");
-                    }}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                  >
-                    Reset
-                  </button>
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Filter className="size-4 text-slate-600" />
+                  <div className="text-sm font-semibold text-slate-800">Ticket Filters</div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <div className="text-xs font-semibold text-slate-600 mb-1">Search</div>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                      placeholder="Search ticket by code/title…"
-                      value={ticketQuery}
-                      onChange={(e) => setTicketQuery(e.target.value)}
-                    />
-                  </div>
-
-                  <SearchSelect
-                    label="Ticket status"
-                    value={ticketStatusFilter}
-                    onChange={setTicketStatusFilter}
-                    options={ticketStatusOptions}
-                    placeholder="All statuses"
-                  />
-
-                  <SearchSelect
-                    label="Priority"
-                    value={ticketPriorityFilter}
-                    onChange={setTicketPriorityFilter}
-                    options={ticketPriorityOptions}
-                    placeholder="All priorities"
-                  />
-                </div>
-
-                <div className="mt-3 text-xs text-slate-500">
-                  Matching: <span className="font-semibold text-slate-700">{filteredTickets.length}</span> tickets
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTicketQuery("");
+                    setTicketStatusFilter("ALL");
+                    setTicketPriorityFilter("ALL");
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  Reset
+                </button>
               </div>
-            ) : null}
 
-            {/* Delivered tickets */}
-            {tickets.length ? (
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-slate-800">Tickets delivered</div>
-                  <div className="text-xs text-slate-500">{ticketsDelivered.length} tickets</div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <div className="text-xs font-semibold text-slate-600 mb-1">Search</div>
+                  <input
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Search ticket by code/title…"
+                    value={ticketQuery}
+                    onChange={(e) => setTicketQuery(e.target.value)}
+                  />
                 </div>
 
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-slate-500 border-b">
-                        <th className="py-2 pr-3">Title</th>
-                        <th className="py-2 pr-3">Status</th>
-                        <th className="py-2 pr-3">Priority</th>
-                        <th className="py-2 pr-3">Budget</th>
-                        <th className="py-2 pr-3">Updated</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ticketsDelivered.slice(0, 10).map((t) => (
-                        <tr key={String(t?.id ?? t?.Id ?? getTicketCode(t) ?? Math.random())} className="border-b last:border-b-0">
-                          <td className="py-2 pr-3 text-slate-800">{getTicketTitle(t)}</td>
-                          <td className="py-2 pr-3"><Pill tone="amber">{safeStr(getTicketStatus(t)) || "—"}</Pill></td>
-                          <td className="py-2 pr-3 text-slate-700">{safeStr(getTicketPriority(t)) || "—"}</td>
-                          <td className="py-2 pr-3 text-slate-700">{fmtMoney(getTicketBudget(t))}</td>
+                <SearchSelect label="Ticket status" value={ticketStatusFilter} onChange={setTicketStatusFilter} options={ticketStatusOptions} placeholder="All statuses" />
+                <SearchSelect label="Priority" value={ticketPriorityFilter} onChange={setTicketPriorityFilter} options={ticketPriorityOptions} placeholder="All priorities" />
+              </div>
+
+              <div className="mt-3 text-xs text-slate-500">
+                Matching: <span className="font-semibold text-slate-700">{filteredTickets.length}</span> tickets • Delivered:{" "}
+                <span className="font-semibold text-slate-700">{ticketsDeliveredFiltered.length}</span> • Completed:{" "}
+                <span className="font-semibold text-slate-700">{ticketsCompletedFiltered.length}</span>
+              </div>
+            </div>
+
+            {/* Tickets (filtered) - FULL LIST + Paginator */}
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-800">Tickets (filtered)</div>
+                <div className="text-xs text-slate-500">{filteredTickets.length} tickets</div>
+              </div>
+
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500 border-b">
+                      <th className="py-2 pr-3">Code</th>
+                      <th className="py-2 pr-3">Title</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Priority</th>
+                      <th className="py-2 pr-3">Budget</th>
+                      <th className="py-2 pr-3">Delivered</th>
+                      <th className="py-2 pr-3">Completed</th>
+                      <th className="py-2 pr-3">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ticketPaged.pageItems.map((t) => {
+                      const code = safeStr(getTicketCode(t));
+                      const title = safeStr(getTicketTitle(t));
+                      const status = safeStr(getTicketStatus(t)) || "—";
+                      const pr = safeStr(getTicketPriority(t)) || "—";
+                      const bd = fmtMoney(getTicketBudget(t));
+                      const delivered = isTicketDelivered(t);
+                      const completed = isTicketCompleted(t);
+
+                      return (
+                        <tr key={String(t?.id ?? t?.Id ?? code ?? Math.random())} className="border-b last:border-b-0">
+                          <td className="py-2 pr-3 font-semibold text-slate-700">{code || "—"}</td>
+                          <td className="py-2 pr-3 text-slate-800">{title || "—"}</td>
+                          <td className="py-2 pr-3">
+                            <Pill tone={completed ? "green" : delivered ? "amber" : "slate"}>{status}</Pill>
+                          </td>
+                          <td className="py-2 pr-3 text-slate-700">{pr}</td>
+                          <td className="py-2 pr-3 text-slate-700">{bd}</td>
+                          <td className="py-2 pr-3">{delivered ? <Pill tone="amber">Yes</Pill> : <Pill tone="slate">No</Pill>}</td>
+                          <td className="py-2 pr-3">{completed ? <Pill tone="green">Yes</Pill> : <Pill tone="slate">No</Pill>}</td>
                           <td className="py-2 pr-3 text-slate-500">{fmtDate(ticketUpdatedAt(t) ?? "")}</td>
                         </tr>
-                      ))}
-                      {ticketsDelivered.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-3 text-slate-500">No delivered tickets found.</td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
+                      );
+                    })}
 
+                    {filteredTickets.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-3 text-slate-500">
+                          No tickets match the current filters.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+
+                <Paginator
+                  total={ticketPaged.total}
+                  page={ticketPaged.page}
+                  pageSize={ticketPaged.pageSize}
+                  onPageChange={setTicketPage}
+                  onPageSizeChange={(s) => {
+                    setTicketPageSize(s);
+                    setTicketPage(1);
+                  }}
+                  pageSizeOptions={[5, 10, 20, 50, 100]}
+                />
+              </div>
+            </div>
           </div>
 
+          {/* RIGHT: quick ticket snapshots */}
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-800">Delivered tickets</div>
+                <div className="text-xs text-slate-500">{ticketsDeliveredFiltered.length} tickets</div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {ticketsDeliveredFiltered.slice(0, 10).map((t) => (
+                  <div key={String(t?.id ?? t?.Id ?? getTicketCode(t) ?? Math.random())} className="rounded-2xl border border-slate-200 p-3">
+                    <div className="text-sm font-semibold text-slate-800">{getTicketTitle(t)}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <Pill tone="amber">{safeStr(getTicketStatus(t)) || "—"}</Pill>
+                      <span className="opacity-60">•</span>
+                      <span>Priority: {safeStr(getTicketPriority(t)) || "—"}</span>
+                      <span className="opacity-60">•</span>
+                      <span>Budget: {fmtMoney(getTicketBudget(t))}</span>
+                    </div>
+                  </div>
+                ))}
+                {ticketsDeliveredFiltered.length === 0 ? <div className="text-sm text-slate-500">No delivered tickets found.</div> : null}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-800">Completed tickets</div>
+                <div className="text-xs text-slate-500">{ticketsCompletedFiltered.length} tickets</div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {ticketsCompletedFiltered.slice(0, 10).map((t) => (
+                  <div key={String(t?.id ?? t?.Id ?? getTicketCode(t) ?? Math.random())} className="rounded-2xl border border-slate-200 p-3">
+                    <div className="text-sm font-semibold text-slate-800">{getTicketTitle(t)}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <Pill tone="green">{safeStr(getTicketStatus(t)) || "—"}</Pill>
+                      <span className="opacity-60">•</span>
+                      <span>Budget: {fmtMoney(getTicketBudget(t))}</span>
+                      <span className="opacity-60">•</span>
+                      <span>Updated: {fmtShortDate(ticketUpdatedAt(t) ?? "")}</span>
+                    </div>
+                  </div>
+                ))}
+                {ticketsCompletedFiltered.length === 0 ? <div className="text-sm text-slate-500">No completed tickets found.</div> : null}
+              </div>
+            </div>
+          </div>
         </section>
       ) : null}
 
-      {/* TASK AREA (only PROJECT mode) */}
+      {/* TASK AREA */}
       {canShowTaskArea ? (
         <section className="mx-4 mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* LEFT */}
@@ -1738,6 +1977,7 @@ export default function ProjectClosureReportPage() {
                     setTypeFilter("ALL");
                     setSortKey("updatedAt");
                     setSortDir("desc");
+                    if (isMaintenance) setComponentFilter("ALL");
                   }}
                   className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                 >
@@ -1758,6 +1998,11 @@ export default function ProjectClosureReportPage() {
 
                 <SearchSelect label="Sprint" value={sprintFilter} onChange={setSprintFilter} options={sprintOptions} placeholder="All sprints" />
                 <SearchSelect label="Workflow status" value={statusIdFilter} onChange={setStatusIdFilter} options={statusOptions} placeholder="All workflow statuses" />
+
+                {isMaintenance ? (
+                  <SearchSelect label="Component" value={componentFilter} onChange={setComponentFilter} options={componentOptions} placeholder="All components" />
+                ) : null}
+
                 <SearchSelect label="Assignee" value={assigneeFilter} onChange={setAssigneeFilter} options={assigneeOptions} placeholder="All assignees" />
                 <SearchSelect label="Priority" value={priorityFilter} onChange={setPriorityFilter} options={priorityOptions} placeholder="All priorities" />
                 <SearchSelect label="Type" value={typeFilter} onChange={setTypeFilter} options={typeOptions} placeholder="All types" widthClass="md:col-span-2" />
@@ -1809,6 +2054,7 @@ export default function ProjectClosureReportPage() {
                       <th className="py-2 pr-3">Title</th>
                       <th className="py-2 pr-3">Sprint</th>
                       <th className="py-2 pr-3">Workflow status</th>
+                      {isMaintenance ? <th className="py-2 pr-3">Component</th> : null}
                       <th className="py-2 pr-3">Updated</th>
                     </tr>
                   </thead>
@@ -1816,6 +2062,10 @@ export default function ProjectClosureReportPage() {
                     {completedPaged.pageItems.map((t) => {
                       const label = getStatusLabel(t, statusById) || "—";
                       const color = getStatusColor(t, statusById);
+
+                      const compId = String((t as any).componentId ?? "");
+                      const compName = safeStr((t as any).componentName) || (compId ? compNameById.get(compId) ?? "" : "");
+
                       return (
                         <tr key={String((t as any).id)} className="border-b last:border-b-0">
                           <td className="py-2 pr-3 font-semibold text-slate-700">{String((t as any).code ?? "")}</td>
@@ -1826,17 +2076,20 @@ export default function ProjectClosureReportPage() {
                               {label}
                             </Pill>
                           </td>
+                          {isMaintenance ? (
+                            <td className="py-2 pr-3 text-slate-700">{compName ? <Pill tone="slate">{compName}</Pill> : <span className="text-slate-400">—</span>}</td>
+                          ) : null}
                           <td className="py-2 pr-3 text-slate-500">{fmtDate((t as any).updatedAt ?? "")}</td>
                         </tr>
                       );
                     })}
-                    {completedTasks.length === 0 && (
+                    {completedTasks.length === 0 ? (
                       <tr>
-                        <td className="py-3 text-slate-500" colSpan={5}>
+                        <td className="py-3 text-slate-500" colSpan={isMaintenance ? 6 : 5}>
                           No final-status tasks found (isFinal=true).
                         </td>
                       </tr>
-                    )}
+                    ) : null}
                   </tbody>
                 </table>
 
@@ -1869,6 +2122,7 @@ export default function ProjectClosureReportPage() {
                       <th className="py-2 pr-3">Title</th>
                       <th className="py-2 pr-3">Sprint</th>
                       <th className="py-2 pr-3">Workflow status</th>
+                      {isMaintenance ? <th className="py-2 pr-3">Component</th> : null}
                       <th className="py-2 pr-3">Assignees</th>
                       <th className="py-2 pr-3">Priority</th>
                       <th className="py-2 pr-3">Est</th>
@@ -1882,6 +2136,9 @@ export default function ProjectClosureReportPage() {
                       const statusLabel = getStatusLabel(t, statusById) ?? "—";
                       const color = getStatusColor(t, statusById);
 
+                      const compId = String((t as any).componentId ?? "");
+                      const compName = safeStr((t as any).componentName) || (compId ? compNameById.get(compId) ?? "" : "");
+
                       return (
                         <tr key={String((t as any).id)} className="border-b last:border-b-0">
                           <td className="py-2 pr-3 font-semibold text-slate-700">{String((t as any).code ?? "")}</td>
@@ -1892,9 +2149,12 @@ export default function ProjectClosureReportPage() {
                               {statusLabel}
                             </Pill>
                           </td>
-                          <td className="py-2 pr-3 text-slate-700">
-                            {ass.length ? ass.map((a) => a.name).join(", ") : <span className="text-slate-400">—</span>}
-                          </td>
+
+                          {isMaintenance ? (
+                            <td className="py-2 pr-3 text-slate-700">{compName ? <Pill tone="slate">{compName}</Pill> : <span className="text-slate-400">—</span>}</td>
+                          ) : null}
+
+                          <td className="py-2 pr-3 text-slate-700">{ass.length ? ass.map((a) => a.name).join(", ") : <span className="text-slate-400">—</span>}</td>
                           <td className="py-2 pr-3 text-slate-700">{String((t as any).priority ?? "—")}</td>
                           <td className="py-2 pr-3 text-slate-700">{Number((t as any).estimateHours) || 0}</td>
                           <td className="py-2 pr-3 text-slate-700">{Number((t as any).remainingHours) || 0}</td>
@@ -1902,13 +2162,13 @@ export default function ProjectClosureReportPage() {
                       );
                     })}
 
-                    {filteredTasks.length === 0 && (
+                    {filteredTasks.length === 0 ? (
                       <tr>
-                        <td className="py-3 text-slate-500" colSpan={8}>
+                        <td className="py-3 text-slate-500" colSpan={isMaintenance ? 9 : 8}>
                           No tasks match the current filters.
                         </td>
                       </tr>
-                    )}
+                    ) : null}
                   </tbody>
                 </table>
 
@@ -1940,6 +2200,9 @@ export default function ProjectClosureReportPage() {
                     const label = getStatusLabel(t, statusById) || "—";
                     const color = getStatusColor(t, statusById);
 
+                    const compId = String((t as any).componentId ?? "");
+                    const compName = safeStr((t as any).componentName) || (compId ? compNameById.get(compId) ?? "" : "");
+
                     return (
                       <div key={String((t as any).id)} className="rounded-2xl border border-slate-200 p-3">
                         <div className="flex items-start justify-between gap-3">
@@ -1955,6 +2218,14 @@ export default function ProjectClosureReportPage() {
                               <Pill color={color} showDot>
                                 {label}
                               </Pill>
+
+                              {isMaintenance ? (
+                                <>
+                                  <span className="opacity-60">•</span>
+                                  <span>Component:</span>
+                                  <Pill tone="slate">{compName || "—"}</Pill>
+                                </>
+                              ) : null}
                             </div>
                           </div>
 
@@ -2002,13 +2273,13 @@ export default function ProjectClosureReportPage() {
                         <td className="py-2 pr-3">{s.isFinal ? <Pill tone="green">Yes</Pill> : <Pill tone="slate">No</Pill>}</td>
                       </tr>
                     ))}
-                    {statusBreakdown.length === 0 && (
+                    {statusBreakdown.length === 0 ? (
                       <tr>
                         <td className="py-3 text-slate-500" colSpan={4}>
                           No statuses found.
                         </td>
                       </tr>
-                    )}
+                    ) : null}
                   </tbody>
                 </table>
               </div>
@@ -2041,7 +2312,7 @@ export default function ProjectClosureReportPage() {
                   );
                 })}
 
-                {participants.length === 0 && <div className="text-sm text-slate-500">No assignees found in tasks.</div>}
+                {participants.length === 0 ? <div className="text-sm text-slate-500">No assignees found in tasks.</div> : null}
 
                 <Paginator
                   total={memberPaged.total}
@@ -2071,13 +2342,15 @@ export default function ProjectClosureReportPage() {
               value={exportOptions.exportScope}
               onChange={(e) => setExportOptions((s) => ({ ...s, exportScope: e.target.value as any }))}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              disabled={!showProjectSheets}
+              title={showProjectSheets ? "" : "REQUEST mode: no tasks/sprints to export"}
             >
               <option value="FILTERED_ONLY">Filtered only</option>
               <option value="ALL_TASKS">All tasks</option>
             </select>
 
             <div className="mt-2 text-xs text-slate-500">
-              Export sẽ gồm: Summary/Filters + (Tasks nếu có) + Tickets/Contract (nếu có).
+              Export sẽ gồm: Summary/Filters + (Project sheets nếu PROJECT mode) + Tickets/Contract (nếu có).
             </div>
           </div>
 
@@ -2088,10 +2361,15 @@ export default function ProjectClosureReportPage() {
               [
                 ["summary", "01_Summary"],
                 ["filters", "02_Filters"],
-                ["sprints", "03_Sprints (project)"],
-                ["tasks", "04_Tasks (project)"],
-                ["members", "05_Members (project)"],
-                ["statusCatalog", "06_StatusCatalog (project)"],
+                ...(showProjectSheets
+                  ? ([
+                      ["sprints", "03_Sprints (project)"],
+                      ["tasks", "04_Tasks (project)"],
+                      ["members", "05_Members (project)"],
+                      ["statusCatalog", "06_StatusCatalog (project)"],
+                    ] as const)
+                  : ([] as const)),
+                ...(showComponentsSheet ? ([["components", "Components (maintenance)"]] as const) : ([] as const)),
                 ["tickets", "Tickets"],
                 ["contract", "Contract"],
               ] as const
@@ -2139,7 +2417,21 @@ export default function ProjectClosureReportPage() {
                 tickets,
                 ticketsFiltered: filteredTickets,
 
-                exportOptions,
+                isMaintenance: !!isMaintenance,
+                components: components ?? [],
+
+                exportOptions: {
+                  ...exportOptions,
+                  includeSheets: {
+                    ...exportOptions.includeSheets,
+                    // force off nếu không maintenance / không project
+                    sprints: showProjectSheets ? exportOptions.includeSheets.sprints : false,
+                    tasks: showProjectSheets ? exportOptions.includeSheets.tasks : false,
+                    members: showProjectSheets ? exportOptions.includeSheets.members : false,
+                    statusCatalog: showProjectSheets ? exportOptions.includeSheets.statusCatalog : false,
+                    components: showComponentsSheet ? exportOptions.includeSheets.components : false,
+                  },
+                },
                 filtersSnapshot,
               });
               setExportOpen(false);
