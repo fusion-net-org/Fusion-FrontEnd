@@ -111,6 +111,10 @@ const validateDesigner = (p: DesignerDto) => {
   if (!name) return "Workflow name is required.";
 
   const statuses = p.statuses ?? [];
+  const transitions = p.transitions ?? [];
+
+  if (!statuses.length) return "Workflow must have at least 1 status.";
+
   const starts = statuses.filter((s) => !!s.isStart);
   const ends = statuses.filter((s) => !!s.isEnd);
 
@@ -118,41 +122,156 @@ const validateDesigner = (p: DesignerDto) => {
   if (ends.length !== 1) return "A workflow must have exactly one End status.";
   if (starts[0].id === ends[0].id) return "Start and End cannot be the same status.";
 
-  // Enforce cannot be on failure transitions
-  for (const tr of p.transitions ?? []) {
-    const t = (tr.type ?? "optional") as TransitionType;
-    if (t === "failure" && tr.enforceTransitions) {
-      return `Cannot enforce a Fail transition.`;
+  const startId = String(starts[0].id);
+  const endId = String(ends[0].id);
+
+  const statusIds = new Set(statuses.map((s) => String(s.id)));
+
+  const inAll = new Map<string, number>();
+  const outAll = new Map<string, number>();
+  const inNonFail = new Map<string, number>();
+  const outNonFail = new Map<string, number>();
+
+  for (const s of statuses) {
+    const id = String(s.id);
+    inAll.set(id, 0);
+    outAll.set(id, 0);
+    inNonFail.set(id, 0);
+    outNonFail.set(id, 0);
+  }
+
+  const adjAll = new Map<string, string[]>();
+  const revAll = new Map<string, string[]>();
+  const adjNonFail = new Map<string, string[]>();
+
+  const push = (m: Map<string, string[]>, k: string, v: string) => {
+    const a = m.get(k);
+    if (a) a.push(v);
+    else m.set(k, [v]);
+  };
+
+  const seen = new Set<string>();
+
+  for (const tr of transitions) {
+    const from = String(tr.fromStatusId);
+    const to = String(tr.toStatusId);
+    const type = (tr.type ?? "optional") as TransitionType;
+
+    if (!statusIds.has(from)) return `Transition has invalid fromStatusId: ${from}.`;
+    if (!statusIds.has(to)) return `Transition has invalid toStatusId: ${to}.`;
+
+    if (from === to) {
+      const n = statuses.find((s) => String(s.id) === from)?.name ?? from;
+      return `Self-loop transition is not allowed on "${n}".`;
+    }
+
+    const key = `${from}|${to}`;
+    if (seen.has(key)) return "Duplicate transition is not allowed.";
+    seen.add(key);
+
+    // Start cannot have incoming (kể cả Fail)
+    if (to === startId) return "Start status cannot have incoming transitions.";
+
+    // End cannot have outgoing (kể cả Fail)
+    if (from === endId) return "End status cannot have outgoing transitions.";
+
+    // Cannot enforce a failure edge
+    if (type === "failure" && tr.enforceTransitions) {
+      return "Cannot enforce a Fail transition.";
+    }
+
+    // counts ALL edges
+    outAll.set(from, (outAll.get(from) ?? 0) + 1);
+    inAll.set(to, (inAll.get(to) ?? 0) + 1);
+
+    push(adjAll, from, to);
+    push(revAll, to, from);
+
+    // counts NON-failure only (Fail NOT counted)
+    if (type !== "failure") {
+      outNonFail.set(from, (outNonFail.get(from) ?? 0) + 1);
+      inNonFail.set(to, (inNonFail.get(to) ?? 0) + 1);
+      push(adjNonFail, from, to);
     }
   }
 
-const outgoingNonFailCount = new Map<string, number>();
-for (const tr of p.transitions ?? []) {
-  const t = (tr.type ?? "optional") as TransitionType;
-  if (t === "failure") continue;
-  outgoingNonFailCount.set(
-    tr.fromStatusId,
-    (outgoingNonFailCount.get(tr.fromStatusId) ?? 0) + 1
-  );
-}
+  // ===== REQUIRE: node thường không được "hở" (Fail NOT counted) =====
+  if ((outNonFail.get(startId) ?? 0) < 1) {
+    const n = statuses.find((s) => String(s.id) === startId)?.name ?? "Start";
+    return `Start status "${n}" must have at least 1 outgoing transition (non-failure).`;
+  }
 
-// If any NON-failure enforced edge FROM a status => that status must have exactly 1 OUTGOING NON-failure.
-for (const tr of p.transitions ?? []) {
-  const t = (tr.type ?? "optional") as TransitionType;
-  if (t === "failure") continue;
+  if ((inNonFail.get(endId) ?? 0) < 1) {
+    const n = statuses.find((s) => String(s.id) === endId)?.name ?? "End";
+    return `End status "${n}" must have at least 1 incoming transition (non-failure).`;
+  }
 
-  if (tr.enforceTransitions) {
-    const cnt = outgoingNonFailCount.get(tr.fromStatusId) ?? 0;
-    if (cnt !== 1) {
-      const fromName =
-        statuses.find((s) => s.id === tr.fromStatusId)?.name ?? tr.fromStatusId;
-      return `Enforced source "${fromName}" must have exactly 1 outgoing (excluding Fail) (currently ${cnt}).`;
-    }
+for (const s of statuses) {
+  const id = String(s.id);
+  const n = s.name ?? id;
+
+  // node không được hở: tính mọi loại transition (kể cả Fail)
+  if (id !== startId && (inAll.get(id) ?? 0) < 1) {
+    return `Status "${n}" must have at least 1 incoming transition.`;
+  }
+  if (id !== endId && (outAll.get(id) ?? 0) < 1) {
+    return `Status "${n}" must have at least 1 outgoing transition.`;
+  }
+
+  // nhưng để workflow không bị "chỉ toàn đường trả về", vẫn cần ít nhất 1 outgoing non-failure
+  if (id !== endId && (outNonFail.get(id) ?? 0) < 1) {
+    return `Status "${n}" must have at least 1 outgoing transition (non-failure).`;
   }
 }
+
+
+  const bfs = (start: string, adj: Map<string, string[]>) => {
+    const visited = new Set<string>();
+    const q: string[] = [start];
+    visited.add(start);
+    while (q.length) {
+      const u = q.shift()!;
+      const ns = adj.get(u) ?? [];
+      for (const v of ns) {
+        if (!visited.has(v)) {
+          visited.add(v);
+          q.push(v);
+        }
+      }
+    }
+    return visited;
+  };
+
+  const reachableAll = bfs(startId, adjAll);
+  const unreachable = statuses
+    .map((s) => String(s.id))
+    .filter((id) => !reachableAll.has(id));
+  if (unreachable.length) {
+    const n = statuses.find((s) => String(s.id) === unreachable[0])?.name ?? unreachable[0];
+    return `Unreachable status from Start: "${n}".`;
+  }
+
+  const canReachEndAll = bfs(endId, revAll); // reverse graph
+  const stuck = statuses
+    .map((s) => String(s.id))
+    .filter((id) => !canReachEndAll.has(id));
+  if (stuck.length) {
+    const n = statuses.find((s) => String(s.id) === stuck[0])?.name ?? stuck[0];
+    return `Status cannot reach End: "${n}". Add an outgoing path leading to End.`;
+  }
+
+  // ===== Must have NON-failure path Start -> End =====
+  const reachableNonFail = bfs(startId, adjNonFail);
+  if (!reachableNonFail.has(endId)) {
+    const sn = statuses.find((s) => String(s.id) === startId)?.name ?? "Start";
+    const en = statuses.find((s) => String(s.id) === endId)?.name ?? "End";
+    return `No valid non-failure path from "${sn}" to "${en}". (Success/Optional must lead to End)`;
+  }
 
   return null;
 };
+
+
 
 const hexToRgba = (hex?: string | null, alpha = 0.18) => {
   if (!hex) return "rgba(156,163,175,0.18)";
@@ -208,40 +327,48 @@ type StatusNodeData = {
 const StatusNode: React.FC<NodeProps<StatusNodeData>> = ({ data, selected }) => {
   const st = data.status;
   const accent = st.color || "#9ca3af";
+   const showTarget = !st.isStart;
+  const showSource = !st.isEnd;
   return (
     <div
       className={`rounded-xl border shadow-sm w-[220px] bg-white relative ${
         selected ? "ring-2 ring-emerald-500" : ""
       }`}
     >
-      <span
+      <span 
         className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl"
         style={{ background: accent, opacity: 0.9 }}
       />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="in"
-        style={{
-          left: -8,
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          width: 14,
-          height: 14,
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="out"
-        style={{
-          right: -8,
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          width: 14,
-          height: 14,
-        }}
-      />
+         {showTarget && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="in"
+          style={{
+            left: -8,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            width: 14,
+            height: 14,
+          }}
+        />
+      )}
+
+      {showSource && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="out"
+          style={{
+            right: -8,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            width: 14,
+            height: 14,
+          }}
+        />
+      )}
+
       <div className="px-3 py-2 border-b flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span
@@ -596,6 +723,72 @@ export default function WorkflowDesigner({
   useEffect(() => {
     edgesRef.current = edges;
   }, [edges]);
+const getStartId = React.useCallback(() => {
+  const s = (dto.statuses ?? []).find((x) => !!x.isStart);
+  return s?.id ? String(s.id) : null;
+}, [dto.statuses]);
+
+const getEndId = React.useCallback(() => {
+  const s = (dto.statuses ?? []).find((x) => !!x.isEnd);
+  return s?.id ? String(s.id) : null;
+}, [dto.statuses]);
+
+const isStartId = React.useCallback(
+  (id?: string | null) => !!id && getStartId() === String(id),
+  [getStartId]
+);
+
+const isEndId = React.useCallback(
+  (id?: string | null) => !!id && getEndId() === String(id),
+  [getEndId]
+);
+const removeInvalidEdgesForStartEnd = useCallback(
+  (nextStatuses: StatusVm[]) => {
+    const start = nextStatuses.find((s) => !!s.isStart)?.id ?? null;
+    const end = nextStatuses.find((s) => !!s.isEnd)?.id ?? null;
+
+    const startId = start ? String(start) : null;
+    const endId = end ? String(end) : null;
+
+    const curEdges = edgesRef.current;
+
+    const removeIds = new Set<string>();
+    let removedIncomingToStart = 0;
+    let removedOutgoingFromEnd = 0;
+
+    if (startId) {
+      for (const e of curEdges) {
+        if (String(e.target) === startId) {
+          removeIds.add(e.id);
+          removedIncomingToStart++;
+        }
+      }
+    }
+    if (endId) {
+      for (const e of curEdges) {
+        if (String(e.source) === endId) {
+          removeIds.add(e.id);
+          removedOutgoingFromEnd++;
+        }
+      }
+    }
+
+    if (!removeIds.size) return { startId, endId, removedIncomingToStart: 0, removedOutgoingFromEnd: 0 };
+
+    // remove edges in ReactFlow
+    setEdges((es) => es.filter((e) => !removeIds.has(e.id)));
+    setSelectedEdgeId((cur) => (cur && removeIds.has(cur) ? null : cur));
+
+    // warn
+    const parts: string[] = [];
+    if (removedIncomingToStart) parts.push(`${removedIncomingToStart} incoming → Start`);
+    if (removedOutgoingFromEnd) parts.push(`${removedOutgoingFromEnd} outgoing ← End`);
+    toast.warn(`Removed invalid transitions: ${parts.join(", ")}.`);
+
+    return { startId, endId, removedIncomingToStart, removedOutgoingFromEnd };
+  },
+  [setEdges]
+);
 
   // selection
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -612,40 +805,57 @@ export default function WorkflowDesigner({
   );
 
   const handleEditStatus = useCallback(
-    (id: string, patch: Partial<StatusVm>) => {
-      setDto((prev) => {
-        let nextStatuses = prev.statuses.map((s) => (s.id === id ? { ...s, ...patch } : s));
+  (id: string, patch: Partial<StatusVm>) => {
+    setDto((prev) => {
+      let nextStatuses = prev.statuses.map((s) => (s.id === id ? { ...s, ...patch } : s));
 
-        if (patch.isStart === true) {
-          nextStatuses = nextStatuses.map((s) => {
-            if (s.id === id) return { ...s, isStart: true, isEnd: false };
-            return { ...s, isStart: false };
-          });
-        }
+      if (patch.isStart === true) {
+        nextStatuses = nextStatuses.map((s) => {
+          if (s.id === id) return { ...s, isStart: true, isEnd: false };
+          return { ...s, isStart: false };
+        });
+      }
 
-        if (patch.isEnd === true) {
-          nextStatuses = nextStatuses.map((s) => {
-            if (s.id === id) return { ...s, isEnd: true, isStart: false };
-            return { ...s, isEnd: false };
-          });
-        }
+      if (patch.isEnd === true) {
+        nextStatuses = nextStatuses.map((s) => {
+          if (s.id === id) return { ...s, isEnd: true, isStart: false };
+          return { ...s, isEnd: false };
+        });
+      }
 
-        setNodes((ns) =>
-          ns.map((n) => {
-            const st = nextStatuses.find((x) => x.id === n.id);
-            if (!st) return n;
-            return {
-              ...n,
-              data: { ...(n.data as StatusNodeData), status: st },
-            };
-          })
-        );
+      // update node data
+      setNodes((ns) =>
+        ns.map((n) => {
+          const st = nextStatuses.find((x) => x.id === n.id);
+          if (!st) return n;
+          return { ...n, data: { ...(n.data as StatusNodeData), status: st } };
+        })
+      );
 
+      // ✅ only when user touches start/end checkbox -> cleanup invalid transitions
+      const touchedStartEnd = patch.isStart !== undefined || patch.isEnd !== undefined;
+      if (!touchedStartEnd) {
         return { ...prev, statuses: nextStatuses };
-      });
-    },
-    [setNodes]
-  );
+      }
+
+      const startId = nextStatuses.find((s) => !!s.isStart)?.id ? String(nextStatuses.find((s) => !!s.isStart)!.id) : null;
+      const endId = nextStatuses.find((s) => !!s.isEnd)?.id ? String(nextStatuses.find((s) => !!s.isEnd)!.id) : null;
+
+      // remove edges in UI + toast
+      removeInvalidEdgesForStartEnd(nextStatuses);
+
+      // remove transitions in DTO (keep in sync)
+      let nextTransitions = prev.transitions;
+
+      if (startId) nextTransitions = nextTransitions.filter((t) => String(t.toStatusId) !== startId);
+      if (endId) nextTransitions = nextTransitions.filter((t) => String(t.fromStatusId) !== endId);
+
+      return { ...prev, statuses: nextStatuses, transitions: nextTransitions };
+    });
+  },
+  [setNodes, removeInvalidEdgesForStartEnd]
+);
+
 
   // init graph
   useEffect(() => {
@@ -676,12 +886,14 @@ export default function WorkflowDesigner({
       if (c.source === c.target) return false;
 
       const cur = edgesRef.current;
+ if (isStartId(c.target)) return false;
 
+    if (isEndId(c.source)) return false;
       // duplicate
       if (isDuplicateEdge(cur, c.source, c.target)) return false;
 
       // if target has enforced non-fail incoming => block new non-fail
-if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, c.source)) return false;
+// if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, c.source)) return false;
 
       return true;
     },
@@ -709,21 +921,21 @@ if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, c.source)) return 
       const movingIsEnforced = isEnforcedNonFail(oldEdge);
 
    // moving a NON-fail edge FROM a locked source => block
-if (!movingIsFailure && hasEnforcedOutgoingNonFail(withoutOld, ns)) {
-  toast.error("Cannot move: source is locked by an enforced transition (excluding Fail).");
-  return;
-}
+// if (!movingIsFailure && hasEnforcedOutgoingNonFail(withoutOld, ns)) {
+//   toast.error("Cannot move: source is locked by an enforced transition (excluding Fail).");
+//   return;
+// }
 
-// moving an ENFORCED non-fail edge => new SOURCE must have NO other outgoing non-fail (excluding Fail)
-if (movingIsEnforced) {
-  const otherOutgoingNonFail = outgoingEdges(withoutOld, ns, { ignoreFailure: true });
-  if (otherOutgoingNonFail.length > 0) {
-    toast.error(
-      "Cannot move enforced transition: source already has other outgoing transitions (excluding Fail)."
-    );
-    return;
-  }
-}
+// // moving an ENFORCED non-fail edge => new SOURCE must have NO other outgoing non-fail (excluding Fail)
+// if (movingIsEnforced) {
+//   const otherOutgoingNonFail = outgoingEdges(withoutOld, ns, { ignoreFailure: true });
+//   if (otherOutgoingNonFail.length > 0) {
+//     toast.error(
+//       "Cannot move enforced transition: source already has other outgoing transitions (excluding Fail)."
+//     );
+//     return;
+//   }
+// }
 
 
       setEdges((es) =>
@@ -762,17 +974,17 @@ if (movingIsEnforced) {
       }
 
       // block non-fail into enforced target
-    if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, s)) {
-  toast.error("Cannot connect: source is locked by an enforced transition (excluding Fail).");
-  return;
-}
+//     if (edgeMode !== "failure" && hasEnforcedOutgoingNonFail(cur, s)) {
+//   toast.error("Cannot connect: source is locked by an enforced transition (excluding Fail).");
+//   return;
+// }
 
       const tr: TransitionVm = {
         fromStatusId: s,
         toStatusId: t,
         type: edgeMode,
         label: EDGE_LABEL[edgeMode],
-        enforceTransitions: false,
+  enforceTransitions: edgeMode === "failure" ? false : true, // ✅ new transitions default enforce
       };
 
       const e = makeEdge(tr, showLabels);
@@ -910,33 +1122,33 @@ if (movingIsEnforced) {
         toast.error("Cannot enforce a Fail transition.");
         nextEnforce = false; // auto-off
       }
-if (
-  nextType !== "failure" &&
-  hasEnforcedOutgoingNonFail(cur, edge.source as string, { excludeEdgeId: edge.id })
-) {
-  toast.error("This source is locked by another enforced transition (excluding Fail).");
-  return;
-}
-if (!existingEnforce && wantsEnforce === true) {
-  const others = outgoingEdges(cur, edge.source as string, {
-    excludeEdgeId: edge.id,
-    ignoreFailure: true,
-  });
-  if (others.length > 0) {
-    toast.error("Cannot enforce: source already has other outgoing transitions (excluding Fail).");
-    return;
-  }
-}
+// if (
+//   nextType !== "failure" &&
+//   hasEnforcedOutgoingNonFail(cur, edge.source as string, { excludeEdgeId: edge.id })
+// ) {
+//   toast.error("This source is locked by another enforced transition (excluding Fail).");
+//   return;
+// }
+// if (!existingEnforce && wantsEnforce === true) {
+//   const others = outgoingEdges(cur, edge.source as string, {
+//     excludeEdgeId: edge.id,
+//     ignoreFailure: true,
+//   });
+//   if (others.length > 0) {
+//     toast.error("Cannot enforce: source already has other outgoing transitions (excluding Fail).");
+//     return;
+//   }
+// }
 
 
      if (nextType !== "failure") {
   const lockedByOther = hasEnforcedOutgoingNonFail(cur, edge.source as string, {
     excludeEdgeId: edge.id,
   });
-  if (lockedByOther && nextEnforce) {
-    toast.error("This source is locked by another enforced transition.");
-    return;
-  }
+  // if (lockedByOther && nextEnforce) {
+  //   toast.error("This source is locked by another enforced transition.");
+  //   return;
+  // }
 }
 
 
@@ -997,10 +1209,11 @@ if (!existingEnforce && wantsEnforce === true) {
               ? false
               : (e.data?.enforceTransitions ?? false),
         })),
-        statuses: nodes.map((n) => {
-          const s = dto.statuses.find((x) => x.id === n.id)!;
-          return { ...s, x: Math.round(n.position.x), y: Math.round(n.position.y) };
-        }),
+     statuses: nodes.map((n) => {
+  const s = n.data.status;
+  return { ...s, x: Math.round(n.position.x), y: Math.round(n.position.y) };
+}),
+
       };
 
       const err = validateDesigner(payload);

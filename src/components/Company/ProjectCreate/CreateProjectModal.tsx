@@ -643,9 +643,8 @@ const makeInitialDto = (name = 'New Workflow'): DesignerDto => {
     workflow: { id: uidLocal(), name },
     statuses: [s1, s2, s3],
     transitions: [
-      { fromStatusId: s1.id, toStatusId: s2.id, type: 'success', label: 'Go' },
-      { fromStatusId: s2.id, toStatusId: s3.id, type: 'success', label: 'Complete' },
-      { fromStatusId: s3.id, toStatusId: s2.id, type: 'failure', label: 'Rework' },
+      { fromStatusId: s1.id, toStatusId: s2.id, type: 'success', label: 'Go'  , enforceTransitions: true,},
+      { fromStatusId: s2.id, toStatusId: s3.id, type: 'success', label: 'Complete'  , enforceTransitions: true,},
     ],
   };
 };

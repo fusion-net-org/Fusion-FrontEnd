@@ -394,44 +394,56 @@ export function ProjectBoardProvider({
       // TODO: rollback nếu cần
     }
   };
+const tRef = useRef<TaskVm[]>(tasks);
+useEffect(() => {
+  tRef.current = tasks;
+}, [tasks]);
 
-  const reorder = async (
-    pid: string,
-    sprintId: string,
-    t: TaskVm,
-    toStatusId: string,
-    toIndex: number
-  ) => {
-    const sp = sRef.current.find(s => s.id === sprintId);
-    const meta = sp?.statusMeta?.[toStatusId];
+const reorder = async (
+  pid: string,
+  sprintId: string,
+  t: TaskVm,
+  toStatusId: string,
+  toIndex: number
+) => {
+  const sp = sRef.current.find((s) => s.id === sprintId);
+  const meta = sp?.statusMeta?.[toStatusId];
 
-    // optimistic: chỉ đổi cột
-    applyWithColumns(prev =>
-      prev.map(x =>
-        x.id === t.id
-          ? {
-              ...x,
-              workflowStatusId: toStatusId,
-              statusCode: meta?.code ?? x.statusCode,
-              statusCategory: meta?.category ?? x.statusCategory,
-              updatedAt: new Date().toISOString(),
-            }
-          : x
-      )
+  // snapshot for rollback
+  const snapshot = tRef.current;
+
+  // optimistic UI
+  applyWithColumns((prev) =>
+    prev.map((x) =>
+      x.id === t.id
+        ? {
+            ...x,
+            workflowStatusId: toStatusId,
+            statusCode: meta?.code ?? x.statusCode,
+            statusCategory: meta?.category ?? x.statusCategory,
+            updatedAt: new Date().toISOString(),
+          }
+        : x
+    )
+  );
+
+  try {
+    const dto = await putReorderTask(
+      pid,
+      sprintId,
+      { taskId: t.id, toStatusId, toIndex },
+      { flashColorHex: meta?.color }
     );
 
-    try {
-      const dto = await putReorderTask(
-        pid,
-        sprintId,
-        { taskId: t.id, toStatusId, toIndex },
-        { flashColorHex: meta?.color }
-      );
-      attachTaskFromApi(dto);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+    attachTaskFromApi(dto);
+  } catch (e) {
+    // rollback UI
+    setTasks(snapshot);
+    setSprints((prevS) => syncColumns(prevS, snapshot));
+
+    throw e;
+  }
+};
 
   const moveToNextSprint = async (pid: string, t: TaskVm, toSprintId?: string) => {
     const all = sRef.current;
