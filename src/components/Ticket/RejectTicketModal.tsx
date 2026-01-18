@@ -9,7 +9,7 @@ interface RejectTicketModalProps {
   open: boolean;
   onClose: () => void;
   ticketId: string | null;
-  onSuccess?: (reason: string) => void;
+  onSuccess?: (reason: string) => Promise<void> | void;
 }
 
 const defaultReasons = [
@@ -41,7 +41,7 @@ const RejectTicketModal: React.FC<RejectTicketModalProps> = ({
       setLoading(true);
       const res = await RejectTicket(ticketId, finalReason);
       toast.success(res.message);
-      if (onSuccess) onSuccess(finalReason);
+      if (onSuccess) await onSuccess(finalReason);
       onClose();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error rejecting ticket');

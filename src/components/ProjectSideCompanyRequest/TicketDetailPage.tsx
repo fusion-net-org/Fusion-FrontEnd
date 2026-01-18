@@ -14,6 +14,8 @@ import {
   Modal,
   DatePicker,
   Select,
+  Table,
+  Checkbox,
 } from 'antd';
 import {
   MessageSquare,
@@ -67,8 +69,36 @@ import { useDebounce } from '@/hook/Debounce';
 import { useLocation } from 'react-router-dom';
 import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
 import { Can } from '@/permission/PermissionProvider';
+import { GetTicketHistoryPaged } from '@/services/TicketService.js';
+import { HistoryOutlined } from '@ant-design/icons';
+import { CloseTicket } from '@/services/TicketService.js';
 
 const { confirm } = Modal;
+
+const historyColumns = [
+  {
+    title: 'Action',
+    dataIndex: 'action',
+    key: 'action',
+    render: (text: any) => <Tag color="blue">{text}</Tag>,
+  },
+  {
+    title: 'Description',
+    dataIndex: 'description',
+    key: 'description',
+  },
+  {
+    title: 'Performed By',
+    dataIndex: 'performedByName',
+    key: 'performedByName',
+  },
+  {
+    title: 'Time',
+    dataIndex: 'createdAt',
+    key: 'createdAt',
+    render: (value: any) => dayjs(value).format('DD/MM/YYYY HH:mm'),
+  },
+];
 
 const TICKET_TYPE_COLOR_MAP: Record<string, string> = {
   Bug: 'red',
@@ -105,14 +135,30 @@ const TicketDetailPage: React.FC = () => {
   const location = useLocation();
   const { viewMode } =
     (location.state as { viewMode?: 'AsRequester' | 'AsExecutor' } | undefined) ?? {};
+
+  //ticket history
+  const [historyData, setHistoryData] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [historyTotal, setHistoryTotal] = useState(0);
+
+  //close ticket
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
+
   // const viewMode = vw ?? 'AsRequester';
   console.log('viewMode Ticketdetail:', viewMode);
+  console.log('comments', comments);
+  console.log('ticket:', ticket);
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       const res = await AcceptTicket(ticketId);
       if (res.succeeded) {
         toast.success(res.message || 'Ticket accepted successfully!');
         setTicket((prev) => (prev ? { ...prev, status: 'Accepted' } : prev));
+        await fetchHistory();
       } else {
         toast.error(res.message || 'Failed to accept ticket');
       }
@@ -124,24 +170,47 @@ const TicketDetailPage: React.FC = () => {
     setRejectTicketId(ticketId);
     setIsRejectModalOpen(true);
   };
-  console.log('ticket ', ticket);
+
+  const fetchTicket = async () => {
+    try {
+      setLoading(true);
+      const data = await GetTicketById(ticketId);
+      console.log('ticket data:', data);
+      setTicket(data.data);
+    } catch (error) {
+      console.error('Error fetching ticket:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
     if (!ticketId) return;
 
-    const fetchTicket = async () => {
-      try {
-        setLoading(true);
-        const data = await GetTicketById(ticketId);
-        setTicket(data.data);
-      } catch (error) {
-        console.error('Error fetching ticket:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTicket();
   }, [ticketId]);
+
+  // ticket history
+  const fetchHistory = async () => {
+    try {
+      setHistoryLoading(true);
+
+      const res = await GetTicketHistoryPaged(ticketId, historyPage, historyPageSize);
+
+      if (res?.succeeded) {
+        setHistoryData(res.data.items);
+        setHistoryTotal(res.data.totalCount);
+      }
+    } catch (error) {
+      console.error('Fetch ticket history failed', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (!ticketId) return;
+
+    fetchHistory();
+  }, [ticketId, historyPage, historyPageSize]);
 
   useEffect(() => {
     if (!ticketId) return;
@@ -222,7 +291,7 @@ const TicketDetailPage: React.FC = () => {
       if (response.succeeded) {
         setNewComment('');
         toast.success(response.message);
-
+        await fetchHistory();
         const refreshed: TicketCommentApiResponse = await GetCommentsByTicketId(ticketId!);
         if (refreshed.statusCode === 200) {
           setComment(refreshed.data?.items ?? []);
@@ -276,8 +345,16 @@ const TicketDetailPage: React.FC = () => {
     hasProcess && totalNonBacklog > 0
       ? Math.max(0, Math.min(100, (doneCount * 100) / totalNonBacklog))
       : 0;
-
+  console.log('progressPercent', progressPercent);
   // Thời gian bắt đầu / kết thúc (dùng luôn field BE trả về)
+
+  const canCloseTicket =
+    ticket.status !== 'Closed' &&
+    hasProcess &&
+    totalNonBacklog > 0 &&
+    doneCount === totalNonBacklog &&
+    Math.round(progressPercent) === 100;
+
   const firstStartedAt = process?.firstStartedAt ? dayjs(process.firstStartedAt) : null;
 
   const lastDoneAt = process?.lastDoneAt ? dayjs(process.lastDoneAt) : null;
@@ -308,10 +385,13 @@ const TicketDetailPage: React.FC = () => {
         return 'red';
       case 'Finished':
         return 'green';
+      case 'Closed':
+        return 'purple';
       default:
         return 'default';
     }
   };
+
   const getTicketTypeColor = (type?: string) => {
     if (!type) return 'default';
     return TICKET_TYPE_COLOR_MAP[type] ?? 'default';
@@ -329,6 +409,7 @@ const TicketDetailPage: React.FC = () => {
           if (res.succeeded) {
             toast.success(res.message);
             setComment((prev) => prev.filter((c) => c.id !== commentId));
+            fetchHistory();
           } else {
             toast.error(res.message || 'Failed to delete comment');
           }
@@ -351,7 +432,15 @@ const TicketDetailPage: React.FC = () => {
       <Card className="shadow-md rounded-xl border border-gray-100">
         <div className="flex flex-col lg:flex-row justify-between gap-4">
           <div className="flex items-center gap-1 mb-1">
-            <h2 className="text-xl font-semibold text-gray-900">{ticket.ticketName}</h2>
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              {ticket.ticketName}
+
+              {ticket.ticketCode && (
+                <Tag color="blue" className="text-xs font-mono px-2 py-1.5 rounded-md mt-1">
+                  {ticket.ticketCode}
+                </Tag>
+              )}
+            </h2>
             <div className="flex items-start lg:items-center gap-2">
               {/* <Tag
                 color={priorityColor}
@@ -436,6 +525,20 @@ const TicketDetailPage: React.FC = () => {
                 </Button>
               </Can>
             )}
+            {/* //close ticket */}
+            {!ticket.isClose && (
+              <Tooltip
+                title={
+                  canCloseTicket
+                    ? 'Close this ticket'
+                    : 'You can only close the ticket when all task done (progress is 100%)'
+                }
+              >
+                <Button danger disabled={!canCloseTicket} onClick={() => setIsCloseModalOpen(true)}>
+                  Close Ticket
+                </Button>
+              </Tooltip>
+            )}
           </div>
         </div>
         <div className="mt-2 rounded-lg">
@@ -448,20 +551,60 @@ const TicketDetailPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 text-sm">
+          {/* ===== Lifecycle Dates ===== */}
           <span className="flex items-center gap-2 text-gray-700">
-            <DollarSign size={14} /> <b>Budget:</b> {ticket.budget ?? '-'}
+            <Calendar size={14} /> <b>Created Date:</b>
+            {dayjs(ticket.createdAt).format('DD/MM/YYYY')}
           </span>
+
           <span className="flex items-center gap-2 text-gray-700">
-            <Calendar size={14} /> <b>Created:</b> {dayjs(ticket.createdAt).format('DD/MM/YYYY')}
+            <Calendar size={16} />
+            <b>Due Date:</b>
+            {ticket.dueDate ? (
+              <Tag
+                color={
+                  dayjs(ticket.dueDate).isBefore(dayjs(), 'day') && ticket.status !== 'Finished'
+                    ? 'red'
+                    : 'blue'
+                }
+                className="font-medium"
+              >
+                {dayjs(ticket.dueDate).format('DD/MM/YYYY')}
+              </Tag>
+            ) : (
+              <span className="text-gray-400">---</span>
+            )}
           </span>
+
           <span className="flex items-center gap-2 text-gray-700">
-            <Calendar size={14} /> <b>Resolved:</b>{' '}
+            <Calendar size={14} /> <b>Update Date:</b>
+            {ticket.updatedAt ? dayjs(ticket.updatedAt).format('DD/MM/YYYY') : '-'}
+          </span>
+
+          {/* ===== Resolution ===== */}
+          <span className="flex items-center gap-2 text-gray-700">
+            <Calendar size={14} /> <b>Resolved Date:</b>
             {ticket.resolvedAt ? dayjs(ticket.resolvedAt).format('DD/MM/YYYY') : '---'}
           </span>
+
           <span className="flex items-center gap-2 text-gray-700">
-            <Calendar size={14} /> <b>Closed:</b>{' '}
+            <Calendar size={14} /> <b>Closed Date:</b>
             {ticket.closedAt ? dayjs(ticket.closedAt).format('DD/MM/YYYY') : '---'}
           </span>
+
+          <span className="flex items-center gap-2 text-gray-700">
+            <AlertTriangle size={14} /> <b>Reason:</b> {ticket.reason || '---'}
+          </span>
+
+          {/* ===== Priority & Budget ===== */}
+          <span className="flex items-center gap-2 text-gray-700">
+            <AlertCircle size={14} />
+            <b>Priority:</b>
+            <Tag color={priorityColor} className="font-medium">
+              {ticket.priority}
+            </Tag>
+          </span>
+
           <span className="flex items-center gap-2 text-gray-700">
             <Calendar size={14} />
             <b>Is Highest Urgent:</b>
@@ -475,19 +618,18 @@ const TicketDetailPage: React.FC = () => {
           </span>
 
           <span className="flex items-center gap-2 text-gray-700">
-            <Calendar size={14} /> <b>Update Date:</b>{' '}
-            {ticket.updatedAt ? dayjs(ticket.updatedAt).format('DD/MM/YYYY') : '-'}
+            <DollarSign size={14} /> <b>Budget:</b> {ticket.budget ?? '-'} VND
           </span>
-          {/* Priority */}
+
+          {/* ===== Identity ===== */}
           <span className="flex items-center gap-2 text-gray-700">
-            <AlertCircle size={14} />
-            <b>Priority:</b>
-            <Tag color={priorityColor} className="font-medium">
-              {ticket.priority}
+            <ClipboardList size={16} />
+            <b>Ticket Code:</b>
+            <Tag color="blue" className="font-mono">
+              {ticket.ticketCode}
             </Tag>
           </span>
 
-          {/* Ticket Type */}
           <span className="flex items-center gap-2 text-gray-700">
             <ClipboardList size={14} />
             <b>Type:</b>
@@ -500,14 +642,12 @@ const TicketDetailPage: React.FC = () => {
               {ticket.ticketType}
             </Tag>
           </span>
+
           <span className="flex items-center gap-2 text-gray-700">
             <Layers size={14} /> <b>Ticket Status:</b>
             <Tag color={getTicketStatusColor(ticket.status)} className="font-medium">
               {ticket.status}
             </Tag>
-          </span>
-          <span className="flex items-center gap-2 text-gray-700">
-            <AlertTriangle size={14} /> <b>Reason:</b> {ticket.reason || '---'}
           </span>
         </div>
 
@@ -708,8 +848,39 @@ const TicketDetailPage: React.FC = () => {
         </Card>
       </div>
       {ticket && viewMode === 'AsExecutor' && (
-        <TicketTasksSection ticketId={ticket.id} projectId={ticket.projectId}   componentId={ticket.component?.id ?? null} />
+        <TicketTasksSection
+          ticketId={ticket.id}
+          projectId={ticket.projectId}
+          componentId={ticket.component?.id ?? null}
+        />
       )}
+
+      <Card className="shadow-sm rounded-xl border border-gray-100 mt-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <HistoryOutlined className="text-indigo-500 text-lg" />
+          Ticket History
+        </h3>
+
+        <Table
+          rowKey="id"
+          bordered
+          columns={historyColumns}
+          dataSource={historyData}
+          loading={historyLoading}
+          pagination={{
+            current: historyPage,
+            pageSize: historyPageSize,
+            total: historyTotal,
+            showSizeChanger: true,
+            pageSizeOptions: ['5', '10', '20'],
+            onChange: (page, pageSize) => {
+              setHistoryPage(page);
+              setHistoryPageSize(pageSize);
+            },
+          }}
+        />
+      </Card>
+
       <Card className="shadow-sm rounded-xl border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <MessageSquare size={18} className="text-indigo-500" /> Comments
@@ -898,10 +1069,72 @@ const TicketDetailPage: React.FC = () => {
         open={isRejectModalOpen}
         ticketId={rejectTicketId}
         onClose={() => setIsRejectModalOpen(false)}
-        onSuccess={(reason: string) => {
+        onSuccess={async (reason: string) => {
           setTicket((prev) => (prev ? { ...prev, status: 'Rejected', reason: reason } : prev));
+          await fetchHistory();
         }}
       />
+      <Modal
+        title="Confirm Close Ticket"
+        open={isCloseModalOpen}
+        onCancel={() => {
+          setIsCloseModalOpen(false);
+          setConfirmClose(false);
+        }}
+        footer={null}
+        centered
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-gray-700">
+            Closing this ticket will <b>permanently close</b> it.
+            <br />
+            You will{' '}
+            <span className="text-red-600 font-medium">not be able to make any changes</span> after
+            closing.
+          </p>
+
+          <Checkbox checked={confirmClose} onChange={(e) => setConfirmClose(e.target.checked)}>
+            I understand and want to close this ticket permanently
+          </Checkbox>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              onClick={() => {
+                setIsCloseModalOpen(false);
+                setConfirmClose(false);
+              }}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              danger
+              type="primary"
+              disabled={!confirmClose || closing}
+              loading={closing}
+              onClick={async () => {
+                try {
+                  setClosing(true);
+                  const res = await CloseTicket(ticketId);
+                  toast.success(res.message);
+
+                  setIsCloseModalOpen(false);
+                  setConfirmClose(false);
+
+                  await fetchTicket();
+                  await fetchHistory();
+                } catch (error: any) {
+                  toast.error(error.response?.data?.message || 'Close ticket failed');
+                } finally {
+                  setClosing(false);
+                }
+              }}
+            >
+              Close Permanently
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

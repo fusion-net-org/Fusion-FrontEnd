@@ -89,6 +89,7 @@ const TicketPage: React.FC = () => {
       Accepted: 'bg-green-100 text-green-700',
       Finished: 'bg-blue-100 text-blue-700',
       Rejected: 'bg-red-100 text-red-700',
+      Closed: 'bg-purple-200 text-gray-800',
     };
     return (
       <span
@@ -605,6 +606,15 @@ const TicketPage: React.FC = () => {
                           <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full text-xs font-medium">
                             <CheckCircle className="w-4 h-4" />
                             Finished
+                          </span>
+                        )}
+                        {item.status === 'Closed' && (
+                          <span
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 border border-purple-200 
+    rounded-full text-xs font-medium"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Closed
                           </span>
                         )}
                       </td>

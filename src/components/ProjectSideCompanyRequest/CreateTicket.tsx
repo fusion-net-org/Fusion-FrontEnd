@@ -7,8 +7,11 @@ import { GetWorkflowStatusByProjectId } from '@/services/workflowstatusService.j
 import LoadingOverlay from '@/common/LoadingOverlay';
 import { toast } from 'react-toastify';
 import type { IProject } from '@/interfaces/ProjectMember/projectMember';
-import { CircleDot, Wrench } from 'lucide-react';
+import { CircleDot, Code2, Wrench } from 'lucide-react';
 import { getProjectComponentsByProjectId } from '@/services/projectComponentService.js';
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
+
 const { TextArea } = Input;
 const { Option } = Select;
 interface CreateTicketPopupProps {
@@ -51,6 +54,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
   const [isMaintenanceProject, setIsMaintenanceProject] = useState(false);
   const [projectComponents, setProjectComponents] = useState<any[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
+  const [dueDate, setDueDate] = useState<string | null>(null);
 
   console.log(
     'isMaintenance values:',
@@ -74,6 +78,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
     setDescription('');
     setIsBillable(false);
     setBudget('0');
+    setDueDate(null);
   };
 
   const handleCreate = async () => {
@@ -98,6 +103,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
       description,
       isBillable,
       budget: Number(budget.replace(/\./g, '')),
+      dueDate,
     };
 
     if (selectedProjectId) payload.projectId = selectedProjectId;
@@ -195,7 +201,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-green-600 shrink-0">
-                        <CircleDot size={12} />
+                        <Code2 size={14} />
                         <span className="text-sm">(Development)</span>
                       </span>
                     )}
@@ -274,7 +280,16 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
               ))}
             </Select>
           </div>
-
+          <div className="flex flex-col">
+            <label className="font-semibold mb-1">Due Date</label>
+            <DatePicker
+              className="w-full"
+              value={dueDate ? dayjs(dueDate) : null}
+              onChange={(date) => setDueDate(date ? date.toISOString() : null)}
+              disabledDate={(current) => current && current < dayjs().startOf('day')}
+              placeholder="Select due date"
+            />
+          </div>
           {/* Description */}
           <div className="flex flex-col">
             <label className="font-semibold mb-1">Description</label>
