@@ -241,3 +241,35 @@ export const GetTicketPagedByAdmin = async (
     throw error;
   }
 };
+
+export const GetTicketHistoryPaged = async (
+  TicketId,
+  PageNumber = 1,
+  PageSize = 10,
+  SortColumn = 'CreatedAt',
+  SortDescending = true,
+) => {
+  try {
+    const res = await axiosInstance.get('/ticket-history/paged', {
+      params: {
+        TicketId,
+        PageNumber,
+        PageSize,
+        SortColumn,
+        SortDescending,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};
+export const CloseTicket = async (ticketId) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/close`);
+    return res.data;
+  } catch (error) {
+    console.error('Close ticket error:', error);
+    throw error;
+  }
+};
