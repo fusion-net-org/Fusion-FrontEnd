@@ -1,5 +1,6 @@
 export interface ITicket {
   id: string;
+  ticketCode: string;
   projectId: string;
   projectName?: string;
   priority?: string;
@@ -11,6 +12,7 @@ export interface ITicket {
   submittedBy?: string;
   submittedByName?: string | null;
   isBillable?: boolean;
+  isClose?: boolean;
   budget?: number;
   isDeleted?: boolean;
   status: string;
@@ -18,6 +20,7 @@ export interface ITicket {
   resolvedAt?: string | null;
   closedAt?: string | null;
   createdAt: string;
+  dueDate: string | null;
   updatedAt: string;
   process?: TicketProcess | null;
   component?: IProjectComponent | null;
