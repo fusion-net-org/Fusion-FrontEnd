@@ -1,111 +1,173 @@
 import React from "react";
-import { createPortal } from "react-dom";
-import { X } from "lucide-react";
-import WorkflowDesigner from "@/components/Workflow/WorkflowDesigner";
-import { postWorkflowWithDesigner } from "@/services/workflowService.js";
-import type { DesignerDto } from "@/types/workflow";
+import { Workflow as WorkflowIcon } from "lucide-react";
+import WorkflowMini from "@/components/Workflow/WorkflowMini";
+import WorkflowPreviewModal from "@/components/Workflow/WorkflowPreviewModal";
 
-/* helper tạo dto demo ban đầu */
-const makeInitialDto = (name = "New Workflow"): DesignerDto => {
-  const uid = () =>
-    (typeof crypto !== "undefined" && (crypto as any).randomUUID
-      ? (crypto as any).randomUUID()
-      : Math.random().toString(36).slice(2));
-
- const s1 = {
-    id: uid(),
-    name: "To Do",
-    isStart: true,
-    isEnd: false,
-    x: 200,
-    y: 350,
-    roles: ["Developer"],
-    color: "#6b7280",
-  };
-
-  const s2 = {
-    id: uid(),
-    name: "In Review",
-    isStart: false,
-    isEnd: false,
-    x: 520,
-    y: 350,
-    roles: ["Reviewer"],
-    color: "#4f46e5",
-  };
-
-  const s3 = {
-    id: uid(),
-    name: "Done",
-    isStart: false,
-    isEnd: true,
-    x: 840,
-    y: 350,
-    roles: ["QA"],
-    color: "#16a34a",
-  };
-  return {
-    workflow: { id: uid(), name },
-    statuses: [s1, s2, s3],
-    transitions: [
-      { fromStatusId: s1.id, toStatusId: s2.id, type: 'success', label: 'Go'  , enforceTransitions: true,},
-      { fromStatusId: s2.id, toStatusId: s3.id, type: 'success', label: 'Complete'  , enforceTransitions: true,},
-    ],
-  };
-};
-
-const isGuid = (s?: string | null) =>
-  !!s && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
-
-export default function CreateWorkflowModal({
-  open, companyId, onClose, onCreated,
+export default function WorkflowStep({
+  companyId,
+  canUseCompany,
+  workflowMode,
+  workflowId,
+  workflowSelectedName,
+  setWorkflowMode,
+  setWorkflowId,
+  setWorkflowSelectedName,
+  errorWorkflowId,
+  errorWorkflowName,
+  onOpenPicker,
+  onOpenCreate,
 }: {
-  open: boolean;
   companyId: string | null;
-  onClose: () => void;
-  onCreated: (wf: { id: string; name: string }) => void;
+  canUseCompany: boolean;
+  workflowMode: "existing" | "new";
+  workflowId: string | null;
+  workflowSelectedName: string;
+  setWorkflowMode: (v: "existing" | "new") => void;
+  setWorkflowId: (id: string | null) => void;
+  setWorkflowSelectedName: (name: string) => void;
+  errorWorkflowId?: string;
+  errorWorkflowName?: string;
+  onOpenPicker: () => void;
+  onOpenCreate: () => void;
 }) {
-  const [dto] = React.useState<DesignerDto>(() => makeInitialDto());
+  return (
+    <div className="space-y-4">
+      <div className="text-sm font-medium text-slate-700">Workflow</div>
 
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+      {/* Existing */}
+      <label className="flex items-center gap-2">
+        <input
+          type="radio"
+          name="wf"
+          className="size-4 accent-blue-600"
+          checked={workflowMode === "existing"}
+          onChange={() => setWorkflowMode("existing")}
+        />
+        <span className="text-slate-800">Use existing workflow</span>
+      </label>
 
-  if (!open) return null;
-
-  const handleSave = async (payload: DesignerDto) => {
-    if (!isGuid(companyId)) throw new Error("Invalid companyId — cannot create workflow.");
-    const result = await postWorkflowWithDesigner(companyId as string, payload);
-    const wfId = typeof result === "string" ? result : (result as any)?.id;
-    if (!wfId) throw new Error("Cannot get workflowId from POST response");
-    onCreated({ id: wfId, name: payload.workflow.name });
-    onClose();
-  };
-
-  return createPortal(
-    <div className="fixed inset-0 z-[1200]" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-slate-900/60" onClick={onClose} />
-      <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
-        <div
-          className="relative w-full max-w-[1200px] h-[88vh] rounded-2xl bg-white border shadow-2xl overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 border-b bg-white/85 backdrop-blur">
-            <div className="font-semibold">Create workflow</div>
-            <button type="button" aria-label="Close" onClick={onClose} className="p-2 rounded-full text-slate-500 hover:bg-slate-100">
-              <X className="size-5" />
+      {workflowMode === "existing" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenPicker}
+              disabled={!canUseCompany}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            >
+              <WorkflowIcon className="size-4" /> Browse workflows
             </button>
           </div>
 
-          <div className="h-full pt-[52px] overflow-auto">
-            <WorkflowDesigner initialDto={dto} onSave={handleSave} title="Create workflow" />
+          <div className="grid grid-cols-1 gap-3">
+            {workflowId ? (
+              <SelectedWorkflowPreview
+                workflowId={workflowId}
+                name={workflowSelectedName || "Workflow"}
+                onClear={() => {
+                  setWorkflowId(null);
+                  setWorkflowSelectedName("");
+                }}
+              />
+            ) : (
+              <div className="text-xs text-slate-500">No workflow selected.</div>
+            )}
+          </div>
+
+          {errorWorkflowId && <p className="text-xs text-rose-500">{errorWorkflowId}</p>}
+        </div>
+      )}
+
+      {/* New */}
+      <label className="mt-3 flex items-center gap-2">
+        <input
+          type="radio"
+          name="wf"
+          className="size-4 accent-blue-600"
+          checked={workflowMode === "new"}
+          onChange={() => setWorkflowMode("new")}
+        />
+        <span className="text-slate-800">Create new workflow</span>
+      </label>
+
+      {workflowMode === "new" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenCreate}
+              disabled={!canUseCompany}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            >
+              <WorkflowIcon className="size-4" /> Create in Designer
+            </button>
+          </div>
+          {errorWorkflowName && <p className="-mt-2 text-xs text-rose-500">{errorWorkflowName}</p>}
+          <div className="text-xs text-slate-500">
+            Tip: điền tên rồi mở Designer để chỉnh sửa status/transition. Save xong sẽ tự gán.
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ====== Internal: Selected workflow preview card ====== */
+function SelectedWorkflowPreview({
+  workflowId,
+  name,
+  onClear,
+}: {
+  workflowId: string;
+  name: string;
+  onClear: () => void;
+}) {
+  const [openPreview, setOpenPreview] = React.useState(false);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="px-3 py-2 flex items-center justify-between border-b">
+        <div className="font-medium truncate">{name || "Workflow"}</div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setOpenPreview(true)}
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 hover:bg-slate-50"
+          >
+            Preview
+          </button>
+          <button
+            onClick={onClear}
+            className="px-3 py-1.5 text-sm rounded-lg text-rose-600 border border-rose-200 hover:bg-rose-50"
+          >
+            Clear
+          </button>
+        </div>
       </div>
-    </div>,
-    document.body
+
+      <div className="p-2">
+        {/* ✅ Mini tự fetch designer + ensure backlog/close */}
+        <WorkflowMini workflowId={workflowId} height={180} autoFetch />
+      </div>
+
+      <div className="px-3 pb-2 flex items-center gap-4 text-xs text-gray-600">
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full" style={{ background: "#10b981" }} /> Success
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full" style={{ background: "#ef4444" }} /> Fail
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full" style={{ background: "#111827" }} /> Optional
+        </span>
+      </div>
+
+      {openPreview && (
+        <WorkflowPreviewModal
+          open={openPreview}
+          workflowId={workflowId}
+          onClose={() => setOpenPreview(false)}
+        />
+      )}
+    </div>
   );
 }

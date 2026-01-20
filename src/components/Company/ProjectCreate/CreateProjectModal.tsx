@@ -648,41 +648,130 @@ const makeInitialDto = (name = 'New Workflow'): DesignerDto => {
     ],
   };
 };
+// ===== UI-only Backlog/Close (for Designer Create) =====
+const lower = (s?: string | null) => (s ?? '').trim().toLowerCase();
+
+const isBacklogStatus = (st: any) => lower(st?.systemKey ?? st?.name) === 'backlog';
+const isCloseStatus = (st: any) => lower(st?.systemKey ?? st?.name) === 'close';
+
+const isSystemStatus = (st: any) =>
+  !!st?.locked ||
+  isBacklogStatus(st) ||
+  isCloseStatus(st) ||
+  String(st?.id ?? '').includes('__sys__');
+
+const isSystemTransition = (t: any) => (t?.type ?? '') === 'system' || !!t?.locked;
+
+const ensureSystemNodesUiOnly = (dto: any) => {
+  const statuses: any[] = Array.isArray(dto?.statuses) ? [...dto.statuses] : [];
+  const transitions: any[] = Array.isArray(dto?.transitions) ? [...dto.transitions] : [];
+
+  const normalStatuses = statuses.filter((s) => !isSystemStatus(s));
+  const normalTransitions = transitions.filter((t) => t && !isSystemTransition(t));
+
+  const start = normalStatuses.find((s) => !!s?.isStart);
+  const end = normalStatuses.find((s) => !!s?.isEnd);
+
+  // thiếu start/end thì đừng lọc sạch -> trả nguyên trạng
+  if (!start || !end) return { ...dto, statuses, transitions: normalTransitions };
+
+  const wfId = String(dto?.workflow?.id || dto?.workflowId || dto?.id || 'wf');
+  const backlogId = `__sys__${wfId}__backlog`;
+  const closeId = `__sys__${wfId}__close`;
+
+  const sx = typeof start.x === 'number' ? start.x : 200;
+  const sy = typeof start.y === 'number' ? start.y : 350;
+  const ex = typeof end.x === 'number' ? end.x : sx + 640;
+  const ey = typeof end.y === 'number' ? end.y : sy;
+
+  const backlog = {
+    id: backlogId,
+    name: 'Backlog',
+    isStart: false,
+    isEnd: false,
+    x: sx - 260,
+    y: sy,
+    roles: [],
+    color: '#111827',
+    systemKey: 'backlog',
+    locked: true,
+  };
+
+  const close = {
+    id: closeId,
+    name: 'Close',
+    isStart: false,
+    isEnd: false,
+    x: ex + 260,
+    y: ey,
+    roles: [],
+    color: '#9ca3af',
+    systemKey: 'close',
+    locked: true,
+  };
+
+  const cleaned = normalTransitions.filter((t) => {
+    const from = String(t.fromStatusId);
+    const to = String(t.toStatusId);
+    if (from === backlogId || to === backlogId) return false;
+    if (from === closeId || to === closeId) return false;
+    return true;
+  });
+
+  const sys1 = {
+    fromStatusId: backlogId,
+    toStatusId: String(start.id),
+    type: 'system',
+    label: '',
+    enforceTransitions: true,
+    locked: true,
+  };
+
+  const sys2 = {
+    fromStatusId: String(end.id),
+    toStatusId: closeId,
+    type: 'system',
+    label: '',
+    enforceTransitions: true,
+    locked: true,
+  };
+
+  return {
+    ...dto,
+    statuses: [backlog, ...normalStatuses, close],
+    transitions: [sys1, ...cleaned, sys2],
+  };
+};
+
+const stripSystemForPersist = (dto: any) => {
+  const statuses: any[] = Array.isArray(dto?.statuses) ? dto.statuses : [];
+  const sysIds = new Set(statuses.filter(isSystemStatus).map((s) => String(s.id)));
+
+  const cleanStatuses = statuses.filter((s) => !sysIds.has(String(s.id)));
+
+  const transitions: any[] = Array.isArray(dto?.transitions) ? dto.transitions : [];
+  const cleanTransitions = transitions.filter((t) => {
+    if (!t) return false;
+    if (isSystemTransition(t)) return false;
+    if (sysIds.has(String(t.fromStatusId))) return false;
+    if (sysIds.has(String(t.toStatusId))) return false;
+    return true;
+  });
+
+  return { ...dto, statuses: cleanStatuses, transitions: cleanTransitions };
+};
 
 function SelectedWorkflowPreview({
-  companyId,
   workflowId,
   name,
   onClear,
 }: {
-  companyId: string | null;
+  companyId: string | null; // giữ signature cho khỏi sửa chỗ gọi (không dùng nữa)
   workflowId: string;
   name: string;
   onClear: () => void;
 }) {
-  const [mini, setMini] = React.useState<WorkflowPreviewVm | null>(null);
-  const [loading, setLoading] = React.useState(false);
   const [openPreview, setOpenPreview] = React.useState(false);
-
-  React.useEffect(() => {
-    let stop = false;
-    (async () => {
-      if (!companyId || !workflowId) return;
-      setLoading(true);
-      try {
-        const list = (await getWorkflowPreviews(companyId)) as WorkflowPreviewVm[] | null | undefined;
-        const found = (list ?? []).find((x: WorkflowPreviewVm) => x.id === workflowId) ?? null;
-        setMini(found);
-      } catch {
-        if (!stop) setMini(null);
-      } finally {
-        if (!stop) setLoading(false);
-      }
-    })();
-    return () => {
-      stop = true;
-    };
-  }, [companyId, workflowId]);
 
   return (
     <div className="mt-3 rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -705,15 +794,8 @@ function SelectedWorkflowPreview({
       </div>
 
       <div className="p-2">
-        {loading ? (
-          <div className="h-[180px] rounded-lg bg-gray-50 animate-pulse" />
-        ) : mini ? (
-          <WorkflowMini data={mini} />
-        ) : (
-          <div className="h-[180px] rounded-lg bg-gray-50 flex items-center justify-center text-sm text-slate-500">
-            No preview available
-          </div>
-        )}
+        {/* ✅ autoFetch để lấy designer => có graph => inject Backlog/Close */}
+        <WorkflowMini workflowId={workflowId} height={180} autoFetch />
       </div>
 
       <div className="px-3 pb-2 flex items-center gap-4 text-xs text-gray-600">
@@ -725,6 +807,9 @@ function SelectedWorkflowPreview({
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="w-3 h-3 rounded-full" style={{ background: '#111827' }} /> Optional
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full" style={{ background: '#f59e0b' }} /> System
         </span>
       </div>
 
@@ -738,6 +823,7 @@ function SelectedWorkflowPreview({
     </div>
   );
 }
+
 
 /* ========= MODAL: Workflow Picker ========= */
 function WorkflowPickerModal({
@@ -840,7 +926,7 @@ function WorkflowPickerModal({
                         <Eye size={16} />
                       </button>
                     </div>
-                    <WorkflowMini data={w} />
+<WorkflowMini data={w} workflowId={w.id} height={160} autoFetch />
                     <div className="px-3 py-2 border-t flex items-center justify-end">
                       <button
                         onClick={() => {
@@ -884,10 +970,13 @@ function CreateWorkflowModal({
   onClose: () => void;
   onCreated: (wf: { id: string; name: string }) => void;
 }) {
-  const [dto] = React.useState<DesignerDto>(() => makeInitialDto());
+  const [dto, setDto] = React.useState<DesignerDto>(() => ensureSystemNodesUiOnly(makeInitialDto()));
 
   React.useEffect(() => {
     if (!open) return;
+    // mỗi lần mở modal -> reset dto có Backlog/Close UI-only
+    setDto(ensureSystemNodesUiOnly(makeInitialDto()));
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -899,9 +988,14 @@ function CreateWorkflowModal({
 
   const handleSave = async (payload: DesignerDto) => {
     if (!isGuid(companyId)) throw new Error('Invalid companyId — cannot create workflow.');
-    const result = await postWorkflowWithDesigner(companyId as string, payload);
+
+    // ✅ strip system nodes trước khi persist
+    const cleaned = stripSystemForPersist(payload);
+
+    const result = await postWorkflowWithDesigner(companyId as string, cleaned);
     const wfId = typeof result === 'string' ? result : (result as any)?.id;
     if (!wfId) throw new Error('Cannot get workflowId from POST response');
+
     onCreated({ id: wfId, name: payload.workflow.name });
     onClose();
   };
@@ -927,6 +1021,7 @@ function CreateWorkflowModal({
           </div>
 
           <div className="h-full pt-[52px] overflow-auto">
+            {/* ✅ dto đã có Backlog/Close UI-only */}
             <WorkflowDesigner initialDto={dto} onSave={handleSave} title="Create workflow" />
           </div>
         </div>
@@ -935,6 +1030,7 @@ function CreateWorkflowModal({
     document.body,
   );
 }
+
 
 /* ========= MAIN MODAL: Create Project ========= */
 export default function CreateProjectModal({

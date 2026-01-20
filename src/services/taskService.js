@@ -736,3 +736,17 @@ export const getTaskDetailByIdAdmin = async (id) => {
     throw new Error(message);
   }
 };
+export const patchTaskCloseById = async (taskId, isClose = true, { flashColorHex } = {}) => {
+  try {
+    const res = await axiosInstance.patch(`/tasks/${taskId}/is-close`, { isClose });
+
+    const dto = res?.data?.data ?? res?.data;
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  } catch (error) {
+    // Fallback local để FE chạy trước khi BE xong
+    const dto = { id: taskId, isClose };
+    flashTaskCard(taskId, { colorHex: flashColorHex });
+    return dto;
+  }
+};
