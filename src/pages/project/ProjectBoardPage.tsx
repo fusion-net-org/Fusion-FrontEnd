@@ -17,6 +17,11 @@ import {
   X,
   ChevronDown,
   Check,
+  Building2,
+  CalendarDays,
+  Users2,
+  Lock,
+  Activity,
 } from "lucide-react";
 
 import {
@@ -80,6 +85,76 @@ const extractComponentsFromProjectDetail = (detail: any): ComponentVm[] => {
 
 const taskComponentId = (t: TaskVm) => String((t as any)?.componentId ?? "");
 const taskComponentName = (t: TaskVm) => String((t as any)?.componentName ?? "");
+type ProjectMetaVm = {
+  id?: string;
+  code?: string;
+  name?: string;
+  description?: string;
+
+  status?: string;
+  isHired?: boolean;
+  isClosed?: boolean;
+
+  companyName?: string;
+  companyHiredName?: string | null;
+
+  workflowName?: string | null;
+
+  startDate?: string | null;
+  endDate?: string | null;
+  sprintLengthWeeks?: number | null;
+
+  createdByName?: string | null;
+  createdAt?: string | null;
+    memberCount?: number | null;
+
+};
+
+const formatDate = (iso?: string | null) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+};
+
+const statusLabel = (s?: string | null) => {
+  const v = String(s ?? "").trim();
+  if (!v) return "—";
+  if (v === "InProgress") return "In progress";
+  if (v === "OnHold") return "On hold";
+  return v;
+};
+
+const statusBadgeClass = (status?: string | null) => {
+  switch (String(status ?? "")) {
+    case "Planned":
+      return "bg-sky-50 text-sky-700 border-sky-100";
+    case "InProgress":
+      return "bg-amber-50 text-amber-700 border-amber-100";
+    case "OnHold":
+      return "bg-slate-50 text-slate-700 border-slate-200";
+    case "Completed":
+      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    default:
+      return "bg-slate-50 text-slate-700 border-slate-200";
+  }
+};
+
+const isDoneTask = (t: any) => {
+  const cat = String(t?.statusCategory ?? t?.status?.category ?? "").toUpperCase();
+  const name = String(t?.statusName ?? t?.status ?? "").toLowerCase();
+  return cat === "DONE" || name === "done";
+};
+
+const progressPercent = (done: number, total: number) => {
+  if (!total) return 0;
+  return Math.round((done / total) * 100);
+};
+
+const isSprintActive = (s: any) => {
+  const st = String(s?.state ?? s?.status ?? s?.sprintState ?? "").toLowerCase();
+  return st === "active" || st === "inprogress" || st === "running";
+};
 
 /* ========== Inner: logic view board ========== */
 function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
@@ -122,13 +197,12 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
   const [workflowId, setWorkflowId] = React.useState<string | null>(null);
   const [workflowPreviewOpen, setWorkflowPreviewOpen] = React.useState(false);
   const [projectDescription, setProjectDescription] = React.useState<string>("");
+  const [meta, setMeta] = React.useState<ProjectMetaVm | null>(null);
 
-  // ✅ Maintenance states
   const [isMaintenance, setIsMaintenance] = React.useState(false);
   const [components, setComponents] = React.useState<ComponentVm[]>(props.componentsFromBoard ?? []);
   const [selectedComponents, setSelectedComponents] = React.useState<string[]>([]);
 
-  // ✅ Dropdown state (no search, list all)
   const [componentMenuOpen, setComponentMenuOpen] = React.useState(false);
   const componentMenuRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -170,6 +244,45 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
         setProjectDescription(detail.description ?? "");
         setWorkflowId(detail.workflowId ? String(detail.workflowId) : null);
         setProjectRequestId(detail.projectRequestId ? String(detail.projectRequestId) : null);
+        setMeta({
+          id: String(detail?.id ?? projectId),
+          code: detail?.code ?? "",
+          name: detail?.name ?? "",
+          description: detail?.description ?? "",
+
+          status: detail?.status ?? null,
+          isHired: !!detail?.isHired,
+          isClosed: !!detail?.isClosed,
+
+          companyName:
+            detail?.companyName ??
+            detail?.companyExecutorName ??
+            detail?.ownerCompany ??
+            detail?.company ??
+            "",
+
+          companyHiredName: detail?.companyHiredName ?? detail?.hiredCompanyName ?? null,
+
+          workflowName: detail?.workflowName ?? detail?.workflow ?? null,
+
+          startDate: detail?.startDate ?? null,
+          endDate: detail?.endDate ?? null,
+          sprintLengthWeeks: detail?.sprintLengthWeeks ?? null,
+
+          createdByName:
+            detail?.createdByName ??
+            detail?.createdByUserName ??
+            detail?.createdByDisplayName ??
+            null,
+          createdAt: detail?.createdAt ?? detail?.createAt ?? detail?.createdOn ?? null,
+          memberCount:
+  detail?.memberCount ??
+  detail?.totalMembers ??
+  detail?.membersCount ??
+  detail?.memberTotal ??
+  (Array.isArray(detail?.members) ? detail.members.length : null) ??
+  null,
+        });
 
         const maint = toBool(
           detail?.isMaintenance ??
@@ -530,47 +643,85 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
         </div>
 
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2 max-w-[50%]">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold leading-tight">
-                {projectTitle}
-              </h1>
+<div className="space-y-2 w-full md:max-w-[760px]">
+    {!!meta?.code?.trim() && meta.code?.trim() !== projectTitle?.trim() && (
+      <span className="inline-flex items-center rounded-full border border-white/35 bg-white/10 px-3 py-1 text-[11px] font-mono font-semibold text-white/95">
+        {meta.code}
+      </span>
+    )}
+  <div className="flex flex-wrap items-center gap-2">
+    <h1 className="text-2xl font-semibold leading-tight">
+      {projectTitle}
+    </h1>
 
-              {maintenanceEnabled && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-semibold">
-                  <Wrench className="size-3.5" />
-                  Maintenance
-                </span>
-              )}
+    
 
-              {loading && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
-                  Loading…
-                </span>
-              )}
-            </div>
+    {maintenanceEnabled && (
+      <span className="inline-flex items-center gap-1 rounded-full border border-white/35 bg-white/15 px-3 py-1 text-[11px] font-semibold">
+        <Wrench className="size-3.5" />
+        Maintenance
+      </span>
+    )}
 
-            <p className="text-sm text-white/85 line-clamp-2">
-              {projectDescription?.trim()
-                ? projectDescription
-                : "Connect sprints, tickets and workflows into one unified project board."}
-            </p>
+    {loading && (
+      <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
+        Loading…
+      </span>
+    )}
+  </div>
 
-            {maintenanceEnabled && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/90">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 border border-white/25">
-                  <Boxes className="size-3.5" />
-                  {components.length} component(s)
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 border border-white/25">
-                  Filter: <b className="ml-1">{selectedInfoLabel}</b>
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 border border-white/25">
-                  Showing: <b className="ml-1">{tasksByComponent.length}</b> / {tasks.length}
-                </span>
-              </div>
-            )}
-          </div>
+  <p className="text-sm text-white/85 line-clamp-2">
+    {projectDescription?.trim()
+      ? projectDescription
+      : "Connect sprints, tickets and workflows into one unified project board."}
+  </p>
+
+  {/* ✅ Minimal details (đúng yêu cầu) */}
+  <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-white/90">
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1">
+      <CalendarDays className="size-4 opacity-90" />
+      <span className="text-white/80">Created</span>
+      <b className="text-white">{formatDate(meta?.createdAt)}</b>
+    </span>
+
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1">
+      <CalendarDays className="size-4 opacity-90" />
+      <span className="text-white/80">Due</span>
+      <b className="text-white">{formatDate(meta?.endDate)}</b>
+    </span>
+
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1">
+      <Users2 className="size-4 opacity-90" />
+      <span className="text-white/80">Members</span>
+      <b className="text-white">
+        {typeof meta?.memberCount === "number" ? meta.memberCount : "—"}
+      </b>
+    </span>
+
+    {/* Maintenance info (giữ nhưng gọn lại, cùng style chip) */}
+    {maintenanceEnabled && (
+      <>
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1">
+          <Boxes className="size-4 opacity-90" />
+          <span className="text-white/80">Components</span>
+          <b className="text-white">{components.length}</b>
+        </span>
+
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1">
+          <span className="text-white/80">Filter</span>
+          <b className="text-white">{selectedInfoLabel}</b>
+        </span>
+
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1">
+          <span className="text-white/80">Showing</span>
+          <b className="text-white">{tasksByComponent.length}</b>
+          <span className="text-white/75">/ {tasks.length}</span>
+        </span>
+      </>
+    )}
+  </div>
+</div>
+
 
           <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
             {hasProjectRequest && (

@@ -264,6 +264,8 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
   } else {
     statusIdFinal = "st-todo";
   }
+const toBool = (v: any) =>
+  v === true || v === 1 || v === "1" || String(v).trim().toLowerCase() === "true";
 
   const metaFinal = sprint?.statusMeta?.[statusIdFinal];
 
@@ -315,7 +317,9 @@ export function mapTask(dto: Any, sprint?: SprintVm): TaskVm {
     statusCode: metaFinal?.code ?? codeGuess,
     statusCategory: metaFinal?.category ?? inferCategory(codeGuess),
     StatusName: metaFinal?.name ?? "",
-
+isClose: toBool(
+    dto?.isClose
+  ),
     assignees: Array.isArray(dto?.assignees)
       ? dto.assignees.map(toMember)
       : dto?.assignee

@@ -56,7 +56,7 @@ export type TaskVm = {
   estimateHours?: number;
   remainingHours?: number;
   dueDate?: string;
-
+isClose?: boolean;
   sprintId: string | null;
   workflowStatusId: string;          // FK
   statusCode: string;                // tiện màu sắc/icon

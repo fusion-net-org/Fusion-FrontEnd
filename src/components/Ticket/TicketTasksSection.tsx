@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Button, Tag, Spin, Input, Select, Tooltip, Modal } from 'antd';
+import { Card, Button, Tag, Spin, Input, Select, Tooltip, Modal, Table } from 'antd';
 import { Layers, Plus, Trash2, Clock } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTicketTasks, createTicketTask, deleteTask } from '@/services/taskService.js';
@@ -170,6 +170,162 @@ console.log(newTask)
   };
 
   const formatDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : '—');
+  const rows = React.useMemo(() => {
+    return (tasks ?? []).map((t: any) => {
+      const estimate = t.estimateHours ?? t.estimate_hours ?? null;
+      const isBacklog = typeof t.isBacklog === 'boolean' ? t.isBacklog : !t.sprintId;
+
+      const sprintLabel =
+        t.sprintName ??
+        t.sprintCode ??
+        (t.sprintIndex != null ? `Sprint ${t.sprintIndex}` : t.sprintId ? t.sprintId : null);
+
+      const statusCategory = t.statusCategory || t.status_category;
+      const statusText =
+        t.statusName ?? t.workflowStatusName ?? t.statusCode ?? t.workflowStatusCode ?? '—';
+
+      return {
+        key: t.id,
+        id: t.id,
+        code: t.code || '—',
+        title: t.title || '—',
+        type: t.type || null,
+        priority: t.priority || null,
+        estimate,
+        dueDate: t.dueDate || t.due_date || null,
+        sprintLabel,
+        isBacklog,
+        statusCategory,
+        statusText,
+      };
+    });
+  }, [tasks]);
+
+  const columns = React.useMemo(
+    () => [
+      {
+        title: 'Code',
+        dataIndex: 'code',
+        width: 120,
+        render: (_: any, r: any) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenTaskDetail(r.id);
+            }}
+            className="text-xs font-mono text-blue-600 hover:underline"
+          >
+            {r.code}
+          </button>
+        ),
+      },
+      {
+        title: 'Title',
+        dataIndex: 'title',
+        ellipsis: true,
+        render: (_: any, r: any) => (
+          <Tooltip title={r.title}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenTaskDetail(r.id);
+              }}
+              className="text-sm font-medium text-gray-900 text-left hover:underline truncate"
+            >
+              {r.title}
+            </button>
+          </Tooltip>
+        ),
+      },
+      {
+        title: 'Type',
+        dataIndex: 'type',
+        width: 110,
+        render: (v: any) => (v ? <Tag className="rounded-full px-2 py-0.5 text-[11px]">{v}</Tag> : '—'),
+      },
+      {
+        title: 'Priority',
+        dataIndex: 'priority',
+        width: 120,
+        render: (v: any) =>
+          v ? (
+            <Tag color={getPriorityColor(v)} className="rounded-full px-2 py-0.5 text-[11px]">
+              {v}
+            </Tag>
+          ) : (
+            '—'
+          ),
+      },
+      {
+        title: 'Sprint',
+        dataIndex: 'sprintLabel',
+        width: 140,
+        render: (_: any, r: any) =>
+          r.isBacklog ? (
+            <Tag className="rounded-full px-2 py-0.5 text-[11px] bg-slate-50 border border-slate-200 text-slate-600">
+              Backlog
+            </Tag>
+          ) : (
+            <Tag className="rounded-full px-2 py-0.5 text-[11px] border border-blue-100 bg-blue-50 text-blue-700">
+              {r.sprintLabel || 'On sprint'}
+            </Tag>
+          ),
+      },
+      {
+        title: 'Status',
+        dataIndex: 'statusText',
+        width: 130,
+        render: (_: any, r: any) => (
+          <Tag color={getStatusColor(r.statusCategory)} className="rounded-full px-2 py-0.5 text-[11px]">
+            {r.statusText}
+          </Tag>
+        ),
+      },
+      {
+        title: 'Est',
+        dataIndex: 'estimate',
+        width: 90,
+        align: 'right' as const,
+        render: (v: any) =>
+          v != null && v !== 0 ? (
+            <span className="inline-flex items-center gap-1 text-gray-600">
+              <Clock size={12} />
+              {v}h
+            </span>
+          ) : (
+            '—'
+          ),
+      },
+      {
+        title: 'Due',
+        dataIndex: 'dueDate',
+        width: 120,
+        render: (v: any) => <span className="text-gray-600">{formatDate(v)}</span>,
+      },
+      {
+        title: '',
+        dataIndex: 'actions',
+        width: 56,
+        fixed: 'right' as const,
+        render: (_: any, r: any) => (
+          <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
+            <Can code="TICKET_TASK_DELETE">
+              <Button
+                type="text"
+                danger
+                icon={<Trash2 size={14} />}
+                onClick={() => handleDelete(r.id)}
+              />
+            </Can>
+          </div>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [companyId, effectiveProjectId, tasks],
+  );
 
   return (
     <Card className="shadow-sm rounded-xl border border-gray-100">
@@ -277,148 +433,18 @@ console.log(newTask)
           No tasks have been created from this ticket yet.
         </div>
       ) : (
-        <div className="space-y-2 max-h-[40vh] overflow-auto">
-          {tasks.map((t: any) => {
-            const estimate = t.estimateHours ?? t.estimate_hours ?? null;
-            const isBacklog = typeof t.isBacklog === 'boolean' ? t.isBacklog : !t.sprintId;
-
-            const sprintLabel =
-              t.sprintName ??
-              t.sprintCode ??
-              (t.sprintIndex != null ? `Sprint ${t.sprintIndex}` : t.sprintId ? t.sprintId : null);
-
-            const statusCategory = t.statusCategory || t.status_category;
-            const statusLabel =
-              t.statusName ?? t.workflowStatusName ?? t.statusCode ?? t.workflowStatusCode ?? '—';
-
-            if (isBacklog) {
-              return (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-gray-100 bg-white hover:bg-gray-50"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-mono text-gray-500">{t.code || '—'}</span>
-                      <span className="text-sm font-medium text-gray-900 truncate">{t.title}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <Tag className="rounded-full px-2 py-0.5 text-[11px] bg-slate-50 border border-slate-200 text-slate-600">
-                        Backlog
-                      </Tag>
-                      {t.type && <Tag className="rounded-full px-2 py-0.5 text-[11px]">{t.type}</Tag>}
-                      {t.priority && (
-                        <Tag
-                          color={getPriorityColor(t.priority)}
-                          className="rounded-full px-2 py-0.5 text-[11px]"
-                        >
-                          {t.priority}
-                        </Tag>
-                      )}
-                      {estimate != null && estimate !== 0 && (
-                        <span className="flex items-center gap-1 text-gray-500">
-                          <Clock size={12} />
-                          {estimate}h
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Can code="TICKET_TASK_DELETE">
-                      <Button
-                        type="text"
-                        danger
-                        icon={<Trash2 size={14} />}
-                        onClick={() => handleDelete(t.id)}
-                      />
-                    </Can>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div
-                key={t.id}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-3 py-2 rounded-xl border border-gray-100 bg-white hover:bg-gray-50"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenTaskDetail(t.id)}
-                      className="text-xs font-mono text-blue-600 hover:underline"
-                    >
-                      {t.code || '—'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenTaskDetail(t.id)}
-                      className="text-sm font-medium text-gray-900 truncate text-left hover:underline"
-                    >
-                      {t.title}
-                    </button>
-                  </div>
-
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                    {t.type && <Tag className="rounded-full px-2 py-0.5 text-[11px]">{t.type}</Tag>}
-                    {t.priority && (
-                      <Tag
-                        color={getPriorityColor(t.priority)}
-                        className="rounded-full px-2 py-0.5 text-[11px]"
-                      >
-                        {t.priority}
-                      </Tag>
-                    )}
-
-                    {sprintLabel && (
-                      <Tag
-                        color="green-inverse"
-                        className="rounded-full px-2 py-0.5 text-[11px] border border-blue-100 bg-blue-50 text-blue-700"
-                      >
-                        <span className="opacity-75 mr-1">On sprint</span>
-                      </Tag>
-                    )}
-
-                    <Tag
-                      color={getStatusColor(statusCategory)}
-                      className="rounded-full px-2 py-0.5 text-[11px]"
-                    >
-                      {statusLabel}
-                    </Tag>
-                  </div>
-
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
-                    <span>
-                      <b>Due:</b> {formatDate(t.dueDate || t.due_date)}
-                    </span>
-                    {estimate != null && (
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} />
-                        <b>Est:</b> {estimate}h
-                      </span>
-                    )}
-                    {t.remainingHours != null && (
-                      <span>
-                        <b>Remain:</b> {t.remainingHours}h
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="text"
-                    danger
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDelete(t.id)}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+       <Table
+    size="middle"
+    columns={columns as any}
+    dataSource={rows as any}
+    pagination={{ pageSize: 8, showSizeChanger: false }}
+    scroll={{ y: 360, x: 980 }}
+    rowClassName={(r: any) => (r.isBacklog ? "bg-slate-50" : "")}
+    onRow={(r: any) => ({
+      onClick: () => handleOpenTaskDetail(r.id),
+    })}
+    className="rounded-xl overflow-hidden"
+  />
       )}
     </Card>
   );
