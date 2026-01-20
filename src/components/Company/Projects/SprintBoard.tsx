@@ -968,7 +968,7 @@ async function confirmClose() {
 
   try {
     await patchTaskCloseById(t.id, true, { flashColorHex: "#94A3B8" });
-    toast.success(intent.mode === "CLOSE" ? "Đã close task." : "Đã cancel task.");
+   toast.success(intent.mode === "CLOSE" ? "Task closed." : "Task canceled.");
   } catch (e: any) {
     toast.error(e?.message || "Close failed");
 
@@ -1332,12 +1332,12 @@ function onCloseTask(t: TaskVm) {
 
     if (fromColId === toColId && source.index === destination.index) return;
 if (toColId === VCOL_BACKLOG && fromColId !== VCOL_BACKLOG) {
-  toast.info("Backlog chỉ để xem, không thể kéo task vào.");
-  return;
+toast.info("Backlog is view-only. You can't drop tasks into it.");
+  return; 
 }
 
 if (fromColId === VCOL_CLOSE) {
-  toast.info("Task ở Close không thể kéo.");
+  toast.info("Tasks in Close cannot be dragged.");
   return;
 }
 
@@ -1345,12 +1345,12 @@ if (fromColId === VCOL_BACKLOG) {
   const draft = backlogDrafts.find((x) => x.id === draggableId);
   if (draft) {
     if (!startStatusId) {
-      toast.error("Sprint chưa có Start status.");
+      toast.error("This sprint has no Start status.");
       return;
     }
 
     if (toColId !== startStatusId) {
-      toast.info("Chỉ được kéo từ Backlog sang cột Start.");
+      toast.info("You can only move items from Backlog to the Start column.");
       return;
     }
 
@@ -1363,7 +1363,7 @@ if (fromColId === VCOL_BACKLOG) {
         workflowStatusId: startStatusId,
       });
 
-      toast.success("Đã đưa Backlog vào Start.");
+      toast.success("Moved backlog item to Start.");
       await reloadBacklogDrafts();
 
       // nếu context có hàm reload thì gọi luôn (không có thì thôi)
