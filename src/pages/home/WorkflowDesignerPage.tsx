@@ -190,9 +190,9 @@ const stripSystemForPersist = (dto: DesignerDto): DesignerDto => {
 const makeInitialDto = (name = "New Workflow"): DesignerDto => {
   const uid = genId;
 
-  const s1 = {
+   const s1 = {
     id: uid(),
-    name: "To Do",
+    name: "Development",
     isStart: true,
     isEnd: false,
     x: 200,
@@ -201,34 +201,65 @@ const makeInitialDto = (name = "New Workflow"): DesignerDto => {
     color: "#6b7280",
   };
 
+  // 2) Code Review
   const s2 = {
     id: uid(),
-    name: "In Review",
+    name: "Code Review",
     isStart: false,
     isEnd: false,
     x: 520,
     y: 350,
-    roles: ["Reviewer"],
+    roles: ["Reviewer"], // (Peer Dev / Tech Lead)
     color: "#4f46e5",
   };
 
+  // 3) QA Testing
   const s3 = {
+    id: uid(),
+    name: "QA Testing",
+    isStart: false,
+    isEnd: false,
+    x: 840,
+    y: 350,
+    roles: ["QA"],
+    color: "#f59e0b",
+  };
+
+  // 4) UAT / PO Acceptance
+  const s4 = {
+    id: uid(),
+    name: "UAT / PO Acceptance",
+    isStart: false,
+    isEnd: false,
+    x: 1160,
+    y: 350,
+    roles: ["Product Owner"],
+    color: "#2563eb",
+  };
+
+  // 5) Done (End)
+  const s5 = {
     id: uid(),
     name: "Done",
     isStart: false,
     isEnd: true,
-    x: 840,
+    x: 1480,
     y: 350,
-    roles: ["QA"],
+    roles: ["Product Owner"], // hoặc [] nếu bạn muốn Done không assign ai
     color: "#16a34a",
   };
 
   return {
     workflow: { id: uid(), name },
-    statuses: [s1, s2, s3] as any,
+    statuses: [s1, s2, s3, s4, s5] as any,
     transitions: [
-      { fromStatusId: s1.id, toStatusId: s2.id, type: "success", label: "Go", enforceTransitions: true } as any,
-      { fromStatusId: s2.id, toStatusId: s3.id, type: "success", label: "Complete", enforceTransitions: true } as any,
+      // happy path (enforced)
+      { fromStatusId: s1.id, toStatusId: s2.id, type: "success", label: "Submit for review", enforceTransitions: true } as any,
+      { fromStatusId: s2.id, toStatusId: s3.id, type: "success", label: "Approved", enforceTransitions: true } as any,
+      { fromStatusId: s3.id, toStatusId: s4.id, type: "success", label: "QA passed", enforceTransitions: true } as any,
+      { fromStatusId: s4.id, toStatusId: s5.id, type: "success", label: "Accepted", enforceTransitions: true } as any,
+
+     
     ] as any,
   } as DesignerDto;
 };
