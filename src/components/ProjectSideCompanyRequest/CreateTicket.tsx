@@ -55,6 +55,7 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
   const [projectComponents, setProjectComponents] = useState<any[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [dueDate, setDueDate] = useState<string | null>(null);
+  const hideBudget = ticketType === 'Bug' || ticketType === 'Hotfix';
 
   console.log(
     'isMaintenance values:',
@@ -304,10 +305,12 @@ const CreateTicketPopup: React.FC<CreateTicketPopupProps> = ({
           {/* Budget, Priority & Highest Urgency */}
           <div className="flex gap-3 items-end">
             {/* Budget */}
-            <div className="flex flex-col w-1/3">
-              <label className="font-semibold mb-1">Budget (VNĐ)</label>
-              <Input placeholder="0" value={budget} onChange={handleBudgetChange} />
-            </div>
+            {!hideBudget && (
+              <div className="flex flex-col w-1/3">
+                <label className="font-semibold mb-1">Budget (VNĐ)</label>
+                <Input placeholder="0" value={budget} onChange={handleBudgetChange} />
+              </div>
+            )}
 
             {/* Priority */}
             <div className="flex flex-col w-1/3">

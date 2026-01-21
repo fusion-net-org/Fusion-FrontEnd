@@ -14,13 +14,19 @@ const { confirm } = Modal;
 type Props = {
   ticketId: string;
   projectId?: string | null;
-  componentId?: string | null; 
+  componentId?: string | null;
+  canCreateTask: boolean;
 };
 
 type TaskType = 'Feature' | 'Bug' | 'Chore';
 type TaskPriority = 'Urgent' | 'High' | 'Medium' | 'Low';
 
-const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId, componentId }) => {
+const TicketTasksSection: React.FC<Props> = ({
+  ticketId,
+  projectId,
+  componentId,
+  canCreateTask,
+}) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -87,7 +93,7 @@ const TicketTasksSection: React.FC<Props> = ({ ticketId, projectId, componentId 
           Number.isFinite(estimateVal as number) && estimateVal !== null ? estimateVal : null,
         componentId: cid || null, // ✅ ADD
       });
-console.log(newTask)
+      console.log(newTask);
       setTasks((prev) => [newTask, ...prev]);
 
       setForm({
@@ -243,7 +249,8 @@ console.log(newTask)
         title: 'Type',
         dataIndex: 'type',
         width: 110,
-        render: (v: any) => (v ? <Tag className="rounded-full px-2 py-0.5 text-[11px]">{v}</Tag> : '—'),
+        render: (v: any) =>
+          v ? <Tag className="rounded-full px-2 py-0.5 text-[11px]">{v}</Tag> : '—',
       },
       {
         title: 'Priority',
@@ -278,7 +285,10 @@ console.log(newTask)
         dataIndex: 'statusText',
         width: 130,
         render: (_: any, r: any) => (
-          <Tag color={getStatusColor(r.statusCategory)} className="rounded-full px-2 py-0.5 text-[11px]">
+          <Tag
+            color={getStatusColor(r.statusCategory)}
+            className="rounded-full px-2 py-0.5 text-[11px]"
+          >
             {r.statusText}
           </Tag>
         ),
@@ -351,7 +361,7 @@ console.log(newTask)
             placeholder="e.g. Implement API for ticket detail"
             value={form.title}
             onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-            disabled={!effectiveProjectId}
+            disabled={!effectiveProjectId || !canCreateTask}
           />
         </div>
         <div>
@@ -360,7 +370,7 @@ console.log(newTask)
             value={form.type}
             onChange={(v) => setForm((prev) => ({ ...prev, type: v as TaskType }))}
             className="w-full"
-            disabled={!effectiveProjectId}
+            disabled={!effectiveProjectId || !canCreateTask}
           >
             <Option value="Feature">Feature</Option>
             <Option value="Bug">Bug</Option>
@@ -376,7 +386,7 @@ console.log(newTask)
               value={form.priority}
               onChange={(v) => setForm((prev) => ({ ...prev, priority: v as TaskPriority }))}
               className="w-24"
-              disabled={!effectiveProjectId}
+              disabled={!effectiveProjectId || !canCreateTask}
             >
               <Option value="Urgent">Urgent</Option>
               <Option value="High">High</Option>
@@ -390,7 +400,7 @@ console.log(newTask)
               placeholder="h"
               value={form.estimate}
               onChange={(e) => setForm((prev) => ({ ...prev, estimate: e.target.value }))}
-              disabled={!effectiveProjectId}
+              disabled={!effectiveProjectId || !canCreateTask}
             />
           </div>
         </div>
@@ -403,9 +413,11 @@ console.log(newTask)
         </span>
         <Tooltip
           title={
-            effectiveProjectId
-              ? ''
-              : 'This ticket is not linked to any project, so tasks cannot be created.'
+            !effectiveProjectId
+              ? 'This ticket is not linked to any project, so tasks cannot be created.'
+              : !canCreateTask
+                ? 'Tasks can only be created when ticket status is Accepted.'
+                : ''
           }
         >
           <span>
@@ -413,7 +425,7 @@ console.log(newTask)
               <Button
                 type="primary"
                 icon={<Plus size={14} />}
-                disabled={!effectiveProjectId || !form.title.trim() || creating}
+                disabled={!effectiveProjectId || !canCreateTask || !form.title.trim() || creating}
                 loading={creating}
                 onClick={handleCreate}
               >
@@ -433,18 +445,18 @@ console.log(newTask)
           No tasks have been created from this ticket yet.
         </div>
       ) : (
-       <Table
-    size="middle"
-    columns={columns as any}
-    dataSource={rows as any}
-    pagination={{ pageSize: 8, showSizeChanger: false }}
-    scroll={{ y: 360, x: 980 }}
-    rowClassName={(r: any) => (r.isBacklog ? "bg-slate-50" : "")}
-    onRow={(r: any) => ({
-      onClick: () => handleOpenTaskDetail(r.id),
-    })}
-    className="rounded-xl overflow-hidden"
-  />
+        <Table
+          size="middle"
+          columns={columns as any}
+          dataSource={rows as any}
+          pagination={{ pageSize: 8, showSizeChanger: false }}
+          scroll={{ y: 360, x: 980 }}
+          rowClassName={(r: any) => (r.isBacklog ? 'bg-slate-50' : '')}
+          onRow={(r: any) => ({
+            onClick: () => handleOpenTaskDetail(r.id),
+          })}
+          className="rounded-xl overflow-hidden"
+        />
       )}
     </Card>
   );

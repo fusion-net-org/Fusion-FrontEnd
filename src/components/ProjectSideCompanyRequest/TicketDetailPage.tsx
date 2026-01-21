@@ -70,8 +70,12 @@ import { useLocation } from 'react-router-dom';
 import TicketTasksSection from '@/components/Ticket/TicketTasksSection';
 import { Can } from '@/permission/PermissionProvider';
 import { GetTicketHistoryPaged } from '@/services/TicketService.js';
-import { HistoryOutlined } from '@ant-design/icons';
-import { CloseTicket } from '@/services/TicketService.js';
+import { HistoryOutlined, WarningOutlined } from '@ant-design/icons';
+import {
+  RequestCloseTicket,
+  AcceptCloseTicket,
+  RejectCloseTicket,
+} from '@/services/TicketService.js';
 
 const { confirm } = Modal;
 
@@ -148,10 +152,15 @@ const TicketDetailPage: React.FC = () => {
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
 
+  // approve / reject close popup
+  const [isApproveCloseModalOpen, setIsApproveCloseModalOpen] = useState(false);
+  const [isRejectCloseModalOpen, setIsRejectCloseModalOpen] = useState(false);
+  const [rejectCloseReason, setRejectCloseReason] = useState('');
+  const [isRequestCloseModalOpen, setIsRequestCloseModalOpen] = useState(false);
+
   // const viewMode = vw ?? 'AsRequester';
   console.log('viewMode Ticketdetail:', viewMode);
-  console.log('comments', comments);
-  console.log('ticket:', ticket);
+
   const handleAcceptTicket = async (ticketId: string) => {
     try {
       const res = await AcceptTicket(ticketId);
@@ -305,6 +314,57 @@ const TicketDetailPage: React.FC = () => {
     }
   };
 
+  const handleRequestCloseTicket = async () => {
+    try {
+      const res = await RequestCloseTicket(ticket!.id);
+
+      if (res.succeeded) {
+        toast.success(res.message || 'Request close ticket sent');
+        await fetchTicket();
+        await fetchHistory();
+      } else {
+        toast.error(res.message || 'Request close ticket failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Request close ticket failed');
+    }
+  };
+  const handleAcceptCloseTicket = async () => {
+    try {
+      setClosing(true);
+      const res = await AcceptCloseTicket(ticket!.id);
+
+      if (res.succeeded) {
+        toast.success(res.message || 'Ticket closed successfully');
+        setIsCloseModalOpen(false);
+        await fetchTicket();
+        await fetchHistory();
+      } else {
+        toast.error(res.message || 'Accept close failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Accept close failed');
+    } finally {
+      setClosing(false);
+    }
+  };
+  const handleRejectCloseTicket = async (reason: string) => {
+    try {
+      const res = await RejectCloseTicket(ticket!.id, reason);
+
+      if (res.succeeded) {
+        toast.info(res.message || 'Close request rejected');
+        setIsRejectModalOpen(false);
+        await fetchTicket();
+        await fetchHistory();
+      } else {
+        toast.error(res.message || 'Reject close failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Reject close failed');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -348,12 +408,11 @@ const TicketDetailPage: React.FC = () => {
   console.log('progressPercent', progressPercent);
   // Thời gian bắt đầu / kết thúc (dùng luôn field BE trả về)
 
-  const canCloseTicket =
-    ticket.status !== 'Closed' &&
-    hasProcess &&
-    totalNonBacklog > 0 &&
-    doneCount === totalNonBacklog &&
-    Math.round(progressPercent) === 100;
+  const canRequestClose = viewMode === 'AsExecutor' && ticket.status === 'Accepted';
+
+  const canApproveClose = viewMode === 'AsRequester' && ticket.status === 'WaitingForCloseApproval';
+
+  const canManageDelete = viewMode === 'AsRequester' && ticket.status === 'Pending';
 
   const firstStartedAt = process?.firstStartedAt ? dayjs(process.firstStartedAt) : null;
 
@@ -381,6 +440,8 @@ const TicketDetailPage: React.FC = () => {
         return 'gray';
       case 'Accepted':
         return 'blue';
+      case 'WaitingForCloseApproval':
+        return 'gold';
       case 'Rejected':
         return 'red';
       case 'Finished':
@@ -504,29 +565,31 @@ const TicketDetailPage: React.FC = () => {
             )}
 
             {/* Delete / Restore button */}
-            {ticket.isDeleted ? (
-              <Button
-                icon={<CheckCircle size={16} />}
-                style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: 'white' }}
-                className="flex items-center gap-1"
-                onClick={() => setIsRestoreModalOpen(true)}
-              >
-                Restore
-              </Button>
-            ) : (
-              <Can code="TICKET_DELETE">
+            {canManageDelete &&
+              (ticket.isDeleted ? (
                 <Button
-                  danger
-                  icon={<Trash2 size={16} />}
+                  icon={<CheckCircle size={16} />}
+                  style={{ backgroundColor: '#22c55e', borderColor: '#22c55e', color: 'white' }}
                   className="flex items-center gap-1"
-                  onClick={() => setIsDeleteModalOpen(true)}
+                  onClick={() => setIsRestoreModalOpen(true)}
                 >
-                  Delete
+                  Restore
                 </Button>
-              </Can>
-            )}
+              ) : (
+                <Can code="TICKET_DELETE">
+                  <Button
+                    danger
+                    icon={<Trash2 size={16} />}
+                    className="flex items-center gap-1"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                  >
+                    Delete
+                  </Button>
+                </Can>
+              ))}
+
             {/* //close ticket */}
-            {!ticket.isClose && (
+            {/* {!ticket.isClose && (
               <Tooltip
                 title={
                   canCloseTicket
@@ -538,6 +601,27 @@ const TicketDetailPage: React.FC = () => {
                   Close Ticket
                 </Button>
               </Tooltip>
+            )} */}
+            {/* Executor: Request Close Ticket */}
+            {canRequestClose && (
+              <Tooltip title="Request requester to close this ticket">
+                <Button type="primary" onClick={() => setIsRequestCloseModalOpen(true)}>
+                  Request Close Ticket
+                </Button>
+              </Tooltip>
+            )}
+
+            {/* Requester: Accept / Reject Close */}
+            {canApproveClose && (
+              <div className="flex gap-2">
+                <Button danger onClick={() => setIsRejectCloseModalOpen(true)}>
+                  Reject Close
+                </Button>
+
+                <Button type="primary" onClick={() => setIsApproveCloseModalOpen(true)}>
+                  Accept & Close
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -625,7 +709,7 @@ const TicketDetailPage: React.FC = () => {
           <span className="flex items-center gap-2 text-gray-700">
             <ClipboardList size={16} />
             <b>Ticket Code:</b>
-            <Tag color="blue" className="font-mono">
+            <Tag color="gray" className="font-mono">
               {ticket.ticketCode}
             </Tag>
           </span>
@@ -662,19 +746,19 @@ const TicketDetailPage: React.FC = () => {
 
             {hasProcess && (
               <span className="text-gray-700 font-medium">
-                {doneCount}/{totalNonBacklog} tasks done
+                {ticket.totalTaskClosed}/{ticket.totalTask} tasks closed
               </span>
             )}
           </p>
 
           <Progress
-            percent={progressPercent}
+            percent={ticket.processTicketIsClose}
             status={
               !hasProcess
                 ? 'normal'
                 : doneCount === totalNonBacklog && totalNonBacklog > 0
-                ? 'success'
-                : 'active'
+                  ? 'success'
+                  : 'active'
             }
             format={(percent) =>
               hasProcess ? `${Math.round(percent ?? 0)}%` : 'No sprint execution yet'
@@ -687,7 +771,7 @@ const TicketDetailPage: React.FC = () => {
             }}
           />
 
-          {hasProcess ? (
+          {/* {hasProcess ? (
             <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-600">
               <span>
                 <b>Started:</b> {startedCount}/{totalNonBacklog}
@@ -713,6 +797,27 @@ const TicketDetailPage: React.FC = () => {
             <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
               <Info size={14} className="text-gray-400" />
               This ticket has no sprint execution yet. Tasks are still in backlog or not created.
+            </p>
+          )} */}
+          {ticket.totalTask > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-600">
+              <span>
+                <b>Total Tasks:</b> {ticket.totalTask ? ticket.totalTask : 0}
+              </span>
+
+              <span>
+                <b>Total Task Closed:</b> {ticket.totalTaskClosed ? ticket.totalTaskClosed : 0}
+              </span>
+
+              <span>
+                <b>Total Task Not Closed:</b>{' '}
+                {ticket.totalTaskNotClosed ? ticket.totalTaskNotClosed : 0}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+              <Info size={14} className="text-gray-400" />
+              This ticket has no tasks yet.
             </p>
           )}
         </div>
@@ -852,6 +957,7 @@ const TicketDetailPage: React.FC = () => {
           ticketId={ticket.id}
           projectId={ticket.projectId}
           componentId={ticket.component?.id ?? null}
+          canCreateTask={ticket.status === 'Accepted'}
         />
       )}
 
@@ -1075,33 +1181,74 @@ const TicketDetailPage: React.FC = () => {
         }}
       />
       <Modal
-        title="Confirm Close Ticket"
-        open={isCloseModalOpen}
-        onCancel={() => {
-          setIsCloseModalOpen(false);
-          setConfirmClose(false);
-        }}
-        footer={null}
+        title="Approve Close Ticket"
+        open={isApproveCloseModalOpen}
+        onCancel={() => setIsApproveCloseModalOpen(false)}
         centered
+        footer={null}
       >
         <div className="flex flex-col gap-4">
           <p className="text-gray-700">
-            Closing this ticket will <b>permanently close</b> it.
+            Are you sure you want to <b>approve and close</b> this ticket?
             <br />
-            You will{' '}
-            <span className="text-red-600 font-medium">not be able to make any changes</span> after
-            closing.
+            This action <span className="text-red-600 font-medium">cannot be undone</span>.
           </p>
 
           <Checkbox checked={confirmClose} onChange={(e) => setConfirmClose(e.target.checked)}>
             I understand and want to close this ticket permanently
           </Checkbox>
 
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="flex justify-end gap-2">
             <Button
               onClick={() => {
-                setIsCloseModalOpen(false);
+                setIsApproveCloseModalOpen(false);
                 setConfirmClose(false);
+              }}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="primary"
+              danger
+              disabled={!confirmClose || closing}
+              loading={closing}
+              onClick={async () => {
+                await handleAcceptCloseTicket();
+                setIsApproveCloseModalOpen(false);
+                setConfirmClose(false);
+              }}
+            >
+              Approve & Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        title="Reject Close Ticket"
+        open={isRejectCloseModalOpen}
+        onCancel={() => {
+          setIsRejectCloseModalOpen(false);
+          setRejectCloseReason('');
+        }}
+        centered
+        footer={null}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-gray-700">Please provide a reason for rejecting the close request.</p>
+
+          <Input.TextArea
+            rows={4}
+            placeholder="Enter rejection reason..."
+            value={rejectCloseReason}
+            onChange={(e) => setRejectCloseReason(e.target.value)}
+          />
+
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                setIsRejectCloseModalOpen(false);
+                setRejectCloseReason('');
               }}
             >
               Cancel
@@ -1110,27 +1257,48 @@ const TicketDetailPage: React.FC = () => {
             <Button
               danger
               type="primary"
-              disabled={!confirmClose || closing}
-              loading={closing}
+              disabled={!rejectCloseReason.trim()}
               onClick={async () => {
-                try {
-                  setClosing(true);
-                  const res = await CloseTicket(ticketId);
-                  toast.success(res.message);
-
-                  setIsCloseModalOpen(false);
-                  setConfirmClose(false);
-
-                  await fetchTicket();
-                  await fetchHistory();
-                } catch (error: any) {
-                  toast.error(error.response?.data?.message || 'Close ticket failed');
-                } finally {
-                  setClosing(false);
-                }
+                await handleRejectCloseTicket(rejectCloseReason);
+                setIsRejectCloseModalOpen(false);
+                setRejectCloseReason('');
               }}
             >
-              Close Permanently
+              Reject Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        title="Request Close Ticket"
+        open={isRequestCloseModalOpen}
+        onCancel={() => setIsRequestCloseModalOpen(false)}
+        centered
+        footer={null}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-gray-700">
+            Are you sure you want to <b>request closing</b> this ticket?
+            <br />
+            The requester will need to <b>approve</b> before the ticket is officially closed.
+          </p>
+
+          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 text-sm text-yellow-800">
+            <WarningOutlined className="mr-2 text-yellow-600" />
+            This action cannot be undone unless the requester rejects the close request.
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setIsRequestCloseModalOpen(false)}>Cancel</Button>
+
+            <Button
+              type="primary"
+              onClick={async () => {
+                await handleRequestCloseTicket();
+                setIsRequestCloseModalOpen(false);
+              }}
+            >
+              Confirm Request Close
             </Button>
           </div>
         </div>
