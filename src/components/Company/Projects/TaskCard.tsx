@@ -121,6 +121,7 @@ type Props = {
   isAiNew?: boolean;
   components?: { id: string; name: string }[];
   onClose?: (t: TaskVm) => void;
+  mode?: "default" | "backlog" | "close";
 };
 
 function hexToRgba(hex?: string, a = 1) {
@@ -146,14 +147,19 @@ export default function TaskCard({
   isAiNew,
   components,
   onClose,
+  mode = "default",
 }: Props) {
   const navigate = useNavigate();
   const { companyId, projectId } = useParams();
+const isBacklogMode = mode === "backlog";
+const isCloseMode = mode === "close";
+const isCompactMode = isBacklogMode || isCloseMode;
 
   const isAiDraft =
     (t as any).isAiDraft ||
     (t as any).source === "AI_DRAFT" ||
     ((t as any).source === "AI" && !isGuid(t.id));
+const canNavigateDetail = isGuid(t.id) && !isAiDraft && !isCompactMode;
 
   const isPersisted = isGuid(t.id);
   const isAiPersisted = !isAiDraft && (t as any).source === "AI";
@@ -177,22 +183,22 @@ export default function TaskCard({
   const usingDueDate = !!t.dueDate;
   let remaining: number | null = null;
 
-  if (!isAiDraft) {
-    if (t.dueDate) {
-      const diff = hoursBetween(nowIso, t.dueDate);
-      if (Number.isFinite(diff)) remaining = Math.ceil(diff);
-    } else if (slaTarget != null && (t as any).openedAt) {
-      const openedAt = (t as any).openedAt as string;
-      const elapsed = hoursBetween(openedAt, nowIso);
-      if (Number.isFinite(elapsed)) remaining = Math.ceil(slaTarget - Math.max(0, elapsed));
-    }
+if (!isBacklogMode && !isAiDraft) {
+  if (t.dueDate) {
+    const diff = hoursBetween(nowIso, t.dueDate);
+    if (Number.isFinite(diff)) remaining = Math.ceil(diff);
+  } else if (slaTarget != null && (t as any).openedAt) {
+    const openedAt = (t as any).openedAt as string;
+    const elapsed = hoursBetween(openedAt, nowIso);
+    if (Number.isFinite(elapsed)) remaining = Math.ceil(slaTarget - Math.max(0, elapsed));
   }
+}
+const showSla = !isBacklogMode && !isDone && remaining != null;
 
   const overdue = remaining != null && remaining < 0;
   const urgent = t.priority === "Urgent";
   const blocked = ((t as any).dependsOn || []).length > 0;
 
-  const showSla = !isDone && remaining != null;
 
   type SlaState = "safe" | "warn" | "overdue";
   let slaState: SlaState | null = null;
@@ -293,11 +299,11 @@ export default function TaskCard({
           : `border ${cardBorderColorClass}`
     : "";
 
-  const handleOpenTaskDetail = () => {
-    if (!isPersisted || isAiDraft) return;
-    if (!companyId || !projectId) return;
-    navigate(`/companies/${companyId}/project/${projectId}/task/${t.id}`);
-  };
+const handleOpenTaskDetail = () => {
+  if (!canNavigateDetail) return;
+  if (!companyId || !projectId) return;
+  navigate(`/companies/${companyId}/project/${projectId}/task/${t.id}`);
+};
 
   const handleOpenTicketDetail = () => {
     if (!ticketId) return;
@@ -430,19 +436,23 @@ export default function TaskCard({
       )}
 
       {/* Title */}
-      <button
-        type="button"
-        className={cn(
-          "mt-2 text-[13px] font-semibold leading-6 text-left",
-          isPersisted && !isAiDraft
-            ? "text-blue-600 underline decoration-blue-400 underline-offset-[3px] hover:text-blue-700 hover:decoration-blue-600"
-            : "text-slate-800 cursor-default",
-          "focus:outline-none",
-        )}
-        onClick={handleOpenTaskDetail}
-      >
-        {t.title}
-      </button>
+    <button
+  type="button"
+  disabled={!canNavigateDetail}
+  className={cn(
+    "mt-2 text-[13px] font-semibold leading-6 text-left focus:outline-none",
+    canNavigateDetail
+      ? "text-blue-600 underline decoration-blue-400 underline-offset-[3px] hover:text-blue-700 hover:decoration-blue-600"
+      : "text-slate-800 cursor-default",
+    // ✅ Close: gạch ngang tên
+    (isCloseMode || isClosed) && "line-through decoration-slate-400 text-slate-500",
+    !canNavigateDetail && "disabled:opacity-100"
+  )}
+  onClick={handleOpenTaskDetail}
+>
+  {t.title}
+</button>
+
 
       {/* Ticket / Component pill */}
       {(ticketId || componentId) && (
@@ -493,23 +503,29 @@ export default function TaskCard({
       )}
 
       {/* Meta */}
-      <div className="mt-2 text-[11px] text-slate-600 flex items-center flex-wrap gap-x-4 gap-y-1">
-        <div className="flex items-center gap-1">
-          <Flag className="w-3 h-3" /> {t.type}
-        </div>
-        <div className="flex items-center gap-1">
-          <TimerReset className="w-3 h-3" /> {Math.max(0, points ?? 0)} pts
-        </div>
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" /> {t.estimateHours ?? 0}h
-        </div>
-        <div className="flex items-center gap-1">
-          <CalendarDays className="w-3 h-3" />
-          <span>Due: {fmtDate(t.dueDate as any)}</span>
-        </div>
+   <div className="mt-2 text-[11px] text-slate-600 flex items-center flex-wrap gap-x-4 gap-y-1">
+  <div className="flex items-center gap-1">
+    <Flag className="w-3 h-3" /> {t.type}
+  </div>
+
+  {!isBacklogMode && (
+    <>
+      <div className="flex items-center gap-1">
+        <TimerReset className="w-3 h-3" /> {Math.max(0, points ?? 0)} pts
       </div>
+      <div className="flex items-center gap-1">
+        <Clock className="w-3 h-3" /> {t.estimateHours ?? 0}h
+      </div>
+      <div className="flex items-center gap-1">
+        <CalendarDays className="w-3 h-3" />
+        <span>Due: {fmtDate(t.dueDate as any)}</span>
+      </div>
+    </>
+  )}
+</div>
 
       {/* Assignees + SLA */}
+      {!isBacklogMode && (
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <AvatarGroup members={(t.assignees as any) || []} />
@@ -534,8 +550,9 @@ export default function TaskCard({
           </span>
         )}
       </div>
-
+)}
       {/* Actions (LEFT aligned) */}
+      {!isBacklogMode && (
       <div className="mt-3 flex items-center justify-start gap-2 flex-wrap">
         {isAiDraft || !isPersisted ? (
           <span className="text-[11px] text-slate-500 italic">AI Draft</span>
@@ -585,6 +602,7 @@ export default function TaskCard({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

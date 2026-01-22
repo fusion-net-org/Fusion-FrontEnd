@@ -1,38 +1,29 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
-import QuickTaskCreateCard from "@/components/Company/Task/QuickTaskCreateCard";
-import type { SprintVm, TaskVm } from "@/types/projectBoard";
+import type { TaskVm } from "@/types/projectBoard";
 import useClickOutside from "@/hook/useClickOutside";
+import BacklogQuickCreateCard from "./BacklogQuickCreateCard";
 
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
-export default function ColumnHoverCreate({
-  sprint,
-  statusId,
-  allowStatusPicker = false,
+export default function BacklogHoverCreate({
   className = "",
-  createAsDraft = false,         // 👈 NEW
   onCreatedVM,
+  onReload,
 
-  // ✅ NEW: chỉ dùng cho maintenance
   maintenanceEnabled = false,
   components = [],
   defaultComponentId = null,
 }: {
-  sprint: SprintVm;
-  statusId: string;
-  allowStatusPicker?: boolean;
   className?: string;
-  createAsDraft?: boolean;       // 👈 NEW
   onCreatedVM?: (t: TaskVm) => void;
+  onReload?: () => Promise<void> | void;
 
-  // ✅ NEW: chỉ dùng cho maintenance
   maintenanceEnabled?: boolean;
   components?: { id: string; name: string }[];
   defaultComponentId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-
   const rootRef = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
 
   return (
@@ -51,16 +42,11 @@ export default function ColumnHoverCreate({
           Create
         </button>
       ) : (
-        <QuickTaskCreateCard
-          sprint={sprint}
-          statusId={statusId}
-          allowStatusPicker={allowStatusPicker}
-          createAsDraft={createAsDraft}      
-
+        <BacklogQuickCreateCard
           maintenanceEnabled={maintenanceEnabled}
           components={components}
           defaultComponentId={defaultComponentId}
-
+          onReload={onReload}
           onCreated={(vm) => {
             if (vm) onCreatedVM?.(vm);
             setOpen(false);
