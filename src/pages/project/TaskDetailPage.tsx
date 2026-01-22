@@ -765,6 +765,153 @@ const draftMeta =
     () => workflowGroups.filter((g) => !g.hasStart),
     [workflowGroups]
   );
+// ===== Workflow transitions (giống Sprint board) =====
+type SprintTransition = {
+  id: string;
+  fromStatusId: string;
+  toStatusId: string;
+  type: string; // success | failure | optional | ...
+  label?: string | null;
+  enforceTransitions?: boolean;
+};
+
+type HighlightKind = "success" | "optional" | "failure";
+type TransitionHint = { kind: HighlightKind; labels: string[] };
+
+const sprintTransitions: SprintTransition[] = useMemo(() => {
+  const raw =
+    (sprint as any)?.transitions ??
+    (sprint as any)?.workflowTransitions ??
+    [];
+
+  return (Array.isArray(raw) ? raw : [])
+    .map((x: any): SprintTransition => ({
+      id: String(x.id ?? `${x.fromStatusId ?? x.from}-${x.toStatusId ?? x.to}`),
+      fromStatusId: String(
+        x.fromStatusId ?? x.fromStatus ?? x.sourceStatusId ?? x.sourceId ?? x.from ?? ""
+      ),
+      toStatusId: String(
+        x.toStatusId ?? x.toStatus ?? x.targetStatusId ?? x.targetId ?? x.to ?? ""
+      ),
+      type: String(x.type ?? x.transitionType ?? "success").toLowerCase(),
+      label: x.label ?? x.name ?? null,
+      enforceTransitions: !!x.enforceTransitions,
+    }))
+    .filter((tr) => tr.fromStatusId && tr.toStatusId);
+}, [sprint]);
+
+const hasAnyTransitions = sprintTransitions.length > 0;
+
+// transitions đi ra từ status hiện tại
+const outgoingTransitions = useMemo(
+  () => sprintTransitions.filter((tr) => tr.fromStatusId === activeStatusId),
+  [sprintTransitions, activeStatusId]
+);
+
+// Tập statusId hợp lệ trong sprint (để lọc các transition rác)
+const validStatusIdSet = useMemo(() => {
+  const ids = (statusList as any[]).map((x) => String(x.id));
+  return new Set(ids);
+}, [statusList]);
+
+// Allowed targets theo đúng policy ở Sprint board
+const allowedTargets = useMemo(() => {
+  // Legacy workflow không có transitions -> fallback cho phép chọn theo statusOrder (giữ behavior cũ)
+  if (!hasAnyTransitions) {
+    return (statusList as any[]).map((x) => String(x.id)).filter(Boolean);
+  }
+
+  // Có transitions nhưng status hiện tại không có outgoing -> không cho nhảy (tránh đi vào đường không transition)
+  if (!outgoingTransitions.length) return [];
+
+  const enforcedNonFail = Array.from(
+    new Set(
+      outgoingTransitions
+        .filter((tr) => tr.enforceTransitions && tr.type !== "failure")
+        .map((tr) => tr.toStatusId)
+    )
+  );
+
+  const failureTargets = Array.from(
+    new Set(outgoingTransitions.filter((tr) => tr.type === "failure").map((tr) => tr.toStatusId))
+  );
+
+  // Nếu có enforceTransitions (non-failure) -> chỉ cho phép enforced + failure (y như board)
+  const rawAllowed = enforcedNonFail.length
+    ? Array.from(new Set([...enforcedNonFail, ...failureTargets]))
+    : Array.from(new Set(outgoingTransitions.map((tr) => tr.toStatusId)));
+
+  // lọc chỉ những status tồn tại trong sprint
+  return rawAllowed.filter((id) => validStatusIdSet.has(id));
+}, [hasAnyTransitions, outgoingTransitions, statusList, validStatusIdSet]);
+
+const isAllowedStatus = (id: string) => id === activeStatusId || allowedTargets.includes(id);
+
+// Hint UI giống highlightTargets của board (để show chip Success/Optional/Rework)
+const transitionHints: Record<string, TransitionHint> = useMemo(() => {
+  const next: Record<string, TransitionHint> = {};
+  const priority: Record<HighlightKind, number> = {
+    success: 3,
+    failure: 2,
+    optional: 1,
+  };
+
+  outgoingTransitions.forEach((tr) => {
+    // CHỈ hint các target đang được phép (match allowedTargets)
+    if (!allowedTargets.includes(tr.toStatusId)) return;
+
+    const kind: HighlightKind =
+      tr.type === "success"
+        ? "success"
+        : tr.type === "failure"
+        ? "failure"
+        : "optional";
+
+    const rawLabel = (tr.label || "").trim();
+    const label =
+      rawLabel ||
+      (kind === "success"
+        ? "Success"
+        : kind === "failure"
+        ? "Rework"
+        : "Optional");
+
+    const prev = next[tr.toStatusId];
+    if (!prev) next[tr.toStatusId] = { kind, labels: [label] };
+    else {
+      const bestKind = priority[kind] > priority[prev.kind] ? kind : prev.kind;
+      const labels = prev.labels.includes(label) ? prev.labels : [...prev.labels, label];
+      next[tr.toStatusId] = { kind: bestKind, labels };
+    }
+  });
+
+  return next;
+}, [outgoingTransitions, allowedTargets]);
+
+
+// “Next” theo flow transition (ưu tiên success)
+const nextStatusIdByFlow = useMemo(() => {
+  if (!activeStatusId) return null;
+  if (!hasAnyTransitions) {
+    // legacy fallback: next theo statusOrder cũ
+    const idx = (statusList as any[]).findIndex((s) => s.id === activeStatusId);
+    const next = idx >= 0 ? (statusList as any[])[idx + 1] : null;
+    return next?.id ?? null;
+  }
+
+  if (!outgoingTransitions.length) return null;
+
+  const pick =
+    outgoingTransitions.find((tr) => tr.type === "success") ??
+    outgoingTransitions.find((tr) => tr.type !== "failure") ??
+    outgoingTransitions[0];
+
+  const id = pick?.toStatusId ?? null;
+  return id && validStatusIdSet.has(id) ? id : null;
+}, [activeStatusId, hasAnyTransitions, outgoingTransitions, statusList, validStatusIdSet]);
+
+const nextMetaByFlow =
+  nextStatusIdByFlow && sprint.statusMeta ? (sprint.statusMeta as any)[nextStatusIdByFlow] : null;
 
   /* ===== handlers ===== */
 
@@ -772,20 +919,29 @@ const draftMeta =
     setModel((prev) => ({ ...prev, [key]: value }));
   }
 
-  // click chọn status trong panel (chưa apply)
-  function handleStatusClick(statusId: string) {
-    if (statusId === activeStatusId) {
-      setDraftStatusId(null);
-    } else {
-      setDraftStatusId(statusId);
-    }
+function handleStatusClick(statusId: string) {
+  if (statusId === activeStatusId) {
+    setDraftStatusId(null);
+    return;
   }
+
+  if (!isAllowedStatus(statusId)) {
+    toast.info("Workflow does not allow moving to this status (no transition).");
+    return;
+  }
+
+  setDraftStatusId(statusId);
+}
+
 
   async function commitStatusChange(statusId: string) {
     if (!statusId || statusId === activeStatusId) return;
     const meta: any = sprint.statusMeta[statusId];
     if (!meta) return;
-
+  if (!isAllowedStatus(statusId)) {
+    toast.info("This move is not allowed by workflow transitions.");
+    return;
+  }
     const now = new Date().toISOString();
     const prev = model;
     const next: TaskVm = {
@@ -820,10 +976,12 @@ const draftMeta =
     await commitStatusChange(draftStatusId);
   }
 
-  async function handleQuickNext() {
-    if (!nextStatus || nextStatus.id === activeStatusId) return;
-    await commitStatusChange(nextStatus.id);
-  }
+async function handleQuickNext() {
+  if (!nextStatusIdByFlow) return;
+  if (nextStatusIdByFlow === activeStatusId) return;
+  await commitStatusChange(nextStatusIdByFlow);
+}
+
 
   // ===== CHECKLIST HANDLERS =====
 
@@ -1266,19 +1424,20 @@ const draftMeta =
                     {activeMeta.name}
                   </span>
 
-                  {nextStatus && !activeMeta.isFinal && (
-                    <button
-                      type="button"
-                      onClick={handleQuickNext}
-                      disabled={changingStatus}
-                      className={cn(
-                        "h-8 px-3 rounded-full border text-[11px] font-medium inline-flex items-center gap-1 bg-blue-50/80 border-blue-300 text-blue-700 hover:bg-blue-100",
-                        changingStatus && "opacity-60 cursor-not-allowed"
-                      )}
-                    >
-                      Next: {nextStatus.name}
-                    </button>
-                  )}
+                {nextStatusIdByFlow && !activeMeta.isFinal && nextMetaByFlow && (
+  <button
+    type="button"
+    onClick={handleQuickNext}
+    disabled={changingStatus || !isAllowedStatus(nextStatusIdByFlow)}
+    className={cn(
+      "h-8 px-3 rounded-full border text-[11px] font-medium inline-flex items-center gap-1 bg-blue-50/80 border-blue-300 text-blue-700 hover:bg-blue-100",
+      (changingStatus || !isAllowedStatus(nextStatusIdByFlow)) && "opacity-60 cursor-not-allowed"
+    )}
+  >
+    Next: {nextMetaByFlow.name ?? "Next"}
+  </button>
+)}
+
 
                   <button
                     type="button"
@@ -1305,93 +1464,147 @@ const draftMeta =
             {/* Panel chọn status */}
             {statusPickerOpen && statusList.length > 0 && (
               <div className="mt-3 rounded-2xl border border-slate-100 bg-white/80 p-3 max-h-64 overflow-y-auto space-y-1.5">
-                {statusList.map((st: any, idx: number) => {
-                  const isCurrent = st.id === activeStatusId;
-                  const isTarget =
-                    !!draftStatusId && draftStatusId === st.id && !isCurrent;
+             {statusList.map((st: any, idx: number) => {
+  const isCurrent = st.id === activeStatusId;
+  const isTarget = !!draftStatusId && draftStatusId === st.id && !isCurrent;
 
-                  const category = (st.category || "").toUpperCase();
+  const allowed = isAllowedStatus(st.id);
+  const disabled = !allowed || changingStatus;
+  const hint = transitionHints[st.id]; // chỉ có nếu allowedTargets chứa st.id
 
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => handleStatusClick(st.id)}
-                      className={cn(
-                        "w-full text-left rounded-xl px-3 py-2 flex items-center gap-3 border transition",
-                        isCurrent
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : isTarget
-                          ? "bg-blue-50 text-slate-900 border-blue-300 shadow-sm"
-                          : "bg-slate-50 text-slate-800 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold",
-                          isCurrent
-                            ? "bg-slate-800 text-white"
-                            : "bg-white/80 text-slate-800"
-                        )}
-                      >
-                        {idx + 1}
-                      </div>
+  const category = (st.category || "").toUpperCase();
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold truncate">
-                            {st.name}
-                          </span>
-                          {isCurrent && (
-                            <span className="text-[10px] text-slate-300">
-                              (current)
-                            </span>
-                          )}
-                          {isTarget && (
-                            <span className="text-[10px] font-medium text-blue-700">
-                              (next)
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
-                          {st.isStart && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                              Start
-                            </span>
-                          )}
-                          {st.isFinal && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              Final
-                            </span>
-                          )}
-                          {st.category && (
-                            <span
-                              className={cn(
-                                "inline-flex items-center px-1.5 py-0.5 rounded-full border",
-                                categoryChipClasses(category)
-                              )}
-                            >
-                              {category.replace(/_/g, " ")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+  // highlight row giống sprint: xanh = success, đỏ = failure, optional = xanh nhạt (dashed)
+  const hintRowClass =
+    !isCurrent && !isTarget && !disabled && hint?.kind === "success"
+      ? "border-emerald-300 bg-emerald-50/70"
+      : !isCurrent && !isTarget && !disabled && hint?.kind === "failure"
+      ? "border-rose-300 bg-rose-50/70"
+      : !isCurrent && !isTarget && !disabled && hint?.kind === "optional"
+      ? "border-emerald-200 bg-emerald-50/40 border-dashed"
+      : "";
 
-                      <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center bg-white/60">
-                        <div
-                          className={cn(
-                            "w-2.5 h-2.5 rounded-full",
-                            isCurrent
-                              ? "bg-slate-900"
-                              : isTarget
-                              ? "bg-blue-600"
-                              : "bg-transparent"
-                          )}
-                        />
-                      </div>
-                    </button>
-                  );
-                })}
+  const hintChipClass =
+    hint?.kind === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : hint?.kind === "failure"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : hint?.kind === "optional"
+      ? "border-emerald-200 bg-emerald-50/40 text-emerald-700"
+      : "";
+
+  return (
+    <button
+      key={st.id}
+      type="button"
+      disabled={disabled} // ✅ disable thật
+      onClick={() => handleStatusClick(st.id)}
+      className={cn(
+        "w-full text-left rounded-xl px-3 py-2 flex items-center gap-3 border transition",
+        // disabled state
+        disabled && !isCurrent
+          ? "bg-slate-50 text-slate-400 border-slate-200 opacity-70 cursor-not-allowed"
+          : isCurrent
+          ? "bg-slate-900 text-white border-slate-900"
+          : isTarget
+          ? "bg-blue-50 text-slate-900 border-blue-300 shadow-sm"
+          : hintRowClass
+          ? hintRowClass
+          : "bg-slate-50 text-slate-800 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+      )}
+      title={
+        disabled && !isCurrent
+          ? "Not allowed by workflow transitions"
+          : undefined
+      }
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold",
+          isCurrent
+            ? "bg-slate-800 text-white"
+            : disabled
+            ? "bg-white/70 text-slate-400"
+            : "bg-white/80 text-slate-800"
+        )}
+      >
+        {idx + 1}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold truncate">{st.name}</span>
+
+          {isCurrent && (
+            <span className="text-[10px] text-slate-300">(current)</span>
+          )}
+
+          {isTarget && (
+            <span className="text-[10px] font-medium text-blue-700">(next)</span>
+          )}
+
+          {/* ✅ chip highlight (xanh/đỏ) giống sprint */}
+          {!isCurrent && !disabled && hint && (
+            <span
+              className={cn(
+                "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-medium",
+                hintChipClass
+              )}
+            >
+              {hint.labels?.[0] ?? (hint.kind === "success" ? "Success" : "Rework")}
+            </span>
+          )}
+
+          {/* (optional) show Not allowed */}
+          {disabled && !isCurrent && (
+            <span className="text-[10px] text-slate-400">(disabled)</span>
+          )}
+        </div>
+
+        <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
+          {st.isStart && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              Start
+            </span>
+          )}
+          {st.isFinal && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Final
+            </span>
+          )}
+          {st.category && (
+            <span
+              className={cn(
+                "inline-flex items-center px-1.5 py-0.5 rounded-full border",
+                categoryChipClasses(category)
+              )}
+            >
+              {category.replace(/_/g, " ")}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center bg-white/60">
+        <div
+          className={cn(
+            "w-2.5 h-2.5 rounded-full",
+            isCurrent
+              ? "bg-slate-900"
+              : isTarget
+              ? "bg-blue-600"
+              : !disabled && hint?.kind === "success"
+              ? "bg-emerald-600"
+              : !disabled && hint?.kind === "failure"
+              ? "bg-rose-600"
+              : "bg-transparent"
+          )}
+        />
+      </div>
+    </button>
+  );
+})}
+
 
                 {draftMeta && (
                   <div className="pt-2 mt-1 border-t border-dashed border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">

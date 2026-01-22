@@ -42,6 +42,7 @@ import { normalizeBoardInput } from "@/mappers/projectBoardMapper";
 import { fetchSprintBoard } from "@/services/projectBoardService.js";
 import TicketPopup from "@/components/ProjectSideCompanyRequest/TicketPopup";
 import type { JSX } from "@fullcalendar/core/preact.js";
+import { getProjectMemberByProjectId } from "@/services/projectMember.js";
 
 import {
   createTaskQuick,
@@ -157,7 +158,7 @@ const isSprintActive = (s: any) => {
 };
 
 /* ========== Inner: logic view board ========== */
-function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
+function Inner(props: { componentsFromBoard?: ComponentVm[]; memberCountFromOuter?: number }) {
   const {
     sprints,
     tasks,
@@ -260,6 +261,14 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
             detail?.ownerCompany ??
             detail?.company ??
             "",
+memberCount:
+  detail?.memberCount ??
+  detail?.totalMembers ??
+  detail?.membersCount ??
+  detail?.memberTotal ??
+  (Array.isArray(detail?.members) ? detail.members.length : null) ??
+  props.memberCountFromOuter ??
+  null,
 
           companyHiredName: detail?.companyHiredName ?? detail?.hiredCompanyName ?? null,
 
@@ -275,13 +284,7 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
             detail?.createdByDisplayName ??
             null,
           createdAt: detail?.createdAt ?? detail?.createAt ?? detail?.createdOn ?? null,
-          memberCount:
-  detail?.memberCount ??
-  detail?.totalMembers ??
-  detail?.membersCount ??
-  detail?.memberTotal ??
-  (Array.isArray(detail?.members) ? detail.members.length : null) ??
-  null,
+          
         });
 
         const maint = toBool(
@@ -802,7 +805,6 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
         </nav>
 
         <div className="self-center flex items-center gap-2 pr-4">
-          {/* ✅ Component dropdown (no search, list all) */}
           {maintenanceEnabled && (
             <div className="relative" ref={componentMenuRef}>
               <button
@@ -829,9 +831,7 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
                     <div className="text-sm font-semibold text-slate-900">
                       Filter by component
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      Click = single-select · Ctrl/⌘ + click = multi-select
-                    </div>
+              
                   </div>
 
                   <div className="max-h-[320px] overflow-auto py-1">
@@ -1037,10 +1037,17 @@ function Inner(props: { componentsFromBoard?: ComponentVm[] }) {
               />
             )}
 
-            {view === "Sprint" && (
-              <SprintBoard sprints={sprintsForView} onDragEnd={onDragEndSprint} {...eventApi} />
-            )}
-
+          {view === "Sprint" && (
+  <SprintBoard
+    sprints={sprintsForView}
+    tasks={tasksByComponent}
+    onDragEnd={onDragEndSprint}
+    maintenanceEnabled={maintenanceEnabled}
+    components={components}
+    defaultComponentId={autoComponentId}
+    {...eventApi}
+  />
+)}
             {view === "List" && (
               <ProjectTaskList tasks={listTasks} {...eventApi} />
             )}
@@ -1072,7 +1079,7 @@ export default function ProjectBoardPage() {
   const { projectId = "project-1", companyId } = useParams<{ projectId: string; companyId?: string }>();
   (window as any).__projectId = projectId;
 
-  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[]; components: ComponentVm[] } | null>(null);
+  const [init, setInit] = React.useState<{ sprints: SprintVm[]; tasks: TaskVm[]; components: ComponentVm[];  memberCount?: number | null;} | null>(null);
 
   React.useEffect(() => {
     let dead = false;
@@ -1132,15 +1139,53 @@ export default function ProjectBoardPage() {
           return kickOutWithToast("You not in project.");
         }
 
-        const res = await fetchSprintBoard(projectId);
-        const normalized: any = normalizeBoardInput(res ?? {});
-        if (!dead) {
-          setInit({
-            sprints: normalized?.sprints ?? [],
-            tasks: normalized?.tasks ?? [],
-            components: normalized?.components ?? [],
-          });
-        }
+          const [boardRes, detailRaw, memberPaged] = await Promise.all([
+      fetchSprintBoard(projectId),
+      GetProjectByProjectId(projectId).catch(() => null),
+        getProjectMemberByProjectId(projectId, "", "", "", 1, 1).catch(() => null), 
+
+    ]);
+
+    const normalized: any = normalizeBoardInput(boardRes ?? {});
+    const detail: any = (detailRaw as any)?.data ?? detailRaw ?? {};
+
+    const compsFromDetail = extractComponentsFromProjectDetail(detail);
+    const compsFromBoard = Array.isArray(normalized?.components) ? normalized.components : [];
+    const mergedComponents = compsFromDetail.length ? compsFromDetail : compsFromBoard;
+
+    const maint = toBool(
+      detail?.isMaintenance ??
+        detail?.isMaintenace ??
+        detail?.is_maintenance ??
+        normalized?.isMaintenance ??
+        normalized?.project?.isMaintenance ??
+        false,
+    );
+const mp: any = (memberPaged as any)?.data ?? memberPaged ?? {};
+const memberCount =
+  mp?.totalCount ??
+  mp?.total ??
+  mp?.totalItems ??
+  mp?.totalRecords ??
+  mp?.pagination?.totalCount ??
+  mp?.pageInfo?.totalItems ??
+  (Array.isArray(mp?.items) ? mp.items.length : null) ??
+  null;
+    const maintenanceEnabled = maint || mergedComponents.length > 0;
+
+    const sprintsWithIsMain = (normalized?.sprints ?? []).map((sp: any) => ({
+      ...sp,
+      isMain: maintenanceEnabled,
+    }));
+
+    if (!dead) {
+      setInit({
+        sprints: sprintsWithIsMain,
+        tasks: normalized?.tasks ?? [],
+        components: mergedComponents,
+        memberCount,
+      });
+    }
       } catch (err) {
         console.error("Failed to check access/load sprint board", err);
         if (!dead) setInit({ sprints: [], tasks: [], components: [] });
@@ -1158,7 +1203,7 @@ export default function ProjectBoardPage() {
 
   return (
     <ProjectBoardProvider key={projectId} projectId={projectId} initialData={init as any}>
-      <Inner componentsFromBoard={init.components} />
+<Inner componentsFromBoard={init.components} memberCountFromOuter={init.memberCount} />
     </ProjectBoardProvider>
   );
 }
