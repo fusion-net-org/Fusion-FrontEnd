@@ -559,6 +559,7 @@ const handleOpenTaskDetail = () => {
         ) : (
           <>
             {typeof onClose === "function" && (
+              <Can code='TASK_CANCEL'>
               <button
                 type="button"
                 disabled={!canClose}
@@ -580,6 +581,7 @@ const handleOpenTaskDetail = () => {
                 {isDone ? <Check className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                 {isDone ? "Close" : "Cancel"}
               </button>
+              </Can>
             )}
 
             <Can code="TASK_SPLIT">

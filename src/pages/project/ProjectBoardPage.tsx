@@ -187,7 +187,7 @@ function Inner(props: { componentsFromBoard?: ComponentVm[]; memberCountFromOute
     React.useState<string | null>(null);
   const hasProjectRequest = !!projectRequestId;
 
-  const [view, setView] = React.useState<"Kanban" | "Sprint" | "List">("Kanban");
+  const [view, setView] = React.useState<"Kanban" | "Sprint" | "List">("Sprint");
   const [query, setQuery] = React.useState("");
   const [kanbanFilter, setKanbanFilter] =
     React.useState<"ALL" | StatusCategory>("ALL");

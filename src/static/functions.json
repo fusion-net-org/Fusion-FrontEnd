@@ -62,6 +62,7 @@
   { "id": 91, "functionCode": "WORKFLOW_CREATE", "functionName": "Create new workflow", "pageCode": "WORKFLOW", "sortOrder": 2 },
   { "id": 93, "functionCode": "WORKFLOW_UPDATE", "functionName": "Update workflow", "pageCode": "WORKFLOW", "sortOrder": 4 },
   { "id": 94, "functionCode": "WORKFLOW_DELETE", "functionName": "Delete workflow", "pageCode": "WORKFLOW", "sortOrder": 5 },
-  { "id": 109, "functionCode": "SPRINT_TASK_VIEW_ALL", "functionName": "View all tasks in sprint ", "pageCode": "PROJECT", "sortOrder": 15 }
+  { "id": 109, "functionCode": "SPRINT_TASK_VIEW_ALL", "functionName": "View all tasks in sprint ", "pageCode": "PROJECT", "sortOrder": 15 },
+    { "id": 110, "functionCode": "TASK_CLOSE", "functionName": "Close/Cancel task", "pageCode": "TASK", "sortOrder": 20 }
 
 ]
