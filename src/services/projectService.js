@@ -469,6 +469,23 @@ export async function closeProject(projectId) {
   return data?.data ?? data;
 }
 
+export async function closeProjectV2(
+  projectId,
+  forceClose
+) {
+  if (!isGuid(projectId)) throw new Error('Invalid projectId');
+
+  const { data } = await axiosInstance.post(
+    `/projects/${projectId}/close/v2`,
+    {
+      forceClose
+    }
+  );
+
+  return data?.data;
+}
+
+
 export async function reopenProject(projectId) {
   if (!isGuid(projectId)) throw new Error('Invalid projectId');
   const { data } = await axiosInstance.post(`/projects/${projectId}/reopen`);
@@ -480,3 +497,10 @@ export const checkProjectAccess = async (projectId) => {
   const { data } = await axiosInstance.get(`/projects/${projectId}/access`);
   return data?.data ?? data;
 };
+
+export const GetCloseProjectSummaryById = async (projectId) => { 
+    if (!isGuid(projectId)) throw new Error('Invalid projectId');
+    const { data } = await axiosInstance.get(`/projects/${projectId}/close-summary`);
+    return data?.data ?? data;
+}
+

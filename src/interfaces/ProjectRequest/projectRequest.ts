@@ -31,3 +31,11 @@ export interface ProjectRequestResponse {
   pageNumber: number;
   pageSize: number;
 }
+
+export const ProjectRequestClosedRejectReasons = [
+  { value: 'NOT_COMPLETED', label: 'Project is not completed' },
+  { value: 'NOT_MEET_REQUIREMENTS', label: 'Does not meet requirements' },
+  { value: 'QUALITY_ISSUES', label: 'Quality issues' },
+  { value: 'MISSING_DELIVERABLES', label: 'Missing deliverables' },
+  { value: 'OTHER', label: 'Other' },
+];

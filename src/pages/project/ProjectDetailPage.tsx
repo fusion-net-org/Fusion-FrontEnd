@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/rules-of-hooks */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -28,6 +27,7 @@ import {
   getCompanyMembersPaged,
   updateProject,
   closeProject,
+  closeProjectV2,
   reopenProject,
 } from '@/services/projectService.js';
 import {
@@ -260,6 +260,9 @@ export default function ProjectDetailPage() {
 
   // confirm modal state
   const [confirmState, setConfirmState] = React.useState<ConfirmState>({ kind: 'none' });
+
+  //confirm force close project
+  const [needForceConfirm, setNeedForceConfirm] = useState(false);
 
   // Load detail
   React.useEffect(() => {
@@ -601,6 +604,40 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleCloseProjectV2 = async (forceClose = false) => {
+    if (!project) return;
+
+    if (!canCloseProject) {
+      toast.error('Only the creator can close this project.');
+      return;
+    }
+
+    setClosing(true);
+    try {
+      const res = await closeProjectV2(project.id, forceClose);
+
+      if (res?.needConfirm) {
+        setNeedForceConfirm(true);
+        return { needConfirm: true };
+      }
+
+      if (res?.sentToRequester) {
+        toast.success('Close request has been sent to requester.');
+        return { done: true };
+      }
+
+      setProject((prev) => (prev ? { ...prev, isClosed: true } : prev));
+      toast.success('Project closed.');
+      return { done: true };
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to close project.');
+      throw err;
+    } finally {
+      setClosing(false);
+      setActionsOpen(false);
+    }
+  };
+
   const projectStats = project ? project.stats : null;
   const progress = projectStats ? progressPercent(projectStats) : 0;
 
@@ -686,6 +723,7 @@ export default function ProjectDetailPage() {
 
     if (confirmState.kind === 'closeProject') {
       await handleCloseProject();
+      setNeedForceConfirm(false);
       setConfirmState({ kind: 'none' });
       return;
     }
@@ -694,6 +732,32 @@ export default function ProjectDetailPage() {
       setConfirmState({ kind: 'none' });
       return;
     }
+    if (confirmState.kind === 'kickMember') {
+      await handleRemoveMember(confirmState.member.userId);
+      setConfirmState({ kind: 'none' });
+      return;
+    }
+  };
+
+  const handleConfirmActionV2 = async () => {
+    if (!project) return;
+
+    if (confirmState.kind === 'closeProject') {
+      const res = await handleCloseProjectV2(needForceConfirm);
+
+      if (res?.needConfirm) return;
+
+      setNeedForceConfirm(false);
+      setConfirmState({ kind: 'none' });
+      return;
+    }
+
+    if (confirmState.kind === 'reopenProject') {
+      await handleReopenProject();
+      setConfirmState({ kind: 'none' });
+      return;
+    }
+
     if (confirmState.kind === 'kickMember') {
       await handleRemoveMember(confirmState.member.userId);
       setConfirmState({ kind: 'none' });
@@ -1484,6 +1548,13 @@ export default function ProjectDetailPage() {
                       this.
                     </>
                   )}
+
+                  {needForceConfirm && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      This project still has unfinished tasks or tickets. Do you want to{' '}
+                      <b>force close</b> it?
+                    </p>
+                  )}
                 </p>
               </div>
             </div>
@@ -1500,7 +1571,7 @@ export default function ProjectDetailPage() {
 
               <button
                 type="button"
-                onClick={handleConfirmAction}
+                onClick={handleConfirmActionV2}
                 disabled={
                   (isCloseProjectConfirm && (closing || !canCloseProject)) ||
                   (isReopenProjectConfirm && (reopening || !canCloseProject))

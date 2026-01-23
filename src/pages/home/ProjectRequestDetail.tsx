@@ -24,14 +24,19 @@ import { getCompanyById } from '@/services/companyService.js';
 import LoadingOverlay from '@/common/LoadingOverlay';
 import { toast } from 'react-toastify';
 import RejectReasonModal from '@/components/ProjectRequest/RejectProjectRequest';
-import type { IProjectRequset } from '@/interfaces/ProjectRequest/projectRequest';
+import {
+  ProjectRequestClosedRejectReasons,
+  type IProjectRequset,
+} from '@/interfaces/ProjectRequest/projectRequest';
 import type { CompanyRequest } from '@/interfaces/Company/company';
 import EditProjectRequestModal from '@/components/ProjectRequest/EditProjectRequestModal';
 import CreateProjectModal from '@/components/Company/ProjectCreate/CreateProjectModal';
+import { ReviewCloseProjectRequest } from '@/services/projectRequest.js';
 import { createProject } from '@/services/projectService.js';
 import { RestoreProjectRequest } from '@/services/projectRequest.js';
 import DeleteProjectRequestModal from '@/components/ProjectRequest/DeleteProjectRequestModal';
 import { getContractById } from '@/services/contractService.js';
+import { GetCloseProjectSummaryById } from '@/services/projectService.js';
 import { Can } from '@/permission/PermissionProvider';
 import { getProjectComponentsByProjectRequestId } from '@/services/projectComponentService.js';
 export default function ProjectRequestDetail() {
@@ -61,6 +66,20 @@ export default function ProjectRequestDetail() {
   const [contract, setContract] = useState<any>();
   const [projectComponents, setProjectComponents] = useState<any[]>([]);
   const [loadingComponents, setLoadingComponents] = useState(false);
+
+  //Close Project Declare
+  const [closeSummary, setCloseSummary] = useState<any>(null);
+  const [reviewingClose, setReviewingClose] = useState(false);
+  const [confirmIncomplete, setConfirmIncomplete] = useState(false);
+
+  //Accept close
+  const [acceptCloseModalOpen, setAcceptCloseModalOpen] = useState(false);
+
+  //Reject close
+  const [rejectCloseModalOpen, setRejectCloseModalOpen] = useState(false);
+  const [selectedRejectReason, setSelectedRejectReason] = useState<string>('');
+  const [otherRejectReason, setOtherRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchProjectComponents = async (projectRequestId: string) => {
     try {
@@ -114,6 +133,65 @@ export default function ProjectRequestDetail() {
     }
   };
 
+  //function to accept/reject close project request
+  const handleAcceptCloseProject = async () => {
+    if (closeSummary?.projectPercent < 100 && !confirmIncomplete) {
+      toast.warning('Please confirm closing an incomplete project');
+      return;
+    }
+
+    try {
+      setReviewingClose(true);
+
+      const res = await ReviewCloseProjectRequest(id, {
+        isApproved: true,
+        reasonReject: null,
+      });
+
+      if (res.succeeded) {
+        toast.success('Close project approved');
+        setAcceptCloseModalOpen(false);
+        setConfirmIncomplete(false);
+        fetchData();
+      }
+    } catch {
+      toast.error('Approve close failed');
+    } finally {
+      setReviewingClose(false);
+    }
+  };
+
+  const handleRejectCloseProject = async () => {
+    if (!selectedRejectReason) {
+      toast.error('Please select reject reason');
+      return;
+    }
+
+    const reason =
+      selectedRejectReason === 'OTHER'
+        ? otherRejectReason.trim()
+        : ProjectRequestClosedRejectReasons.find((r) => r.value === selectedRejectReason)?.label;
+
+    if (!reason) {
+      toast.error('Reject reason is required');
+      return;
+    }
+
+    setReviewingClose(true);
+    try {
+      await ReviewCloseProjectRequest(id, {
+        isApproved: false,
+        reasonReject: reason,
+      });
+
+      toast.success('Close project request rejected');
+      setRejectCloseModalOpen(false);
+      fetchData();
+    } finally {
+      setReviewingClose(false);
+    }
+  };
+
   const openDeleteModal = (id: string) => {
     setSelectedDeleteProjectId(id);
     setDeleteModalOpen(true);
@@ -137,6 +215,15 @@ export default function ProjectRequestDetail() {
 
       setCompanyRequest(reqRes.data);
       setCompanyExecutor(exeRes.data);
+
+      //Get Project Close Summary
+      if (projectData?.status === 'PendingClosed') {
+        const summaryRes = await GetCloseProjectSummaryById(projectData.convertedProjectId);
+        console.log('Close Summary Res:', summaryRes);
+        setCloseSummary(summaryRes);
+      } else {
+        setCloseSummary(null);
+      }
     } catch (error: any) {
       console.error('Fetch error:', error);
     } finally {
@@ -163,13 +250,13 @@ export default function ProjectRequestDetail() {
     };
     load();
   }, [id, contractId]);
-const maintenancePrefill = (projectComponents ?? [])
-  .map((c: any) => ({
-    clientId: String(c.id ?? c.name),      
-    name: String(c.name ?? '').trim(),
-    note: String(c.description ?? '').trim(),
-  }))
-  .filter((x) => !!x.name);
+  const maintenancePrefill = (projectComponents ?? [])
+    .map((c: any) => ({
+      clientId: String(c.id ?? c.name),
+      name: String(c.name ?? '').trim(),
+      note: String(c.description ?? '').trim(),
+    }))
+    .filter((x) => !!x.name);
 
   return (
     <>
@@ -213,6 +300,9 @@ const maintenancePrefill = (projectComponents ?? [])
                       ${projectRequest?.status === 'Pending' && 'bg-yellow-500/30 text-yellow-200'}
                       ${projectRequest?.status === 'Accepted' && 'bg-green-500/30 text-green-200'}
                       ${projectRequest?.status === 'Rejected' && 'bg-red-500/30 text-red-200'}
+                      ${projectRequest?.status === 'PendingClosed' && 'bg-orange-500/30 text-orange-200'}
+                      ${projectRequest?.status === 'AcceptedClosed' && 'bg-emerald-500/30 text-emerald-200'}
+                      ${projectRequest?.status === 'RejectedClosed' && 'bg-rose-500/30 text-rose-200'}
                     `}
                 >
                   <CheckCircle2 className="w-4 h-4 opacity-80" />
@@ -410,6 +500,99 @@ const maintenancePrefill = (projectComponents ?? [])
                 </div>
               )}
 
+              {/*Close Project Summary */}
+              {closeSummary && (
+                <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-orange-600" />
+                      Project Summary Progress
+                    </h3>
+
+                    {closeSummary.isMaintenance && (
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                        <Wrench className="w-3.5 h-3.5" />
+                        Maintenance
+                      </span>
+                    )}
+                  </div>
+
+                  {/* PROJECT PROGRESS */}
+                  <div className="mb-6">
+                    <div className="flex justify-between mb-1 text-sm font-semibold">
+                      <span>Project Progress</span>
+                      <span>{closeSummary.projectPercent}%</span>
+                    </div>
+
+                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-3 bg-green-500 transition-all"
+                        style={{ width: `${closeSummary.projectPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* TICKET PROGRESS */}
+                  <div className="mb-8">
+                    <div className="flex justify-between mb-1 text-sm font-semibold">
+                      <span>Ticket Progress</span>
+                      <span>{closeSummary.ticketPercent}%</span>
+                    </div>
+
+                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-3 bg-blue-500 transition-all"
+                        style={{ width: `${closeSummary.ticketPercent}%` }}
+                      />
+                    </div>
+
+                    <p className="text-xs text-gray-600 mt-1">
+                      Total tickets: {closeSummary.totalTickets}
+                    </p>
+                  </div>
+
+                  {/* COMPONENT PROGRESS */}
+                  {closeSummary.components?.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-4">Component Progress</h4>
+
+                      <div className="space-y-4">
+                        {closeSummary.components.map((c: any) => (
+                          <div
+                            key={c.componentId}
+                            className="bg-white rounded-xl p-4 border shadow-sm"
+                          >
+                            <div className="flex justify-between text-sm font-semibold mb-1">
+                              <span>{c.componentName}</span>
+                              <span>{c.percent}%</span>
+                            </div>
+
+                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-2 bg-orange-500 transition-all"
+                                style={{ width: `${c.percent}%` }}
+                              />
+                            </div>
+
+                            <p className="text-xs text-gray-600 mt-1">
+                              {c.closedTasks}/{c.totalTasks} tasks closed
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* WARNING */}
+                  {closeSummary.projectPercent < 100 && (
+                    <div className="mt-6 bg-yellow-100 text-yellow-800 px-4 py-3 rounded-lg text-sm font-medium">
+                      ⚠️ Project is not fully completed. Please review before approving close.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* COMPANIES INFORMATION */}
               <div className="border rounded-2xl p-6 bg-gradient-to-r from-gray-50 to-gray-100 hover:shadow-md transition relative">
                 {/* Title */}
@@ -482,6 +665,28 @@ const maintenancePrefill = (projectComponents ?? [])
                   </>
                 )}
 
+                {/* Accept Closed / Decline Closed */}
+                {viewMode === 'AsExecutor' && projectRequest?.status === 'PendingClosed' && (
+                  <>
+                    <ActionButton
+                      color="green"
+                      label="Accept Close Project"
+                      icon={<CheckCircle2 />}
+                      onClick={() => {
+                        setConfirmIncomplete(false);
+                        setAcceptCloseModalOpen(true);
+                      }}
+                    />
+
+                    <ActionButton
+                      color="red"
+                      label="Reject Close Project"
+                      icon={<XCircle />}
+                      onClick={() => setRejectCloseModalOpen(true)}
+                    />
+                  </>
+                )}
+
                 {/* Navigate / Create Project */}
                 {projectRequest?.status === 'Accepted' &&
                   (projectRequest?.isHaveProject ? (
@@ -551,18 +756,17 @@ const maintenancePrefill = (projectComponents ?? [])
               companyId: companyExecutor?.id,
               isHire: true,
               projectRequestId: id,
-                isMaintenance: !!projectRequest?.isMaintenance,
-    maintenanceComponents: maintenancePrefill,
+              isMaintenance: !!projectRequest?.isMaintenance,
+              maintenanceComponents: maintenancePrefill,
 
-    lockProjectKind: true,
-    lockMaintenanceComponents: true,
+              lockProjectKind: true,
+              lockMaintenanceComponents: true,
             }}
             onSubmit={async (payload) => {
               console.log('Create Project Payload:', payload);
               toast.success('Project created successfully!');
               setProjectCreateModalOpen(false);
               navigate(`/companies/${companyId}/project`);
-              
             }}
           />
 
@@ -572,6 +776,102 @@ const maintenancePrefill = (projectComponents ?? [])
             projectId={selectedDeleteProjectId}
             onSuccess={() => fetchData()}
           />
+
+          {/* Accept Close Modal */}
+          {acceptCloseModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Approve Close Project</h3>
+
+                {closeSummary?.projectPercent < 100 && (
+                  <div className="mb-4 flex items-start gap-2 bg-red-50 p-4 rounded-lg">
+                    <input
+                      type="checkbox"
+                      checked={confirmIncomplete}
+                      onChange={(e) => setConfirmIncomplete(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <p className="text-sm text-red-700 font-medium">
+                      I understand that this project is not 100% completed and still want to approve
+                      closing.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setAcceptCloseModalOpen(false)}
+                    className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={handleAcceptCloseProject}
+                    disabled={reviewingClose}
+                    className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                  >
+                    {reviewingClose ? 'Approving...' : 'Approve'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reject Close Modal */}
+          {rejectCloseModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Reject Close Project</h3>
+
+                {/* Reason select */}
+                <select
+                  value={selectedRejectReason}
+                  onChange={(e) => {
+                    setSelectedRejectReason(e.target.value);
+                    if (e.target.value !== 'OTHER') {
+                      setOtherRejectReason('');
+                    }
+                  }}
+                  className="w-full border rounded-lg p-3 mb-4"
+                >
+                  <option value="">-- Select reject reason --</option>
+                  {ProjectRequestClosedRejectReasons.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Other reason */}
+                {selectedRejectReason === 'OTHER' && (
+                  <textarea
+                    value={otherRejectReason}
+                    onChange={(e) => setOtherRejectReason(e.target.value)}
+                    placeholder="Enter other reject reason..."
+                    className="w-full min-h-[100px] border rounded-lg p-3 mb-4"
+                  />
+                )}
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setRejectCloseModalOpen(false)}
+                    className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={handleRejectCloseProject}
+                    disabled={reviewingClose}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                  >
+                    {reviewingClose ? 'Rejecting...' : 'Reject'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -640,8 +940,8 @@ const ActionButton = ({ color, label, icon, onClick, disabled }: any) => {
       disabled={disabled}
       className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors
         ${colorClasses[color]} ${
-        disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''
-      }`}
+          disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''
+        }`}
     >
       {icon}
       {label}

@@ -292,3 +292,19 @@ export const getProjectRequestIdByAdmin = async (id) => {
     );
   }
 };
+
+export const ReviewCloseProjectRequest = async (projectRequestId, payload) => {
+try {
+  console.log('Payload in service:', payload);
+  console.log('Project Request ID in service:', projectRequestId);
+    const response = await axiosInstance.post(`/projectrequest/${projectRequestId}/review-close`, payload);
+    return response.data;
+  } catch (error) {
+    console.error('Error:', error);
+    return (
+      error.response?.data || {
+        succeeded: false,
+        message: 'Unexpected error occurred',
+      }
+    );
+  }};

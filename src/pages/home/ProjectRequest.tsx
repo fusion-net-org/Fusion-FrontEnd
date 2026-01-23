@@ -239,6 +239,10 @@ const ProjectRequestPage: React.FC = () => {
       Finished: 'bg-green-50 text-green-700',
       Rejected:
         'px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium border border-red-100',
+
+      PendingClosed: 'bg-orange-50 text-orange-700',
+      AcceptedClosed: 'bg-emerald-50 text-emerald-700',
+      RejectedClosed: 'bg-rose-50 text-rose-700',
     };
     return (
       <span
