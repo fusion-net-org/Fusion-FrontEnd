@@ -24,6 +24,10 @@ export interface ITicket {
   updatedAt: string;
   process?: TicketProcess | null;
   component?: IProjectComponent | null;
+  totalTask: number;
+  totalTaskClosed: number;
+  totalTaskNotClosed: number;
+  processTicketIsClose: number;
 }
 export interface IProjectComponent {
   id: string;

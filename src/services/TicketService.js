@@ -273,3 +273,32 @@ export const CloseTicket = async (ticketId) => {
     throw error;
   }
 };
+export const RequestCloseTicket = async (ticketId) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/request-close`);
+    return res.data;
+  } catch (error) {
+    console.error('Request close ticket error:', error);
+    throw error;
+  }
+};
+export const AcceptCloseTicket = async (ticketId) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/accept-close`);
+    return res.data;
+  } catch (error) {
+    console.error('Accept close ticket error:', error);
+    throw error;
+  }
+};
+export const RejectCloseTicket = async (ticketId, reason) => {
+  try {
+    const res = await axiosInstance.put(`/ticket/${ticketId}/reject-close`, null, {
+      params: { reason },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Reject close ticket error:', error);
+    throw error;
+  }
+};

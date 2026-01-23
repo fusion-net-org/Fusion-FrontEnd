@@ -413,7 +413,6 @@ export default function KanbanBySprintBoard({
   useFuseKanbanStyles();
   // ===== Realtime + Current sprint marker =====
   const [now, setNow] = React.useState(() => new Date());
-
   React.useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(t);

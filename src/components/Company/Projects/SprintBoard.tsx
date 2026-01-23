@@ -33,7 +33,7 @@ import { getUserIdFromToken } from "@/utils/token";
 import { toast } from "react-toastify";
 import {
    materializeDraftTask,
-  patchTaskCloseById, getDraftTasks 
+  patchTaskCloseById, getDraftTasks, createDraftTask,
 } from "@/services/taskService.js";
 type Id = string;
 const userId = getUserIdFromToken();
@@ -41,6 +41,7 @@ const brand = "#2E8BFF";
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : "N/A");
 const norm = (s?: string | null) => (s ?? "").trim();
+import BacklogHoverCreate from "../Backlog/BacklogHoverCreate";
 
 /** ===== Virtual lanes (NOT workflow statuses) =====
  * Backlog/Close là lane type riêng, KHÔNG map isStart/isEnd, KHÔNG thuộc transitions.
@@ -320,6 +321,13 @@ type SprintBoardProps = {
   onOpenTicket: (taskId: string) => void;
   dragPolicy: { fromStatusId: string; allowed: string[] } | null;
    onCloseTask: (t: TaskVm) => void; 
+     onBacklogCreatedVM?: (t: TaskVm) => void;
+  onReloadBacklog?: () => Promise<void> | void;
+
+   maintenanceEnabled?: boolean;
+  components?: { id: string; name: string }[];
+  defaultComponentId?: string | null;
+
 };
 
 function SprintBoard({
@@ -338,13 +346,18 @@ function SprintBoard({
   onOpenTicket,
   onCloseTask,
   dragPolicy,
+    onBacklogCreatedVM,
+  onReloadBacklog,
+   maintenanceEnabled,
+  components,
+  defaultComponentId,
+
 }: SprintBoardProps) {
   if (!activeSprint) return null;
 
   const COL_W = "w-[320px] sm:w-[360px] md:w-[380px] lg:w-[400px] xl:w-[420px]";
   const BOARD_H = `calc(100vh - 260px)`;
   const tones: Array<"amber" | "blue" | "purple" | "green"> = ["amber", "blue", "purple", "green"];
-
   const renderCol = (colId: string, idx: number) => {
     const isBacklog = colId === VCOL_BACKLOG;
     const isClose = colId === VCOL_CLOSE;
@@ -438,13 +451,34 @@ const dropDisabled =
                     Backlog/Close là lane type riêng -> hiện tại KHÔNG cho create trực tiếp ở đây
                     (vì ColumnHoverCreate cần statusId thật). Sau này có thể làm CreateInBacklog riêng.
                  */}
+               {isBacklog && (
+  <Can code="TASK_CREATE">
+  <BacklogHoverCreate
+  onReload={onReloadBacklog}
+  maintenanceEnabled={!!maintenanceEnabled}
+  components={components ?? []}
+  defaultComponentId={defaultComponentId ?? null}
+  onCreatedVM={(vm) => {
+    setFlashTaskId(vm.id);
+    onBacklogCreatedVM?.(vm);
+  }}
+/>
+
+  </Can>
+)}
+
+
                 {!isVirtual && (
                   <Can code="TASK_CREATE">
-                    <ColumnHoverCreate
-                      sprint={activeSprint}
-                      statusId={colId}
-                      onCreatedVM={(vm) => setFlashTaskId(vm.id)}
-                    />
+                   <ColumnHoverCreate
+  sprint={activeSprint}
+  statusId={colId}
+  onCreatedVM={(vm) => setFlashTaskId(vm.id)}
+  maintenanceEnabled={!!maintenanceEnabled}
+  components={components ?? []}
+  defaultComponentId={defaultComponentId ?? null}
+/>
+
                   </Can>
                 )}
 
@@ -472,6 +506,8 @@ const dropDisabled =
                             <TaskCard
                               t={t}
                               ticketSiblingsCount={siblings}
+                              mode={isBacklog ? "backlog" : "default"}
+                              components={components ?? []} 
                               onMarkDone={(x) => {
                                 if (disabledActions) {
                                   toast.info("This lane is not part of workflow yet. Drag task into a status column.");
@@ -550,6 +586,50 @@ const mergedTasks: TaskVm[] = useMemo(() => {
   });
 }, [tasks, taskPatchById]);
 
+// ===== Maintenance detect + components =====
+
+const maintenanceEnabled = React.useMemo(() => {
+  const sp: any = Array.isArray(sprints) && sprints.length ? sprints[0] : null;
+  if (sp && typeof sp.isMain !== "undefined") return !!sp.isMain;
+
+  // fallback: infer từ components nếu isMain chưa có (tránh crash)
+  const raw: any =
+    board?.components ??
+    board?.projectComponents ??
+    board?.maintenanceComponents ??
+    board?.project?.components ??
+    [];
+  return Array.isArray(raw) && raw.length > 0;
+}, [sprints, board]);
+
+// (tuỳ bạn) giữ alias cho dễ đọc
+const isMaintenanceProject = maintenanceEnabled;
+const maintenanceComponents = React.useMemo(() => {
+  const raw: any =
+    board?.components ??
+    board?.projectComponents ??
+    board?.maintenanceComponents ??
+    board?.project?.components ??
+    [];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((c: any) => ({
+      id: String(c?.id ?? c?.componentId ?? ""),
+      name: String(c?.name ?? c?.componentName ?? ""),
+    }))
+    .filter((x) => x.id && x.name);
+}, [board]);
+
+const maintenanceDefaultComponentId = React.useMemo(() => {
+  const p: any = board?.project ?? board?.projectInfo ?? board?.projectDetail ?? {};
+  return (
+    (p?.defaultComponentId as string) ??
+    (board?.defaultComponentId as string) ??
+    maintenanceComponents[0]?.id ??
+    null
+  );
+}, [board, maintenanceComponents]);
+console.log(board);
   // ===== Realtime clock =====
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -1358,10 +1438,17 @@ if (fromColId === VCOL_BACKLOG) {
     setBacklogDrafts((prev) => prev.filter((x) => x.id !== draggableId));
 
     try {
-      await materializeDraftTask(draggableId, {
-        sprintId: activeSprint.id,
-        workflowStatusId: startStatusId,
-      });
+  const draftComponentId =
+  (draft as any)?.componentId ??
+  (draft as any)?.component?.id ??
+  null;
+
+await materializeDraftTask(draggableId, {
+  sprintId: activeSprint.id,
+  workflowStatusId: startStatusId,
+  ...(draftComponentId ? { componentId: draftComponentId } : {}),
+});
+
 
       toast.success("Moved backlog item to Start.");
       await reloadBacklogDrafts();
@@ -1786,6 +1873,14 @@ if (fromColId === VCOL_CLOSE && !isVirtualCol(toColId)) {
             onOpenTicket={handleOpenTicket}
             dragPolicy={dragPolicy}
             onCloseTask={onCloseTask}
+              onReloadBacklog={reloadBacklogDrafts}
+  onBacklogCreatedVM={(vm) => {
+    setBacklogDrafts((prev) => [vm, ...prev]);
+  }}
+ maintenanceEnabled={isMaintenanceProject}
+components={maintenanceComponents}
+defaultComponentId={maintenanceDefaultComponentId}
+
           />
         </>
       )}
@@ -1900,18 +1995,17 @@ if (fromColId === VCOL_CLOSE && !isVirtualCol(toColId)) {
         </div>
       </div>
 
-      <div className="p-4 text-sm text-slate-700">
-        {closeIntent.mode === "CLOSE" ? (
-          <div>Bạn có chắc muốn <b>close</b> task này?</div>
-        ) : (
-          <div>
-            Task này <b>chưa được hoàn thành</b>, bạn có muốn <b>cancel</b> task này?
-          </div>
-        )}
-        <div className="mt-2 text-[12px] text-slate-500">
-          Xác nhận sẽ chuyển task sang cột <b>Close</b>.
-        </div>
-      </div>
+     <div className="p-4 text-sm text-slate-700">
+  {closeIntent.mode === "CLOSE" ? (
+    <div>Are you sure you want to <b>close</b> this task?</div>
+  ) : (
+    <div>
+      This task is <b>not completed</b>. Do you want to <b>cancel</b> it?
+    </div>
+  )}
+ 
+</div>
+
 
       <div className="p-4 border-t border-slate-200 flex items-center justify-end gap-2">
         <button
@@ -1934,7 +2028,7 @@ if (fromColId === VCOL_CLOSE && !isVirtualCol(toColId)) {
 }}
 
         >
-          Không
+          No
         </button>
         <button
           className={cn(
@@ -1943,7 +2037,7 @@ if (fromColId === VCOL_CLOSE && !isVirtualCol(toColId)) {
           )}
           onClick={confirmClose}
         >
-          Có, xác nhận
+          Yes, confirm
         </button>
       </div>
     </div>
