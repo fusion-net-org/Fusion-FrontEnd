@@ -107,6 +107,8 @@ const ProjectCompanyRequest = () => {
         toast.success('Close project approved');
         setAcceptCloseModalOpen(false);
         setConfirmIncomplete(false);
+
+        await fetchProjectData();
       }
     } catch {
       toast.error('Approve close failed');
@@ -140,6 +142,8 @@ const ProjectCompanyRequest = () => {
 
       toast.success('Close project request rejected');
       setRejectCloseModalOpen(false);
+
+      await fetchProjectData();
     } finally {
       setReviewingClose(false);
     }
@@ -184,28 +188,49 @@ const ProjectCompanyRequest = () => {
   const handleTicketCreated = () => {
     setRefreshChartKey((prev) => prev + 1);
   };
+
+  const fetchProjectData = async () => {
+    if (!projectId) return;
+
+    try {
+      const [projectRes, progressRes] = await Promise.all([
+        GetProjectByProjectId(projectId),
+        GetCloseProjectSummaryById(projectId),
+      ]);
+
+      setProject(projectRes.data);
+      setProgressClose(progressRes);
+      setProgress(progressRes.projectPercent || 0);
+    } catch (error) {
+      console.log(error);
+      toast.error('Failed to fetch project data');
+    }
+  };
+
   useEffect(() => {
     if (!projectId) return;
 
-    const fetchProject = async () => {
-      try {
-        const res = await GetProjectByProjectId(projectId);
-        console.log('Project', res.data);
-        setProject(res.data);
-      } catch (error) {
-        console.log(error);
-        toast.error('Failed to fetch project');
-      }
-    };
-    const fetchProgressProject = async () => {
-      try {
-        const res = await GetCloseProjectSummaryById(projectId);
-        setProgressClose(res);
-        setProgress(res.projectPercent || 0);
-      } catch (error) {
-        console.log(error);
-      }
-    };
+    fetchProjectData();
+
+    // const fetchProject = async () => {
+    //   try {
+    //     const res = await GetProjectByProjectId(projectId);
+    //     console.log('Project', res.data);
+    //     setProject(res.data);
+    //   } catch (error) {
+    //     console.log(error);
+    //     toast.error('Failed to fetch project');
+    //   }
+    // };
+    // const fetchProgressProject = async () => {
+    //   try {
+    //     const res = await GetCloseProjectSummaryById(projectId);
+    //     setProgressClose(res);
+    //     setProgress(res.projectPercent || 0);
+    //   } catch (error) {
+    //     console.log(error);
+    //   }
+    // };
     const fetchMembersCount = async () => {
       try {
         const res = await getProjectMemberByProjectId(projectId, '', '', '', 1, 1000);
@@ -250,8 +275,8 @@ const ProjectCompanyRequest = () => {
       }
     };
 
-    fetchProject();
-    fetchProgressProject();
+    // fetchProject();
+    // fetchProgressProject();
     fetchSprints();
     fetchMembersCount();
     fetchTicketsCount();
