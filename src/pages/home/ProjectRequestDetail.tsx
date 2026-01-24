@@ -666,7 +666,7 @@ export default function ProjectRequestDetail() {
                 )}
 
                 {/* Accept Closed / Decline Closed */}
-                {viewMode === 'AsExecutor' && projectRequest?.status === 'PendingClosed' && (
+                {viewMode === 'AsRequester' && projectRequest?.status === 'PendingClosed' && (
                   <>
                     <ActionButton
                       color="green"

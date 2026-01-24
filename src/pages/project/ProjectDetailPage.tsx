@@ -29,6 +29,7 @@ import {
   closeProject,
   closeProjectV2,
   reopenProject,
+  GetCloseProjectSummaryById,
 } from '@/services/projectService.js';
 import {
   addProjectMember,
@@ -264,6 +265,9 @@ export default function ProjectDetailPage() {
   //confirm force close project
   const [needForceConfirm, setNeedForceConfirm] = useState(false);
 
+  //Close Summary Project
+  const [closeSummary, setCloseSummary] = React.useState<any>(null);
+
   // Load detail
   React.useEffect(() => {
     let alive = true;
@@ -281,8 +285,9 @@ export default function ProjectDetailPage() {
         if (alive) setMeId(currentUserId ? String(currentUserId) : null);
 
         // main payloads
-        const [detailRaw, board, memberPaged] = await Promise.all<any>([
+        const [detailRaw, closeSummaryRaw, board, memberPaged] = await Promise.all<any>([
           GetProjectByProjectId(projectId),
+          GetCloseProjectSummaryById(projectId),
           fetchSprintBoard(projectId),
           getProjectMemberByProjectId(projectId, '', '', '', 1, 200),
         ]);
@@ -290,6 +295,12 @@ export default function ProjectDetailPage() {
 
         const detail: any = detailRaw?.data ?? detailRaw ?? {};
         const memberPayload: any = memberPaged?.data ?? memberPaged ?? {};
+        const closeSummaryData =
+          closeSummaryRaw?.data?.data ?? closeSummaryRaw?.data ?? closeSummaryRaw ?? null;
+
+        if (alive) {
+          setCloseSummary(closeSummaryData);
+        }
 
         // createdBy + createdAt
         const createdById: string | null =
@@ -328,8 +339,8 @@ export default function ProjectDetailPage() {
         const memberItems: any[] = Array.isArray(memberPayload.items)
           ? memberPayload.items
           : Array.isArray(memberPayload)
-          ? memberPayload
-          : [];
+            ? memberPayload
+            : [];
 
         const rawMembers: any[] = memberItems.length > 0 ? memberItems : rawMembersFromProject;
         const mappedMembers: ProjectMemberVm[] = Array.isArray(rawMembers)
@@ -816,8 +827,8 @@ export default function ProjectDetailPage() {
                 {project.status === 'InProgress'
                   ? 'In progress'
                   : project.status === 'OnHold'
-                  ? 'On hold'
-                  : project.status}
+                    ? 'On hold'
+                    : project.status}
               </span>
 
               <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700 border border-indigo-100">
@@ -952,12 +963,12 @@ export default function ProjectDetailPage() {
                 <div className="mt-3">
                   <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
                     <span>Overall progress</span>
-                    <span>{progress}%</span>
+                    <span>{closeSummary?.projectPercent}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-blue-500 transition-all"
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${closeSummary?.projectPercent}%` }}
                     />
                   </div>
                 </div>
@@ -1209,6 +1220,71 @@ export default function ProjectDetailPage() {
                 value={project.isHired ? 'Outsourced' : 'Internal'}
               />
             </div>
+
+            {closeSummary && (
+              <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                {/* Header */}
+                <div className="mb-3 text-sm font-semibold text-slate-800">
+                  Ticket & Component Progress
+                </div>
+
+                {/* Content */}
+                <div className="space-y-4">
+                  {/* Ticket progress */}
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
+                      <span className="font-medium">Ticket progress</span>
+                      <span className="text-slate-800 font-semibold">
+                        {closeSummary.ticketPercent}%
+                      </span>
+                    </div>
+
+                    <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full"
+                        style={{ width: `${closeSummary.ticketPercent}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                      <span>{closeSummary.totalTickets} ticket(s)</span>
+                      {closeSummary.isMaintenance && (
+                        <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 font-medium">
+                          Maintenance
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Component breakdown */}
+                  {closeSummary.components?.length > 0 && (
+                    <div>
+                      <div className="mb-2 text-xs font-semibold text-slate-700">Components</div>
+
+                      <div className="space-y-3">
+                        {closeSummary.components.map((c: any) => (
+                          <div key={c.componentId}>
+                            <div className="mb-1 flex items-center justify-between text-[11px] text-slate-600">
+                              <span className="truncate">{c.componentName}</span>
+                              <span className="font-medium text-slate-700">
+                                {c.closedTasks}/{c.totalTasks} • {c.percent}%
+                              </span>
+                            </div>
+
+                            <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full"
+                                style={{ width: `${c.percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -1220,12 +1296,14 @@ export default function ProjectDetailPage() {
               <div className="space-y-3 text-xs text-slate-600">
                 <div className="flex items-center justify-between">
                   <span>Delivery progress</span>
-                  <span className="font-medium text-slate-800">{progress}%</span>
+                  <span className="font-medium text-slate-800">
+                    {closeSummary?.projectPercent}%
+                  </span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-blue-500"
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${closeSummary?.projectPercent}%` }}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -1529,8 +1607,8 @@ export default function ProjectDetailPage() {
                   {isCloseProjectConfirm
                     ? 'Close project?'
                     : isReopenProjectConfirm
-                    ? 'Reopen project?'
-                    : 'Remove member from project?'}
+                      ? 'Reopen project?'
+                      : 'Remove member from project?'}
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-600">
@@ -1590,8 +1668,8 @@ export default function ProjectDetailPage() {
                 {isCloseProjectConfirm
                   ? 'Close project'
                   : isReopenProjectConfirm
-                  ? 'Reopen project'
-                  : 'Remove member'}
+                    ? 'Reopen project'
+                    : 'Remove member'}
               </button>
             </div>
           </div>

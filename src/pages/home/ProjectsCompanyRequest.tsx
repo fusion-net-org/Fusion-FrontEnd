@@ -36,6 +36,9 @@ import { saveAs } from 'file-saver';
 import { closeProject, reopenProject, GetProjectProcess } from '@/services/projectService.js';
 import CloseProjectModal from '@/components/ProjectSideCompanyRequest/CloseProjectModal';
 import ReopenProjectModal from '@/components/ProjectSideCompanyRequest/ReopenProjectModal';
+import { GetCloseProjectSummaryById } from '@/services/projectService.js';
+import { ReviewCloseProjectRequest } from '@/services/projectRequest.js';
+import { ProjectRequestClosedRejectReasons } from '@/interfaces/ProjectRequest/projectRequest';
 
 type TicketExcelRow = {
   No: number | string;
@@ -54,6 +57,7 @@ const ProjectCompanyRequest = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectDetailResponse>();
   const [progress, setProgress] = useState<number>();
+  const [progressClose, setProgressClose] = useState<any>();
   const [sprints, setSprints] = useState<ISprintResponse>();
   const [projectMembers, setProjectMembers] = useState<IProjectMemberV2>();
   const [projectTickets, setProjectTickets] = useState<{ items: ITicket[]; totalCount: number }>({
@@ -66,9 +70,79 @@ const ProjectCompanyRequest = () => {
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
 
+  //Close Project Declare
+  const [closeSummary, setCloseSummary] = useState<any>(null);
+  const [reviewingClose, setReviewingClose] = useState(false);
+  const [confirmIncomplete, setConfirmIncomplete] = useState(false);
+
+  //Accept close
+  const [acceptCloseModalOpen, setAcceptCloseModalOpen] = useState(false);
+
+  //Reject close
+  const [rejectCloseModalOpen, setRejectCloseModalOpen] = useState(false);
+  const [selectedRejectReason, setSelectedRejectReason] = useState<string>('');
+  const [otherRejectReason, setOtherRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+
   const formatCurrency = (value?: number | null) => {
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('vi-VN');
+  };
+
+  const handleAcceptCloseProject = async () => {
+    if (closeSummary?.projectPercent < 100 && !confirmIncomplete) {
+      toast.warning('Please confirm closing an incomplete project');
+      return;
+    }
+
+    try {
+      setReviewingClose(true);
+
+      const res = await ReviewCloseProjectRequest(project?.projectRequestId, {
+        isApproved: true,
+        reasonReject: null,
+      });
+
+      if (res.succeeded) {
+        toast.success('Close project approved');
+        setAcceptCloseModalOpen(false);
+        setConfirmIncomplete(false);
+      }
+    } catch {
+      toast.error('Approve close failed');
+    } finally {
+      setReviewingClose(false);
+    }
+  };
+
+  const handleRejectCloseProject = async () => {
+    if (!selectedRejectReason) {
+      toast.error('Please select reject reason');
+      return;
+    }
+
+    const reason =
+      selectedRejectReason === 'OTHER'
+        ? otherRejectReason.trim()
+        : ProjectRequestClosedRejectReasons.find((r) => r.value === selectedRejectReason)?.label;
+
+    if (!reason) {
+      toast.error('Reject reason is required');
+      return;
+    }
+
+    setReviewingClose(true);
+    try {
+      await ReviewCloseProjectRequest(project?.projectRequestId, {
+        isApproved: false,
+        reasonReject: reason,
+      });
+
+      toast.success('Close project request rejected');
+      setRejectCloseModalOpen(false);
+    } finally {
+      setReviewingClose(false);
+    }
   };
 
   const handleCloseProject = async () => {
@@ -125,9 +199,9 @@ const ProjectCompanyRequest = () => {
     };
     const fetchProgressProject = async () => {
       try {
-        const res = await GetProjectProcess(projectId);
-        console.log('Progress', res.data.progressPercent);
-        setProgress(res.data.progressPercent);
+        const res = await GetCloseProjectSummaryById(projectId);
+        setProgressClose(res);
+        setProgress(res.projectPercent || 0);
       } catch (error) {
         console.log(error);
       }
@@ -361,10 +435,10 @@ const ProjectCompanyRequest = () => {
               project?.status?.toUpperCase() === 'ONGOING'
                 ? 'bg-yellow-100 text-yellow-700'
                 : project?.status?.toUpperCase() === 'DONE'
-                ? 'bg-green-100 text-green-700'
-                : project?.status?.toUpperCase() === 'CLOSED'
-                ? 'bg-red-100 text-red-700'
-                : 'bg-gray-200 text-gray-600'
+                  ? 'bg-green-100 text-green-700'
+                  : project?.status?.toUpperCase() === 'CLOSED'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-gray-200 text-gray-600'
             }
           `}
                 >
@@ -416,42 +490,53 @@ const ProjectCompanyRequest = () => {
               <button
                 onClick={handleExportExcelFE}
                 className="flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold
-        bg-emerald-600 text-white hover:bg-emerald-700 transition whitespace-nowrap"
+      bg-emerald-600 text-white hover:bg-emerald-700 transition whitespace-nowrap"
               >
                 <FileSpreadsheet size={16} />
                 Export Excel
               </button>
 
-              {/* Close / Reopen */}
-              <button
-                onClick={() => {
-                  if (project.isClosed) {
-                    setShowReopenModal(true);
-                  } else {
-                    setShowCloseModal(true);
-                  }
-                }}
-                className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-all
-              border shadow-sm whitespace-nowrap
-              ${
-                project.isClosed
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                  : 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100'
-              }
-            `}
-              >
-                {project.isClosed ? (
-                  <>
-                    <RotateCcw size={16} />
-                    Reopen Project
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={16} />
-                    Close Project
-                  </>
-                )}
-              </button>
+              {/* REVIEW CLOSE PROJECT */}
+              {project?.status === 'CLOSEDPENDING' && (
+                <>
+                  <ActionButton
+                    color="green"
+                    label="Accept Close"
+                    icon={<CheckCircle2 size={16} />}
+                    onClick={() => {
+                      setConfirmIncomplete(false);
+                      setAcceptCloseModalOpen(true);
+                    }}
+                  />
+
+                  <ActionButton
+                    color="red"
+                    label="Reject Close"
+                    icon={<XCircle size={16} />}
+                    onClick={() => setRejectCloseModalOpen(true)}
+                  />
+                </>
+              )}
+
+              {progressClose?.requestStatus === 'Accepted' && (
+                <span
+                  className="flex items-center gap-2 px-4 py-2 rounded-full
+        bg-green-100 text-green-700 border border-green-300 text-sm font-semibold"
+                >
+                  <CheckCircle2 size={14} />
+                  Accepted Close
+                </span>
+              )}
+
+              {progressClose?.requestStatus === 'Rejected' && (
+                <span
+                  className="flex items-center gap-2 px-4 py-2 rounded-full
+        bg-red-100 text-red-700 border border-red-300 text-sm font-semibold"
+                >
+                  <XCircle size={14} />
+                  Rejected Closed
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -505,27 +590,71 @@ const ProjectCompanyRequest = () => {
             Project Progress
           </h2>
 
-          {/* Horizontal Progress Bar */}
+          {/* MAIN PROGRESS BAR */}
           <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden shadow-sm">
             <div
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 ease-in-out"
-              style={{ width: `${progress}%` }}
-            ></div>
-            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 font-semibold text-gray-900">
-              {progress}
+              style={{ width: `${progressClose?.projectPercent ?? 0}%` }}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-gray-900">
+              {progressClose?.projectPercent ?? 0}%
             </span>
           </div>
 
-          {/* Optional: Small info row below */}
-          <div className="flex justify-between mt-2 text-sm text-gray-500">
-            <span>
-              Start:{' '}
-              {project?.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '—'}
-            </span>
-            <span>
-              End: {project?.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '—'}
-            </span>
+          {/* INFO ROW */}
+          <div className="mt-4 bg-gray-50 rounded-xl p-4 border">
+            <div className="flex items-center justify-between gap-4 text-sm">
+              {/* TICKETS */}
+              <div className="flex-1 bg-white rounded-lg p-3 border shadow-sm text-center">
+                <p className="text-gray-500 text-base">Tickets</p>
+                <p className="font-bold text-blue-600 text-lg">
+                  {progressClose?.ticketPercent ?? 0}%
+                </p>
+                <p className="text-xs text-gray-400">Total: {progressClose?.totalTickets ?? 0}</p>
+              </div>
+
+              {/* TASKS */}
+              <div className="flex-1 bg-white rounded-lg p-3 border shadow-sm text-center">
+                <p className="text-gray-500 text-base">Tasks</p>
+                <p className="font-bold text-green-600 text-lg">
+                  {progressClose?.components?.reduce(
+                    (sum: number, c: any) => sum + c.closedTasks,
+                    0,
+                  ) ?? 0}
+                </p>
+                <p className="text-xs text-gray-400">Closed</p>
+              </div>
+
+              {/* COMPONENTS */}
+              <div className="flex-1 bg-white rounded-lg p-3 border shadow-sm text-center">
+                <p className="text-gray-500 text-base">Components</p>
+                <p className="font-bold text-orange-600 text-lg">
+                  {progressClose?.components?.length ?? 0}
+                </p>
+                <p className="text-xs text-gray-400">Total</p>
+              </div>
+            </div>
           </div>
+
+          {progressClose?.components?.length > 0 && (
+            <div className="mt-6 space-y-3">
+              {progressClose.components.map((c: any) => (
+                <div key={c.componentId}>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="text-base">{c.componentName}</span>
+                    <span>{c.percent}%</span>
+                  </div>
+
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-2 bg-orange-500 transition-all"
+                      style={{ width: `${c.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/*  TABS */}
@@ -663,6 +792,102 @@ const ProjectCompanyRequest = () => {
         onClose={() => setShowReopenModal(false)}
         onConfirm={handleReopenProject}
       />
+
+      {/* Accept Close Modal */}
+      {acceptCloseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Approve Close Project</h3>
+
+            {closeSummary?.projectPercent < 100 && (
+              <div className="mb-4 flex items-start gap-2 bg-red-50 p-4 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={confirmIncomplete}
+                  onChange={(e) => setConfirmIncomplete(e.target.checked)}
+                  className="mt-1"
+                />
+                <p className="text-sm text-red-700 font-medium">
+                  I understand that this project is not 100% completed and still want to approve
+                  closing.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setAcceptCloseModalOpen(false)}
+                className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleAcceptCloseProject}
+                disabled={reviewingClose}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+              >
+                {reviewingClose ? 'Approving...' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Close Modal */}
+      {rejectCloseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Reject Close Project</h3>
+
+            {/* Reason select */}
+            <select
+              value={selectedRejectReason}
+              onChange={(e) => {
+                setSelectedRejectReason(e.target.value);
+                if (e.target.value !== 'OTHER') {
+                  setOtherRejectReason('');
+                }
+              }}
+              className="w-full border rounded-lg p-3 mb-4"
+            >
+              <option value="">-- Select reject reason --</option>
+              {ProjectRequestClosedRejectReasons.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Other reason */}
+            {selectedRejectReason === 'OTHER' && (
+              <textarea
+                value={otherRejectReason}
+                onChange={(e) => setOtherRejectReason(e.target.value)}
+                placeholder="Enter other reject reason..."
+                className="w-full min-h-[100px] border rounded-lg p-3 mb-4"
+              />
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setRejectCloseModalOpen(false)}
+                className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleRejectCloseProject}
+                disabled={reviewingClose}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                {reviewingClose ? 'Rejecting...' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -675,3 +900,25 @@ const InfoRow = ({ label, value }: any) => (
     <span className="text-gray-900">{value || '—'}</span>
   </p>
 );
+
+const ActionButton = ({ color, label, icon, onClick, disabled }: any) => {
+  const colorClasses: any = {
+    green: 'text-green-700 border-green-400 bg-green-50 hover:bg-green-100',
+    red: 'text-red-700 border-red-400 bg-red-50 hover:bg-red-100',
+    blue: 'text-blue-700 border-blue-400 bg-blue-50 hover:bg-blue-100',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+        ${colorClasses[color]} ${
+          disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''
+        }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+};
