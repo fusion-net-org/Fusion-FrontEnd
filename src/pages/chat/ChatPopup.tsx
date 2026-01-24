@@ -26,6 +26,8 @@ import {
   rejectFriendInvitation,
   unfriend,
   getConversationById,
+  deleteMemberChatByOwner,
+  inviteMemberIntoChatByOwner,
 } from '@/services/chatService.js';
 import { toast } from 'react-toastify';
 import { v4 as uuidv4 } from 'uuid';
@@ -117,6 +119,18 @@ export default function ChatPopup() {
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [groupOwnerId, setGroupOwnerId] = useState<string | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
+
+  //Remove members
+  const [confirmRemove, setConfirmRemove] = useState<{
+    userId: string;
+    userName: string;
+  } | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  // Invite members
+  const [showInviteMembers, setShowInviteMembers] = useState(false);
+  const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+  const [inviting, setInviting] = useState(false);
 
   const activeChatRef = useRef<Conversation | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -522,14 +536,14 @@ export default function ChatPopup() {
             {activeChat ? (
               <>
                 {/* Chat header */}
-                <div className="h-12 px-3 border-b flex items-center gap-3 bg-white">
+                <div className="px-3 py-2 border-b flex items-center gap-3 bg-white">
                   {/* Back */}
                   <button
                     onClick={() => {
                       setActiveChat(null);
                       setMessages([]);
                     }}
-                    className="p-1 rounded-lg hover:bg-gray-100"
+                    className="p-1 rounded-lg hover:bg-gray-100 flex-shrink-0"
                   >
                     <ChevronLeft size={18} />
                   </button>
@@ -539,19 +553,25 @@ export default function ChatPopup() {
                     <img
                       src={activeChat.avatar}
                       alt={activeChat.name}
-                      className="w-8 h-8 rounded-full object-cover"
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 text-xs font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 text-xs font-semibold flex-shrink-0">
                       {getInitials(activeChat.name)}
                     </div>
                   )}
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{activeChat.name}</div>
+                    <div
+                      title={activeChat.name}
+                      className="font-semibold text-sm leading-4 line-clamp-2 break-words"
+                    >
+                      {activeChat.name}
+                    </div>
+
                     {activeChat.type === 2 && (
-                      <div className="text-xs text-gray-400">Group chat</div>
+                      <div className="text-[11px] text-gray-400">Group chat</div>
                     )}
                   </div>
 
@@ -559,8 +579,8 @@ export default function ChatPopup() {
                   {activeChat.type === 2 && (
                     <button
                       onClick={() => setShowGroupMembers(true)}
-                      className="p-2 rounded-lg hover:bg-gray-100"
-                      title="Group members"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0"
+                      title="Group options"
                     >
                       <MoreVertical size={18} />
                     </button>
@@ -1148,10 +1168,21 @@ export default function ChatPopup() {
           <div className="absolute right-0 top-0 h-full w-80 bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             {/* Header */}
             <div className="p-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50">
+              {user?.id === groupOwnerId && (
+                <button
+                  onClick={() => setShowInviteMembers(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg 
+               bg-purple-500 text-white hover:bg-purple-600"
+                >
+                  <UserPlus size={14} />
+                  Add
+                </button>
+              )}
               <div className="flex items-center gap-2">
                 <Users size={18} />
                 <span className="font-bold">Group Members</span>
               </div>
+
               <button onClick={() => setShowGroupMembers(false)}>
                 <X size={18} />
               </button>
@@ -1164,38 +1195,205 @@ export default function ChatPopup() {
                   <div className="animate-spin w-6 h-6 border-b-2 border-purple-500 rounded-full" />
                 </div>
               ) : (
-                groupMembers.map((m) => (
-                  <div
-                    key={m.userId}
-                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50"
+                groupMembers.map((m) => {
+                  const isOwner = user?.id === groupOwnerId;
+                  const isMemberOwner = m.role === 1;
+
+                  return (
+                    <div
+                      key={m.userId}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50"
+                    >
+                      {/* Avatar */}
+                      {m.avatar ? (
+                        <img
+                          src={m.avatar}
+                          alt={m.userName}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-purple-400 text-white flex items-center justify-center font-semibold">
+                          {getInitials(m.userName)}
+                        </div>
+                      )}
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-sm truncate">{m.userName}</span>
+
+                          {isMemberOwner && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-semibold">
+                              OWNER
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-gray-400 truncate">{m.email}</div>
+                      </div>
+
+                      {/* Remove button */}
+                      {isOwner && m.role !== 1 && (
+                        <button
+                          onClick={() =>
+                            setConfirmRemove({
+                              userId: m.userId,
+                              userName: m.userName,
+                            })
+                          }
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
+                          title="Remove member"
+                        >
+                          <UserMinus size={16} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmRemove && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Remove member</h3>
+
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to remove{' '}
+              <span className="font-semibold text-gray-800">{confirmRemove.userName}</span> from
+              this group?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmRemove(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={removing}
+                onClick={async () => {
+                  try {
+                    setRemoving(true);
+
+                    await deleteMemberChatByOwner(activeChat!.id, confirmRemove.userId);
+
+                    setGroupMembers((prev) =>
+                      prev.filter((m) => m.userId !== confirmRemove.userId),
+                    );
+
+                    toast.success('Member removed');
+                    setConfirmRemove(null);
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Remove member failed');
+                  } finally {
+                    setRemoving(false);
+                  }
+                }}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium disabled:opacity-50 hover:bg-red-600"
+              >
+                {removing ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInviteMembers && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Add members</h3>
+              <button onClick={() => setShowInviteMembers(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Friend list */}
+            <div className="max-h-64 overflow-y-auto border rounded-xl p-2 mb-4">
+              {friends.length === 0 ? (
+                <div className="text-center text-sm text-gray-400 py-8">No friends to invite</div>
+              ) : (
+                friends.map((f) => (
+                  <label
+                    key={f.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
                   >
-                    {m.avatar ? (
-                      <img
-                        src={m.avatar}
-                        alt={m.userName}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
+                    <input
+                      type="checkbox"
+                      checked={selectedInviteIds.includes(f.friendshipId)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedInviteIds((prev) => [...prev, f.friendshipId]);
+                        } else {
+                          setSelectedInviteIds((prev) =>
+                            prev.filter((id) => id !== f.friendshipId),
+                          );
+                        }
+                      }}
+                    />
+
+                    {f.avatar ? (
+                      <img src={f.avatar} className="w-8 h-8 rounded-full" />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-purple-400 text-white flex items-center justify-center font-semibold">
-                        {getInitials(m.userName)}
+                      <div className="w-8 h-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs font-semibold">
+                        {getInitials(f.name)}
                       </div>
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="font-semibold text-sm truncate">{m.userName}</span>
-
-                        {m.role == 1 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-semibold">
-                            OWNER
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-400 truncate">{m.email}</div>
+                      <div className="text-sm font-medium truncate">{f.name}</div>
+                      <div className="text-xs text-gray-400 truncate">{f.email}</div>
                     </div>
-                  </div>
+                  </label>
                 ))
               )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowInviteMembers(false)}
+                className="flex-1 px-4 py-2 rounded-xl border text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={inviting || selectedInviteIds.length === 0}
+                onClick={async () => {
+                  try {
+                    setInviting(true);
+
+                    const res = await inviteMemberIntoChatByOwner(activeChat!.id, {
+                      memberIds: selectedInviteIds,
+                    });
+
+                    toast.success('Members invited');
+                    setShowInviteMembers(false);
+                    setSelectedInviteIds([]);
+
+                    await loadConversationDetail(activeChat!.id);
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Invite failed');
+                  } finally {
+                    setInviting(false);
+                  }
+                }}
+                className="flex-1 px-4 py-2 rounded-xl bg-purple-500 text-white text-sm
+                     disabled:opacity-50"
+              >
+                {inviting ? 'Inviting...' : 'Invite'}
+              </button>
             </div>
           </div>
         </div>

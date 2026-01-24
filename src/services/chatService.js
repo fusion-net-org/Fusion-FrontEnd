@@ -93,3 +93,23 @@ export const getConversationById = async (conversationId) => {
     throw error.response?.data || { message: 'Error!' };
   }
 };
+
+export const deleteMemberChatByOwner = async (conversationId, targetUserId) => {
+  try {
+    const response = await axiosInstance.delete(
+      `/Chat/group/${conversationId}/members/${targetUserId}`,
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Error!' };
+  }
+};
+
+export const inviteMemberIntoChatByOwner = async (conversationId, data) => {
+  try {
+    const response = await axiosInstance.post(`/Chat/group/${conversationId}/invite`, data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Error!' };
+  }
+};
