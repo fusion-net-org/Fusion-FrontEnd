@@ -84,3 +84,12 @@ export const unfriend = async (friendshipId) => {
     throw error.response?.data || { message: 'Error!' };
   }
 };
+
+export const getConversationById = async (conversationId) => {
+  try {
+    const response = await axiosInstance.get(`/Chat/conversations/${conversationId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Error!' };
+  }
+};

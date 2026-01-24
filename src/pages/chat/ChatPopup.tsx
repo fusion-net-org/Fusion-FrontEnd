@@ -25,6 +25,7 @@ import {
   acceptFriendInvitation,
   rejectFriendInvitation,
   unfriend,
+  getConversationById,
 } from '@/services/chatService.js';
 import { toast } from 'react-toastify';
 import { v4 as uuidv4 } from 'uuid';
@@ -110,6 +111,12 @@ export default function ChatPopup() {
   // Loading states
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Group members
+  const [showGroupMembers, setShowGroupMembers] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<any[]>([]);
+  const [groupOwnerId, setGroupOwnerId] = useState<string | null>(null);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   const activeChatRef = useRef<Conversation | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -263,6 +270,23 @@ export default function ChatPopup() {
       toast.error('Load messages failed');
     } finally {
       setLoadingMessages(false);
+    }
+  };
+
+  const loadConversationDetail = async (conversationId: string) => {
+    try {
+      setLoadingMembers(true);
+      const res = await getConversationById(conversationId);
+
+      const members = res.data.members || [];
+      const owner = members.find((m: any) => m.role === 1);
+
+      setGroupMembers(members);
+      setGroupOwnerId(owner?.userId || null);
+    } catch (err) {
+      toast.error('Cannot load group members');
+    } finally {
+      setLoadingMembers(false);
     }
   };
 
@@ -499,6 +523,7 @@ export default function ChatPopup() {
               <>
                 {/* Chat header */}
                 <div className="h-12 px-3 border-b flex items-center gap-3 bg-white">
+                  {/* Back */}
                   <button
                     onClick={() => {
                       setActiveChat(null);
@@ -509,6 +534,7 @@ export default function ChatPopup() {
                     <ChevronLeft size={18} />
                   </button>
 
+                  {/* Avatar */}
                   {activeChat.avatar ? (
                     <img
                       src={activeChat.avatar}
@@ -521,12 +547,24 @@ export default function ChatPopup() {
                     </div>
                   )}
 
+                  {/* Name */}
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm truncate">{activeChat.name}</div>
-                    <div className="text-xs text-gray-400">
-                      {activeChat.type === 2 ? 'Group chat' : ''}
-                    </div>
+                    {activeChat.type === 2 && (
+                      <div className="text-xs text-gray-400">Group chat</div>
+                    )}
                   </div>
+
+                  {/* Actions */}
+                  {activeChat.type === 2 && (
+                    <button
+                      onClick={() => setShowGroupMembers(true)}
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      title="Group members"
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Messages */}
@@ -693,6 +731,7 @@ export default function ChatPopup() {
                                 if (c.type === 2) {
                                   await joinGroup(c.id);
                                   setJoinedGroupId(c.id);
+                                  await loadConversationDetail(c.id);
                                 }
 
                                 setActiveChat(c);
@@ -1094,6 +1133,69 @@ export default function ChatPopup() {
               >
                 {unfriending ? 'Removing...' : 'Unfriend'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGroupMembers && activeChat?.type === 2 && (
+        <div className="fixed inset-0 z-[60]">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowGroupMembers(false)}
+          />
+
+          <div className="absolute right-0 top-0 h-full w-80 bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Header */}
+            <div className="p-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50">
+              <div className="flex items-center gap-2">
+                <Users size={18} />
+                <span className="font-bold">Group Members</span>
+              </div>
+              <button onClick={() => setShowGroupMembers(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {loadingMembers ? (
+                <div className="flex justify-center py-6">
+                  <div className="animate-spin w-6 h-6 border-b-2 border-purple-500 rounded-full" />
+                </div>
+              ) : (
+                groupMembers.map((m) => (
+                  <div
+                    key={m.userId}
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50"
+                  >
+                    {m.avatar ? (
+                      <img
+                        src={m.avatar}
+                        alt={m.userName}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-purple-400 text-white flex items-center justify-center font-semibold">
+                        {getInitials(m.userName)}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold text-sm truncate">{m.userName}</span>
+
+                        {m.role == 1 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-semibold">
+                            OWNER
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 truncate">{m.email}</div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
