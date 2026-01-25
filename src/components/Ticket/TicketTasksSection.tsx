@@ -276,7 +276,7 @@ const TicketTasksSection: React.FC<Props> = ({
             </Tag>
           ) : (
             <Tag className="rounded-full px-2 py-0.5 text-[11px] border border-blue-100 bg-blue-50 text-blue-700">
-              {r.sprintLabel || 'On sprint'}
+              'On sprint'
             </Tag>
           ),
       },
