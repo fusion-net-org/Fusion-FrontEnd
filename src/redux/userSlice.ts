@@ -6,6 +6,7 @@ interface Company {
 }
 
 interface User {
+  id?: string;
   token: string;
   refreshToken?: string;
   email: string;
